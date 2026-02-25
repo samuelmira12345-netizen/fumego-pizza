@@ -1,0 +1,426 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gold: #D4A528;
+  --gold-light: #E8C547;
+  --gold-dark: #B8901E;
+  --black: #1A1A1A;
+  --dark: #2D2D2D;
+  --cream: #FFF8E7;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--black);
+  color: #fff;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ============================================
+   HERO MEIA LUA - DESIGN ORIGINAL
+   ============================================ */
+.hero-split {
+  position: relative;
+  width: 100%;
+  height: 80vh;
+  min-height: 500px;
+  max-height: 700px;
+  display: flex;
+  overflow: hidden;
+  border-bottom: 4px solid var(--gold);
+}
+
+.hero-half {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  overflow: hidden;
+}
+
+.hero-half::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 100%);
+  z-index: 1;
+  transition: all 0.4s ease;
+}
+
+.hero-half:hover::before {
+  background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.5) 100%);
+}
+
+.hero-half:active {
+  transform: scale(0.98);
+}
+
+.hero-half-left {
+  background: linear-gradient(135deg, #2a1a0a 0%, #1a1a1a 100%);
+  border-right: 2px solid var(--gold);
+}
+
+.hero-half-right {
+  background: linear-gradient(225deg, #2a0a0a 0%, #1a1a1a 100%);
+  border-left: 2px solid var(--gold);
+}
+
+/* Semicírculo decorativo (meia lua) */
+.hero-half-left::after {
+  content: '';
+  position: absolute;
+  right: -80px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  border: 3px solid var(--gold);
+  background: radial-gradient(circle, rgba(212,165,40,0.15) 0%, transparent 70%);
+  z-index: 2;
+}
+
+.hero-half-right::after {
+  content: '';
+  position: absolute;
+  left: -80px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  border: 3px solid var(--gold);
+  background: radial-gradient(circle, rgba(212,165,40,0.15) 0%, transparent 70%);
+  z-index: 2;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 3;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hero-pizza-icon {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 3px solid var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  background: rgba(212,165,40,0.1);
+  margin-bottom: 0.5rem;
+  box-shadow: 0 0 30px rgba(212,165,40,0.2);
+}
+
+.hero-flavor-name {
+  font-family: Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--gold-light);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+  letter-spacing: 1px;
+}
+
+.hero-flavor-desc {
+  font-size: 0.85rem;
+  color: #ccc;
+  max-width: 180px;
+  line-height: 1.4;
+}
+
+.hero-price {
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.hero-btn {
+  padding: 0.6rem 1.8rem;
+  background: var(--gold);
+  color: var(--black);
+  border: none;
+  border-radius: 25px;
+  font-weight: bold;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.hero-btn:hover {
+  background: var(--gold-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(212,165,40,0.4);
+}
+
+/* Divisor central da meia lua */
+.hero-divider {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 100%;
+  background: var(--gold);
+  z-index: 5;
+  box-shadow: 0 0 20px rgba(212,165,40,0.5);
+}
+
+.hero-divider-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--black);
+  border: 3px solid var(--gold);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 0 25px rgba(212,165,40,0.3);
+}
+
+/* ============================================
+   CARDS DE PRODUTOS
+   ============================================ */
+.product-card {
+  background: linear-gradient(145deg, #2d2d2d 0%, #1a1a1a 100%);
+  border: 1px solid rgba(212,165,40,0.3);
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.product-card:hover {
+  border-color: var(--gold);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(212,165,40,0.15);
+}
+
+.product-card.special {
+  background: linear-gradient(145deg, #2d2510 0%, #1a1a1a 100%);
+  border-color: var(--gold);
+}
+
+/* ============================================
+   BOTÕES GLOBAIS
+   ============================================ */
+.btn-primary {
+  background: var(--gold);
+  color: var(--black);
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 25px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.btn-primary:hover {
+  background: var(--gold-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(212,165,40,0.4);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--gold);
+  padding: 0.75rem 2rem;
+  border: 2px solid var(--gold);
+  border-radius: 25px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(212,165,40,0.1);
+}
+
+/* ============================================
+   INPUTS
+   ============================================ */
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212,165,40,0.15);
+}
+
+.input-field::placeholder {
+  color: #777;
+}
+
+/* ============================================
+   MODAL
+   ============================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+  background: #2d2d2d;
+  border: 1px solid var(--gold);
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ============================================
+   ADMIN PANEL
+   ============================================ */
+.admin-toggle {
+  position: relative;
+  width: 50px;
+  height: 26px;
+  background: #444;
+  border-radius: 13px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.admin-toggle.active {
+  background: var(--gold);
+}
+
+.admin-toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+}
+
+.admin-toggle.active::after {
+  transform: translateX(24px);
+}
+
+/* ============================================
+   SCROLLBAR
+   ============================================ */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--black);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gold-dark);
+  border-radius: 3px;
+}
+
+/* ============================================
+   RESPONSIVO
+   ============================================ */
+@media (max-width: 640px) {
+  .hero-split {
+    height: 75vh;
+    min-height: 450px;
+  }
+  .hero-pizza-icon {
+    width: 70px;
+    height: 70px;
+    font-size: 2rem;
+  }
+  .hero-flavor-name {
+    font-size: 1.2rem;
+  }
+  .hero-price {
+    font-size: 1.3rem;
+  }
+  .hero-btn {
+    padding: 0.5rem 1.2rem;
+    font-size: 0.8rem;
+  }
+  .hero-divider-circle {
+    width: 45px;
+    height: 45px;
+    font-size: 1.2rem;
+  }
+  .hero-half-left::after,
+  .hero-half-right::after {
+    width: 120px;
+    height: 120px;
+    right: -60px;
+  }
+  .hero-half-right::after {
+    left: -60px;
+  }
+}
