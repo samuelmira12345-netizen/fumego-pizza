@@ -6,457 +6,327 @@ import { useRouter } from 'next/navigation';
 
 export default function AdminPage() {
   const router = useRouter();
-  const [authenticated, setAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [activeTab, setActiveTab] = useState('products');
+  const [auth, setAuth] = useState(false);
+  const [pwd, setPwd] = useState('');
+  const [authErr, setAuthErr] = useState('');
+  const [tab, setTab] = useState('products');
   const [products, setProducts] = useState([]);
   const [drinks, setDrinks] = useState([]);
   const [orders, setOrders] = useState([]);
   const [settings, setSettings] = useState({});
   const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
+  const [saveMsg, setSaveMsg] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
+  const [uploading, setUploading] = useState({});
+
+  useEffect(() => {
+    if (localStorage.getItem('fumego_admin')) { setAuth(true); loadAll(); }
+  }, []);
 
   async function handleAuth(e) {
     e.preventDefault();
     try {
-      const res = await fetch('/api/admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password, action: 'auth' }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAuthenticated(true);
-        localStorage.setItem('fumego_admin', 'true');
-        loadAllData();
-      } else {
-        setAuthError('Senha incorreta');
-      }
-    } catch (e) {
-      setAuthError('Erro de conexão');
-    }
+      const r = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pwd, action: 'auth' }) });
+      const d = await r.json();
+      if (d.success) { setAuth(true); localStorage.setItem('fumego_admin', 'true'); loadAll(); }
+      else setAuthErr('Senha incorreta');
+    } catch (e) { setAuthErr('Erro de conexão'); }
   }
 
-  useEffect(() => {
-    const isAdmin = localStorage.getItem('fumego_admin');
-    if (isAdmin) {
-      setAuthenticated(true);
-      loadAllData();
-    }
-  }, []);
-
-  async function loadAllData() {
-    const [productsRes, drinksRes, ordersRes, settingsRes] = await Promise.all([
+  async function loadAll() {
+    const [pR, dR, oR, sR] = await Promise.all([
       supabase.from('products').select('*').order('display_order'),
       supabase.from('drinks').select('*').order('display_order'),
       supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(50),
       supabase.from('settings').select('*'),
     ]);
-    if (productsRes.data) setProducts(productsRes.data);
-    if (drinksRes.data) setDrinks(drinksRes.data);
-    if (ordersRes.data) setOrders(ordersRes.data);
-    if (settingsRes.data) {
-      const s = {};
-      settingsRes.data.forEach(item => { s[item.key] = item.value; });
-      setSettings(s);
+    if (pR.data) setProducts(pR.data);
+    if (dR.data) setDrinks(dR.data);
+    if (oR.data) setOrders(oR.data);
+    if (sR.data) { const s = {}; sR.data.forEach(i => { s[i.key] = i.value; }); setSettings(s); }
+  }
+
+  function toggleProduct(id) { setProducts(p => p.map(x => x.id === id ? { ...x, is_active: !x.is_active } : x)); setHasChanges(true); }
+  function toggleDrink(id) { setDrinks(p => p.map(x => x.id === id ? { ...x, is_active: !x.is_active } : x)); setHasChanges(true); }
+  function updateProduct(id, field, val) { setProducts(p => p.map(x => x.id === id ? { ...x, [field]: val } : x)); setHasChanges(true); }
+  function updateDrinkPrice(id, val) { setDrinks(p => p.map(x => x.id === id ? { ...x, price: parseFloat(val) || 0 } : x)); setHasChanges(true); }
+  function updateSetting(k, v) { setSettings(p => ({ ...p, [k]: v })); setHasChanges(true); }
+
+  // ===== UPLOAD DE IMAGEM =====
+  async function handleImageUpload(productId, file) {
+    if (!file) return;
+    setUploading(p => ({ ...p, [productId]: true }));
+    try {
+      const ext = file.name.split('.').pop();
+      const fileName = `product-${productId}-${Date.now()}.${ext}`;
+
+      const { data, error } = await supabase.storage
+        .from('product-images')
+        .upload(fileName, file, { upsert: true, contentType: file.type });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
+      const publicUrl = urlData.publicUrl;
+
+      // Atualizar produto localmente
+      setProducts(p => p.map(x => x.id === productId ? { ...x, image_url: publicUrl } : x));
+
+      // Salvar no banco imediatamente
+      await supabase.from('products').update({ image_url: publicUrl }).eq('id', productId);
+
+      setSaveMsg('✅ Imagem enviada!');
+      setTimeout(() => setSaveMsg(''), 2000);
+    } catch (e) {
+      console.error('Upload error:', e);
+      alert('Erro ao enviar imagem. Verifique se o bucket "product-images" existe no Supabase.');
+    } finally {
+      setUploading(p => ({ ...p, [productId]: false }));
     }
-  }
-
-  function toggleProduct(id) {
-    setProducts(prev =>
-      prev.map(p => p.id === id ? { ...p, is_active: !p.is_active } : p)
-    );
-    setHasChanges(true);
-  }
-
-  function toggleDrink(id) {
-    setDrinks(prev =>
-      prev.map(d => d.id === id ? { ...d, is_active: !d.is_active } : d)
-    );
-    setHasChanges(true);
-  }
-
-  function updateProductPrice(id, price) {
-    setProducts(prev =>
-      prev.map(p => p.id === id ? { ...p, price: parseFloat(price) || 0 } : p)
-    );
-    setHasChanges(true);
-  }
-
-  function updateProductDescription(id, description) {
-    setProducts(prev =>
-      prev.map(p => p.id === id ? { ...p, description } : p)
-    );
-    setHasChanges(true);
-  }
-
-  function updateSetting(key, value) {
-    setSettings(prev => ({ ...prev, [key]: value }));
-    setHasChanges(true);
   }
 
   async function handleSaveAll() {
-    setSaving(true);
-    setSaveMessage('');
+    setSaving(true); setSaveMsg('');
     try {
-      // Salvar produtos
-      for (const product of products) {
-        await supabase.from('products').update({
-          is_active: product.is_active,
-          price: product.price,
-          description: product.description,
-        }).eq('id', product.id);
+      for (const p of products) {
+        await supabase.from('products').update({ is_active: p.is_active, price: p.price, description: p.description }).eq('id', p.id);
       }
-
-      // Salvar bebidas
-      for (const drink of drinks) {
-        await supabase.from('drinks').update({
-          is_active: drink.is_active,
-          price: drink.price,
-        }).eq('id', drink.id);
+      for (const d of drinks) {
+        await supabase.from('drinks').update({ is_active: d.is_active, price: d.price }).eq('id', d.id);
       }
-
-      // Salvar configurações
-      for (const [key, value] of Object.entries(settings)) {
-        await supabase.from('settings').upsert({
-          key,
-          value: String(value),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'key' });
+      for (const [k, v] of Object.entries(settings)) {
+        await supabase.from('settings').upsert({ key: k, value: String(v), updated_at: new Date().toISOString() }, { onConflict: 'key' });
       }
-
-      setSaveMessage('✅ Tudo salvo com sucesso!');
-      setHasChanges(false);
-      setTimeout(() => setSaveMessage(''), 3000);
+      setSaveMsg('✅ Salvo!'); setHasChanges(false);
+      setTimeout(() => setSaveMsg(''), 3000);
     } catch (e) {
-      setSaveMessage('❌ Erro ao salvar. Tente novamente.');
-      console.error(e);
-    } finally {
-      setSaving(false);
-    }
+      setSaveMsg('❌ Erro ao salvar'); console.error(e);
+    } finally { setSaving(false); }
   }
 
-  async function updateOrderStatus(orderId, status) {
-    await supabase.from('orders').update({ status }).eq('id', orderId);
-    setOrders(prev =>
-      prev.map(o => o.id === orderId ? { ...o, status } : o)
-    );
+  async function updateOrderStatus(id, status) {
+    await supabase.from('orders').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
+    setOrders(p => p.map(o => o.id === id ? { ...o, status } : o));
   }
 
-  function logout() {
-    localStorage.removeItem('fumego_admin');
-    setAuthenticated(false);
-  }
-
-  // ============ TELA DE LOGIN DO ADMIN ============
-  if (!authenticated) {
+  // ===== LOGIN =====
+  if (!auth) {
     return (
-      <div className="min-h-screen bg-fumego-black flex items-center justify-center p-4">
-        <div className="max-w-sm w-full">
-          <div className="text-center mb-8">
-            <span className="text-5xl">🔐</span>
-            <h1 className="font-display text-2xl font-bold text-fumego-gold mt-3">Admin FUMÊGO</h1>
+      <div style={{ minHeight: '100vh', background: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ maxWidth: 340, width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <div style={{ fontSize: 48 }}>🔐</div>
+            <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 22, fontWeight: 'bold', color: '#D4A528', marginTop: 12 }}>Admin FUMÊGO</h1>
           </div>
-          <form onSubmit={handleAuth} className="space-y-4">
-            <input
-              className="input-field"
-              type="password"
-              placeholder="Senha do administrador"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-            />
-            {authError && <p className="text-red-400 text-sm">{authError}</p>}
-            <button className="btn-primary w-full">Entrar</button>
+          <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <input className="input-field" type="password" placeholder="Senha admin" value={pwd} onChange={e => setPwd(e.target.value)} />
+            {authErr && <p style={{ color: '#E53E3E', fontSize: 13 }}>{authErr}</p>}
+            <button className="btn-primary">Entrar</button>
           </form>
-          <button onClick={() => router.push('/')} className="text-gray-500 text-sm hover:text-gray-300 mt-4 block mx-auto">
-            ← Voltar ao cardápio
-          </button>
+          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: '#666', fontSize: 13, cursor: 'pointer', marginTop: 12, display: 'block', margin: '12px auto 0' }}>← Voltar</button>
         </div>
       </div>
     );
   }
 
-  // ============ PAINEL ADMIN ============
+  // ===== PAINEL =====
   return (
-    <div className="min-h-screen bg-fumego-black pb-24">
+    <div style={{ minHeight: '100vh', background: '#1A1A1A', paddingBottom: 80 }}>
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-fumego-black/95 backdrop-blur border-b border-fumego-gold/30">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="font-display text-lg font-bold text-fumego-gold">🔐 Admin FUMÊGO</h1>
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.push('/')} className="text-xs text-gray-400 hover:text-white">
-              Ver Cardápio
-            </button>
-            <button onClick={logout} className="text-xs text-red-400 hover:text-red-300">
-              Sair
-            </button>
-          </div>
+      <header className="header">
+        <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 16, fontWeight: 'bold', color: '#D4A528' }}>🔐 Admin FUMÊGO</h1>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: '#888', fontSize: 12, cursor: 'pointer' }}>Cardápio</button>
+          <button onClick={() => { localStorage.removeItem('fumego_admin'); setAuth(false); }} style={{ background: 'none', border: 'none', color: '#E53E3E', fontSize: 12, cursor: 'pointer' }}>Sair</button>
         </div>
       </header>
 
       {/* Tabs */}
-      <div className="max-w-4xl mx-auto px-4 pt-4">
-        <div className="flex gap-2 overflow-x-auto pb-4">
-          {[
-            { key: 'products', label: '🍕 Produtos' },
-            { key: 'drinks', label: '🥤 Bebidas' },
-            { key: 'orders', label: '📦 Pedidos' },
-            { key: 'settings', label: '⚙️ Config' },
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
-                activeTab === tab.key
-                  ? 'bg-fumego-gold text-fumego-black'
-                  : 'bg-fumego-dark text-gray-400 hover:text-white border border-gray-700'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      <div style={{ display: 'flex', gap: 8, padding: '12px 16px', overflowX: 'auto' }}>
+        {[{ k: 'products', l: '🍕 Produtos' }, { k: 'drinks', l: '🥤 Bebidas' }, { k: 'orders', l: '📦 Pedidos' }, { k: 'settings', l: '⚙️ Config' }].map(t => (
+          <button key={t.k} onClick={() => setTab(t.k)}
+            style={{
+              padding: '8px 16px', borderRadius: 20, fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', cursor: 'pointer', border: 'none', transition: 'all 0.2s',
+              background: tab === t.k ? '#D4A528' : '#2D2D2D', color: tab === t.k ? '#1A1A1A' : '#999',
+            }}>{t.l}</button>
+        ))}
+      </div>
 
-        {/* ============ TAB: PRODUTOS ============ */}
-        {activeTab === 'products' && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-fumego-gold">Gerenciar Produtos</h2>
-            {products.map(product => (
-              <div key={product.id} className="bg-fumego-dark rounded-xl p-4 border border-gray-800">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <h3 className="font-bold text-white">{product.name}</h3>
-                    {product.is_special && (
-                      <span className="text-xs bg-fumego-gold/20 text-fumego-gold px-2 py-0.5 rounded">Especial</span>
+      <div style={{ padding: '0 16px' }}>
+        {/* PRODUTOS */}
+        {tab === 'products' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 'bold', color: '#D4A528' }}>Produtos</h2>
+            {products.map(p => (
+              <div key={p.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 14, border: '1px solid #444' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontWeight: 'bold', color: '#fff', fontSize: 15 }}>{p.name}</span>
+                    {p.is_special && <span style={{ fontSize: 10, background: 'rgba(212,165,40,0.2)', color: '#D4A528', padding: '2px 8px', borderRadius: 4 }}>Especial</span>}
+                  </div>
+                  <button onClick={() => toggleProduct(p.id)} className={`admin-toggle ${p.is_active ? 'active' : ''}`} />
+                </div>
+
+                {/* Upload de imagem */}
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 4 }}>Foto do produto:</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.name} style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover', border: '1px solid #555' }} />
+                    ) : (
+                      <div style={{ width: 60, height: 60, borderRadius: 8, background: '#444', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</div>
                     )}
+                    <label style={{
+                      padding: '6px 14px', background: '#444', color: '#ddd', borderRadius: 8, fontSize: 12, cursor: 'pointer', border: '1px solid #666',
+                    }}>
+                      {uploading[p.id] ? '⏳ Enviando...' : '📤 Enviar foto'}
+                      <input type="file" accept="image/*" style={{ display: 'none' }}
+                        onChange={e => handleImageUpload(p.id, e.target.files[0])} disabled={uploading[p.id]} />
+                    </label>
                   </div>
-                  {/* TOGGLE - Agora não bloqueia mais o save */}
-                  <button
-                    onClick={() => toggleProduct(product.id)}
-                    className={`admin-toggle ${product.is_active ? 'active' : ''}`}
-                    title={product.is_active ? 'Ativo - clique para desativar' : 'Inativo - clique para ativar'}
-                  />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8 }}>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Preço (R$)</label>
-                    <input
-                      className="input-field"
-                      type="number"
-                      step="0.01"
-                      value={product.price}
-                      onChange={e => updateProductPrice(product.id, e.target.value)}
-                    />
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 2 }}>Preço (R$)</label>
+                    <input className="input-field" type="number" step="0.01" value={p.price} onChange={e => updateProduct(p.id, 'price', parseFloat(e.target.value) || 0)} style={{ fontSize: 14, padding: '8px 10px' }} />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Descrição</label>
-                    <input
-                      className="input-field"
-                      value={product.description || ''}
-                      onChange={e => updateProductDescription(product.id, e.target.value)}
-                    />
+                    <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 2 }}>Descrição</label>
+                    <input className="input-field" value={p.description || ''} onChange={e => updateProduct(p.id, 'description', e.target.value)} style={{ fontSize: 14, padding: '8px 10px' }} />
                   </div>
                 </div>
-                <div className="mt-2 text-xs text-gray-500">
-                  Status: {product.is_active ? '🟢 Ativo no cardápio' : '🔴 Oculto do cardápio'}
-                </div>
+                <p style={{ marginTop: 6, fontSize: 11, color: p.is_active ? '#48BB78' : '#E53E3E' }}>
+                  {p.is_active ? '🟢 Ativo no cardápio' : '🔴 Oculto do cardápio'}
+                </p>
               </div>
             ))}
           </div>
         )}
 
-        {/* ============ TAB: BEBIDAS ============ */}
-        {activeTab === 'drinks' && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-fumego-gold">Gerenciar Bebidas</h2>
-            {drinks.map(drink => (
-              <div key={drink.id} className="bg-fumego-dark rounded-xl p-4 border border-gray-800">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-bold text-white">{drink.name} ({drink.size})</h3>
-                  <button
-                    onClick={() => toggleDrink(drink.id)}
-                    className={`admin-toggle ${drink.is_active ? 'active' : ''}`}
-                  />
+        {/* BEBIDAS */}
+        {tab === 'drinks' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 'bold', color: '#D4A528' }}>Bebidas</h2>
+            {drinks.map(d => (
+              <div key={d.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 14, border: '1px solid #444' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontWeight: 'bold', color: '#fff' }}>{d.name} ({d.size})</span>
+                  <button onClick={() => toggleDrink(d.id)} className={`admin-toggle ${d.is_active ? 'active' : ''}`} />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 mb-1 block">Preço (R$)</label>
-                  <input
-                    className="input-field"
-                    type="number"
-                    step="0.01"
-                    value={drink.price}
-                    onChange={e => {
-                      setDrinks(prev => prev.map(d =>
-                        d.id === drink.id ? { ...d, price: parseFloat(e.target.value) || 0 } : d
-                      ));
-                      setHasChanges(true);
-                    }}
-                  />
+                  <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 2 }}>Preço (R$)</label>
+                  <input className="input-field" type="number" step="0.01" value={d.price} onChange={e => updateDrinkPrice(d.id, e.target.value)} style={{ fontSize: 14, padding: '8px 10px' }} />
                 </div>
-                <div className="mt-2 text-xs text-gray-500">
-                  Status: {drink.is_active ? '🟢 Ativo' : '🔴 Oculto'}
-                </div>
+                <p style={{ marginTop: 6, fontSize: 11, color: d.is_active ? '#48BB78' : '#E53E3E' }}>{d.is_active ? '🟢 Ativo' : '🔴 Oculto'}</p>
               </div>
             ))}
           </div>
         )}
 
-        {/* ============ TAB: PEDIDOS ============ */}
-        {activeTab === 'orders' && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-fumego-gold">Pedidos Recentes</h2>
-              <button onClick={loadAllData} className="text-xs text-fumego-gold hover:underline">
-                🔄 Atualizar
-              </button>
+        {/* PEDIDOS */}
+        {tab === 'orders' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: 16, fontWeight: 'bold', color: '#D4A528' }}>Pedidos</h2>
+              <button onClick={loadAll} style={{ background: 'none', border: 'none', color: '#D4A528', fontSize: 12, cursor: 'pointer' }}>🔄 Atualizar</button>
             </div>
             {orders.length === 0 ? (
-              <p className="text-gray-500 text-center py-8">Nenhum pedido ainda</p>
-            ) : (
-              orders.map(order => (
-                <div key={order.id} className="bg-fumego-dark rounded-xl p-4 border border-gray-800">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-white">Pedido #{order.order_number}</span>
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      order.status === 'pending' ? 'bg-yellow-900/50 text-yellow-400' :
-                      order.status === 'confirmed' ? 'bg-blue-900/50 text-blue-400' :
-                      order.status === 'preparing' ? 'bg-orange-900/50 text-orange-400' :
-                      order.status === 'delivering' ? 'bg-purple-900/50 text-purple-400' :
-                      order.status === 'delivered' ? 'bg-green-900/50 text-green-400' :
-                      'bg-red-900/50 text-red-400'
-                    }`}>
-                      {order.status === 'pending' ? '⏳ Pendente' :
-                       order.status === 'confirmed' ? '✅ Confirmado' :
-                       order.status === 'preparing' ? '👨‍🍳 Preparando' :
-                       order.status === 'delivering' ? '🛵 Saiu p/ entrega' :
-                       order.status === 'delivered' ? '📦 Entregue' :
-                       '❌ Cancelado'}
-                    </span>
-                  </div>
-                  <div className="text-sm space-y-1 text-gray-300">
-                    <p>👤 {order.customer_name} • 📱 {order.customer_phone}</p>
-                    <p>📍 {order.delivery_street}, {order.delivery_number} - {order.delivery_neighborhood}</p>
-                    <p>💰 Total: R$ {Number(order.total).toFixed(2).replace('.', ',')} • PIX: {
-                      order.payment_status === 'approved' ? '✅ Pago' : '⏳ Aguardando'
-                    }</p>
-                    {order.observations && <p className="italic text-gray-500">Obs: {order.observations}</p>}
-                    <p className="text-xs text-gray-600">{new Date(order.created_at).toLocaleString('pt-BR')}</p>
-                  </div>
-                  <div className="flex gap-2 mt-3 flex-wrap">
-                    {['confirmed', 'preparing', 'delivering', 'delivered', 'cancelled'].map(status => (
-                      <button
-                        key={status}
-                        onClick={() => updateOrderStatus(order.id, status)}
-                        className={`text-xs px-3 py-1 rounded-full border transition ${
-                          order.status === status
-                            ? 'bg-fumego-gold text-fumego-black border-fumego-gold'
-                            : 'border-gray-600 text-gray-400 hover:border-gray-400'
-                        }`}
-                      >
-                        {status === 'confirmed' ? 'Confirmar' :
-                         status === 'preparing' ? 'Preparando' :
-                         status === 'delivering' ? 'Saiu entrega' :
-                         status === 'delivered' ? 'Entregue' :
-                         'Cancelar'}
-                      </button>
-                    ))}
-                  </div>
+              <p style={{ color: '#666', textAlign: 'center', padding: 40 }}>Nenhum pedido</p>
+            ) : orders.map(o => (
+              <div key={o.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 14, border: '1px solid #444' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontWeight: 'bold', color: '#fff' }}>Pedido #{o.order_number}</span>
+                  <span style={{
+                    fontSize: 11, padding: '3px 10px', borderRadius: 12,
+                    background: o.status === 'pending' ? '#7c6e2f33' : o.status === 'confirmed' ? '#2d6a4f33' : o.status === 'preparing' ? '#9c4a1e33' : o.status === 'delivering' ? '#553c9a33' : o.status === 'delivered' ? '#22543d33' : '#742a2a33',
+                    color: o.status === 'pending' ? '#F6E05E' : o.status === 'confirmed' ? '#68D391' : o.status === 'preparing' ? '#F6AD55' : o.status === 'delivering' ? '#B794F4' : o.status === 'delivered' ? '#48BB78' : '#FC8181',
+                  }}>
+                    {o.status === 'pending' ? '⏳ Pendente' : o.status === 'confirmed' ? '✅ Confirmado' : o.status === 'preparing' ? '👨‍🍳 Preparando' : o.status === 'delivering' ? '🛵 Saiu' : o.status === 'delivered' ? '📦 Entregue' : '❌ Cancelado'}
+                  </span>
                 </div>
-              ))
-            )}
+                <div style={{ fontSize: 13, color: '#ccc', lineHeight: 1.6 }}>
+                  <p>👤 {o.customer_name} • 📱 {o.customer_phone}</p>
+                  <p>📍 {o.delivery_street}, {o.delivery_number} - {o.delivery_neighborhood}</p>
+                  <p>💰 R$ {Number(o.total).toFixed(2).replace('.', ',')} • PIX: {o.payment_status === 'approved' ? '✅ Pago' : '⏳ Aguardando'}</p>
+                  {o.observations && <p style={{ color: '#888', fontStyle: 'italic' }}>Obs: {o.observations}</p>}
+                  <p style={{ fontSize: 11, color: '#666' }}>{new Date(o.created_at).toLocaleString('pt-BR')}</p>
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+                  {['confirmed', 'preparing', 'delivering', 'delivered', 'cancelled'].map(s => (
+                    <button key={s} onClick={() => updateOrderStatus(o.id, s)}
+                      style={{
+                        fontSize: 11, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', transition: 'all 0.2s',
+                        background: o.status === s ? '#D4A528' : 'transparent',
+                        color: o.status === s ? '#1A1A1A' : '#888',
+                        border: o.status === s ? 'none' : '1px solid #555',
+                      }}>
+                      {s === 'confirmed' ? 'Confirmar' : s === 'preparing' ? 'Preparando' : s === 'delivering' ? 'Saiu' : s === 'delivered' ? 'Entregue' : 'Cancelar'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* ============ TAB: CONFIGURAÇÕES ============ */}
-        {activeTab === 'settings' && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-fumego-gold">Configurações</h2>
+        {/* CONFIG */}
+        {tab === 'settings' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 'bold', color: '#D4A528' }}>Configurações</h2>
 
-            <div className="bg-fumego-dark rounded-xl p-4 border border-gray-800">
-              <div className="flex items-center justify-between mb-4">
+            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 14, border: '1px solid #444' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h3 className="font-bold text-white">Loja Aberta</h3>
-                  <p className="text-xs text-gray-500">Quando fechada, clientes não conseguem pedir</p>
+                  <p style={{ fontWeight: 'bold', color: '#fff' }}>Loja Aberta</p>
+                  <p style={{ fontSize: 11, color: '#888' }}>Fechada = clientes não pedem</p>
                 </div>
-                <button
-                  onClick={() => updateSetting('store_open', settings.store_open === 'true' ? 'false' : 'true')}
-                  className={`admin-toggle ${settings.store_open === 'true' ? 'active' : ''}`}
-                />
+                <button onClick={() => updateSetting('store_open', settings.store_open === 'true' ? 'false' : 'true')}
+                  className={`admin-toggle ${settings.store_open === 'true' ? 'active' : ''}`} />
               </div>
             </div>
 
-            <div className="bg-fumego-dark rounded-xl p-4 border border-gray-800 space-y-3">
-              <h3 className="font-bold text-white">Entrega</h3>
+            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 14, border: '1px solid #444', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ fontWeight: 'bold', color: '#fff' }}>Entrega</p>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Taxa de entrega (R$)</label>
-                <input
-                  className="input-field"
-                  type="number"
-                  step="0.01"
-                  value={settings.delivery_fee || '0'}
-                  onChange={e => updateSetting('delivery_fee', e.target.value)}
-                />
+                <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 2 }}>Taxa (R$)</label>
+                <input className="input-field" type="number" step="0.01" value={settings.delivery_fee || '0'} onChange={e => updateSetting('delivery_fee', e.target.value)} style={{ fontSize: 14, padding: '8px 10px' }} />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Tempo de entrega</label>
-                <input
-                  className="input-field"
-                  value={settings.delivery_time || '40-60 min'}
-                  onChange={e => updateSetting('delivery_time', e.target.value)}
-                />
+                <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 2 }}>Tempo</label>
+                <input className="input-field" value={settings.delivery_time || '40-60 min'} onChange={e => updateSetting('delivery_time', e.target.value)} style={{ fontSize: 14, padding: '8px 10px' }} />
               </div>
             </div>
 
-            <div className="bg-fumego-dark rounded-xl p-4 border border-gray-800 space-y-3">
-              <h3 className="font-bold text-white">⭐ Sabor Especial do Mês</h3>
+            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 14, border: '1px solid #444', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ fontWeight: 'bold', color: '#fff' }}>⭐ Especial do Mês</p>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Nome do sabor</label>
-                <input
-                  className="input-field"
-                  value={settings.special_flavor_name || ''}
-                  onChange={e => updateSetting('special_flavor_name', e.target.value)}
-                  placeholder="Ex: Quatro Queijos"
-                />
+                <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 2 }}>Nome do sabor</label>
+                <input className="input-field" value={settings.special_flavor_name || ''} onChange={e => updateSetting('special_flavor_name', e.target.value)} placeholder="Ex: Quatro Queijos" style={{ fontSize: 14, padding: '8px 10px' }} />
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">Descrição do sabor</label>
-                <textarea
-                  className="input-field resize-none"
-                  rows="2"
-                  value={settings.special_flavor_description || ''}
-                  onChange={e => updateSetting('special_flavor_description', e.target.value)}
-                  placeholder="Ex: Mussarela, parmesão, gorgonzola e catupiry"
-                />
+                <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 2 }}>Descrição</label>
+                <textarea className="input-field" rows="2" value={settings.special_flavor_description || ''} onChange={e => updateSetting('special_flavor_description', e.target.value)} style={{ resize: 'none', fontSize: 14, padding: '8px 10px' }} />
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* ============================================================
-          BOTÃO SALVAR FIXO NO RODAPÉ - SEMPRE VISÍVEL E ACESSÍVEL
-          ============================================================ */}
-      <div className="fixed bottom-0 left-0 right-0 bg-fumego-black/95 backdrop-blur border-t border-fumego-gold/30 p-4 z-50">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex-1">
-            {saveMessage && (
-              <p className={`text-sm ${saveMessage.includes('✅') ? 'text-green-400' : 'text-red-400'}`}>
-                {saveMessage}
-              </p>
-            )}
-            {hasChanges && !saveMessage && (
-              <p className="text-sm text-yellow-400 animate-pulse">⚠️ Alterações não salvas</p>
-            )}
+      {/* ===== BOTÃO SALVAR FIXO ===== */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+        width: '100%', maxWidth: 480, padding: '12px 16px',
+        background: 'rgba(26,26,26,0.97)', borderTop: '2px solid #D4A528',
+        backdropFilter: 'blur(10px)', zIndex: 50,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            {saveMsg && <p style={{ fontSize: 13, color: saveMsg.includes('✅') ? '#48BB78' : '#E53E3E' }}>{saveMsg}</p>}
+            {hasChanges && !saveMsg && <p style={{ fontSize: 13, color: '#F6E05E' }}>⚠️ Alterações não salvas</p>}
           </div>
-          <button
-            onClick={handleSaveAll}
-            disabled={saving}
-            className={`btn-primary px-8 py-3 text-base ${
-              hasChanges ? 'animate-pulse' : ''
-            }`}
-          >
+          <button onClick={handleSaveAll} disabled={saving}
+            className="btn-primary" style={{ width: 'auto', padding: '12px 24px' }}>
             {saving ? '⏳ Salvando...' : '💾 Salvar Tudo'}
           </button>
         </div>
