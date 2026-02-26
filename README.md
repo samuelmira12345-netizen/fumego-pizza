@@ -1,2 +1,0 @@
-# fumego-pizza
-DELIVERY
