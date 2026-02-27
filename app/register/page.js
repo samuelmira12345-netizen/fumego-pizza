@@ -74,17 +74,6 @@ export default function RegisterPage() {
     finally { setLoading(false); }
   }
 
-  const Input = ({ type = 'text', placeholder, field, ...rest }) => (
-    <input
-      className="input-field"
-      type={type}
-      placeholder={placeholder}
-      value={form[field]}
-      onChange={e => upd(field, e.target.value)}
-      {...rest}
-    />
-  );
-
   return (
     <div style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
       <div style={{ width: '100%', maxWidth: 400 }}>
@@ -112,11 +101,11 @@ export default function RegisterPage() {
               Dados Pessoais
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Input placeholder="Nome completo *" field="name" required />
-              <Input type="email" placeholder="E-mail *" field="email" required />
-              <Input type="tel" placeholder="Telefone com DDD" field="phone" />
-              <Input type="password" placeholder="Senha (mín. 6 caracteres) *" field="password" required />
-              <Input type="password" placeholder="Confirmar senha *" field="confirm" required />
+              <input className="input-field" placeholder="Nome completo *" value={form.name} onChange={e => upd('name', e.target.value)} required />
+              <input className="input-field" type="email" placeholder="E-mail *" value={form.email} onChange={e => upd('email', e.target.value)} required />
+              <input className="input-field" type="tel" placeholder="Telefone com DDD" value={form.phone} onChange={e => upd('phone', e.target.value)} />
+              <input className="input-field" type="password" placeholder="Senha (mín. 6 caracteres) *" value={form.password} onChange={e => upd('password', e.target.value)} required />
+              <input className="input-field" type="password" placeholder="Confirmar senha *" value={form.confirm} onChange={e => upd('confirm', e.target.value)} required />
             </div>
           </div>
 
@@ -141,14 +130,14 @@ export default function RegisterPage() {
                   </span>
                 )}
               </div>
-              <Input placeholder="Rua / Avenida" field="address_street" />
+              <input className="input-field" placeholder="Rua / Avenida" value={form.address_street} onChange={e => upd('address_street', e.target.value)} />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
-                <Input placeholder="Número" field="address_number" />
-                <Input placeholder="Complemento" field="address_complement" />
+                <input className="input-field" placeholder="Número" value={form.address_number} onChange={e => upd('address_number', e.target.value)} />
+                <input className="input-field" placeholder="Complemento" value={form.address_complement} onChange={e => upd('address_complement', e.target.value)} />
               </div>
-              <Input placeholder="Bairro" field="address_neighborhood" />
+              <input className="input-field" placeholder="Bairro" value={form.address_neighborhood} onChange={e => upd('address_neighborhood', e.target.value)} />
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
-                <Input placeholder="Cidade" field="address_city" />
+                <input className="input-field" placeholder="Cidade" value={form.address_city} onChange={e => upd('address_city', e.target.value)} />
                 <input className="input-field" placeholder="UF" maxLength={2}
                   value={form.address_state} onChange={e => upd('address_state', e.target.value)} />
               </div>
