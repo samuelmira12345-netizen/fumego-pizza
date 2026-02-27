@@ -61,6 +61,12 @@ export default function LoginPage() {
           <input className="input-field" type="password" placeholder="Senha"
             value={password} onChange={e => setPassword(e.target.value)} required />
           {error && <p style={{ color: '#E04040', fontSize: 13 }}>{error}</p>}
+          <div style={{ textAlign: 'right' }}>
+            <button type="button" onClick={() => router.push('/forgot-password')}
+              style={{ background: 'none', border: 'none', color: MUTED, fontSize: 12, cursor: 'pointer', padding: 0 }}>
+              Esqueceu a senha?
+            </button>
+          </div>
           <button className="btn-primary" disabled={loading}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             {loading ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Entrando…</> : 'Entrar'}
