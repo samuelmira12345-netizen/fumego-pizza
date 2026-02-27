@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { encryptCpf, decryptCpf } from '../../../../lib/cpf-crypto';
 
 export async function POST(request) {
   try {
@@ -31,7 +32,10 @@ export async function POST(request) {
     if (name)                        updates.name                  = name;
     if (email)                       updates.email                 = email.toLowerCase().trim();
     if (phone  !== undefined)        updates.phone                 = phone;
-    if (cpf    !== undefined)        updates.cpf                   = cpf;
+    // Criptografar CPF antes de armazenar no banco
+    if (cpf !== undefined) {
+      updates.cpf = cpf ? encryptCpf(cpf) : null;
+    }
     if (address_street      !== undefined) updates.address_street      = address_street;
     if (address_number      !== undefined) updates.address_number      = address_number;
     if (address_complement  !== undefined) updates.address_complement  = address_complement;
@@ -60,6 +64,8 @@ export async function POST(request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const { password_hash: _, ...safeUser } = updated;
+    // Descriptografar CPF antes de retornar ao cliente
+    if (safeUser.cpf) safeUser.cpf = decryptCpf(safeUser.cpf) || '';
     return NextResponse.json({ user: safeUser });
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });

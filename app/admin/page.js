@@ -120,13 +120,16 @@ export default function AdminPage() {
     if (!file || !product) return;
     setUploadingId(product.id);
     try {
-      const ext = file.name.split('.').pop().toLowerCase();
-      const fileName = `product-${product.id}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('product-images').upload(fileName, file, { cacheControl: '3600', upsert: true });
-      if (uploadError) { alert(`Erro no upload: ${uploadError.message}`); return; }
-      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
-      const imageUrl = urlData.publicUrl;
+      const formData = new FormData();
+      formData.append('password', password);
+      formData.append('file', file);
+      formData.append('prefix', `product-${product.id}`);
+
+      const res = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
+      const result = await res.json();
+      if (!res.ok) { alert(`Erro no upload: ${result.error}`); return; }
+
+      const imageUrl = result.url;
       const { error: dbError } = await supabase.from('products').update({ image_url: imageUrl }).eq('id', product.id);
       if (dbError) { alert(`Erro ao salvar URL: ${dbError.message}`); return; }
       updateProduct(productIdx, 'image_url', imageUrl);
@@ -140,15 +143,16 @@ export default function AdminPage() {
     if (!file) return;
     setUploadingLogo(true);
     try {
-      const ext = file.name.split('.').pop().toLowerCase();
-      const fileName = `logo-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('product-images').upload(fileName, file, { cacheControl: '3600', upsert: true });
-      if (uploadError) { alert(`Erro no upload: ${uploadError.message}`); return; }
-      const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
-      const logoUrl = urlData.publicUrl;
+      const formData = new FormData();
+      formData.append('password', password);
+      formData.append('file', file);
+      formData.append('prefix', 'logo');
 
-      // Salvar no settings
+      const res = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
+      const result = await res.json();
+      if (!res.ok) { alert(`Erro no upload: ${result.error}`); return; }
+
+      const logoUrl = result.url;
       const { error: dbError } = await supabase.from('settings').upsert({ key: 'logo_url', value: logoUrl }, { onConflict: 'key' });
       if (dbError) { alert(`Erro ao salvar: ${dbError.message}`); return; }
 

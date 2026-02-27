@@ -1,8 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabase';
+import { checkRateLimit, getClientIp } from '../../../lib/rate-limit';
 
 export async function POST(request) {
   try {
+    // Rate limiting: máximo 5 tentativas de login admin por IP a cada 15 minutos
+    const ip = getClientIp(request);
+    const { allowed, retryAfterMs } = checkRateLimit(`admin:${ip}`, 5, 15 * 60_000);
+    if (!allowed) {
+      const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+      return NextResponse.json(
+        { error: `Muitas tentativas. Tente novamente em ${retryAfterSec} segundos.` },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSec) } }
+      );
+    }
+
     const { password, action, data } = await request.json();
     const adminPwd = process.env.ADMIN_PASSWORD;
     if (!adminPwd) {

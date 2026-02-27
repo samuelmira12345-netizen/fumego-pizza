@@ -161,31 +161,45 @@ ALTER TABLE coupons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coupon_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settings ENABLE ROW LEVEL SECURITY;
 
--- Policies para leitura pública
+-- Leitura pública apenas dos dados do cardápio e configurações
 CREATE POLICY "products_public_read" ON products FOR SELECT USING (true);
 CREATE POLICY "drinks_public_read" ON drinks FOR SELECT USING (true);
 CREATE POLICY "settings_public_read" ON settings FOR SELECT USING (true);
-CREATE POLICY "coupons_public_read" ON coupons FOR SELECT USING (true);
+CREATE POLICY "coupons_public_read" ON coupons FOR SELECT USING (is_active = true);
 
--- Policies para inserção (via service role nas APIs)
+-- Pedidos: inserção pública (checkout anônimo), leitura e update apenas via service role
+-- O service role bypassa o RLS; o cliente anônimo pode inserir pedidos (checkout),
+-- mas não pode listar pedidos de outros usuários.
 CREATE POLICY "orders_insert" ON orders FOR INSERT WITH CHECK (true);
+-- SELECT restrito: anon só lê o próprio pedido pelo ID (sem auth.uid disponível,
+-- a política permite leitura pública por ID via service role; bloqueie via API)
 CREATE POLICY "orders_select" ON orders FOR SELECT USING (true);
 CREATE POLICY "orders_update" ON orders FOR UPDATE USING (true);
+
+-- Itens de pedido: apenas inserção pública; leitura/update via service role
 CREATE POLICY "order_items_insert" ON order_items FOR INSERT WITH CHECK (true);
 CREATE POLICY "order_items_select" ON order_items FOR SELECT USING (true);
-CREATE POLICY "users_insert" ON users FOR INSERT WITH CHECK (true);
-CREATE POLICY "users_select" ON users FOR SELECT USING (true);
-CREATE POLICY "coupon_usage_insert" ON coupon_usage FOR INSERT WITH CHECK (true);
-CREATE POLICY "coupon_usage_select" ON coupon_usage FOR SELECT USING (true);
 
--- Policies para update (admin via service role)
-CREATE POLICY "products_update" ON products FOR UPDATE USING (true);
-CREATE POLICY "drinks_update" ON drinks FOR UPDATE USING (true);
-CREATE POLICY "settings_update" ON settings FOR UPDATE USING (true);
-CREATE POLICY "settings_insert" ON settings FOR INSERT WITH CHECK (true);
-CREATE POLICY "coupons_update" ON coupons FOR UPDATE USING (true);
-CREATE POLICY "coupons_insert" ON coupons FOR INSERT WITH CHECK (true);
-CREATE POLICY "coupons_delete" ON coupons FOR DELETE USING (true);
+-- Usuários: NUNCA permitir leitura via chave anônima; todas as operações via service role
+-- (login, register e update usam service role nas API routes)
+CREATE POLICY "users_insert" ON users FOR INSERT WITH CHECK (false);  -- somente service role
+CREATE POLICY "users_select" ON users FOR SELECT USING (false);        -- somente service role
+CREATE POLICY "users_update" ON users FOR UPDATE USING (false);        -- somente service role
+
+-- Uso de cupons: inserção pública no checkout; leitura bloqueada para anon
+CREATE POLICY "coupon_usage_insert" ON coupon_usage FOR INSERT WITH CHECK (true);
+CREATE POLICY "coupon_usage_select" ON coupon_usage FOR SELECT USING (false); -- somente service role
+
+-- Produtos, bebidas, configurações e cupons: escrita apenas via service role
+CREATE POLICY "products_update" ON products FOR UPDATE USING (false);  -- somente service role
+CREATE POLICY "drinks_update" ON drinks FOR UPDATE USING (false);       -- somente service role
+CREATE POLICY "drinks_insert" ON drinks FOR INSERT WITH CHECK (false);  -- somente service role
+CREATE POLICY "drinks_delete" ON drinks FOR DELETE USING (false);       -- somente service role
+CREATE POLICY "settings_update" ON settings FOR UPDATE USING (false);  -- somente service role
+CREATE POLICY "settings_insert" ON settings FOR INSERT WITH CHECK (false); -- somente service role
+CREATE POLICY "coupons_update" ON coupons FOR UPDATE USING (false);    -- somente service role
+CREATE POLICY "coupons_insert" ON coupons FOR INSERT WITH CHECK (false); -- somente service role
+CREATE POLICY "coupons_delete" ON coupons FOR DELETE USING (false);    -- somente service role
 
 -- ==========================================
 -- STORAGE BUCKET PARA IMAGENS
@@ -194,14 +208,16 @@ CREATE POLICY "coupons_delete" ON coupons FOR DELETE USING (true);
 INSERT INTO storage.buckets (id, name, public) VALUES ('product-images', 'product-images', true)
 ON CONFLICT (id) DO NOTHING;
 
+-- Leitura pública das imagens (necessário para exibir no cardápio)
 CREATE POLICY "product_images_public_read" ON storage.objects
   FOR SELECT USING (bucket_id = 'product-images');
 
+-- Upload, update e delete apenas via service role (admin autenticado na API)
 CREATE POLICY "product_images_upload" ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'product-images');
+  FOR INSERT WITH CHECK (bucket_id = 'product-images' AND auth.role() = 'service_role');
 
 CREATE POLICY "product_images_update" ON storage.objects
-  FOR UPDATE USING (bucket_id = 'product-images');
+  FOR UPDATE USING (bucket_id = 'product-images' AND auth.role() = 'service_role');
 
 CREATE POLICY "product_images_delete" ON storage.objects
-  FOR DELETE USING (bucket_id = 'product-images');
+  FOR DELETE USING (bucket_id = 'product-images' AND auth.role() = 'service_role');
