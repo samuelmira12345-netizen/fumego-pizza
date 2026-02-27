@@ -209,9 +209,15 @@ export default function AccountPage() {
 
         {/* Alterar Senha */}
         <Section title="Alterar Senha">
-          <p style={{ color: '#3A2810', fontSize: 12, marginTop: -4, marginBottom: 4 }}>
-            Preencha apenas se quiser trocar a senha
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: -4, marginBottom: 4 }}>
+            <p style={{ color: '#3A2810', fontSize: 12, margin: 0 }}>
+              Preencha apenas se quiser trocar a senha
+            </p>
+            <button type="button" onClick={() => router.push('/forgot-password')}
+              style={{ background: 'none', border: 'none', color: MUTED, fontSize: 12, cursor: 'pointer', padding: 0 }}>
+              Esqueceu a senha?
+            </button>
+          </div>
           <input className="input-field" type="password" placeholder="Senha atual"
             value={form.current_password} onChange={e => upd('current_password', e.target.value)} />
           <input className="input-field" type="password" placeholder="Nova senha (mín. 6 caracteres)"
