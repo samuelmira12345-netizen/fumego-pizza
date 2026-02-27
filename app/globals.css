@@ -2,63 +2,101 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg:           #080600;
+  --surface:      #141000;
+  --card:         #1C1500;
+  --card-hover:   #251C00;
+  --gold:         #F2A800;
+  --gold-light:   #FFD060;
+  --gold-dim:     #A87400;
+  --border:       #2C1E00;
+  --border-gold:  rgba(242, 168, 0, 0.25);
+  --text:         #FFFFFF;
+  --text-warm:    #F0E0C0;
+  --text-muted:   #7A6040;
+  --text-faint:   #3A2810;
+  --red:          #E04040;
+  --font-display: var(--font-playfair), Georgia, 'Times New Roman', serif;
+  --font-body:    var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #1A1A1A;
-  color: #fff;
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* ===== HEADER ===== */
 .header {
-  background: #1A1A1A;
-  padding: 12px 16px;
+  background: rgba(8, 6, 0, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  padding: 14px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
+/* ===== BUTTONS ===== */
 .btn-primary {
-  background: linear-gradient(135deg, #D4A528, #E8B830);
-  color: #1A1A1A;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+  color: #080600;
   border: none;
-  border-radius: 12px;
-  padding: 14px 24px;
+  border-radius: 14px;
+  padding: 15px 24px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   width: 100%;
   text-align: center;
-  transition: all 0.2s;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s, opacity 0.2s;
+  letter-spacing: 0.2px;
+  box-shadow: 0 4px 20px rgba(242, 168, 0, 0.35);
+  font-family: var(--font-body);
 }
-.btn-primary:hover { opacity: 0.9; transform: scale(0.98); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(242, 168, 0, 0.45);
+}
+.btn-primary:active:not(:disabled) { transform: translateY(0); }
+.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
 
+/* ===== INPUTS ===== */
 .input-field {
-  background: #2D2D2D;
-  border: 1px solid #444;
-  border-radius: 10px;
-  padding: 12px 14px;
-  color: #fff;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 13px 14px;
+  color: var(--text);
   font-size: 14px;
   width: 100%;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: var(--font-body);
 }
-.input-field:focus { border-color: #D4A528; }
-.input-field::placeholder { color: #777; }
+.input-field:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(242, 168, 0, 0.12);
+}
+.input-field::placeholder { color: var(--text-muted); }
 
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+/* ===== ANIMATIONS ===== */
+@keyframes pulse    { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes fadeIn   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp  { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes glow     { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
 
-.fade-in { animation: fadeIn 0.3s ease-out; }
-.slide-up { animation: slideUp 0.3s ease-out; }
+.fade-in  { animation: fadeIn  0.3s ease-out; }
+.slide-up { animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
