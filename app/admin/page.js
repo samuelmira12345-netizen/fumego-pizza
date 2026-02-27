@@ -5,8 +5,9 @@ import { supabase } from '../../lib/supabase';
 import {
   Flame, UtensilsCrossed, GlassWater, Settings, Package,
   Upload, Loader2, Trash2, Plus, Check, Save,
-  Palette, Store, Star, Landmark, CreditCard, Banknote,
+  Palette, Store, Star, Landmark, CreditCard, Banknote, Clock,
 } from 'lucide-react';
+import { DEFAULT_BUSINESS_HOURS, DAY_LABELS, DAY_ORDER } from '../../lib/store-hours';
 
 export default function AdminPage() {
   const [password, setPassword] = useState('');
@@ -99,6 +100,18 @@ export default function AdminPage() {
 
   function getSetting(key) {
     return data.settings.find(s => s.key === key)?.value || '';
+  }
+
+  function getBusinessHours() {
+    const raw = getSetting('business_hours');
+    if (!raw) return DEFAULT_BUSINESS_HOURS;
+    try { return { ...DEFAULT_BUSINESS_HOURS, ...JSON.parse(raw) }; } catch { return DEFAULT_BUSINESS_HOURS; }
+  }
+
+  function updateDayHours(day, field, value) {
+    const current = getBusinessHours();
+    const updated = { ...current, [day]: { ...current[day], [field]: value } };
+    updateSetting('business_hours', JSON.stringify(updated));
   }
 
   // ===== UPLOAD DE FOTO PRODUTO =====
@@ -403,15 +416,55 @@ export default function AdminPage() {
               <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Store size={16} color="#D4A528" /> Loja
               </h3>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+
+              {/* Toggle manual */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <input type="checkbox" checked={getSetting('store_open') === 'true'}
                   onChange={e => updateSetting('store_open', e.target.checked ? 'true' : 'false')} />
                 <span style={{ color: '#fff', fontSize: 14 }}>Loja aberta</span>
               </label>
-              <input className="input-field" placeholder="Tempo de entrega" value={getSetting('delivery_time')}
+              <p style={{ color: '#888', fontSize: 12, marginBottom: 14 }}>
+                Desmarque para fechar imediatamente, independente do horário configurado.
+              </p>
+
+              <input className="input-field" placeholder="Tempo de entrega (ex: 40–60 min)" value={getSetting('delivery_time')}
                 onChange={e => updateSetting('delivery_time', e.target.value)} style={{ marginBottom: 8 }} />
               <input className="input-field" placeholder="Taxa de entrega" type="number" step="0.01" value={getSetting('delivery_fee')}
-                onChange={e => updateSetting('delivery_fee', e.target.value)} />
+                onChange={e => updateSetting('delivery_fee', e.target.value)} style={{ marginBottom: 16 }} />
+
+              <div style={{ height: 1, background: '#444', marginBottom: 14 }} />
+
+              {/* Horário de Funcionamento */}
+              <h4 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 4, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Clock size={14} color="#D4A528" /> Horário de Funcionamento
+              </h4>
+              <p style={{ color: '#888', fontSize: 12, marginBottom: 14 }}>
+                A loja fecha automaticamente fora do horário. Horário de Brasília (UTC-3).
+              </p>
+
+              {DAY_ORDER.map(day => {
+                const h = getBusinessHours()[day] || { enabled: true, open: '18:00', close: '23:00' };
+                return (
+                  <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 90, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={h.enabled}
+                        onChange={e => updateDayHours(day, 'enabled', e.target.checked)} />
+                      <span style={{ fontSize: 13, fontWeight: h.enabled ? 600 : 400, color: h.enabled ? '#fff' : '#555' }}>
+                        {DAY_LABELS[day]}
+                      </span>
+                    </label>
+                    <input
+                      type="time" value={h.open} disabled={!h.enabled}
+                      onChange={e => updateDayHours(day, 'open', e.target.value)}
+                      style={{ flex: 1, background: '#1A1A1A', color: h.enabled ? '#fff' : '#555', border: '1px solid #555', borderRadius: 8, padding: '6px 8px', fontSize: 13, cursor: h.enabled ? 'pointer' : 'not-allowed' }} />
+                    <span style={{ color: '#888', fontSize: 12 }}>às</span>
+                    <input
+                      type="time" value={h.close} disabled={!h.enabled}
+                      onChange={e => updateDayHours(day, 'close', e.target.value)}
+                      style={{ flex: 1, background: '#1A1A1A', color: h.enabled ? '#fff' : '#555', border: '1px solid #555', borderRadius: 8, padding: '6px 8px', fontSize: 13, cursor: h.enabled ? 'pointer' : 'not-allowed' }} />
+                  </div>
+                );
+              })}
             </div>
 
             {/* Instagram */}

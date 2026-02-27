@@ -70,6 +70,7 @@ export default function HomePage() {
   const [drinks, setDrinks]                   = useState<Drink[]>([]);
   const [settings, setSettings]               = useState<Settings>({});
   const [storeOpen, setStoreOpen]             = useState(true);
+  const [todayLabel, setTodayLabel]           = useState<string | null>(null);
   const [loading, setLoading]                 = useState(true);
   const [user, setUser]                       = useState<User | null>(null);
   const [cart, setCart]                       = useState<CartItem[]>([]);
@@ -103,7 +104,29 @@ export default function HomePage() {
         const s: Settings = {};
         sRes.data.forEach((i: { key: string; value: string }) => { s[i.key] = i.value; });
         setSettings(s);
-        setStoreOpen(s.store_open === 'true');
+
+        // Compute effective store open status using business hours (Brasília timezone)
+        let effectiveOpen = s.store_open === 'true';
+        let label: string | null = null;
+        if (effectiveOpen && s.business_hours) {
+          try {
+            const bh = JSON.parse(s.business_hours);
+            const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+            const dayKey = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][now.getDay()];
+            const today = bh[dayKey];
+            if (!today || !today.enabled) {
+              effectiveOpen = false;
+            } else {
+              const [openH = 0, openM = 0]   = (today.open  || '00:00').split(':').map(Number);
+              const [closeH = 0, closeM = 0] = (today.close || '00:00').split(':').map(Number);
+              const nowMin   = now.getHours() * 60 + now.getMinutes();
+              effectiveOpen  = nowMin >= (openH * 60 + openM) && nowMin < (closeH * 60 + closeM);
+              label = `${today.open} – ${today.close}`;
+            }
+          } catch { /* keep effectiveOpen as-is */ }
+        }
+        setStoreOpen(effectiveOpen);
+        setTodayLabel(label);
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -419,7 +442,22 @@ export default function HomePage() {
           <p style={{ color: '#2E1E08', fontSize: 11, marginTop: 20, letterSpacing: 1.5, textTransform: 'uppercase' }}>
             toque para pedir
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 10 }}>
+
+          {/* Status da loja: Aberto / Fechado */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%', flexShrink: 0, display: 'inline-block',
+              background: storeOpen ? '#48BB78' : '#E04040',
+              boxShadow: `0 0 7px ${storeOpen ? '#48BB78' : '#E04040'}`,
+            }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: storeOpen ? '#48BB78' : '#E04040', letterSpacing: 0.3 }}>
+              {storeOpen
+                ? (todayLabel ? `Aberto: ${todayLabel}` : 'Aberto')
+                : 'Fechado'}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 8 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: FAINT, fontSize: 12 }}>
               <Truck size={13} color={FAINT} /> Apenas entrega
             </span>
