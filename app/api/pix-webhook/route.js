@@ -29,7 +29,7 @@ export async function POST(request) {
     if (body.type === 'payment' && body.data?.id) {
       if (!verifySignature(request, body.data.id)) {
         console.warn('Webhook: assinatura inválida rejeitada');
-        return NextResponse.json({ received: true });
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }
 
       const paymentId = body.data.id;
