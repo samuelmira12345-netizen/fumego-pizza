@@ -212,14 +212,15 @@ export default function HomePage() {
 
       {/* ── HEADER ── */}
       <header className="header" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr' }}>
-        {/* left — spacer */}
-        <div />
-
-        {/* center — logo + nome */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: logoUrl ? 10 : 0 }}>
+        {/* left — logo */}
+        <div style={{ display: 'flex', alignItems: 'center' }}>
           {logoUrl && (
             <img src={logoUrl} alt="Logo" style={{ height: logoSize, objectFit: 'contain', display: 'block' }} />
           )}
+        </div>
+
+        {/* center — nome */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
           <h1 style={{
             fontFamily: 'var(--font-cinzel), Cinzel, Georgia, serif',
             fontSize: 22, fontWeight: 900, color: GOLD,
@@ -453,7 +454,7 @@ export default function HomePage() {
                 Economize R$10
               </div>
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 18px 16px' }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, background: 'rgba(242,168,0,0.15)', border: '1px solid rgba(242,168,0,0.35)', color: GOLD, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, background: 'rgba(10,8,0,0.72)', border: '1px solid rgba(242,168,0,0.35)', color: GOLD, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
                   <Flame size={12} /> Combo Fumêgo
                 </div>
                 <h2 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 22, fontWeight: 700, color: '#fff' }}>{combo.name}</h2>
@@ -464,7 +465,7 @@ export default function HomePage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <p style={{ color: FAINT, textDecoration: 'line-through', fontSize: 13 }}>R$ 90,00</p>
-                  <p style={{ color: '#fff', fontSize: 26, fontWeight: 800, lineHeight: 1.1 }}>
+                  <p style={{ color: GOLD, fontSize: 26, fontWeight: 800, lineHeight: 1.1 }}>
                     R$&nbsp;<span style={{ color: GOLD }}>{fmt(combo.price)}</span>
                   </p>
                 </div>
@@ -500,7 +501,7 @@ export default function HomePage() {
                 </div>
               )}
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,21,0,0.9) 0%, transparent 55%)' }} />
-              <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(242,168,0,0.15)', border: '1px solid rgba(242,168,0,0.4)', color: GOLD, fontSize: 10, fontWeight: 700, padding: '4px 11px', borderRadius: 20, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+              <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(10,8,0,0.72)', border: '1px solid rgba(242,168,0,0.4)', color: GOLD, fontSize: 10, fontWeight: 700, padding: '4px 11px', borderRadius: 20, letterSpacing: 0.5, textTransform: 'uppercase' }}>
                 <Star size={11} fill={GOLD} /> Especial do Mês
               </div>
             </div>
