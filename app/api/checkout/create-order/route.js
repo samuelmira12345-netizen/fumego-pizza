@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { hashCpf } from '../../../../lib/cpf-crypto';
+import { sendOrderConfirmationEmail } from '../../../../lib/email';
+import { createOrderSchema } from '../../../../lib/schemas';
 
 /**
  * Cria o pedido no banco de dados com CPF hasheado server-side.
@@ -8,11 +10,13 @@ import { hashCpf } from '../../../../lib/cpf-crypto';
  */
 export async function POST(request) {
   try {
-    const { orderPayload, items, coupon, cpf } = await request.json();
-
-    if (!orderPayload || !items) {
-      return NextResponse.json({ error: 'Dados do pedido inválidos' }, { status: 400 });
+    const raw = await request.json();
+    const parsed = createOrderSchema.safeParse(raw);
+    if (!parsed.success) {
+      const msg = parsed.error.errors[0]?.message || 'Dados do pedido inválidos';
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
+    const { orderPayload, items, coupon, cpf } = parsed.data;
 
     const supabase = getSupabaseAdmin();
 
@@ -52,6 +56,19 @@ export async function POST(request) {
         .from('coupons')
         .update({ times_used: coupon.times_used + 1 })
         .eq('id', coupon.id);
+    }
+
+    // Enviar e-mail de confirmação (não bloqueia a resposta se falhar)
+    if (orderPayload.customer_email) {
+      const deliveryTime = orderPayload.delivery_time || '40–60 min';
+      sendOrderConfirmationEmail(
+        orderPayload.customer_email,
+        orderPayload.customer_name,
+        order.order_number,
+        order.total,
+        items,
+        deliveryTime,
+      ).catch(err => console.error('Erro ao enviar e-mail de confirmação:', err));
     }
 
     return NextResponse.json({ order });

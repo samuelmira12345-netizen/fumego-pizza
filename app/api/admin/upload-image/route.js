@@ -1,25 +1,31 @@
 import { NextResponse } from 'next/server';
+import jwt from 'jsonwebtoken';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 
 // MIME types permitidos para imagens
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
+function verifyAdminToken(request) {
+  const auth   = request.headers.get('authorization') || '';
+  const token  = auth.replace('Bearer ', '').trim();
+  const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+  if (!token || !secret) return false;
+  try {
+    const decoded = jwt.verify(token, secret);
+    return decoded.role === 'admin';
+  } catch { return false; }
+}
+
 export async function POST(request) {
   try {
-    const adminPwd = process.env.ADMIN_PASSWORD;
-    if (!adminPwd) {
-      return NextResponse.json({ error: 'Servidor mal configurado' }, { status: 500 });
+    if (!verifyAdminToken(request)) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const formData = await request.formData();
-    const password = formData.get('password');
-    const file = formData.get('file');
+    const file   = formData.get('file');
     const prefix = formData.get('prefix') || 'upload'; // 'product-<id>' ou 'logo'
-
-    if (password !== adminPwd) {
-      return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 });
-    }
 
     if (!file || typeof file === 'string') {
       return NextResponse.json({ error: 'Arquivo não enviado' }, { status: 400 });
@@ -70,7 +76,18 @@ export async function POST(request) {
     }
 
     const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
-    return NextResponse.json({ url: urlData.publicUrl, fileName });
+    const imageUrl = urlData.publicUrl;
+
+    // Opcional: salva a URL direto no banco para evitar round-trip extra no frontend
+    const saveAs    = formData.get('saveAs');
+    const productId = formData.get('productId');
+    if (saveAs === 'product_image' && productId) {
+      await supabase.from('products').update({ image_url: imageUrl }).eq('id', productId);
+    } else if (saveAs === 'logo') {
+      await supabase.from('settings').upsert({ key: 'logo_url', value: imageUrl }, { onConflict: 'key' });
+    }
+
+    return NextResponse.json({ url: imageUrl, fileName });
   } catch (e) {
     console.error('Upload error:', e);
     return NextResponse.json({ error: e.message }, { status: 500 });

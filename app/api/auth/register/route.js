@@ -1,18 +1,24 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
+import { sendVerificationEmail } from '../../../../lib/email';
+import { registerSchema } from '../../../../lib/schemas';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 export async function POST(request) {
   try {
+    const raw = await request.json();
+    const parsed = registerSchema.safeParse(raw);
+    if (!parsed.success) {
+      const msg = parsed.error.errors[0]?.message || 'Dados inválidos';
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
     const {
       name, email, phone, password,
       address_street, address_number, address_complement,
       address_neighborhood, address_city, address_state, address_zipcode,
-    } = await request.json();
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: 'Nome, email e senha são obrigatórios' }, { status: 400 });
-    }
+    } = parsed.data;
 
     const supabase = getSupabaseAdmin();
 
@@ -44,6 +50,18 @@ export async function POST(request) {
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) return NextResponse.json({ error: 'Servidor mal configurado' }, { status: 500 });
     const token = jwt.sign({ userId: user.id, email: user.email }, jwtSecret, { expiresIn: '30d' });
+
+    // Enviar e-mail de verificação (não bloqueia a resposta se falhar)
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 horas
+    supabase.from('email_verification_tokens').insert({
+      user_id: user.id, token: verificationToken, expires_at: expiresAt,
+    }).then(() => {
+      const appUrl   = process.env.NEXT_PUBLIC_APP_URL || '';
+      const verifyUrl = `${appUrl}/verify-email?token=${verificationToken}`;
+      sendVerificationEmail(user.email, user.name, verifyUrl)
+        .catch(err => console.error('Erro ao enviar e-mail de verificação:', err));
+    });
 
     const { password_hash: _, ...safeUser } = user;
     return NextResponse.json({ token, user: safeUser });

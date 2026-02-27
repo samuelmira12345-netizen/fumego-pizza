@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { computeStoreStatus } from '../../../lib/store-hours';
+import { logger } from '../../../lib/logger';
 
 export async function POST(request) {
   try {
@@ -136,7 +137,7 @@ export async function POST(request) {
       paymentBody.notification_url = `${appUrl.replace(/\/$/, '')}/api/pix-webhook`;
     }
 
-    console.log('=== CRIANDO PIX ===', { order_id, order_number, amount: numAmount });
+    logger.info('Criando pagamento PIX', { order_id, order_number, amount: numAmount });
 
     let mpResponse;
     try {
@@ -179,16 +180,27 @@ export async function POST(request) {
       return NextResponse.json({ error: errorMsg, details: errorDetails, mp_status: mpResponse.status }, { status: 500 });
     }
 
+    const qrCode       = mpData.point_of_interaction?.transaction_data?.qr_code || '';
+    const qrCodeBase64 = mpData.point_of_interaction?.transaction_data?.qr_code_base64 || '';
+    const paymentId    = String(mpData.id);
+
+    // Salva os dados do PIX no pedido (server-side, sem expor ao cliente a necessidade de escrever no DB)
+    await supabase.from('orders').update({
+      pix_payment_id: paymentId,
+      pix_qr_code: qrCode,
+      pix_qr_code_base64: qrCodeBase64,
+    }).eq('id', order_id);
+
     return NextResponse.json({
-      payment_id: String(mpData.id),
-      qr_code: mpData.point_of_interaction?.transaction_data?.qr_code || '',
-      qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64 || '',
+      payment_id: paymentId,
+      qr_code: qrCode,
+      qr_code_base64: qrCodeBase64,
       expires_at: mpData.date_of_expiration || null,
       status: mpData.status,
     });
 
   } catch (e) {
-    console.error('=== EXCEÇÃO CREATE-PAYMENT ===', e);
+    logger.error('Exceção create-payment', e);
     return NextResponse.json({ error: 'Erro interno', details: e.message }, { status: 500 });
   }
 }

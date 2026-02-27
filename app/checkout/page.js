@@ -222,11 +222,9 @@ export default function CheckoutPage() {
         });
         const pix = await pixRes.json();
         if (pix.error) { setPixError(pix); return; }
+        // PIX data já foi salvo no banco pela API /api/create-payment (server-side)
         setPixData(pix);
         setOrderCreated(true);
-        await supabase.from('orders').update({
-          pix_payment_id: pix.payment_id, pix_qr_code: pix.qr_code, pix_qr_code_base64: pix.qr_code_base64,
-        }).eq('id', order.id);
         startPaymentCheck(order.id);
       }
 
@@ -271,7 +269,8 @@ export default function CheckoutPage() {
     const iv = setInterval(async () => {
       if (expired) return;
       try {
-        const { data } = await supabase.from('orders').select('payment_status').eq('id', orderId).single();
+        const res = await fetch(`/api/payment-status/${orderId}`);
+        const data = await res.json();
         if (data?.payment_status === 'approved') {
           clearInterval(iv);
           pollingIntervalRef.current = null;
@@ -296,11 +295,13 @@ export default function CheckoutPage() {
       pollingTimeoutRef.current = null;
       setCheckingPayment(false);
       try {
-        const { data } = await supabase.from('orders').select('payment_status').eq('id', orderId).single();
-        if (data?.payment_status !== 'approved') {
-          await supabase.from('orders').update({ payment_status: 'cancelled', status: 'cancelled' }).eq('id', orderId);
-          setPaymentExpired(true);
-        }
+        // Cancela via API (server-side, sem cliente anon)
+        await fetch(`/api/payment-status/${orderId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'cancel' }),
+        });
+        setPaymentExpired(true);
       } catch (e) {}
     }, 900000);
 
