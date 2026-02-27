@@ -4,7 +4,10 @@ import { getSupabaseAdmin } from '../../../lib/supabase';
 export async function POST(request) {
   try {
     const { password, action, data } = await request.json();
-    const adminPwd = process.env.ADMIN_PASSWORD || 'admin123';
+    const adminPwd = process.env.ADMIN_PASSWORD;
+    if (!adminPwd) {
+      return NextResponse.json({ error: 'Servidor mal configurado' }, { status: 500 });
+    }
     if (password !== adminPwd) {
       return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 });
     }

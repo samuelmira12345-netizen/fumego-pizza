@@ -15,9 +15,11 @@ export async function POST(request) {
 
     if (!token) return NextResponse.json({ error: 'Token obrigatório' }, { status: 401 });
 
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) return NextResponse.json({ error: 'Servidor mal configurado' }, { status: 500 });
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+      decoded = jwt.verify(token, jwtSecret);
     } catch {
       return NextResponse.json({ error: 'Token inválido ou expirado' }, { status: 401 });
     }
