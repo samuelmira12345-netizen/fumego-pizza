@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabase';
+import { computeStoreStatus } from '../../../lib/store-hours';
 
 export async function POST(request) {
   try {
@@ -26,8 +27,21 @@ export async function POST(request) {
       return NextResponse.json({ error: 'order_id obrigatório' }, { status: 400 });
     }
 
-    // Server-side price validation: always use the total stored in the DB, never trust the client
     const supabase = getSupabaseAdmin();
+
+    // Server-side store status check: block payments when store is closed
+    const { data: settingsRows } = await supabase
+      .from('settings').select('key,value').in('key', ['store_open', 'business_hours']);
+    const settingsMap = Object.fromEntries((settingsRows || []).map(r => [r.key, r.value]));
+    const { open: storeIsOpen } = computeStoreStatus(settingsMap);
+    if (!storeIsOpen) {
+      return NextResponse.json({
+        error: 'Loja fechada',
+        details: 'A loja está fechada no momento. Tente novamente no horário de funcionamento.',
+      }, { status: 400 });
+    }
+
+    // Server-side price validation: always use the total stored in the DB, never trust the client
     const { data: order, error: orderErr } = await supabase
       .from('orders').select('total').eq('id', order_id).single();
     if (orderErr || !order) {
