@@ -15,15 +15,21 @@ export async function POST(request) {
       });
       const mpData = await mpRes.json();
 
-      if (mpData.status === 'approved') {
-        const supabase = getSupabaseAdmin();
-        const orderId = mpData.external_reference;
-        if (orderId) {
+      const supabase = getSupabaseAdmin();
+      const orderId = mpData.external_reference;
+      if (orderId) {
+        if (mpData.status === 'approved') {
           await supabase.from('orders').update({
             payment_status: 'approved',
             status: 'confirmed',
           }).eq('id', orderId);
           console.log('Pedido aprovado:', orderId);
+        } else if (['rejected', 'cancelled', 'expired'].includes(mpData.status)) {
+          await supabase.from('orders').update({
+            payment_status: 'cancelled',
+            status: 'cancelled',
+          }).eq('id', orderId);
+          console.log('Pedido cancelado:', orderId, mpData.status);
         }
       }
     }

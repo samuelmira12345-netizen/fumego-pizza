@@ -36,6 +36,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [cashOrderDone, setCashOrderDone] = useState(false);
   const [cashChange, setCashChange] = useState('');
+  const [paymentExpired, setPaymentExpired] = useState(false);
 
   const [form, setForm] = useState({
     name: '', email: '', phone: '', cpf: '',
@@ -245,7 +246,9 @@ export default function CheckoutPage() {
 
   function startPaymentCheck(orderId) {
     setCheckingPayment(true);
+    let expired = false;
     const iv = setInterval(async () => {
+      if (expired) return;
       try {
         const { data } = await supabase.from('orders').select('payment_status').eq('id', orderId).single();
         if (data?.payment_status === 'approved') {
@@ -253,10 +256,25 @@ export default function CheckoutPage() {
           setPaymentConfirmed(true);
           setCheckingPayment(false);
           localStorage.removeItem('fumego_cart');
+        } else if (data?.payment_status === 'cancelled') {
+          clearInterval(iv);
+          setPaymentExpired(true);
+          setCheckingPayment(false);
         }
       } catch (e) {}
     }, 5000);
-    setTimeout(() => clearInterval(iv), 900000);
+    setTimeout(async () => {
+      expired = true;
+      clearInterval(iv);
+      setCheckingPayment(false);
+      try {
+        const { data } = await supabase.from('orders').select('payment_status').eq('id', orderId).single();
+        if (data?.payment_status !== 'approved') {
+          await supabase.from('orders').update({ payment_status: 'cancelled', status: 'cancelled' }).eq('id', orderId);
+          setPaymentExpired(true);
+        }
+      } catch (e) {}
+    }, 900000);
   }
 
   function copyPix() {
@@ -340,6 +358,24 @@ export default function CheckoutPage() {
               </div>
             </a>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  // ===== PAGAMENTO EXPIRADO / CANCELADO =====
+  if (paymentExpired) {
+    return (
+      <div style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div style={{ textAlign: 'center', maxWidth: 400 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <X size={64} color={RED} />
+          </div>
+          <h1 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 24, fontWeight: 'bold', color: RED, marginBottom: 8 }}>
+            Pagamento não confirmado
+          </h1>
+          <p style={{ color: MUTED, marginBottom: 24 }}>O tempo para pagamento expirou e o pedido foi cancelado automaticamente.</p>
+          <button className="btn-primary" onClick={() => router.push('/')}>Voltar ao Cardápio</button>
         </div>
       </div>
     );
