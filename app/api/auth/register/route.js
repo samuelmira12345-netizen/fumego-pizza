@@ -41,7 +41,9 @@ export async function POST(request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET || 'secret', { expiresIn: '30d' });
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) return NextResponse.json({ error: 'Servidor mal configurado' }, { status: 500 });
+    const token = jwt.sign({ userId: user.id, email: user.email }, jwtSecret, { expiresIn: '30d' });
 
     const { password_hash: _, ...safeUser } = user;
     return NextResponse.json({ token, user: safeUser });

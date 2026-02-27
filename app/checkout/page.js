@@ -37,6 +37,8 @@ export default function CheckoutPage() {
   const [cashOrderDone, setCashOrderDone] = useState(false);
   const [cashChange, setCashChange] = useState('');
   const [paymentExpired, setPaymentExpired] = useState(false);
+  const [pixCopied, setPixCopied] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const [form, setForm] = useState({
     name: '', email: '', phone: '', cpf: '',
@@ -181,7 +183,8 @@ export default function CheckoutPage() {
   }
 
   async function handleSubmitOrder() {
-    if (!isFormValid()) { alert('Preencha: Nome, Telefone, Rua, Número e Bairro.'); return; }
+    if (!isFormValid()) { setFormError('Preencha: Nome, Telefone, Rua, Número e Bairro.'); return; }
+    setFormError('');
     setLoading(true);
     setPixError(null);
 
@@ -238,7 +241,7 @@ export default function CheckoutPage() {
 
     } catch (e) {
       console.error('Erro:', e);
-      alert('Erro ao processar pedido. Verifique os dados e tente novamente.');
+      setPixError({ error: 'Erro ao processar pedido', details: 'Verifique os dados e tente novamente.' });
     } finally {
       setLoading(false);
     }
@@ -278,7 +281,11 @@ export default function CheckoutPage() {
   }
 
   function copyPix() {
-    if (pixData?.qr_code) { navigator.clipboard.writeText(pixData.qr_code); alert('Código PIX copiado!'); }
+    if (pixData?.qr_code) {
+      navigator.clipboard.writeText(pixData.qr_code);
+      setPixCopied(true);
+      setTimeout(() => setPixCopied(false), 2500);
+    }
   }
 
   if (cart.length === 0 && !orderCreated) return null;
@@ -399,9 +406,12 @@ export default function CheckoutPage() {
             <p style={{ fontSize: 28, fontWeight: 'bold', color: '#1A1A1A' }}>R$ {calcTotal().toFixed(2).replace('.', ',')}</p>
           </div>
           <button className="btn-primary" onClick={copyPix}
-            style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <ClipboardCopy size={16} /> Copiar Código PIX
+            style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: pixCopied ? '#2D7D46' : undefined }}>
+            <ClipboardCopy size={16} /> {pixCopied ? 'Copiado!' : 'Copiar Código PIX'}
           </button>
+          {pixCopied && (
+            <p style={{ color: GREEN, fontSize: 13, marginBottom: 8, textAlign: 'center' }}>Código copiado para a área de transferência</p>
+          )}
           {pixData.qr_code && (
             <div style={{ background: CARD, borderRadius: 10, padding: 12, marginBottom: 16, wordBreak: 'break-all', border: `1px solid ${BORDER}` }}>
               <p style={{ fontSize: 11, color: MUTED, marginBottom: 6 }}>Código PIX copia e cola:</p>
@@ -585,6 +595,13 @@ export default function CheckoutPage() {
               style={{ marginTop: 10, background: 'none', border: `1px solid ${RED}`, color: RED, borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
               Fechar
             </button>
+          </div>
+        )}
+
+        {/* ERRO DE FORMULÁRIO */}
+        {formError && (
+          <div style={{ background: 'rgba(224,64,64,0.1)', border: `1px solid ${RED}`, borderRadius: 12, padding: '12px 16px', marginBottom: 12 }}>
+            <p style={{ color: RED, fontSize: 14 }}>{formError}</p>
           </div>
         )}
 

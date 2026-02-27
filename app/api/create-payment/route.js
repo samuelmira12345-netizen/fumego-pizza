@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '../../../lib/supabase';
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { order_id, order_number, amount, description, payer_email, payer_name, payer_cpf, payment_type } = body;
+    const { order_id, order_number, description, payer_email, payer_name, payer_cpf, payment_type } = body;
 
     const accessToken = (process.env.MERCADO_PAGO_ACCESS_TOKEN || '').trim();
 
@@ -21,9 +22,20 @@ export async function POST(request) {
       }, { status: 500 });
     }
 
-    const numAmount = Number(amount);
+    if (!order_id) {
+      return NextResponse.json({ error: 'order_id obrigatório' }, { status: 400 });
+    }
+
+    // Server-side price validation: always use the total stored in the DB, never trust the client
+    const supabase = getSupabaseAdmin();
+    const { data: order, error: orderErr } = await supabase
+      .from('orders').select('total').eq('id', order_id).single();
+    if (orderErr || !order) {
+      return NextResponse.json({ error: 'Pedido não encontrado' }, { status: 404 });
+    }
+    const numAmount = Number(order.total);
     if (!numAmount || numAmount <= 0 || isNaN(numAmount)) {
-      return NextResponse.json({ error: 'Valor inválido', details: `Amount: ${amount}` }, { status: 400 });
+      return NextResponse.json({ error: 'Valor inválido no pedido' }, { status: 400 });
     }
 
     const email = (payer_email && payer_email.includes('@')) ? payer_email.trim() : `cliente${Date.now()}@fumego.com.br`;
@@ -110,7 +122,7 @@ export async function POST(request) {
       paymentBody.notification_url = `${appUrl.replace(/\/$/, '')}/api/pix-webhook`;
     }
 
-    console.log('=== CRIANDO PIX ===', JSON.stringify({ amount: numAmount, email, cpf: cleanCpf || 'n/a' }));
+    console.log('=== CRIANDO PIX ===', { order_id, order_number, amount: numAmount });
 
     let mpResponse;
     try {

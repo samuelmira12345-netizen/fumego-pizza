@@ -23,7 +23,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 });
     }
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET || 'secret', { expiresIn: '30d' });
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret) return NextResponse.json({ error: 'Servidor mal configurado' }, { status: 500 });
+    const token = jwt.sign({ userId: user.id, email: user.email }, jwtSecret, { expiresIn: '30d' });
 
     const { password_hash, ...safeUser } = user;
     return NextResponse.json({ token, user: safeUser });
