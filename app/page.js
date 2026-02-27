@@ -158,33 +158,64 @@ export default function HomePage() {
       {/* ===== HERO: PIZZA ESTILO TÁBUA (Imagem 2) ===== */}
       {calabresa && marguerita && (
         <section style={{ padding: '24px 16px 8px', textAlign: 'center' }}>
-          <div style={{
-            width: 320, height: 320, borderRadius: '50%', margin: '0 auto',
-            position: 'relative', overflow: 'hidden',
-            border: '4px solid #8B7335',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-          }}>
-            {/* Pizza inteira - lado esquerdo (Calabresa) */}
-            <div
-              onClick={() => openProductModal(calabresa)}
-              style={{
-                position: 'absolute', top: 0, left: 0, width: '50%', height: '100%',
-                cursor: 'pointer', overflow: 'hidden',
-              }}
-            >
-              {getImageUrl(calabresa) ? (
-                <img src={getImageUrl(calabresa)} alt="Calabresa"
-                  style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: 'left center' }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #8B2500, #A0522D)' }} />
-              )}
+          <div style={{ position: 'relative', width: 320, margin: '0 auto' }}>
+            {/* Círculo com as imagens */}
+            <div style={{
+              width: 320, height: 320, borderRadius: '50%',
+              position: 'relative', overflow: 'hidden',
+              border: '4px solid #8B7335',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            }}>
+              {/* Pizza inteira - lado esquerdo (Calabresa) */}
+              <div
+                onClick={() => openProductModal(calabresa)}
+                style={{
+                  position: 'absolute', top: 0, left: 0, width: '50%', height: '100%',
+                  cursor: 'pointer', overflow: 'hidden',
+                }}
+              >
+                {getImageUrl(calabresa) ? (
+                  <img src={getImageUrl(calabresa)} alt="Calabresa"
+                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: 'left center' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #8B2500, #A0522D)' }} />
+                )}
+              </div>
 
+              {/* Pizza inteira - lado direito (Marguerita) */}
+              <div
+                onClick={() => openProductModal(marguerita)}
+                style={{
+                  position: 'absolute', top: 0, right: 0, width: '50%', height: '100%',
+                  cursor: 'pointer', overflow: 'hidden',
+                }}
+              >
+                {getImageUrl(marguerita) ? (
+                  <img src={getImageUrl(marguerita)} alt="Marguerita"
+                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: 'right center' }} />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #228B22, #2E8B57)' }} />
+                )}
+              </div>
+
+              {/* Divisor central dourado */}
+              <div style={{
+                position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+                width: 3, height: '100%', background: '#8B7335', zIndex: 5,
+                boxShadow: '0 0 6px rgba(139,115,53,0.5)',
+              }} />
+            </div>
+
+            {/* Labels sobrepostos ao círculo, fora do overflow:hidden */}
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              display: 'flex', pointerEvents: 'none', zIndex: 10,
+            }}>
               {/* Texto Calabresa */}
               <div style={{
-                position: 'absolute', bottom: 0, left: 0, right: 0,
-                padding: '24px 8px 16px',
+                flex: 1, textAlign: 'center', padding: '32px 8px 18px',
                 background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
-                textAlign: 'center',
+                borderRadius: '0 0 0 160px',
               }}>
                 <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>01</span>
                 <p style={{ fontSize: 18, fontWeight: 'bold', color: '#fff', lineHeight: 1.2 }}>Calabresa</p>
@@ -192,29 +223,12 @@ export default function HomePage() {
                   R$ {Number(calabresa.price).toFixed(2).replace('.', ',')}
                 </p>
               </div>
-            </div>
-
-            {/* Pizza inteira - lado direito (Marguerita) */}
-            <div
-              onClick={() => openProductModal(marguerita)}
-              style={{
-                position: 'absolute', top: 0, right: 0, width: '50%', height: '100%',
-                cursor: 'pointer', overflow: 'hidden',
-              }}
-            >
-              {getImageUrl(marguerita) ? (
-                <img src={getImageUrl(marguerita)} alt="Marguerita"
-                  style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: 'right center' }} />
-              ) : (
-                <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #228B22, #2E8B57)' }} />
-              )}
 
               {/* Texto Marguerita */}
               <div style={{
-                position: 'absolute', bottom: 0, left: 0, right: 0,
-                padding: '24px 8px 16px',
+                flex: 1, textAlign: 'center', padding: '32px 8px 18px',
                 background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
-                textAlign: 'center',
+                borderRadius: '0 0 160px 0',
               }}>
                 <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>02</span>
                 <p style={{ fontSize: 18, fontWeight: 'bold', color: '#fff', lineHeight: 1.2 }}>Marguerita</p>
@@ -223,13 +237,6 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
-
-            {/* Divisor central dourado */}
-            <div style={{
-              position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
-              width: 3, height: '100%', background: '#8B7335', zIndex: 5,
-              boxShadow: '0 0 6px rgba(139,115,53,0.5)',
-            }} />
           </div>
 
           <p style={{ color: '#777', fontSize: 11, textTransform: 'uppercase', letterSpacing: 4, marginTop: 16, fontWeight: 600 }}>
