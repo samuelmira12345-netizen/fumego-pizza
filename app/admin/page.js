@@ -20,6 +20,20 @@ export default function AdminPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [newDrink, setNewDrink] = useState({ name: '', size: '', price: '' });
   const [addingDrink, setAddingDrink] = useState(false);
+  // Logo visível antes do login
+  const [loginLogo, setLoginLogo] = useState('');
+  const [loginLogoSize, setLoginLogoSize] = useState(48);
+
+  useEffect(() => {
+    supabase.from('settings').select('key,value').in('key', ['logo_url', 'logo_size'])
+      .then(({ data: rows }) => {
+        if (!rows) return;
+        const url  = rows.find(r => r.key === 'logo_url')?.value  || '';
+        const size = rows.find(r => r.key === 'logo_size')?.value || '48';
+        if (url)  setLoginLogo(url);
+        if (size) setLoginLogoSize(parseInt(size) || 48);
+      });
+  }, []);
 
   async function handleLogin() {
     setLoading(true);
@@ -186,8 +200,11 @@ export default function AdminPage() {
     return (
       <div style={{ minHeight: '100vh', background: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>
-            <Flame size={48} color="#D4A528" />
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+            {loginLogo
+              ? <img src={loginLogo} alt="Logo" style={{ height: loginLogoSize, objectFit: 'contain' }} />
+              : <Flame size={48} color="#D4A528" />
+            }
           </div>
           <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 24, fontWeight: 'bold', color: '#D4A528', margin: '12px 0' }}>Admin FUMÊGO</h1>
           <input className="input-field" type="password" placeholder="Senha do admin" value={password}
