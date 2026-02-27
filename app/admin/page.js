@@ -13,6 +13,8 @@ export default function AdminPage() {
   const [msg, setMsg] = useState('');
   const [uploadingId, setUploadingId] = useState(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [newDrink, setNewDrink] = useState({ name: '', size: '', price: '' });
+  const [addingDrink, setAddingDrink] = useState(false);
 
   async function handleLogin() {
     setLoading(true);
@@ -124,6 +126,35 @@ export default function AdminPage() {
     finally { setUploadingLogo(false); }
   }
 
+  async function handleAddDrink() {
+    if (!newDrink.name || !newDrink.price) { alert('Preencha pelo menos o nome e o preço'); return; }
+    setAddingDrink(true);
+    try {
+      const { data: inserted, error } = await supabase
+        .from('drinks')
+        .insert({ name: newDrink.name, size: newDrink.size, price: parseFloat(newDrink.price), is_active: true })
+        .select()
+        .single();
+      if (error) { alert('Erro: ' + error.message); return; }
+      setData(prev => ({ ...prev, drinks: [...prev.drinks, inserted] }));
+      setNewDrink({ name: '', size: '', price: '' });
+      setMsg('✅ Bebida adicionada!');
+      setTimeout(() => setMsg(''), 2500);
+    } catch (e) { alert('Erro: ' + e.message); }
+    finally { setAddingDrink(false); }
+  }
+
+  async function handleDeleteDrink(drinkId) {
+    if (!confirm('Excluir esta bebida?')) return;
+    try {
+      const { error } = await supabase.from('drinks').delete().eq('id', drinkId);
+      if (error) { alert('Erro: ' + error.message); return; }
+      setData(prev => ({ ...prev, drinks: prev.drinks.filter(d => d.id !== drinkId) }));
+      setMsg('✅ Bebida excluída!');
+      setTimeout(() => setMsg(''), 2500);
+    } catch (e) { alert('Erro: ' + e.message); }
+  }
+
   async function removeLogo() {
     try {
       await supabase.from('settings').upsert({ key: 'logo_url', value: '' }, { onConflict: 'key' });
@@ -221,19 +252,50 @@ export default function AdminPage() {
         ))}
 
         {/* BEBIDAS */}
-        {tab === 'drinks' && data.drinks.map((d, idx) => (
-          <div key={d.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid #444' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold' }}>{d.name} {d.size}</h3>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                <input type="checkbox" checked={d.is_active} onChange={e => updateDrink(idx, 'is_active', e.target.checked)} />
-                <span style={{ fontSize: 12, color: d.is_active ? '#48BB78' : '#E53E3E' }}>{d.is_active ? 'Ativo' : 'Inativo'}</span>
-              </label>
+        {tab === 'drinks' && (
+          <div>
+            {data.drinks.map((d, idx) => (
+              <div key={d.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid #444' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={d.is_active} onChange={e => updateDrink(idx, 'is_active', e.target.checked)} />
+                    <span style={{ fontSize: 12, color: d.is_active ? '#48BB78' : '#E53E3E' }}>{d.is_active ? 'Ativo' : 'Inativo'}</span>
+                  </label>
+                  <button onClick={() => handleDeleteDrink(d.id)}
+                    style={{ background: 'rgba(229,83,83,0.15)', border: '1px solid rgba(229,83,83,0.3)', color: '#E53E3E', borderRadius: 8, padding: '4px 12px', fontSize: 12, cursor: 'pointer' }}>
+                    🗑️ Excluir
+                  </button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <input className="input-field" placeholder="Marca/Nome" value={d.name || ''}
+                    onChange={e => updateDrink(idx, 'name', e.target.value)} />
+                  <input className="input-field" placeholder="Tamanho (ex: 600ml)" value={d.size || ''}
+                    onChange={e => updateDrink(idx, 'size', e.target.value)} />
+                </div>
+                <input className="input-field" placeholder="Preço" type="number" step="0.01" value={d.price || ''}
+                  onChange={e => updateDrink(idx, 'price', e.target.value)} />
+              </div>
+            ))}
+
+            {/* Formulário para nova bebida */}
+            <div style={{ background: '#222', borderRadius: 12, padding: 16, border: '1px dashed #555', marginTop: 8 }}>
+              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 14 }}>➕ Adicionar Bebida</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                <input className="input-field" placeholder="Marca/Nome (ex: Coca-Cola)"
+                  value={newDrink.name} onChange={e => setNewDrink(prev => ({ ...prev, name: e.target.value }))} />
+                <input className="input-field" placeholder="Tamanho (ex: 600ml)"
+                  value={newDrink.size} onChange={e => setNewDrink(prev => ({ ...prev, size: e.target.value }))} />
+              </div>
+              <input className="input-field" placeholder="Preço" type="number" step="0.01"
+                value={newDrink.price} onChange={e => setNewDrink(prev => ({ ...prev, price: e.target.value }))}
+                style={{ marginBottom: 12 }} />
+              <button onClick={handleAddDrink} disabled={addingDrink}
+                style={{ width: '100%', padding: '12px', background: '#D4A528', color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 'bold', cursor: 'pointer', opacity: addingDrink ? 0.5 : 1 }}>
+                {addingDrink ? '⏳ Adicionando...' : '✅ Adicionar Bebida'}
+              </button>
             </div>
-            <input className="input-field" placeholder="Preço" type="number" step="0.01" value={d.price || ''}
-              onChange={e => updateDrink(idx, 'price', e.target.value)} />
           </div>
-        ))}
+        )}
 
         {/* CONFIG */}
         {tab === 'settings' && (
@@ -243,12 +305,30 @@ export default function AdminPage() {
             <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
               <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 12 }}>🎨 Logo da Pizzaria</h3>
               <p style={{ color: '#888', fontSize: 12, marginBottom: 12 }}>
-                Faça upload da sua logo. Ela substituirá o texto "FUMÊGO" no cabeçalho.
+                A logo aparece ao lado esquerdo do nome "FUMÊGO" no cabeçalho.
               </p>
 
               {getSetting('logo_url') && (
-                <div style={{ marginBottom: 12, textAlign: 'center' }}>
-                  <img src={getSetting('logo_url')} alt="Logo" style={{ maxHeight: 60, objectFit: 'contain' }} />
+                <div style={{ marginBottom: 14, padding: 12, background: '#1A1A1A', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <img src={getSetting('logo_url')} alt="Logo"
+                    style={{ height: parseInt(getSetting('logo_size') || '36'), objectFit: 'contain' }} />
+                  <span style={{ color: '#D4A528', fontWeight: 'bold', fontSize: 16, letterSpacing: 3 }}>FUMÊGO</span>
+                </div>
+              )}
+
+              {/* Controle de tamanho */}
+              {getSetting('logo_url') && (
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ color: '#888', fontSize: 12, display: 'block', marginBottom: 6 }}>
+                    Tamanho da logo: <strong style={{ color: '#fff' }}>{getSetting('logo_size') || '36'}px</strong>
+                  </label>
+                  <input type="range" min="24" max="80" step="2"
+                    value={getSetting('logo_size') || '36'}
+                    onChange={e => updateSetting('logo_size', e.target.value)}
+                    style={{ width: '100%', accentColor: '#D4A528' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#666', marginTop: 2 }}>
+                    <span>Pequeno (24px)</span><span>Grande (80px)</span>
+                  </div>
                 </div>
               )}
 
