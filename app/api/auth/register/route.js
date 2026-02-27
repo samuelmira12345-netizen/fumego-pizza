@@ -5,7 +5,11 @@ import jwt from 'jsonwebtoken';
 
 export async function POST(request) {
   try {
-    const { name, email, phone, password } = await request.json();
+    const {
+      name, email, phone, password,
+      address_street, address_number, address_complement,
+      address_neighborhood, address_city, address_state, address_zipcode,
+    } = await request.json();
     if (!name || !email || !password) {
       return NextResponse.json({ error: 'Nome, email e senha são obrigatórios' }, { status: 400 });
     }
@@ -22,7 +26,17 @@ export async function POST(request) {
     const password_hash = await bcrypt.hash(password, 10);
     const { data: user, error } = await supabase
       .from('users').insert({
-        name, email: email.toLowerCase().trim(), phone: phone || null, password_hash,
+        name,
+        email: email.toLowerCase().trim(),
+        phone: phone || null,
+        password_hash,
+        address_street:       address_street       || null,
+        address_number:       address_number       || null,
+        address_complement:   address_complement   || null,
+        address_neighborhood: address_neighborhood || null,
+        address_city:         address_city         || null,
+        address_state:        address_state        || null,
+        address_zipcode:      address_zipcode      || null,
       }).select().single();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
