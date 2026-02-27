@@ -2,6 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import {
+  Flame, UtensilsCrossed, GlassWater, Settings, Package,
+  Upload, Loader2, Trash2, Plus, Check, Save,
+  Palette, Store, Star, Landmark, CreditCard, Banknote,
+} from 'lucide-react';
 
 export default function AdminPage() {
   const [password, setPassword] = useState('');
@@ -181,7 +186,9 @@ export default function AdminPage() {
     return (
       <div style={{ minHeight: '100vh', background: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
-          <div style={{ fontSize: 48 }}>🔥</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>
+            <Flame size={48} color="#D4A528" />
+          </div>
           <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 24, fontWeight: 'bold', color: '#D4A528', margin: '12px 0' }}>Admin FUMÊGO</h1>
           <input className="input-field" type="password" placeholder="Senha do admin" value={password}
             onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()}
@@ -197,7 +204,9 @@ export default function AdminPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#1A1A1A' }}>
       <header style={{ background: '#1A1A1A', padding: '12px 16px', borderBottom: '1px solid #333', position: 'sticky', top: 0, zIndex: 100 }}>
-        <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 18, fontWeight: 'bold', color: '#D4A528' }}>🔥 Admin FUMÊGO</h1>
+        <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 18, fontWeight: 'bold', color: '#D4A528', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Flame size={20} color="#D4A528" /> Admin FUMÊGO
+        </h1>
       </header>
 
       {/* Tabs */}
@@ -206,7 +215,14 @@ export default function AdminPage() {
           <button key={t} onClick={() => setTab(t)}
             style={{ padding: '10px 16px', background: tab === t ? '#D4A528' : 'transparent', color: tab === t ? '#000' : '#888',
               border: 'none', fontSize: 13, fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            {t === 'products' ? '🍕 Produtos' : t === 'drinks' ? '🥤 Bebidas' : t === 'settings' ? '⚙️ Config' : '📦 Pedidos'}
+            {t === 'products'
+              ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><UtensilsCrossed size={14} /> Produtos</span>
+              : t === 'drinks'
+              ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><GlassWater size={14} /> Bebidas</span>
+              : t === 'settings'
+              ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings size={14} /> Config</span>
+              : <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Package size={14} /> Pedidos</span>
+            }
           </button>
         ))}
       </div>
@@ -232,7 +248,10 @@ export default function AdminPage() {
                 display: 'inline-block', padding: '8px 16px', background: '#444', color: '#fff', borderRadius: 8,
                 fontSize: 13, cursor: 'pointer', opacity: uploadingId === p.id ? 0.5 : 1,
               }}>
-                {uploadingId === p.id ? '⏳ Enviando...' : '📤 Enviar foto'}
+                {uploadingId === p.id
+                  ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</span>
+                  : <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Upload size={13} /> Enviar foto</span>
+                }
                 <input type="file" accept="image/*" style={{ display: 'none' }}
                   onChange={e => { if (e.target.files[0]) handleImageUpload(idx, e.target.files[0]); }}
                   disabled={uploadingId === p.id} />
@@ -262,8 +281,8 @@ export default function AdminPage() {
                     <span style={{ fontSize: 12, color: d.is_active ? '#48BB78' : '#E53E3E' }}>{d.is_active ? 'Ativo' : 'Inativo'}</span>
                   </label>
                   <button onClick={() => handleDeleteDrink(d.id)}
-                    style={{ background: 'rgba(229,83,83,0.15)', border: '1px solid rgba(229,83,83,0.3)', color: '#E53E3E', borderRadius: 8, padding: '4px 12px', fontSize: 12, cursor: 'pointer' }}>
-                    🗑️ Excluir
+                    style={{ background: 'rgba(229,83,83,0.15)', border: '1px solid rgba(229,83,83,0.3)', color: '#E53E3E', borderRadius: 8, padding: '4px 12px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Trash2 size={13} /> Excluir
                   </button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
@@ -279,7 +298,9 @@ export default function AdminPage() {
 
             {/* Formulário para nova bebida */}
             <div style={{ background: '#222', borderRadius: 12, padding: 16, border: '1px dashed #555', marginTop: 8 }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 14 }}>➕ Adicionar Bebida</h3>
+              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Plus size={16} color="#D4A528" /> Adicionar Bebida
+              </h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
                 <input className="input-field" placeholder="Marca/Nome (ex: Coca-Cola)"
                   value={newDrink.name} onChange={e => setNewDrink(prev => ({ ...prev, name: e.target.value }))} />
@@ -291,7 +312,10 @@ export default function AdminPage() {
                 style={{ marginBottom: 12 }} />
               <button onClick={handleAddDrink} disabled={addingDrink}
                 style={{ width: '100%', padding: '12px', background: '#D4A528', color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 'bold', cursor: 'pointer', opacity: addingDrink ? 0.5 : 1 }}>
-                {addingDrink ? '⏳ Adicionando...' : '✅ Adicionar Bebida'}
+                {addingDrink
+                  ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Adicionando...</span>
+                  : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Check size={14} /> Adicionar Bebida</span>
+                }
               </button>
             </div>
           </div>
@@ -303,7 +327,9 @@ export default function AdminPage() {
 
             {/* ===== LOGO DA PIZZARIA ===== */}
             <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 12 }}>🎨 Logo da Pizzaria</h3>
+              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Palette size={16} color="#D4A528" /> Logo da Pizzaria
+              </h3>
               <p style={{ color: '#888', fontSize: 12, marginBottom: 12 }}>
                 A logo aparece ao lado esquerdo do nome "FUMÊGO" no cabeçalho.
               </p>
@@ -337,7 +363,10 @@ export default function AdminPage() {
                   display: 'inline-block', padding: '8px 16px', background: '#D4A528', color: '#000', borderRadius: 8,
                   fontSize: 13, fontWeight: 'bold', cursor: 'pointer', opacity: uploadingLogo ? 0.5 : 1,
                 }}>
-                  {uploadingLogo ? '⏳ Enviando...' : '📤 Enviar Logo'}
+                  {uploadingLogo
+                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</span>
+                    : <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Upload size={13} /> Enviar Logo</span>
+                  }
                   <input type="file" accept="image/*" style={{ display: 'none' }}
                     onChange={e => { if (e.target.files[0]) handleLogoUpload(e.target.files[0]); }}
                     disabled={uploadingLogo} />
@@ -345,8 +374,8 @@ export default function AdminPage() {
 
                 {getSetting('logo_url') && (
                   <button onClick={removeLogo}
-                    style={{ padding: '8px 16px', background: '#555', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
-                    🗑️ Remover Logo
+                    style={{ padding: '8px 16px', background: '#555', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <Trash2 size={13} /> Remover Logo
                   </button>
                 )}
               </div>
@@ -354,7 +383,9 @@ export default function AdminPage() {
 
             {/* Loja */}
             <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 10 }}>🏪 Loja</h3>
+              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Store size={16} color="#D4A528" /> Loja
+              </h3>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <input type="checkbox" checked={getSetting('store_open') === 'true'}
                   onChange={e => updateSetting('store_open', e.target.checked ? 'true' : 'false')} />
@@ -368,7 +399,9 @@ export default function AdminPage() {
 
             {/* Especial do Mês */}
             <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 10 }}>⭐ Especial do Mês</h3>
+              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Star size={16} color="#D4A528" /> Especial do Mês
+              </h3>
               <input className="input-field" placeholder="Nome do sabor especial" value={getSetting('special_flavor_name')}
                 onChange={e => updateSetting('special_flavor_name', e.target.value)} style={{ marginBottom: 8 }} />
               <textarea className="input-field" placeholder="Descrição" value={getSetting('special_flavor_description')}
@@ -393,7 +426,12 @@ export default function AdminPage() {
                 background: o.payment_method === 'pix' ? '#0066CC' : o.payment_method === 'card' ? '#9333EA' : '#48BB78',
                 color: '#fff',
               }}>
-                {o.payment_method === 'pix' ? '🏦 PIX' : o.payment_method === 'card' ? '💳 Cartão' : '💵 Dinheiro'}
+                {o.payment_method === 'pix'
+                  ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Landmark size={11} /> PIX</span>
+                  : o.payment_method === 'card'
+                  ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CreditCard size={11} /> Cartão</span>
+                  : <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Banknote size={11} /> Dinheiro</span>
+                }
               </span>
             </div>
             {o.observations && <p style={{ color: '#777', fontSize: 11, fontStyle: 'italic', marginTop: 4 }}>Obs: {o.observations}</p>}
@@ -422,8 +460,11 @@ export default function AdminPage() {
       {tab !== 'orders' && (
         <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, padding: '12px 16px', background: '#2D2D2D', borderTop: '2px solid #D4A528', zIndex: 40 }}>
           {msg && <p style={{ fontSize: 13, textAlign: 'center', marginBottom: 6, color: msg.includes('✅') ? '#48BB78' : '#E53E3E' }}>{msg}</p>}
-          <button className="btn-primary" onClick={saveAll} disabled={saving}>
-            {saving ? '⏳ Salvando...' : '💾 Salvar Tudo'}
+          <button className="btn-primary" onClick={saveAll} disabled={saving}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            {saving
+              ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</>
+              : <><Save size={16} /> Salvar Tudo</>}
           </button>
         </div>
       )}

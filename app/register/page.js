@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Flame, Loader2 } from 'lucide-react';
 
 const GOLD   = '#F2A800';
 const BG     = '#080600';
@@ -90,7 +91,9 @@ export default function RegisterPage() {
 
         {/* Logo / header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: 44, filter: 'drop-shadow(0 0 12px rgba(242,168,0,0.5))' }}>🔥</div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <Flame size={44} color={GOLD} style={{ filter: 'drop-shadow(0 0 12px rgba(242,168,0,0.5))' }} />
+          </div>
           <h1 style={{
             fontFamily: 'var(--font-cinzel), Cinzel, Georgia, serif',
             fontSize: 22, fontWeight: 900, color: GOLD,
@@ -154,8 +157,9 @@ export default function RegisterPage() {
 
           {error && <p style={{ color: '#E04040', fontSize: 13, textAlign: 'center' }}>{error}</p>}
 
-          <button className="btn-primary" type="submit" disabled={loading}>
-            {loading ? 'Cadastrando…' : 'Criar Conta'}
+          <button className="btn-primary" type="submit" disabled={loading}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            {loading ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Cadastrando…</> : 'Criar Conta'}
           </button>
         </form>
 

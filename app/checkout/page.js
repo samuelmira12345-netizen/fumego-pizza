@@ -3,6 +3,18 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
+import {
+  ShoppingCart, X, ClipboardCopy, Loader2, CheckCircle2,
+  Landmark, CreditCard, Banknote, Clock, Truck,
+} from 'lucide-react';
+
+const GOLD   = '#F2A800';
+const BG     = '#080600';
+const CARD   = '#1C1500';
+const BORDER = '#2C1E00';
+const MUTED  = '#7A6040';
+const GREEN  = '#48BB78';
+const RED    = '#E04040';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -13,6 +25,7 @@ export default function CheckoutPage() {
   const [couponApplied, setCouponApplied] = useState(null);
   const [couponError, setCouponError] = useState('');
   const [deliveryFee, setDeliveryFee] = useState(0);
+  const [deliveryTime, setDeliveryTime] = useState('40–60 min');
   const [pixData, setPixData] = useState(null);
   const [orderCreated, setOrderCreated] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
@@ -46,8 +59,15 @@ export default function CheckoutPage() {
       }));
     }
 
-    supabase.from('settings').select('*').eq('key', 'delivery_fee').single()
-      .then(({ data }) => { if (data) setDeliveryFee(Number(data.value) || 0); });
+    supabase.from('settings').select('*').in('key', ['delivery_fee', 'delivery_time'])
+      .then(({ data }) => {
+        if (data) {
+          const fee  = data.find(s => s.key === 'delivery_fee');
+          const time = data.find(s => s.key === 'delivery_time');
+          if (fee)  setDeliveryFee(Number(fee.value) || 0);
+          if (time) setDeliveryTime(time.value || '40–60 min');
+        }
+      });
   }, []);
 
   function updateForm(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
@@ -107,7 +127,6 @@ export default function CheckoutPage() {
 
   function isFormValid() { return form.name && form.phone && form.street && form.number && form.neighborhood; }
 
-  // ===== CRIAR PEDIDO (comum para todos os métodos) =====
   async function createOrder() {
     const orderPayload = {
       user_id: user?.id || null,
@@ -121,7 +140,7 @@ export default function CheckoutPage() {
       coupon_code: couponApplied ? couponCode.toUpperCase() : null,
       observations: cart.map(i => i.observations).filter(Boolean).join(' | '),
       payment_method: paymentMethod,
-      payment_status: paymentMethod === 'cash' ? 'pending' : 'pending',
+      payment_status: 'pending',
       status: 'pending',
     };
 
@@ -157,7 +176,6 @@ export default function CheckoutPage() {
     return order;
   }
 
-  // ===== SUBMIT =====
   async function handleSubmitOrder() {
     if (!isFormValid()) { alert('Preencha: Nome, Telefone, Rua, Número e Bairro.'); return; }
     setLoading(true);
@@ -166,7 +184,6 @@ export default function CheckoutPage() {
     try {
       const order = await createOrder();
 
-      // --- PIX ---
       if (paymentMethod === 'pix') {
         const cleanCpf = form.cpf ? form.cpf.replace(/\D/g, '') : '';
         const pixRes = await fetch('/api/create-payment', {
@@ -180,20 +197,15 @@ export default function CheckoutPage() {
           }),
         });
         const pix = await pixRes.json();
-
         if (pix.error) { setPixError(pix); return; }
-
         setPixData(pix);
         setOrderCreated(true);
-
         await supabase.from('orders').update({
           pix_payment_id: pix.payment_id, pix_qr_code: pix.qr_code, pix_qr_code_base64: pix.qr_code_base64,
         }).eq('id', order.id);
-
         startPaymentCheck(order.id);
       }
 
-      // --- CARTÃO (redireciona para MP Checkout) ---
       else if (paymentMethod === 'card') {
         const cardRes = await fetch('/api/create-payment', {
           method: 'POST',
@@ -208,21 +220,12 @@ export default function CheckoutPage() {
           }),
         });
         const cardData = await cardRes.json();
-
         if (cardData.error) { setPixError(cardData); return; }
-
-        // Se tem checkout_url, redireciona
-        if (cardData.checkout_url) {
-          window.location.href = cardData.checkout_url;
-          return;
-        }
-
-        // Fallback: mostra como PIX
+        if (cardData.checkout_url) { window.location.href = cardData.checkout_url; return; }
         setPixData(cardData);
         setOrderCreated(true);
       }
 
-      // --- DINHEIRO ---
       else if (paymentMethod === 'cash') {
         localStorage.removeItem('fumego_cart');
         setCashOrderDone(true);
@@ -262,11 +265,19 @@ export default function CheckoutPage() {
   // ===== PAGAMENTO CONFIRMADO =====
   if (paymentConfirmed) {
     return (
-      <div style={{ minHeight: '100vh', background: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ textAlign: 'center', maxWidth: 400 }}>
-          <div style={{ fontSize: 60, marginBottom: 16 }}>✅</div>
-          <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 24, fontWeight: 'bold', color: '#D4A528', marginBottom: 8 }}>Pagamento Confirmado!</h1>
-          <p style={{ color: '#999', marginBottom: 24 }}>Seu pedido está sendo preparado. Obrigado!</p>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <CheckCircle2 size={64} color={GREEN} />
+          </div>
+          <h1 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 24, fontWeight: 'bold', color: GOLD, marginBottom: 8 }}>
+            Pagamento Confirmado!
+          </h1>
+          <p style={{ color: MUTED, marginBottom: 12 }}>Seu pedido está sendo preparado. Obrigado!</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: GOLD, fontSize: 14, marginBottom: 24 }}>
+            <Clock size={16} color={GOLD} />
+            <span>Previsão de entrega: {deliveryTime}</span>
+          </div>
           <button className="btn-primary" onClick={() => router.push('/')}>Voltar ao Cardápio</button>
         </div>
       </div>
@@ -276,14 +287,26 @@ export default function CheckoutPage() {
   // ===== PEDIDO DINHEIRO CONFIRMADO =====
   if (cashOrderDone) {
     return (
-      <div style={{ minHeight: '100vh', background: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
         <div style={{ textAlign: 'center', maxWidth: 400 }}>
-          <div style={{ fontSize: 60, marginBottom: 16 }}>🎉</div>
-          <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 24, fontWeight: 'bold', color: '#D4A528', marginBottom: 8 }}>Pedido Enviado!</h1>
-          <p style={{ color: '#999', marginBottom: 8 }}>Pagamento: Dinheiro na entrega</p>
-          <p style={{ color: '#D4A528', fontSize: 22, fontWeight: 'bold', marginBottom: 8 }}>Total: R$ {calcTotal().toFixed(2).replace('.', ',')}</p>
-          {cashChange && <p style={{ color: '#888', fontSize: 14, marginBottom: 16 }}>Troco para: R$ {cashChange}</p>}
-          <p style={{ color: '#777', fontSize: 13, marginBottom: 24 }}>Prepare o valor em espécie. Obrigado!</p>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+            <CheckCircle2 size={64} color={GREEN} />
+          </div>
+          <h1 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 24, fontWeight: 'bold', color: GOLD, marginBottom: 8 }}>
+            Pedido Enviado!
+          </h1>
+          <p style={{ color: MUTED, marginBottom: 8 }}>Pagamento: Dinheiro na entrega</p>
+          <p style={{ color: GOLD, fontSize: 22, fontWeight: 'bold', marginBottom: 8 }}>
+            Total: R$ {calcTotal().toFixed(2).replace('.', ',')}
+          </p>
+          {cashChange && (
+            <p style={{ color: MUTED, fontSize: 14, marginBottom: 8 }}>Troco para: R$ {cashChange}</p>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, color: GOLD, fontSize: 14, marginBottom: 8 }}>
+            <Clock size={16} color={GOLD} />
+            <span>Previsão de entrega: {deliveryTime}</span>
+          </div>
+          <p style={{ color: MUTED, fontSize: 13, marginBottom: 24 }}>Prepare o valor em espécie. Obrigado!</p>
           <button className="btn-primary" onClick={() => router.push('/')}>Voltar ao Cardápio</button>
         </div>
       </div>
@@ -293,10 +316,12 @@ export default function CheckoutPage() {
   // ===== TELA PIX =====
   if (orderCreated && pixData) {
     return (
-      <div style={{ minHeight: '100vh', background: '#1A1A1A', padding: 20 }}>
+      <div style={{ minHeight: '100vh', background: BG, padding: 20 }}>
         <div style={{ maxWidth: 400, margin: '0 auto', textAlign: 'center' }}>
-          <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 22, fontWeight: 'bold', color: '#D4A528', marginBottom: 4 }}>Pagamento via PIX</h1>
-          <p style={{ color: '#888', fontSize: 13, marginBottom: 20 }}>Escaneie o QR Code ou copie o código</p>
+          <h1 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 22, fontWeight: 'bold', color: GOLD, marginBottom: 4 }}>
+            Pagamento via PIX
+          </h1>
+          <p style={{ color: MUTED, fontSize: 13, marginBottom: 20 }}>Escaneie o QR Code ou copie o código</p>
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, marginBottom: 20 }}>
             {pixData.qr_code_base64 ? (
               <img src={`data:image/png;base64,${pixData.qr_code_base64}`} alt="QR PIX" style={{ width: 220, height: 220, margin: '0 auto 16px' }} />
@@ -305,14 +330,22 @@ export default function CheckoutPage() {
             )}
             <p style={{ fontSize: 28, fontWeight: 'bold', color: '#1A1A1A' }}>R$ {calcTotal().toFixed(2).replace('.', ',')}</p>
           </div>
-          <button className="btn-primary" onClick={copyPix} style={{ marginBottom: 16 }}>📋 Copiar Código PIX</button>
+          <button className="btn-primary" onClick={copyPix}
+            style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <ClipboardCopy size={16} /> Copiar Código PIX
+          </button>
           {pixData.qr_code && (
-            <div style={{ background: '#2D2D2D', borderRadius: 10, padding: 12, marginBottom: 16, wordBreak: 'break-all' }}>
-              <p style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Código PIX copia e cola:</p>
+            <div style={{ background: CARD, borderRadius: 10, padding: 12, marginBottom: 16, wordBreak: 'break-all', border: `1px solid ${BORDER}` }}>
+              <p style={{ fontSize: 11, color: MUTED, marginBottom: 6 }}>Código PIX copia e cola:</p>
               <p style={{ fontSize: 12, color: '#ddd', lineHeight: 1.4 }}>{pixData.qr_code}</p>
             </div>
           )}
-          {checkingPayment && <p style={{ color: '#D4A528', fontSize: 14, animation: 'pulse 1.5s infinite' }}>⏳ Aguardando pagamento...</p>}
+          {checkingPayment && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: GOLD, fontSize: 14 }}>
+              <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+              Aguardando pagamento...
+            </div>
+          )}
         </div>
       </div>
     );
@@ -320,41 +353,48 @@ export default function CheckoutPage() {
 
   // ===== CHECKOUT =====
   return (
-    <div style={{ minHeight: '100vh', background: '#1A1A1A' }}>
-      <header className="header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: '#D4A528', fontSize: 20, cursor: 'pointer' }}>←</button>
-          <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 18, fontWeight: 'bold', color: '#D4A528' }}>Checkout</h1>
-        </div>
+    <div style={{ minHeight: '100vh', background: BG }}>
+      <header className="header" style={{ justifyContent: 'space-between' }}>
+        <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: GOLD, fontSize: 22, cursor: 'pointer', width: 32 }}>←</button>
+        <h1 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 18, fontWeight: 'bold', color: GOLD }}>Checkout</h1>
+        <div style={{ width: 32 }} />
       </header>
 
       <div style={{ padding: '16px 16px 120px' }}>
+
         {/* CARRINHO */}
-        <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, marginBottom: 16, border: '1px solid #444' }}>
-          <h2 style={{ fontSize: 13, fontWeight: 'bold', color: '#D4A528', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12 }}>🛒 Seu Carrinho</h2>
+        <div style={{ background: CARD, borderRadius: 16, padding: 16, marginBottom: 16, border: `1px solid ${BORDER}` }}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <ShoppingCart size={15} color={GOLD} /> Seu Carrinho
+          </h2>
           {cart.map((item, idx) => (
-            <div key={item.id} style={{ borderBottom: idx < cart.length - 1 ? '1px solid #444' : 'none', paddingBottom: 10, marginBottom: 10 }}>
+            <div key={item.id} style={{ borderBottom: idx < cart.length - 1 ? `1px solid ${BORDER}` : 'none', paddingBottom: 10, marginBottom: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <p style={{ fontSize: 15, fontWeight: 'bold', color: '#fff' }}>{item.product.name}</p>
-                  {item.drinks?.map(d => <p key={d.id} style={{ fontSize: 12, color: '#aaa', marginTop: 2 }}>+ {d.name} {d.size} x{d.quantity}</p>)}
-                  {item.observations && <p style={{ fontSize: 11, color: '#777', fontStyle: 'italic', marginTop: 2 }}>Obs: {item.observations}</p>}
+                  {item.drinks?.map(d => <p key={d.id} style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>+ {d.name} {d.size} x{d.quantity}</p>)}
+                  {item.observations && <p style={{ fontSize: 11, color: '#3A2810', fontStyle: 'italic', marginTop: 2 }}>Obs: {item.observations}</p>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontWeight: 'bold', color: '#fff' }}>
                     R$ {(Number(item.product.price) + (item.drinks?.reduce((s, d) => s + Number(d.price) * d.quantity, 0) || 0)).toFixed(2).replace('.', ',')}
                   </span>
-                  <button onClick={() => removeCartItem(item.id)} style={{ background: 'none', border: 'none', color: '#E53E3E', fontSize: 18, cursor: 'pointer' }}>✕</button>
+                  <button onClick={() => removeCartItem(item.id)}
+                    style={{ background: 'none', border: 'none', color: RED, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <X size={18} />
+                  </button>
                 </div>
               </div>
             </div>
           ))}
-          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: '#D4A528', fontSize: 13, cursor: 'pointer', marginTop: 4 }}>+ Adicionar mais itens</button>
+          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: GOLD, fontSize: 13, cursor: 'pointer', marginTop: 4 }}>
+            + Adicionar mais itens
+          </button>
         </div>
 
         {/* DADOS PESSOAIS */}
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 'bold', color: '#D4A528', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Seus Dados</h2>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Seus Dados</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <input className="input-field" placeholder="Nome completo *" value={form.name} onChange={e => updateForm('name', e.target.value)} />
             <input className="input-field" placeholder="Telefone com DDD *" value={form.phone} onChange={e => updateForm('phone', e.target.value)} type="tel" />
@@ -365,12 +405,12 @@ export default function CheckoutPage() {
 
         {/* ENDEREÇO */}
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 'bold', color: '#D4A528', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Endereço de Entrega</h2>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Endereço de Entrega</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ position: 'relative' }}>
               <input className="input-field" placeholder="CEP" value={form.zipcode}
                 onChange={e => updateForm('zipcode', e.target.value)} onBlur={handleCepBlur} maxLength={9} inputMode="numeric" />
-              {cepLoading && <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#D4A528' }}>Buscando...</span>}
+              {cepLoading && <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: GOLD }}>Buscando...</span>}
             </div>
             <input className="input-field" placeholder="Rua / Avenida *" value={form.street} onChange={e => updateForm('street', e.target.value)} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
@@ -387,51 +427,53 @@ export default function CheckoutPage() {
 
         {/* CUPOM */}
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 'bold', color: '#D4A528', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Cupom</h2>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Cupom</h2>
           <div style={{ display: 'flex', gap: 8 }}>
             <input className="input-field" placeholder="Código" value={couponCode} onChange={e => setCouponCode(e.target.value)} disabled={!!couponApplied} style={{ flex: 1 }} />
             {couponApplied ? (
-              <button onClick={() => { setCouponApplied(null); setCouponCode(''); }} style={{ padding: '0 16px', background: '#555', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13 }}>Remover</button>
+              <button onClick={() => { setCouponApplied(null); setCouponCode(''); }}
+                style={{ padding: '0 16px', background: '#333', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13 }}>
+                Remover
+              </button>
             ) : (
               <button onClick={applyCoupon} className="btn-primary" style={{ width: 'auto', padding: '0 20px' }}>Aplicar</button>
             )}
           </div>
-          {couponError && <p style={{ color: '#E53E3E', fontSize: 12, marginTop: 4 }}>{couponError}</p>}
-          {couponApplied && <p style={{ color: '#48BB78', fontSize: 12, marginTop: 4 }}>✅ Cupom aplicado!</p>}
+          {couponError && <p style={{ color: RED, fontSize: 12, marginTop: 4 }}>{couponError}</p>}
+          {couponApplied && <p style={{ color: GREEN, fontSize: 12, marginTop: 4 }}>Cupom aplicado!</p>}
         </div>
 
-        {/* ===== FORMA DE PAGAMENTO ===== */}
+        {/* FORMA DE PAGAMENTO */}
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 'bold', color: '#D4A528', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Forma de Pagamento</h2>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Forma de Pagamento</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
-              { id: 'pix', icon: '🏦', label: 'PIX', desc: 'Pagamento instantâneo' },
-              { id: 'card', icon: '💳', label: 'Cartão', desc: 'Crédito ou Débito (Mercado Pago)' },
-              { id: 'cash', icon: '💵', label: 'Dinheiro', desc: 'Pagar na entrega' },
+              { id: 'pix',  Icon: Landmark,   label: 'PIX',    desc: 'Pagamento instantâneo' },
+              { id: 'card', Icon: CreditCard,  label: 'Cartão', desc: 'Crédito ou Débito (Mercado Pago)' },
+              { id: 'cash', Icon: Banknote,    label: 'Dinheiro', desc: 'Pagar na entrega' },
             ].map(pm => (
               <div key={pm.id} onClick={() => setPaymentMethod(pm.id)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
-                  border: paymentMethod === pm.id ? '2px solid #D4A528' : '1px solid #444',
-                  background: paymentMethod === pm.id ? 'rgba(212,165,40,0.08)' : '#2D2D2D',
+                  border: paymentMethod === pm.id ? `2px solid ${GOLD}` : `1px solid ${BORDER}`,
+                  background: paymentMethod === pm.id ? 'rgba(242,168,0,0.08)' : CARD,
                   transition: 'all 0.2s',
                 }}>
-                <span style={{ fontSize: 24 }}>{pm.icon}</span>
+                <pm.Icon size={22} color={paymentMethod === pm.id ? GOLD : MUTED} />
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: 15, fontWeight: 'bold', color: '#fff' }}>{pm.label}</p>
-                  <p style={{ fontSize: 12, color: '#888' }}>{pm.desc}</p>
+                  <p style={{ fontSize: 12, color: MUTED }}>{pm.desc}</p>
                 </div>
                 <div style={{
                   width: 22, height: 22, borderRadius: '50%',
-                  border: paymentMethod === pm.id ? '6px solid #D4A528' : '2px solid #555',
-                  background: paymentMethod === pm.id ? '#1A1A1A' : 'transparent',
+                  border: paymentMethod === pm.id ? `6px solid ${GOLD}` : `2px solid ${BORDER}`,
+                  background: paymentMethod === pm.id ? BG : 'transparent',
                 }} />
               </div>
             ))}
           </div>
 
-          {/* Troco para dinheiro */}
           {paymentMethod === 'cash' && (
             <div style={{ marginTop: 10 }}>
               <input className="input-field" placeholder="Troco para quanto? (opcional)" value={cashChange}
@@ -441,36 +483,47 @@ export default function CheckoutPage() {
         </div>
 
         {/* VALORES */}
-        <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, marginBottom: 16, border: '1px solid #444' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#aaa', marginBottom: 8 }}>
+        <div style={{ background: CARD, borderRadius: 16, padding: 16, marginBottom: 16, border: `1px solid ${BORDER}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: MUTED, marginBottom: 8 }}>
             <span>Subtotal</span><span style={{ color: '#fff' }}>R$ {calcSubtotal().toFixed(2).replace('.', ',')}</span>
           </div>
-          {deliveryFee > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#aaa', marginBottom: 8 }}>
-            <span>Entrega</span><span style={{ color: '#fff' }}>R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
-          </div>}
-          {calcDiscount() > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>
-            <span style={{ color: '#48BB78' }}>Desconto</span><span style={{ color: '#48BB78' }}>-R$ {calcDiscount().toFixed(2).replace('.', ',')}</span>
-          </div>}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 20, fontWeight: 'bold', borderTop: '1px solid #555', paddingTop: 10, marginTop: 4 }}>
-            <span style={{ color: '#D4A528' }}>Total</span><span style={{ color: '#D4A528' }}>R$ {calcTotal().toFixed(2).replace('.', ',')}</span>
+          {deliveryFee > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: MUTED, marginBottom: 8 }}>
+              <span>Entrega</span><span style={{ color: '#fff' }}>R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
+            </div>
+          )}
+          {calcDiscount() > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>
+              <span style={{ color: GREEN }}>Desconto</span><span style={{ color: GREEN }}>-R$ {calcDiscount().toFixed(2).replace('.', ',')}</span>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 20, fontWeight: 'bold', borderTop: `1px solid ${BORDER}`, paddingTop: 10, marginTop: 4 }}>
+            <span style={{ color: GOLD }}>Total</span><span style={{ color: GOLD }}>R$ {calcTotal().toFixed(2).replace('.', ',')}</span>
           </div>
         </div>
 
         {/* ERRO PIX */}
         {pixError && (
-          <div style={{ background: '#3D1515', border: '1px solid #E53E3E', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <p style={{ color: '#E53E3E', fontWeight: 'bold', fontSize: 15, marginBottom: 8 }}>❌ {pixError.error}</p>
-            {pixError.details && <p style={{ color: '#ccc', fontSize: 12, lineHeight: 1.5 }}>{pixError.details}</p>}
-            <button onClick={() => setPixError(null)} style={{ marginTop: 10, background: 'none', border: '1px solid #E53E3E', color: '#E53E3E', borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>Fechar</button>
+          <div style={{ background: 'rgba(224,64,64,0.1)', border: `1px solid ${RED}`, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <p style={{ color: RED, fontWeight: 'bold', fontSize: 15, marginBottom: 8 }}>{pixError.error}</p>
+            {pixError.details && <p style={{ color: MUTED, fontSize: 12, lineHeight: 1.5 }}>{pixError.details}</p>}
+            <button onClick={() => setPixError(null)}
+              style={{ marginTop: 10, background: 'none', border: `1px solid ${RED}`, color: RED, borderRadius: 8, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+              Fechar
+            </button>
           </div>
         )}
 
         {/* BOTÃO */}
-        <button className="btn-primary" onClick={handleSubmitOrder} disabled={loading || !isFormValid()} style={{ padding: 16, fontSize: 16 }}>
-          {loading ? '⏳ Processando...' :
-            paymentMethod === 'pix' ? '🏦 Pagar com PIX' :
-            paymentMethod === 'card' ? '💳 Pagar com Cartão' :
-            '💵 Finalizar Pedido (Dinheiro)'}
+        <button className="btn-primary" onClick={handleSubmitOrder} disabled={loading || !isFormValid()}
+          style={{ padding: 16, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          {loading
+            ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Processando...</>
+            : paymentMethod === 'pix'
+              ? <><Landmark size={18} /> Pagar com PIX</>
+              : paymentMethod === 'card'
+                ? <><CreditCard size={18} /> Pagar com Cartão</>
+                : <><Banknote size={18} /> Finalizar Pedido (Dinheiro)</>}
         </button>
       </div>
     </div>

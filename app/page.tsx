@@ -1,6 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import {
+  ShoppingCart, User, LogOut, Settings, Package,
+  X, Clock, Truck, ChevronRight, Flame, Star,
+  Minus, Plus, GlassWater, UtensilsCrossed,
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -44,7 +49,7 @@ interface User {
   email: string;
 }
 
-// ── Tokens de cor ─────────────────────────────────────────────────────────────
+// ── Tokens ────────────────────────────────────────────────────────────────────
 const GOLD       = '#F2A800';
 const GOLD_LIGHT = '#FFD060';
 const BG         = '#080600';
@@ -88,7 +93,6 @@ export default function HomePage() {
   async function loadData() {
     try {
       const [pRes, dRes, sRes] = await Promise.all([
-        // Busca TODOS os produtos (inclusive inativos) para poder mostrar "ESGOTADO"
         supabase.from('products').select('*').order('sort_order'),
         supabase.from('drinks').select('*').eq('is_active', true).order('name'),
         supabase.from('settings').select('*'),
@@ -125,8 +129,12 @@ export default function HomePage() {
     });
   }
 
+  // FIX: quando qty < 1, remove a bebida ao invés de bloquear
   function updateDrinkQty(drinkId: number, qty: number) {
-    if (qty < 1) return;
+    if (qty < 1) {
+      setSelectedDrinks(prev => prev.filter(d => d.id !== drinkId));
+      return;
+    }
     setSelectedDrinks(prev => prev.map(d => d.id === drinkId ? { ...d, quantity: qty } : d));
   }
 
@@ -175,21 +183,21 @@ export default function HomePage() {
     setShowUserMenu(false);
   }
 
-  const marguerita = getProduct('marguerita');
-  const calabresa  = getProduct('calabresa');
-  // Combo e Especial só aparecem se ativos
-  const combo      = getProduct('combo-classico');
-  const especial   = getProduct('especial-do-mes');
-  const logoUrl    = settings.logo_url || null;
-  const logoSize   = parseInt(settings.logo_size || '36');
-  const cartCount  = cart.length;
+  const marguerita  = getProduct('marguerita');
+  const calabresa   = getProduct('calabresa');
+  const combo       = getProduct('combo-classico');
+  const especial    = getProduct('especial-do-mes');
+  const logoUrl     = settings.logo_url || null;
+  const logoSize    = parseInt(settings.logo_size || '36');
+  const deliveryTime = settings.delivery_time || '40–60 min';
+  const cartCount   = cart.length;
 
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BG }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 52, filter: 'drop-shadow(0 0 16px rgba(242,168,0,0.5))' }}>🍕</div>
+          <Flame size={48} color={GOLD} style={{ filter: 'drop-shadow(0 0 16px rgba(242,168,0,0.5))' }} />
           <p style={{ color: GOLD, marginTop: 16, animation: 'pulse 1.5s infinite', fontSize: 12, letterSpacing: 3, textTransform: 'uppercase', fontWeight: 700 }}>
             Carregando…
           </p>
@@ -204,15 +212,9 @@ export default function HomePage() {
 
       {/* ── HEADER ── */}
       <header className="header" style={{ justifyContent: 'center', position: 'relative' }}>
-
-        {/* Logo + nome juntos */}
         <div style={{ display: 'flex', alignItems: 'center', gap: logoUrl ? 10 : 0 }}>
           {logoUrl && (
-            <img
-              src={logoUrl}
-              alt="Logo"
-              style={{ height: logoSize, objectFit: 'contain', display: 'block' }}
-            />
+            <img src={logoUrl} alt="Logo" style={{ height: logoSize, objectFit: 'contain', display: 'block' }} />
           )}
           <h1 style={{
             fontFamily: 'var(--font-cinzel), Cinzel, Georgia, serif',
@@ -223,20 +225,15 @@ export default function HomePage() {
           </h1>
         </div>
 
-        {/* Ícones direita */}
         <div style={{ position: 'absolute', right: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
           {/* Carrinho */}
-          <button
-            onClick={goToCheckout}
-            style={{ background: 'none', border: 'none', color: '#fff', fontSize: 20, cursor: 'pointer', position: 'relative', padding: 4 }}
-          >
-            🛒
+          <button onClick={goToCheckout} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', position: 'relative', padding: 4 }}>
+            <ShoppingCart size={22} color={cartCount > 0 ? GOLD : '#888'} />
             {cartCount > 0 && (
               <span style={{
                 position: 'absolute', top: -4, right: -6,
                 background: '#E04040', color: '#fff',
-                fontSize: 9, fontWeight: 800,
-                width: 17, height: 17, borderRadius: '50%',
+                fontSize: 9, fontWeight: 800, width: 17, height: 17, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 border: `1.5px solid ${BG}`,
               }}>
@@ -263,12 +260,7 @@ export default function HomePage() {
 
               {showUserMenu && (
                 <>
-                  {/* Overlay para fechar ao clicar fora */}
-                  <div
-                    style={{ position: 'fixed', inset: 0, zIndex: 150 }}
-                    onClick={() => setShowUserMenu(false)}
-                  />
-                  {/* Menu */}
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setShowUserMenu(false)} />
                   <div style={{
                     position: 'absolute', top: 42, right: 0,
                     background: '#1A1400', border: `1px solid ${BORDER}`,
@@ -276,44 +268,40 @@ export default function HomePage() {
                     boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
                     animation: 'fadeIn 0.15s ease-out',
                   }}>
-                    {/* Nome do usuário */}
                     <div style={{ padding: '10px 16px 10px', borderBottom: `1px solid ${BORDER}` }}>
                       <p style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{user.name}</p>
                       <p style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{user.email}</p>
                     </div>
 
-                    <button
-                      onClick={() => { setShowUserMenu(false); router.push('/account'); }}
-                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', color: '#fff', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
-                    >
-                      ⚙️&nbsp; Configurações da conta
-                    </button>
-
-                    <button
-                      onClick={() => { setShowUserMenu(false); router.push('/orders'); }}
-                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', color: '#fff', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
-                    >
-                      📦&nbsp; Ver meus pedidos
-                    </button>
+                    {[
+                      { icon: <Settings size={15} />, label: 'Configurações da conta', action: () => { setShowUserMenu(false); router.push('/account'); } },
+                      { icon: <Package size={15} />, label: 'Ver meus pedidos', action: () => { setShowUserMenu(false); router.push('/orders'); } },
+                    ].map(item => (
+                      <button key={item.label}
+                        onClick={item.action}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', color: '#fff', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
+                      >
+                        <span style={{ color: MUTED }}>{item.icon}</span>
+                        {item.label}
+                      </button>
+                    ))}
 
                     <div style={{ height: 1, background: BORDER, margin: '4px 0' }} />
 
                     <button
                       onClick={logout}
-                      style={{ display: 'block', width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', color: '#E04040', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', color: '#E04040', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
                     >
-                      🚪&nbsp; Sair da conta
+                      <LogOut size={15} />
+                      Sair da conta
                     </button>
                   </div>
                 </>
               )}
             </div>
           ) : (
-            <button
-              onClick={() => router.push('/login')}
-              style={{ background: 'none', border: 'none', color: MUTED, fontSize: 20, cursor: 'pointer' }}
-            >
-              👤
+            <button onClick={() => router.push('/login')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+              <User size={22} color={MUTED} />
             </button>
           )}
         </div>
@@ -322,12 +310,9 @@ export default function HomePage() {
       {/* ── LOJA FECHADA ── */}
       {!storeOpen && (
         <div style={{
-          background: 'rgba(224,64,64,0.12)',
-          borderBottom: '1px solid rgba(224,64,64,0.25)',
-          color: '#FF8080', textAlign: 'center',
-          padding: '10px 16px', fontSize: 12,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          letterSpacing: 0.5,
+          background: 'rgba(224,64,64,0.12)', borderBottom: '1px solid rgba(224,64,64,0.25)',
+          color: '#FF8080', textAlign: 'center', padding: '10px 16px', fontSize: 12,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, letterSpacing: 0.5,
         }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#E04040', display: 'inline-block', boxShadow: '0 0 8px #E04040' }} />
           Estamos fechados no momento
@@ -342,99 +327,61 @@ export default function HomePage() {
           </p>
 
           <div style={{ position: 'relative', width: 300, margin: '0 auto' }}>
-            {/* Brilho ambiente */}
+            {/* Brilho */}
             <div style={{
               position: 'absolute', inset: -20, borderRadius: '50%',
               background: 'radial-gradient(circle, rgba(242,168,0,0.1) 0%, transparent 70%)',
               pointerEvents: 'none', animation: 'glow 3s ease-in-out infinite',
             }} />
 
-            {/* Círculo da pizza */}
+            {/* Círculo */}
             <div style={{
               width: 300, height: 300, borderRadius: '50%',
               position: 'relative', overflow: 'hidden',
               border: `3px solid ${GOLD}`,
               boxShadow: `0 0 0 1px rgba(242,168,0,0.1), 0 16px 48px rgba(0,0,0,0.8), 0 0 40px rgba(242,168,0,0.08)`,
             }}>
-              {/* ── Metade esquerda: Calabresa ── */}
-              <div
-                onClick={() => openProductModal(calabresa)}
-                style={{
-                  position: 'absolute', top: 0, left: 0, width: '50%', height: '100%',
-                  cursor: calabresa.is_active && storeOpen ? 'pointer' : 'default',
-                  overflow: 'hidden',
-                }}
-              >
+              {/* Metade esquerda — Calabresa */}
+              <div onClick={() => openProductModal(calabresa)} style={{
+                position: 'absolute', top: 0, left: 0, width: '50%', height: '100%',
+                cursor: calabresa.is_active && storeOpen ? 'pointer' : 'default', overflow: 'hidden',
+              }}>
                 {imgUrl(calabresa) ? (
                   <img src={imgUrl(calabresa)!} alt="Calabresa"
-                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: 'left center',
-                      filter: calabresa.is_active ? 'none' : 'grayscale(70%) brightness(0.5)',
-                    }} />
+                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: 'left center', filter: calabresa.is_active ? 'none' : 'grayscale(70%) brightness(0.5)' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', background: calabresa.is_active ? 'linear-gradient(160deg, #5A1800, #8B3200)' : '#2A1A1A' }} />
                 )}
-
-                {/* ESGOTADO overlay */}
                 {!calabresa.is_active && (
-                  <div style={{
-                    position: 'absolute', inset: 0, zIndex: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    pointerEvents: 'none',
-                  }}>
-                    <span style={{
-                      color: '#E04040', fontWeight: 900, fontSize: 11,
-                      letterSpacing: 2, textTransform: 'uppercase',
-                      transform: 'rotate(-30deg)',
-                      textShadow: '0 0 8px rgba(0,0,0,0.8)',
-                      border: '2px solid #E04040', padding: '3px 7px', borderRadius: 4,
-                      background: 'rgba(0,0,0,0.6)',
-                    }}>
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <span style={{ color: '#E04040', fontWeight: 900, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', transform: 'rotate(-30deg)', textShadow: '0 0 8px rgba(0,0,0,0.8)', border: '2px solid #E04040', padding: '3px 7px', borderRadius: 4, background: 'rgba(0,0,0,0.6)' }}>
                       ESGOTADO
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* ── Metade direita: Marguerita ── */}
-              <div
-                onClick={() => openProductModal(marguerita)}
-                style={{
-                  position: 'absolute', top: 0, right: 0, width: '50%', height: '100%',
-                  cursor: marguerita.is_active && storeOpen ? 'pointer' : 'default',
-                  overflow: 'hidden',
-                }}
-              >
+              {/* Metade direita — Marguerita */}
+              <div onClick={() => openProductModal(marguerita)} style={{
+                position: 'absolute', top: 0, right: 0, width: '50%', height: '100%',
+                cursor: marguerita.is_active && storeOpen ? 'pointer' : 'default', overflow: 'hidden',
+              }}>
                 {imgUrl(marguerita) ? (
                   <img src={imgUrl(marguerita)!} alt="Marguerita"
-                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: 'right center',
-                      filter: marguerita.is_active ? 'none' : 'grayscale(70%) brightness(0.5)',
-                    }} />
+                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: 'right center', filter: marguerita.is_active ? 'none' : 'grayscale(70%) brightness(0.5)' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', background: marguerita.is_active ? 'linear-gradient(160deg, #1A5A1A, #2E7D32)' : '#1A2A1A' }} />
                 )}
-
-                {/* ESGOTADO overlay */}
                 {!marguerita.is_active && (
-                  <div style={{
-                    position: 'absolute', inset: 0, zIndex: 8,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    pointerEvents: 'none',
-                  }}>
-                    <span style={{
-                      color: '#E04040', fontWeight: 900, fontSize: 11,
-                      letterSpacing: 2, textTransform: 'uppercase',
-                      transform: 'rotate(30deg)',
-                      textShadow: '0 0 8px rgba(0,0,0,0.8)',
-                      border: '2px solid #E04040', padding: '3px 7px', borderRadius: 4,
-                      background: 'rgba(0,0,0,0.6)',
-                    }}>
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <span style={{ color: '#E04040', fontWeight: 900, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', transform: 'rotate(30deg)', textShadow: '0 0 8px rgba(0,0,0,0.8)', border: '2px solid #E04040', padding: '3px 7px', borderRadius: 4, background: 'rgba(0,0,0,0.6)' }}>
                       ESGOTADO
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Divisor central */}
+              {/* Divisor */}
               <div style={{
                 position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
                 width: 2, height: '100%',
@@ -443,43 +390,40 @@ export default function HomePage() {
               }} />
             </div>
 
-            {/* Preços / ESGOTADO – fora do overflow:hidden */}
+            {/* Labels de preço fora do overflow:hidden */}
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, display: 'flex', pointerEvents: 'none', zIndex: 10 }}>
-              {/* Calabresa */}
-              <div style={{
-                flex: 1, textAlign: 'center', padding: '32px 8px 18px',
-                background: 'linear-gradient(to top, rgba(8,6,0,0.95) 0%, rgba(8,6,0,0.55) 60%, transparent 100%)',
-                borderRadius: '0 0 0 150px',
-              }}>
+              <div style={{ flex: 1, textAlign: 'center', padding: '32px 8px 18px', background: 'linear-gradient(to top, rgba(8,6,0,0.95) 0%, rgba(8,6,0,0.55) 60%, transparent 100%)', borderRadius: '0 0 0 150px' }}>
                 <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: 2, textTransform: 'uppercase' }}>01</p>
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2, marginTop: 3 }}>Calabresa</p>
-                {calabresa.is_active ? (
-                  <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(calabresa.price)}</p>
-                ) : (
-                  <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
-                )}
+                {calabresa.is_active
+                  ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(calabresa.price)}</p>
+                  : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
+                }
               </div>
-
-              {/* Marguerita */}
-              <div style={{
-                flex: 1, textAlign: 'center', padding: '32px 8px 18px',
-                background: 'linear-gradient(to top, rgba(8,6,0,0.95) 0%, rgba(8,6,0,0.55) 60%, transparent 100%)',
-                borderRadius: '0 0 150px 0',
-              }}>
+              <div style={{ flex: 1, textAlign: 'center', padding: '32px 8px 18px', background: 'linear-gradient(to top, rgba(8,6,0,0.95) 0%, rgba(8,6,0,0.55) 60%, transparent 100%)', borderRadius: '0 0 150px 0' }}>
                 <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: 2, textTransform: 'uppercase' }}>02</p>
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2, marginTop: 3 }}>Marguerita</p>
-                {marguerita.is_active ? (
-                  <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(marguerita.price)}</p>
-                ) : (
-                  <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
-                )}
+                {marguerita.is_active
+                  ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(marguerita.price)}</p>
+                  : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
+                }
               </div>
             </div>
           </div>
 
+          {/* Info abaixo do círculo */}
           <p style={{ color: '#2E1E08', fontSize: 11, marginTop: 20, letterSpacing: 1.5, textTransform: 'uppercase' }}>
             toque para pedir
           </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 10 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: FAINT, fontSize: 12 }}>
+              <Truck size={13} color={FAINT} /> Apenas entrega
+            </span>
+            <span style={{ width: 1, height: 12, background: BORDER, display: 'inline-block' }} />
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: FAINT, fontSize: 12 }}>
+              <Clock size={13} color={FAINT} /> {deliveryTime}
+            </span>
+          </div>
         </section>
       )}
 
@@ -487,24 +431,27 @@ export default function HomePage() {
       {combo?.is_active && (
         <section style={{ margin: '4px 16px 14px' }}>
           <div style={{
-            borderRadius: 20, overflow: 'hidden',
-            background: CARD,
-            border: '1px solid rgba(242,168,0,0.2)',
-            boxShadow: '0 6px 32px rgba(0,0,0,0.55)',
-          }}>
+            borderRadius: 20, overflow: 'hidden', background: CARD,
+            border: '1px solid rgba(242,168,0,0.2)', boxShadow: '0 6px 32px rgba(0,0,0,0.55)',
+            cursor: storeOpen ? 'pointer' : 'default',
+          }}
+            onClick={() => openProductModal(combo)}
+          >
             <div style={{ position: 'relative' }}>
               {imgUrl(combo) ? (
-                <img src={imgUrl(combo)!} alt={combo.name} style={{ width: '100%', height: 195, objectFit: 'cover' }} />
+                <img src={imgUrl(combo)!} alt={combo.name} style={{ width: '100%', height: 195, objectFit: 'cover', display: 'block' }} />
               ) : (
-                <div style={{ width: '100%', height: 195, background: '#251800', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44 }}>🍕🍕</div>
+                <div style={{ width: '100%', height: 195, background: '#251800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <UtensilsCrossed size={48} color="#5A3800" />
+                </div>
               )}
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,21,0,1) 0%, rgba(28,21,0,0.3) 50%, transparent 100%)' }} />
               <div style={{ position: 'absolute', top: 14, left: 14, background: '#E04040', color: '#fff', fontSize: 10, fontWeight: 800, padding: '4px 11px', borderRadius: 20, letterSpacing: 0.5, textTransform: 'uppercase' }}>
                 Economize R$10
               </div>
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 18px 16px' }}>
-                <div style={{ display: 'inline-block', marginBottom: 6, background: 'rgba(242,168,0,0.15)', border: '1px solid rgba(242,168,0,0.35)', color: GOLD, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-                  🔥 Combo Fumêgo
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, background: 'rgba(242,168,0,0.15)', border: '1px solid rgba(242,168,0,0.35)', color: GOLD, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+                  <Flame size={12} /> Combo Fumêgo
                 </div>
                 <h2 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 22, fontWeight: 700, color: '#fff' }}>{combo.name}</h2>
               </div>
@@ -519,11 +466,11 @@ export default function HomePage() {
                   </p>
                 </div>
                 <button
-                  onClick={() => openProductModal(combo)}
+                  onClick={e => { e.stopPropagation(); openProductModal(combo); }}
                   disabled={!storeOpen}
-                  style={{ background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, color: BG, border: 'none', borderRadius: 13, padding: '13px 22px', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: `0 4px 18px rgba(242,168,0,0.35)` }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, color: BG, border: 'none', borderRadius: 13, padding: '13px 20px', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: `0 4px 18px rgba(242,168,0,0.35)` }}
                 >
-                  Pedir →
+                  Pedir <ChevronRight size={16} />
                 </button>
               </div>
             </div>
@@ -534,16 +481,24 @@ export default function HomePage() {
       {/* ── ESPECIAL DO MÊS ── */}
       {especial?.is_active && (
         <section style={{ margin: '0 16px 20px' }}>
-          <div style={{ borderRadius: 20, overflow: 'hidden', background: CARD, border: `1px solid ${BORDER}`, boxShadow: '0 6px 32px rgba(0,0,0,0.45)' }}>
+          <div style={{
+            borderRadius: 20, overflow: 'hidden', background: CARD,
+            border: `1px solid ${BORDER}`, boxShadow: '0 6px 32px rgba(0,0,0,0.45)',
+            cursor: storeOpen ? 'pointer' : 'default',
+          }}
+            onClick={() => openProductModal(especial)}
+          >
             <div style={{ position: 'relative' }}>
               {imgUrl(especial) ? (
-                <img src={imgUrl(especial)!} alt="Especial" style={{ width: '100%', height: 180, objectFit: 'cover' }} />
+                <img src={imgUrl(especial)!} alt="Especial" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
               ) : (
-                <div style={{ width: '100%', height: 180, background: '#201600', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44 }}>⭐</div>
+                <div style={{ width: '100%', height: 180, background: '#201600', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Star size={48} color="#5A3800" />
+                </div>
               )}
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,21,0,0.9) 0%, transparent 55%)' }} />
-              <div style={{ position: 'absolute', top: 14, left: 14, background: 'rgba(242,168,0,0.15)', border: '1px solid rgba(242,168,0,0.4)', color: GOLD, fontSize: 10, fontWeight: 700, padding: '4px 11px', borderRadius: 20, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                ⭐ Especial do Mês
+              <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(242,168,0,0.15)', border: '1px solid rgba(242,168,0,0.4)', color: GOLD, fontSize: 10, fontWeight: 700, padding: '4px 11px', borderRadius: 20, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                <Star size={11} fill={GOLD} /> Especial do Mês
               </div>
             </div>
             <div style={{ padding: '16px 18px 18px' }}>
@@ -556,11 +511,11 @@ export default function HomePage() {
               <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ color: GOLD, fontSize: 26, fontWeight: 800 }}>R$ {fmt(especial.price)}</span>
                 <button
-                  onClick={() => openProductModal(especial)}
+                  onClick={e => { e.stopPropagation(); openProductModal(especial); }}
                   disabled={!storeOpen}
-                  style={{ padding: '12px 22px', background: 'transparent', color: GOLD, border: `1.5px solid ${GOLD}`, borderRadius: 13, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 20px', background: 'transparent', color: GOLD, border: `1.5px solid ${GOLD}`, borderRadius: 13, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
                 >
-                  Quero! →
+                  Quero <ChevronRight size={16} />
                 </button>
               </div>
             </div>
@@ -568,39 +523,26 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* ── INFO ENTREGA ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '8px 16px 24px' }}>
-        {[
-          `🛵 Apenas entrega`,
-          `⏱ ${settings.delivery_time || '40–60 min'}`,
-          Number(settings.delivery_fee) > 0 ? `Taxa R$ ${fmt(settings.delivery_fee)}` : `✅ Frete grátis`,
-        ].map((item, i) => (
-          <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            {i > 0 && <span style={{ width: 1, height: 12, background: BORDER, display: 'inline-block' }} />}
-            <span style={{ color: FAINT, fontSize: 11 }}>{item}</span>
-          </span>
-        ))}
-      </div>
-
       {/* ── CARRINHO FLUTUANTE ── */}
       {cartCount > 0 && (
         <div style={{
           position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
           width: '100%', maxWidth: 480, padding: '14px 18px',
-          background: 'rgba(18, 13, 0, 0.97)',
-          backdropFilter: 'blur(20px)',
-          borderTop: '1px solid rgba(242,168,0,0.2)',
-          zIndex: 40,
+          background: 'rgba(18, 13, 0, 0.97)', backdropFilter: 'blur(20px)',
+          borderTop: '1px solid rgba(242,168,0,0.2)', zIndex: 40,
           boxShadow: '0 -8px 40px rgba(0,0,0,0.7)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ShoppingCart size={16} color={GOLD} />
               <span style={{ color: GOLD, fontWeight: 800 }}>{cartCount}</span>
-              <span style={{ color: MUTED, marginLeft: 6, fontSize: 13 }}>{cartCount === 1 ? 'item' : 'itens'} no carrinho</span>
+              <span style={{ color: MUTED, fontSize: 13 }}>{cartCount === 1 ? 'item' : 'itens'}</span>
             </div>
             <span style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>R$ {getCartTotal().toFixed(2).replace('.', ',')}</span>
           </div>
-          <button className="btn-primary" onClick={goToCheckout}>Ir para o Checkout →</button>
+          <button className="btn-primary" onClick={goToCheckout}>
+            Ir para o Checkout
+          </button>
         </div>
       )}
 
@@ -611,14 +553,14 @@ export default function HomePage() {
 
       {/* ── MODAL PRODUTO ── */}
       {showModal && selectedProduct && (
-        <div
-          onClick={() => setShowModal(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)', zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{ background: '#141000', borderRadius: '24px 24px 0 0', border: `1px solid ${BORDER}`, borderBottom: 'none', width: '100%', maxWidth: 480, maxHeight: '88vh', overflowY: 'auto', padding: '0 20px 36px', animation: 'slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)', boxShadow: `0 -4px 50px rgba(242,168,0,0.07)` }}
-          >
+        <div onClick={() => setShowModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)', zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: '#141000', borderRadius: '24px 24px 0 0', border: `1px solid ${BORDER}`,
+            borderBottom: 'none', width: '100%', maxWidth: 480,
+            maxHeight: '88vh', overflowY: 'auto', padding: '0 20px 36px',
+            animation: 'slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+            boxShadow: `0 -4px 50px rgba(242,168,0,0.07)`,
+          }}>
             <div style={{ padding: '14px 0 22px', display: 'flex', justifyContent: 'center' }}>
               <div style={{ width: 36, height: 4, background: BORDER, borderRadius: 2 }} />
             </div>
@@ -627,10 +569,9 @@ export default function HomePage() {
               <h3 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 22, fontWeight: 700, color: '#fff', flex: 1, paddingRight: 12, lineHeight: 1.2 }}>
                 {selectedProduct.name}
               </h3>
-              <button
-                onClick={() => setShowModal(false)}
-                style={{ background: BORDER, border: 'none', color: MUTED, width: 32, height: 32, borderRadius: '50%', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-              >✕</button>
+              <button onClick={() => setShowModal(false)} style={{ background: BORDER, border: 'none', color: MUTED, width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <X size={14} />
+              </button>
             </div>
 
             <p style={{ fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.55 }}>{selectedProduct.description}</p>
@@ -643,18 +584,21 @@ export default function HomePage() {
 
             {drinks.length > 0 && (
               <div style={{ marginBottom: 26 }}>
-                <p style={{ fontSize: 11, color: MUTED, fontWeight: 700, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1.5 }}>
-                  🥤 Adicionar bebida?
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                  <GlassWater size={14} color={MUTED} />
+                  <p style={{ fontSize: 11, color: MUTED, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5 }}>Adicionar bebida?</p>
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {drinks.map(drink => {
                     const sel = selectedDrinks.find(d => d.id === drink.id);
                     return (
-                      <div
-                        key={drink.id}
-                        onClick={() => toggleDrink(drink)}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 13, border: sel ? `1.5px solid ${GOLD}` : `1px solid ${BORDER}`, background: sel ? 'rgba(242,168,0,0.07)' : '#1A1400', cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s' }}
-                      >
+                      <div key={drink.id} onClick={() => toggleDrink(drink)} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '12px 14px', borderRadius: 13,
+                        border: sel ? `1.5px solid ${GOLD}` : `1px solid ${BORDER}`,
+                        background: sel ? 'rgba(242,168,0,0.07)' : '#1A1400',
+                        cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s',
+                      }}>
                         <div>
                           <p style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{drink.name}</p>
                           <p style={{ fontSize: 12, color: MUTED }}>{drink.size}</p>
@@ -663,9 +607,19 @@ export default function HomePage() {
                           <span style={{ fontSize: 14, fontWeight: 700, color: GOLD }}>R$ {fmt(drink.price)}</span>
                           {sel && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
-                              <button onClick={() => updateDrinkQty(drink.id, sel.quantity - 1)} style={{ width: 28, height: 28, borderRadius: '50%', background: BORDER, color: MUTED, border: 'none', cursor: 'pointer', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                              <button
+                                onClick={() => updateDrinkQty(drink.id, sel.quantity - 1)}
+                                style={{ width: 28, height: 28, borderRadius: '50%', background: BORDER, color: MUTED, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              >
+                                <Minus size={14} />
+                              </button>
                               <span style={{ color: '#fff', fontSize: 14, width: 18, textAlign: 'center' }}>{sel.quantity}</span>
-                              <button onClick={() => updateDrinkQty(drink.id, sel.quantity + 1)} style={{ width: 28, height: 28, borderRadius: '50%', background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, color: BG, border: 'none', cursor: 'pointer', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                              <button
+                                onClick={() => updateDrinkQty(drink.id, sel.quantity + 1)}
+                                style={{ width: 28, height: 28, borderRadius: '50%', background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, color: BG, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              >
+                                <Plus size={14} />
+                              </button>
                             </div>
                           )}
                         </div>
@@ -681,7 +635,7 @@ export default function HomePage() {
                 <span style={{ color: MUTED, fontSize: 13 }}>Total deste item:</span>
                 <span style={{ fontSize: 22, fontWeight: 800, color: GOLD }}>R$ {getModalTotal().toFixed(2).replace('.', ',')}</span>
               </div>
-              <button className="btn-primary" onClick={addToCart}>Adicionar ao Carrinho 🛒</button>
+              <button className="btn-primary" onClick={addToCart}>Adicionar ao Carrinho</button>
             </div>
           </div>
         </div>
