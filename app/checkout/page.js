@@ -26,6 +26,7 @@ export default function CheckoutPage() {
   const [couponError, setCouponError] = useState('');
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryTime, setDeliveryTime] = useState('40–60 min');
+  const [instagramUrl, setInstagramUrl] = useState('');
   const [pixData, setPixData] = useState(null);
   const [orderCreated, setOrderCreated] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
@@ -59,13 +60,15 @@ export default function CheckoutPage() {
       }));
     }
 
-    supabase.from('settings').select('*').in('key', ['delivery_fee', 'delivery_time'])
+    supabase.from('settings').select('*').in('key', ['delivery_fee', 'delivery_time', 'instagram_url'])
       .then(({ data }) => {
         if (data) {
           const fee  = data.find(s => s.key === 'delivery_fee');
           const time = data.find(s => s.key === 'delivery_time');
-          if (fee)  setDeliveryFee(Number(fee.value) || 0);
-          if (time) setDeliveryTime(time.value || '40–60 min');
+          const insta = data.find(s => s.key === 'instagram_url');
+          if (fee)   setDeliveryFee(Number(fee.value) || 0);
+          if (time)  setDeliveryTime(time.value || '40–60 min');
+          if (insta) setInstagramUrl(insta.value || '');
         }
       });
   }, []);
@@ -226,7 +229,7 @@ export default function CheckoutPage() {
         setOrderCreated(true);
       }
 
-      else if (paymentMethod === 'cash') {
+      else if (paymentMethod === 'cash' || paymentMethod === 'card_delivery') {
         localStorage.removeItem('fumego_cart');
         setCashOrderDone(true);
         setOrderCreated(true);
@@ -279,6 +282,13 @@ export default function CheckoutPage() {
             <span>Previsão de entrega: {deliveryTime}</span>
           </div>
           <button className="btn-primary" onClick={() => router.push('/')}>Voltar ao Cardápio</button>
+          {instagramUrl && (
+            <a href={instagramUrl} target="_blank" rel="noopener noreferrer"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, color: MUTED, fontSize: 13, textDecoration: 'none' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+              Nos siga no Instagram
+            </a>
+          )}
         </div>
       </div>
     );
@@ -295,7 +305,9 @@ export default function CheckoutPage() {
           <h1 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 24, fontWeight: 'bold', color: GOLD, marginBottom: 8 }}>
             Pedido Enviado!
           </h1>
-          <p style={{ color: MUTED, marginBottom: 8 }}>Pagamento: Dinheiro na entrega</p>
+          <p style={{ color: MUTED, marginBottom: 8 }}>
+            Pagamento: {paymentMethod === 'card_delivery' ? 'Cartão na entrega' : 'Dinheiro na entrega'}
+          </p>
           <p style={{ color: GOLD, fontSize: 22, fontWeight: 'bold', marginBottom: 8 }}>
             Total: R$ {calcTotal().toFixed(2).replace('.', ',')}
           </p>
@@ -306,8 +318,20 @@ export default function CheckoutPage() {
             <Clock size={16} color={GOLD} />
             <span>Previsão de entrega: {deliveryTime}</span>
           </div>
-          <p style={{ color: MUTED, fontSize: 13, marginBottom: 24 }}>Prepare o valor em espécie. Obrigado!</p>
+          {paymentMethod === 'cash' && (
+            <p style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>Prepare o valor em espécie. Obrigado!</p>
+          )}
+          {paymentMethod === 'card_delivery' && (
+            <p style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>A maquininha será levada pelo entregador. Obrigado!</p>
+          )}
           <button className="btn-primary" onClick={() => router.push('/')}>Voltar ao Cardápio</button>
+          {instagramUrl && (
+            <a href={instagramUrl} target="_blank" rel="noopener noreferrer"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, color: MUTED, fontSize: 13, textDecoration: 'none' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+              Nos siga no Instagram
+            </a>
+          )}
         </div>
       </div>
     );
@@ -448,9 +472,10 @@ export default function CheckoutPage() {
           <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Forma de Pagamento</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
-              { id: 'pix',  Icon: Landmark,   label: 'PIX',    desc: 'Pagamento instantâneo' },
-              { id: 'card', Icon: CreditCard,  label: 'Cartão', desc: 'Crédito ou Débito (Mercado Pago)' },
-              { id: 'cash', Icon: Banknote,    label: 'Dinheiro', desc: 'Pagar na entrega' },
+              { id: 'pix',          Icon: Landmark,   label: 'PIX',                 desc: 'Pagamento instantâneo' },
+              { id: 'card',         Icon: CreditCard,  label: 'Cartão (online)',      desc: 'Crédito ou Débito (Mercado Pago)' },
+              { id: 'card_delivery',Icon: CreditCard,  label: 'Cartão na entrega',   desc: 'Maquininha na hora da entrega' },
+              { id: 'cash',         Icon: Banknote,    label: 'Dinheiro',             desc: 'Pagar na entrega' },
             ].map(pm => (
               <div key={pm.id} onClick={() => setPaymentMethod(pm.id)}
                 style={{
@@ -479,6 +504,11 @@ export default function CheckoutPage() {
               <input className="input-field" placeholder="Troco para quanto? (opcional)" value={cashChange}
                 onChange={e => setCashChange(e.target.value)} inputMode="numeric" />
             </div>
+          )}
+          {paymentMethod === 'card_delivery' && (
+            <p style={{ marginTop: 10, fontSize: 12, color: MUTED, paddingLeft: 4 }}>
+              A maquininha será levada junto com o pedido. Aceitamos débito e crédito.
+            </p>
           )}
         </div>
 
@@ -522,8 +552,10 @@ export default function CheckoutPage() {
             : paymentMethod === 'pix'
               ? <><Landmark size={18} /> Pagar com PIX</>
               : paymentMethod === 'card'
-                ? <><CreditCard size={18} /> Pagar com Cartão</>
-                : <><Banknote size={18} /> Finalizar Pedido (Dinheiro)</>}
+                ? <><CreditCard size={18} /> Pagar com Cartão (online)</>
+                : paymentMethod === 'card_delivery'
+                  ? <><CreditCard size={18} /> Finalizar (Cartão na Entrega)</>
+                  : <><Banknote size={18} /> Finalizar Pedido (Dinheiro)</>}
         </button>
       </div>
     </div>
