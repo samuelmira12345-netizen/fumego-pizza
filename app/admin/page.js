@@ -397,6 +397,20 @@ export default function AdminPage() {
                 onChange={e => updateSetting('delivery_fee', e.target.value)} />
             </div>
 
+            {/* Instagram */}
+            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
+              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D4A528" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                Instagram
+              </h3>
+              <p style={{ color: '#888', fontSize: 12, marginBottom: 10 }}>
+                Link exibido abaixo do botão "Voltar ao Cardápio" após o pedido ser confirmado.
+              </p>
+              <input className="input-field" placeholder="https://instagram.com/suaconta"
+                value={getSetting('instagram_url')}
+                onChange={e => updateSetting('instagram_url', e.target.value)} />
+            </div>
+
             {/* Especial do Mês */}
             <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
               <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
