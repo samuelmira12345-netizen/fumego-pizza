@@ -211,7 +211,11 @@ export default function HomePage() {
     <div style={{ minHeight: '100vh', background: BG }}>
 
       {/* ── HEADER ── */}
-      <header className="header" style={{ justifyContent: 'center', position: 'relative' }}>
+      <header className="header" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr' }}>
+        {/* left — spacer */}
+        <div />
+
+        {/* center — logo + nome */}
         <div style={{ display: 'flex', alignItems: 'center', gap: logoUrl ? 10 : 0 }}>
           {logoUrl && (
             <img src={logoUrl} alt="Logo" style={{ height: logoSize, objectFit: 'contain', display: 'block' }} />
@@ -225,7 +229,8 @@ export default function HomePage() {
           </h1>
         </div>
 
-        <div style={{ position: 'absolute', right: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
+        {/* right — ícones */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14 }}>
           {/* Carrinho */}
           <button onClick={goToCheckout} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', position: 'relative', padding: 4 }}>
             <ShoppingCart size={22} color={cartCount > 0 ? GOLD : '#888'} />
