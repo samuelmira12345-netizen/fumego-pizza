@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
+import { Pizza, GlassWater, MapPin, Clock, Landmark, CreditCard, Banknote, ShoppingBag, ClipboardList } from 'lucide-react';
 
 const GOLD   = '#F2A800';
 const BG     = '#080600';
@@ -19,9 +20,13 @@ const STATUS = {
   cancelled:  { label: 'Cancelado',         color: '#E04040', bg: 'rgba(224,64,64,0.15)'   },
 };
 
-const ONGOING_STATUS = ['pending', 'confirmed', 'preparing', 'delivering'];
+const PAY_ICON = {
+  pix:  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Landmark size={12} /> PIX</span>,
+  card: <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CreditCard size={12} /> Cartão</span>,
+  cash: <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Banknote size={12} /> Dinheiro</span>,
+};
 
-const PAY_ICON = { pix: '🏦 PIX', card: '💳 Cartão', cash: '💵 Dinheiro' };
+const ONGOING_STATUS = ['pending', 'confirmed', 'preparing', 'delivering'];
 
 function fmtDate(str) {
   return new Date(str).toLocaleString('pt-BR', {
@@ -34,12 +39,22 @@ function fmtMoney(v) {
   return Number(v).toFixed(2).replace('.', ',');
 }
 
+function timeElapsed(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+  if (diff < 1) return 'agora';
+  if (diff < 60) return `há ${diff} min`;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  return m > 0 ? `há ${h}h ${m}min` : `há ${h}h`;
+}
+
 export default function OrdersPage() {
   const router = useRouter();
   const [user, setUser]       = useState(null);
   const [orders, setOrders]   = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab]         = useState('ongoing');
+  const [now, setNow]         = useState(Date.now());
 
   useEffect(() => {
     try {
@@ -49,6 +64,12 @@ export default function OrdersPage() {
       setUser(u);
       fetchOrders(u.id);
     } catch { router.push('/login'); }
+  }, []);
+
+  // Tick every minute so elapsed time stays fresh
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(iv);
   }, []);
 
   async function fetchOrders(userId) {
@@ -126,8 +147,10 @@ export default function OrdersPage() {
 
         ) : shown.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 60 }}>
-            <div style={{ fontSize: 52, marginBottom: 14 }}>
-              {tab === 'ongoing' ? '🛵' : '📋'}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+              {tab === 'ongoing'
+                ? <ShoppingBag size={52} color={MUTED} />
+                : <ClipboardList size={52} color={MUTED} />}
             </div>
             <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.6 }}>
               {tab === 'ongoing'
@@ -145,6 +168,7 @@ export default function OrdersPage() {
         ) : (
           shown.map(order => {
             const s = STATUS[order.status] || STATUS.pending;
+            const isOngoing = ONGOING_STATUS.includes(order.status);
             return (
               <div key={order.id} style={{
                 background: CARD, borderRadius: 16, padding: 16, marginBottom: 12,
@@ -157,6 +181,11 @@ export default function OrdersPage() {
                       Pedido #{order.order_number}
                     </p>
                     <p style={{ fontSize: 12, color: MUTED, marginTop: 3 }}>{fmtDate(order.created_at)}</p>
+                    {isOngoing && (
+                      <p style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: GOLD, marginTop: 4 }}>
+                        <Clock size={11} color={GOLD} /> {timeElapsed(order.created_at)}
+                      </p>
+                    )}
                   </div>
                   <span style={{
                     fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
@@ -171,8 +200,10 @@ export default function OrdersPage() {
                 <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 10, marginBottom: 10 }}>
                   {order.order_items?.map(item => (
                     <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                      <p style={{ fontSize: 13, color: item.drink_id ? MUTED : '#e8e8e8' }}>
-                        {item.drink_id ? '🥤' : '🍕'}{' '}
+                      <p style={{ fontSize: 13, color: item.drink_id ? MUTED : '#e8e8e8', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        {item.drink_id
+                          ? <GlassWater size={12} color={MUTED} />
+                          : <Pizza size={12} color="#e8e8e8" />}
                         {item.product_name}
                         {item.quantity > 1 ? ` ×${item.quantity}` : ''}
                       </p>
@@ -190,8 +221,9 @@ export default function OrdersPage() {
 
                 {/* Endereço de entrega */}
                 <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 8, marginBottom: 8 }}>
-                  <p style={{ fontSize: 12, color: MUTED }}>
-                    📍 {order.delivery_street}, {order.delivery_number}
+                  <p style={{ fontSize: 12, color: MUTED, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <MapPin size={12} color={MUTED} />
+                    {order.delivery_street}, {order.delivery_number}
                     {order.delivery_complement ? ` – ${order.delivery_complement}` : ''}
                     {' '}{order.delivery_neighborhood}
                   </p>

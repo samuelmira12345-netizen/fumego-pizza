@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Save, Loader2 } from 'lucide-react';
 
 const GOLD       = '#F2A800';
 const GOLD_LIGHT = '#FFD060';
@@ -9,6 +10,20 @@ const BG         = '#080600';
 const CARD       = '#1C1500';
 const BORDER     = '#2C1E00';
 const MUTED      = '#7A6040';
+
+// Defined OUTSIDE AccountPage to prevent unmount/remount on every render
+function Section({ title, children }) {
+  return (
+    <div style={{ background: CARD, borderRadius: 16, padding: 16, border: `1px solid ${BORDER}` }}>
+      <h2 style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 14 }}>
+        {title}
+      </h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function AccountPage() {
   const router = useRouter();
@@ -114,17 +129,6 @@ export default function AccountPage() {
 
   if (!user) return null;
 
-  const Section = ({ title, children }) => (
-    <div style={{ background: CARD, borderRadius: 16, padding: 16, border: `1px solid ${BORDER}` }}>
-      <h2 style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 14 }}>
-        {title}
-      </h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {children}
-      </div>
-    </div>
-  );
-
   return (
     <div style={{ minHeight: '100vh', background: BG }}>
       {/* Header */}
@@ -156,7 +160,7 @@ export default function AccountPage() {
 
       <form onSubmit={handleSave} style={{ padding: '0 16px 100px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-        {/* ── Dados Pessoais ── */}
+        {/* Dados Pessoais */}
         <Section title="Dados Pessoais">
           <input className="input-field" placeholder="Nome completo *"
             value={form.name} onChange={e => upd('name', e.target.value)} required />
@@ -168,7 +172,7 @@ export default function AccountPage() {
             value={form.cpf} onChange={e => upd('cpf', e.target.value)} />
         </Section>
 
-        {/* ── Endereço Padrão ── */}
+        {/* Endereço Padrão */}
         <Section title="Endereço Padrão de Entrega">
           <p style={{ color: '#3A2810', fontSize: 12, marginTop: -4, marginBottom: 4 }}>
             Preenchido automaticamente no checkout
@@ -203,7 +207,7 @@ export default function AccountPage() {
           </div>
         </Section>
 
-        {/* ── Alterar Senha ── */}
+        {/* Alterar Senha */}
         <Section title="Alterar Senha">
           <p style={{ color: '#3A2810', fontSize: 12, marginTop: -4, marginBottom: 4 }}>
             Preencha apenas se quiser trocar a senha
@@ -221,11 +225,14 @@ export default function AccountPage() {
           <p style={{ color: '#E04040', fontSize: 13, textAlign: 'center' }}>{error}</p>
         )}
         {msg && (
-          <p style={{ color: '#48BB78', fontSize: 13, textAlign: 'center' }}>✅ {msg}</p>
+          <p style={{ color: '#48BB78', fontSize: 13, textAlign: 'center' }}>{msg}</p>
         )}
 
-        <button className="btn-primary" type="submit" disabled={loading}>
-          {loading ? '⏳ Salvando…' : '💾 Salvar Alterações'}
+        <button className="btn-primary" type="submit" disabled={loading}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          {loading
+            ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Salvando…</>
+            : <><Save size={16} /> Salvar Alterações</>}
         </button>
       </form>
     </div>
