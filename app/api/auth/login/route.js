@@ -2,9 +2,22 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
+import { decryptCpf } from '../../../../lib/cpf-crypto';
 
 export async function POST(request) {
   try {
+    // Rate limiting: máximo 10 tentativas por IP a cada 15 minutos
+    const ip = getClientIp(request);
+    const { allowed, retryAfterMs } = checkRateLimit(`login:${ip}`, 10, 15 * 60_000);
+    if (!allowed) {
+      const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+      return NextResponse.json(
+        { error: `Muitas tentativas. Tente novamente em ${retryAfterSec} segundos.` },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSec) } }
+      );
+    }
+
     const { email, password } = await request.json();
     if (!email || !password) {
       return NextResponse.json({ error: 'Email e senha são obrigatórios' }, { status: 400 });
@@ -28,6 +41,8 @@ export async function POST(request) {
     const token = jwt.sign({ userId: user.id, email: user.email }, jwtSecret, { expiresIn: '30d' });
 
     const { password_hash, ...safeUser } = user;
+    // Descriptografar CPF antes de retornar ao cliente
+    if (safeUser.cpf) safeUser.cpf = decryptCpf(safeUser.cpf) || '';
     return NextResponse.json({ token, user: safeUser });
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });

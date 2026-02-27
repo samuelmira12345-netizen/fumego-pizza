@@ -4,7 +4,10 @@ import { getSupabaseAdmin } from '../../../lib/supabase';
 
 function verifySignature(request, dataId) {
   const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
-  if (!secret) return true; // Skip if not configured (backwards compatible)
+  if (!secret) {
+    console.error('MERCADO_PAGO_WEBHOOK_SECRET não está configurada. Webhook rejeitado.');
+    return false; // Rejeitar se o segredo não estiver configurado
+  }
 
   const signatureHeader = request.headers.get('x-signature');
   const requestId = request.headers.get('x-request-id');

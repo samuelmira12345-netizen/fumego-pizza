@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import {
@@ -40,10 +40,22 @@ export default function CheckoutPage() {
   const [pixCopied, setPixCopied] = useState(false);
   const [formError, setFormError] = useState('');
 
+  // Refs para limpeza de timers ao desmontar o componente
+  const pollingIntervalRef = useRef(null);
+  const pollingTimeoutRef = useRef(null);
+
   const [form, setForm] = useState({
     name: '', email: '', phone: '', cpf: '',
     street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipcode: '',
   });
+
+  // Limpa o intervalo de polling e o timeout ao desmontar o componente
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+      if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const c = localStorage.getItem('fumego_cart');
@@ -134,52 +146,57 @@ export default function CheckoutPage() {
   function isFormValid() { return form.name && form.phone && form.street && form.number && form.neighborhood; }
 
   async function createOrder() {
+    const observations = [
+      ...cart.map(i => i.observations).filter(Boolean),
+      paymentMethod === 'cash' && cashChange ? `Troco para: R$ ${cashChange}` : '',
+    ].filter(Boolean).join(' | ');
+
     const orderPayload = {
       user_id: user?.id || null,
       customer_name: form.name, customer_email: form.email || null,
-      customer_phone: form.phone, customer_cpf: form.cpf ? form.cpf.replace(/\D/g, '') : null,
+      customer_phone: form.phone,
+      // customer_cpf é hasheado server-side pela API /api/checkout/create-order
       delivery_street: form.street, delivery_number: form.number,
       delivery_complement: form.complement || null, delivery_neighborhood: form.neighborhood,
       delivery_city: form.city || 'Cidade', delivery_state: form.state || 'MG',
       delivery_zipcode: form.zipcode || null,
       subtotal: calcSubtotal(), delivery_fee: deliveryFee, discount: calcDiscount(), total: calcTotal(),
       coupon_code: couponApplied ? couponCode.toUpperCase() : null,
-      observations: cart.map(i => i.observations).filter(Boolean).join(' | '),
+      observations,
       payment_method: paymentMethod,
       payment_status: 'pending',
       status: 'pending',
     };
 
-    if (paymentMethod === 'cash' && cashChange) {
-      orderPayload.observations = (orderPayload.observations ? orderPayload.observations + ' | ' : '') + `Troco para: R$ ${cashChange}`;
-    }
-
-    const { data: order, error: orderErr } = await supabase.from('orders').insert(orderPayload).select().single();
-    if (orderErr) throw orderErr;
-
     const items = [];
     cart.forEach(cartItem => {
       items.push({
-        order_id: order.id, product_id: cartItem.product.id, product_name: cartItem.product.name,
+        product_id: cartItem.product.id, product_name: cartItem.product.name,
         quantity: 1, unit_price: Number(cartItem.product.price), total_price: Number(cartItem.product.price),
         observations: cartItem.observations || null,
       });
       cartItem.drinks?.forEach(d => {
         items.push({
-          order_id: order.id, drink_id: d.id, product_name: `${d.name} ${d.size}`,
+          drink_id: d.id, product_name: `${d.name} ${d.size}`,
           quantity: d.quantity, unit_price: Number(d.price), total_price: Number(d.price) * d.quantity,
         });
       });
     });
-    await supabase.from('order_items').insert(items);
 
-    if (couponApplied && form.cpf) {
-      const cleanCpf = form.cpf.replace(/\D/g, '');
-      await supabase.from('coupon_usage').insert({ coupon_id: couponApplied.id, cpf: cleanCpf, user_id: user?.id || null });
-      await supabase.from('coupons').update({ times_used: couponApplied.times_used + 1 }).eq('id', couponApplied.id);
-    }
-
-    return order;
+    // Criação do pedido via API server-side para garantir hash do CPF
+    const res = await fetch('/api/checkout/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderPayload,
+        items,
+        coupon: couponApplied || null,
+        cpf: form.cpf || null,
+      }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Erro ao criar pedido');
+    return result.order;
   }
 
   async function handleSubmitOrder() {
@@ -250,25 +267,33 @@ export default function CheckoutPage() {
   function startPaymentCheck(orderId) {
     setCheckingPayment(true);
     let expired = false;
+
     const iv = setInterval(async () => {
       if (expired) return;
       try {
         const { data } = await supabase.from('orders').select('payment_status').eq('id', orderId).single();
         if (data?.payment_status === 'approved') {
           clearInterval(iv);
+          pollingIntervalRef.current = null;
           setPaymentConfirmed(true);
           setCheckingPayment(false);
           localStorage.removeItem('fumego_cart');
         } else if (data?.payment_status === 'cancelled') {
           clearInterval(iv);
+          pollingIntervalRef.current = null;
           setPaymentExpired(true);
           setCheckingPayment(false);
         }
       } catch (e) {}
     }, 5000);
-    setTimeout(async () => {
+
+    pollingIntervalRef.current = iv;
+
+    const tid = setTimeout(async () => {
       expired = true;
       clearInterval(iv);
+      pollingIntervalRef.current = null;
+      pollingTimeoutRef.current = null;
       setCheckingPayment(false);
       try {
         const { data } = await supabase.from('orders').select('payment_status').eq('id', orderId).single();
@@ -278,6 +303,8 @@ export default function CheckoutPage() {
         }
       } catch (e) {}
     }, 900000);
+
+    pollingTimeoutRef.current = tid;
   }
 
   function copyPix() {
