@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
+import { loginSchema } from '../../../../lib/schemas';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
@@ -18,10 +19,13 @@ export async function POST(request) {
       );
     }
 
-    const { email, password } = await request.json();
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email e senha são obrigatórios' }, { status: 400 });
+    const raw = await request.json();
+    const parsed = loginSchema.safeParse(raw);
+    if (!parsed.success) {
+      const msg = parsed.error.errors[0]?.message || 'Dados inválidos';
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
+    const { email, password } = parsed.data;
 
     const supabase = getSupabaseAdmin();
     const { data: user, error } = await supabase

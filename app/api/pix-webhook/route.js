@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 import { getSupabaseAdmin } from '../../../lib/supabase';
+import { logger } from '../../../lib/logger';
 
 function verifySignature(request, dataId) {
   const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
   if (!secret) {
-    console.error('MERCADO_PAGO_WEBHOOK_SECRET não está configurada. Webhook rejeitado.');
+    logger.error('MERCADO_PAGO_WEBHOOK_SECRET não está configurada. Webhook rejeitado.');
     return false; // Rejeitar se o segredo não estiver configurado
   }
 
@@ -31,7 +32,7 @@ export async function POST(request) {
 
     if (body.type === 'payment' && body.data?.id) {
       if (!verifySignature(request, body.data.id)) {
-        console.warn('Webhook: assinatura inválida rejeitada');
+        logger.warn('Webhook: assinatura inválida rejeitada', { paymentId: body.data.id });
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
       }
 
@@ -51,20 +52,20 @@ export async function POST(request) {
             payment_status: 'approved',
             status: 'confirmed',
           }).eq('id', orderId);
-          console.log('Pedido aprovado:', orderId);
+          logger.info('Pagamento aprovado', { orderId, paymentId });
         } else if (['rejected', 'cancelled', 'expired'].includes(mpData.status)) {
           await supabase.from('orders').update({
             payment_status: 'cancelled',
             status: 'cancelled',
           }).eq('id', orderId);
-          console.log('Pedido cancelado:', orderId, mpData.status);
+          logger.info('Pedido cancelado via webhook', { orderId, mpStatus: mpData.status });
         }
       }
     }
 
     return NextResponse.json({ received: true });
   } catch (e) {
-    console.error('Webhook error:', e.message);
+    logger.error('Webhook error', e);
     return NextResponse.json({ received: true });
   }
 }

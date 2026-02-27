@@ -119,6 +119,26 @@ CREATE TABLE IF NOT EXISTS settings (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Tokens de verificação de e-mail
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT UNIQUE NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tokens de recuperação de senha
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT UNIQUE NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ==========================================
 -- DADOS INICIAIS
 -- ==========================================
@@ -167,18 +187,16 @@ CREATE POLICY "drinks_public_read" ON drinks FOR SELECT USING (true);
 CREATE POLICY "settings_public_read" ON settings FOR SELECT USING (true);
 CREATE POLICY "coupons_public_read" ON coupons FOR SELECT USING (is_active = true);
 
--- Pedidos: inserção pública (checkout anônimo), leitura e update apenas via service role
+-- Pedidos: inserção pública (checkout anônimo); leitura e update APENAS via service role
 -- O service role bypassa o RLS; o cliente anônimo pode inserir pedidos (checkout),
--- mas não pode listar pedidos de outros usuários.
+-- mas NÃO pode listar nem modificar pedidos — isso é feito via API routes autenticadas.
 CREATE POLICY "orders_insert" ON orders FOR INSERT WITH CHECK (true);
--- SELECT restrito: anon só lê o próprio pedido pelo ID (sem auth.uid disponível,
--- a política permite leitura pública por ID via service role; bloqueie via API)
-CREATE POLICY "orders_select" ON orders FOR SELECT USING (true);
-CREATE POLICY "orders_update" ON orders FOR UPDATE USING (true);
+CREATE POLICY "orders_select" ON orders FOR SELECT USING (false);  -- somente service role
+CREATE POLICY "orders_update" ON orders FOR UPDATE USING (false);  -- somente service role
 
 -- Itens de pedido: apenas inserção pública; leitura/update via service role
 CREATE POLICY "order_items_insert" ON order_items FOR INSERT WITH CHECK (true);
-CREATE POLICY "order_items_select" ON order_items FOR SELECT USING (true);
+CREATE POLICY "order_items_select" ON order_items FOR SELECT USING (false);  -- somente service role
 
 -- Usuários: NUNCA permitir leitura via chave anônima; todas as operações via service role
 -- (login, register e update usam service role nas API routes)
@@ -189,6 +207,13 @@ CREATE POLICY "users_update" ON users FOR UPDATE USING (false);        -- soment
 -- Uso de cupons: inserção pública no checkout; leitura bloqueada para anon
 CREATE POLICY "coupon_usage_insert" ON coupon_usage FOR INSERT WITH CHECK (true);
 CREATE POLICY "coupon_usage_select" ON coupon_usage FOR SELECT USING (false); -- somente service role
+
+-- Tokens de e-mail: somente service role (manipulados via API routes)
+ALTER TABLE email_verification_tokens ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "email_verification_tokens_all" ON email_verification_tokens USING (false);
+
+ALTER TABLE password_reset_tokens ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "password_reset_tokens_all" ON password_reset_tokens USING (false);
 
 -- Produtos, bebidas, configurações e cupons: escrita apenas via service role
 CREATE POLICY "products_update" ON products FOR UPDATE USING (false);  -- somente service role

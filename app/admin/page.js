@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   Flame, UtensilsCrossed, GlassWater, Settings, Package,
@@ -9,11 +9,16 @@ import {
 } from 'lucide-react';
 import { DEFAULT_BUSINESS_HOURS, DAY_LABELS, DAY_ORDER } from '../../lib/store-hours';
 
+const SESSION_KEY = 'admin_token';
+
 export default function AdminPage() {
   const [password, setPassword] = useState('');
+  const [adminToken, setAdminToken] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
   const [tab, setTab] = useState('products');
   const [data, setData] = useState({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
+  const [hasMoreOrders, setHasMoreOrders] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -34,19 +39,48 @@ export default function AdminPage() {
         if (url)  setLoginLogo(url);
         if (size) setLoginLogoSize(parseInt(size) || 48);
       });
+
+    // Restore token from sessionStorage
+    const saved = sessionStorage.getItem(SESSION_KEY);
+    if (saved) setAdminToken(saved);
   }, []);
+
+  // Helper: POST /api/admin with Authorization header
+  const adminFetch = useCallback(async (action, actionData, token) => {
+    const tok = token || adminToken;
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${tok}`,
+      },
+      body: JSON.stringify({ action, data: actionData }),
+    });
+    return res;
+  }, [adminToken]);
 
   async function handleLogin() {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin', {
+      // 1) Trocar senha por token de sessão (8h)
+      const sessionRes = await fetch('/api/admin/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password, action: 'get_data' }),
+        body: JSON.stringify({ password }),
       });
+      const sessionData = await sessionRes.json();
+      if (sessionData.error) { alert(sessionData.error); return; }
+
+      const token = sessionData.token;
+      sessionStorage.setItem(SESSION_KEY, token);
+      setAdminToken(token);
+
+      // 2) Carregar dados com o token recém-obtido
+      const res = await adminFetch('get_data', {}, token);
       const d = await res.json();
       if (d.error) { alert(d.error); return; }
       setData(d);
+      setHasMoreOrders(d.hasMore || false);
       setAuthenticated(true);
     } catch (e) { alert('Erro de conexão'); }
     finally { setLoading(false); }
@@ -56,14 +90,7 @@ export default function AdminPage() {
     setSaving(true);
     setMsg('');
     try {
-      const res = await fetch('/api/admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          password, action: 'save_all',
-          data: { products: data.products, drinks: data.drinks, settings: data.settings },
-        }),
-      });
+      const res = await adminFetch('save_all', { products: data.products, drinks: data.drinks, settings: data.settings });
       const d = await res.json();
       if (d.error) { setMsg('❌ Erro: ' + d.error); return; }
       setMsg('✅ Salvo com sucesso!');
@@ -121,18 +148,20 @@ export default function AdminPage() {
     setUploadingId(product.id);
     try {
       const formData = new FormData();
-      formData.append('password', password);
       formData.append('file', file);
       formData.append('prefix', `product-${product.id}`);
+      formData.append('saveAs', 'product_image');
+      formData.append('productId', product.id);
 
-      const res = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
+      const res = await fetch('/api/admin/upload-image', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${adminToken}` },
+        body: formData,
+      });
       const result = await res.json();
       if (!res.ok) { alert(`Erro no upload: ${result.error}`); return; }
 
-      const imageUrl = result.url;
-      const { error: dbError } = await supabase.from('products').update({ image_url: imageUrl }).eq('id', product.id);
-      if (dbError) { alert(`Erro ao salvar URL: ${dbError.message}`); return; }
-      updateProduct(productIdx, 'image_url', imageUrl);
+      updateProduct(productIdx, 'image_url', result.url);
       alert('✅ Foto enviada e salva!');
     } catch (e) { alert('Erro: ' + e.message); }
     finally { setUploadingId(null); }
@@ -144,19 +173,19 @@ export default function AdminPage() {
     setUploadingLogo(true);
     try {
       const formData = new FormData();
-      formData.append('password', password);
       formData.append('file', file);
       formData.append('prefix', 'logo');
+      formData.append('saveAs', 'logo');
 
-      const res = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
+      const res = await fetch('/api/admin/upload-image', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${adminToken}` },
+        body: formData,
+      });
       const result = await res.json();
       if (!res.ok) { alert(`Erro no upload: ${result.error}`); return; }
 
-      const logoUrl = result.url;
-      const { error: dbError } = await supabase.from('settings').upsert({ key: 'logo_url', value: logoUrl }, { onConflict: 'key' });
-      if (dbError) { alert(`Erro ao salvar: ${dbError.message}`); return; }
-
-      updateSetting('logo_url', logoUrl);
+      updateSetting('logo_url', result.url);
       alert('✅ Logo enviada com sucesso!');
     } catch (e) { alert('Erro: ' + e.message); }
     finally { setUploadingLogo(false); }
@@ -166,13 +195,13 @@ export default function AdminPage() {
     if (!newDrink.name || !newDrink.price) { alert('Preencha pelo menos o nome e o preço'); return; }
     setAddingDrink(true);
     try {
-      const { data: inserted, error } = await supabase
-        .from('drinks')
-        .insert({ name: newDrink.name, size: newDrink.size, price: parseFloat(newDrink.price), is_active: true })
-        .select()
-        .single();
-      if (error) { alert('Erro: ' + error.message); return; }
-      setData(prev => ({ ...prev, drinks: [...prev.drinks, inserted] }));
+      const res = await adminFetch('add_drink', {
+        name: newDrink.name, size: newDrink.size,
+        price: parseFloat(newDrink.price), is_active: true,
+      });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      setData(prev => ({ ...prev, drinks: [...prev.drinks, d.drink] }));
       setNewDrink({ name: '', size: '', price: '' });
       setMsg('✅ Bebida adicionada!');
       setTimeout(() => setMsg(''), 2500);
@@ -183,9 +212,10 @@ export default function AdminPage() {
   async function handleDeleteDrink(drinkId) {
     if (!confirm('Excluir esta bebida?')) return;
     try {
-      const { error } = await supabase.from('drinks').delete().eq('id', drinkId);
-      if (error) { alert('Erro: ' + error.message); return; }
-      setData(prev => ({ ...prev, drinks: prev.drinks.filter(d => d.id !== drinkId) }));
+      const res = await adminFetch('delete_drink', { id: drinkId });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      setData(prev => ({ ...prev, drinks: prev.drinks.filter(dr => dr.id !== drinkId) }));
       setMsg('✅ Bebida excluída!');
       setTimeout(() => setMsg(''), 2500);
     } catch (e) { alert('Erro: ' + e.message); }
@@ -193,7 +223,9 @@ export default function AdminPage() {
 
   async function removeLogo() {
     try {
-      await supabase.from('settings').upsert({ key: 'logo_url', value: '' }, { onConflict: 'key' });
+      const res = await adminFetch('remove_logo', {});
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
       updateSetting('logo_url', '');
       alert('Logo removida. O nome "FUMÊGO" será exibido.');
     } catch (e) { alert('Erro: ' + e.message); }
@@ -201,15 +233,25 @@ export default function AdminPage() {
 
   async function updateOrderStatus(orderId, field, value) {
     try {
-      await fetch('/api/admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password, action: 'update_order', data: { id: orderId, [field]: value } }),
-      });
+      await adminFetch('update_order', { id: orderId, [field]: value });
       setData(prev => ({
         ...prev, orders: prev.orders.map(o => o.id === orderId ? { ...o, [field]: value } : o),
       }));
     } catch (e) { alert('Erro ao atualizar'); }
+  }
+
+  async function loadMoreOrders() {
+    setLoadingMore(true);
+    try {
+      const lastOrder = data.orders[data.orders.length - 1];
+      const cursor = lastOrder?.created_at;
+      const res = await adminFetch('get_more_orders', { cursor, pageSize: 50 });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      setData(prev => ({ ...prev, orders: [...prev.orders, ...(d.orders || [])] }));
+      setHasMoreOrders(d.hasMore || false);
+    } catch (e) { alert('Erro ao carregar mais pedidos'); }
+    finally { setLoadingMore(false); }
   }
 
   // LOGIN
@@ -499,49 +541,64 @@ export default function AdminPage() {
         )}
 
         {/* PEDIDOS */}
-        {tab === 'orders' && data.orders.map(o => (
-          <div key={o.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid #444' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ color: '#D4A528', fontWeight: 'bold' }}>#{o.order_number}</span>
-              <span style={{ color: '#888', fontSize: 12 }}>{new Date(o.created_at).toLocaleString('pt-BR')}</span>
-            </div>
-            <p style={{ color: '#fff', fontSize: 14 }}>{o.customer_name} - {o.customer_phone}</p>
-            <p style={{ color: '#aaa', fontSize: 12 }}>{o.delivery_street}, {o.delivery_number} - {o.delivery_neighborhood}</p>
-            <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center' }}>
-              <p style={{ color: '#D4A528', fontWeight: 'bold' }}>R$ {Number(o.total).toFixed(2).replace('.', ',')}</p>
-              <span style={{
-                fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 'bold',
-                background: o.payment_method === 'pix' ? '#0066CC' : o.payment_method === 'card' ? '#9333EA' : '#48BB78',
-                color: '#fff',
-              }}>
-                {o.payment_method === 'pix'
-                  ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Landmark size={11} /> PIX</span>
-                  : o.payment_method === 'card'
-                  ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CreditCard size={11} /> Cartão</span>
-                  : <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Banknote size={11} /> Dinheiro</span>
+        {tab === 'orders' && (
+          <div>
+            {data.orders.map(o => (
+              <div key={o.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid #444' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ color: '#D4A528', fontWeight: 'bold' }}>#{o.order_number}</span>
+                  <span style={{ color: '#888', fontSize: 12 }}>{new Date(o.created_at).toLocaleString('pt-BR')}</span>
+                </div>
+                <p style={{ color: '#fff', fontSize: 14 }}>{o.customer_name} - {o.customer_phone}</p>
+                <p style={{ color: '#aaa', fontSize: 12 }}>{o.delivery_street}, {o.delivery_number} - {o.delivery_neighborhood}</p>
+                <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center' }}>
+                  <p style={{ color: '#D4A528', fontWeight: 'bold' }}>R$ {Number(o.total).toFixed(2).replace('.', ',')}</p>
+                  <span style={{
+                    fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 'bold',
+                    background: o.payment_method === 'pix' ? '#0066CC' : o.payment_method === 'card' ? '#9333EA' : '#48BB78',
+                    color: '#fff',
+                  }}>
+                    {o.payment_method === 'pix'
+                      ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Landmark size={11} /> PIX</span>
+                      : o.payment_method === 'card'
+                      ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CreditCard size={11} /> Cartão</span>
+                      : <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Banknote size={11} /> Dinheiro</span>
+                    }
+                  </span>
+                </div>
+                {o.observations && <p style={{ color: '#777', fontSize: 11, fontStyle: 'italic', marginTop: 4 }}>Obs: {o.observations}</p>}
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <select value={o.status} onChange={e => updateOrderStatus(o.id, 'status', e.target.value)}
+                    style={{ background: '#444', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
+                    <option value="pending">Pendente</option>
+                    <option value="confirmed">Confirmado</option>
+                    <option value="preparing">Preparando</option>
+                    <option value="delivering">Entregando</option>
+                    <option value="delivered">Entregue</option>
+                    <option value="cancelled">Cancelado</option>
+                  </select>
+                  <select value={o.payment_status} onChange={e => updateOrderStatus(o.id, 'payment_status', e.target.value)}
+                    style={{ background: '#444', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
+                    <option value="pending">Pag. Pendente</option>
+                    <option value="approved">Pag. Aprovado</option>
+                    <option value="refunded">Reembolsado</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+
+            {/* Paginação */}
+            {hasMoreOrders && (
+              <button onClick={loadMoreOrders} disabled={loadingMore}
+                style={{ width: '100%', padding: '12px', background: '#333', color: '#D4A528', border: '1px solid #D4A528', borderRadius: 10, fontSize: 14, fontWeight: 'bold', cursor: 'pointer', opacity: loadingMore ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                {loadingMore
+                  ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Carregando...</>
+                  : 'Carregar mais pedidos'
                 }
-              </span>
-            </div>
-            {o.observations && <p style={{ color: '#777', fontSize: 11, fontStyle: 'italic', marginTop: 4 }}>Obs: {o.observations}</p>}
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <select value={o.status} onChange={e => updateOrderStatus(o.id, 'status', e.target.value)}
-                style={{ background: '#444', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
-                <option value="pending">Pendente</option>
-                <option value="confirmed">Confirmado</option>
-                <option value="preparing">Preparando</option>
-                <option value="delivering">Entregando</option>
-                <option value="delivered">Entregue</option>
-                <option value="cancelled">Cancelado</option>
-              </select>
-              <select value={o.payment_status} onChange={e => updateOrderStatus(o.id, 'payment_status', e.target.value)}
-                style={{ background: '#444', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
-                <option value="pending">Pag. Pendente</option>
-                <option value="approved">Pag. Aprovado</option>
-                <option value="refunded">Reembolsado</option>
-              </select>
-            </div>
+              </button>
+            )}
           </div>
-        ))}
+        )}
       </div>
 
       {/* BOTÃO SALVAR FIXO */}

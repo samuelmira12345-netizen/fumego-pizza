@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Pizza, GlassWater, MapPin, Clock, Landmark, CreditCard, Banknote, ShoppingBag, ClipboardList } from 'lucide-react';
 
@@ -62,7 +61,7 @@ export default function OrdersPage() {
       if (!raw) { router.push('/login'); return; }
       const u = JSON.parse(raw);
       setUser(u);
-      fetchOrders(u.id);
+      fetchOrders();
     } catch { router.push('/login'); }
   }, []);
 
@@ -72,14 +71,15 @@ export default function OrdersPage() {
     return () => clearInterval(iv);
   }, []);
 
-  async function fetchOrders(userId) {
+  async function fetchOrders() {
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*, order_items(*)')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      if (!error && data) setOrders(data);
+      const token = localStorage.getItem('fumego_token');
+      if (!token) { router.push('/login'); return; }
+      const res = await fetch('/api/orders', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const d = await res.json();
+      if (res.ok && d.orders) setOrders(d.orders);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }
