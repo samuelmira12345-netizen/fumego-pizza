@@ -54,7 +54,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       access_token,
-      token_type: 'Bearer',
+      token_type: 'bearer',   // spec exige lowercase: enum ['bearer']
       expires_in: 3600,
     });
   } catch (e) {

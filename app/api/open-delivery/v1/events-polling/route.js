@@ -39,8 +39,9 @@ export async function GET(request) {
       return NextResponse.json({ message: error.message }, { status: 503 });
     }
 
+    // Spec permite 204, mas 200 [] é mais compatível com todas as implementações
     if (!events || events.length === 0) {
-      return new Response(null, { status: 204 });
+      return NextResponse.json([]);
     }
 
     const appId = process.env.OD_APP_ID || undefined;
