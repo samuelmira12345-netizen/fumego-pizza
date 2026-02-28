@@ -6,7 +6,7 @@ import {
   Flame, UtensilsCrossed, GlassWater, Settings, Package,
   Upload, Loader2, Trash2, Plus, Check, Save,
   Palette, Store, Star, Landmark, CreditCard, Banknote, Clock,
-  Plug, RefreshCw, X, CheckCircle2, Bike,
+  Plug, RefreshCw, X, CheckCircle2, Bike, Link2, Copy,
 } from 'lucide-react';
 import { DEFAULT_BUSINESS_HOURS, DAY_LABELS, DAY_ORDER } from '../../lib/store-hours';
 
@@ -29,6 +29,10 @@ export default function AdminPage() {
   const [cwLoading, setCwLoading] = useState(false);
   const [cwSyncing, setCwSyncing] = useState(false);
   const [cwMsg, setCwMsg] = useState('');
+
+  // ── Open Delivery ───────────────────────────────────────────
+  const [odSetup, setOdSetup] = useState(null);
+  const [odLoading, setOdLoading] = useState(false);
   const [uploadingId, setUploadingId] = useState(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [newDrink, setNewDrink] = useState({ name: '', size: '', price: '' });
@@ -65,6 +69,24 @@ export default function AdminPage() {
     });
     return res;
   }, [adminToken]);
+
+  // ── Helpers Open Delivery ─────────────────────────────────────────────────
+
+  async function loadODSetup() {
+    setOdLoading(true);
+    try {
+      const res = await fetch('/api/open-delivery/setup', {
+        headers: { 'Authorization': `Bearer ${adminToken}` },
+      });
+      const d = await res.json();
+      setOdSetup(d);
+    } catch { setOdSetup(null); }
+    finally { setOdLoading(false); }
+  }
+
+  function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
 
   // ── Helpers CardápioWeb ───────────────────────────────────────────────────
 
@@ -593,6 +615,74 @@ export default function AdminPage() {
                 onChange={e => updateSetting('special_flavor_name', e.target.value)} style={{ marginBottom: 8 }} />
               <textarea className="input-field" placeholder="Descrição" value={getSetting('special_flavor_description')}
                 onChange={e => updateSetting('special_flavor_description', e.target.value)} rows="3" style={{ resize: 'none' }} />
+            </div>
+
+            {/* Open Delivery */}
+            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <h3 style={{ color: '#D4A528', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Link2 size={16} color="#D4A528" /> Open Delivery (CardápioWeb)
+                </h3>
+                <button onClick={loadODSetup} disabled={odLoading}
+                  style={{ padding: '6px 10px', background: '#333', color: '#D4A528', border: '1px solid #444', borderRadius: 8, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <RefreshCw size={11} style={odLoading ? { animation: 'spin 1s linear infinite' } : {}} />
+                  {odLoading ? '...' : 'Carregar'}
+                </button>
+              </div>
+              <p style={{ color: '#888', fontSize: 12, marginBottom: 12 }}>
+                Pedidos feitos no app chegam automaticamente no dashboard do CardápioWeb via Open Delivery.
+                Configure as variáveis de ambiente abaixo e forneça as credenciais ao CardápioWeb.
+              </p>
+
+              {!odSetup && (
+                <p style={{ color: '#666', fontSize: 12, fontStyle: 'italic' }}>
+                  Clique em "Carregar" para ver as credenciais e endpoints.
+                </p>
+              )}
+
+              {odSetup && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 10, fontWeight: 'bold',
+                      background: odSetup.enabled ? 'rgba(72,187,120,0.15)' : 'rgba(224,64,64,0.1)',
+                      color: odSetup.enabled ? '#48BB78' : '#E04040',
+                      border: `1px solid ${odSetup.enabled ? 'rgba(72,187,120,0.4)' : 'rgba(224,64,64,0.3)'}` }}>
+                      {odSetup.enabled ? '● Integração ativa' : '● Integração inativa'}
+                    </span>
+                  </div>
+
+                  {!odSetup.enabled && (
+                    <div style={{ background: '#1A1A1A', borderRadius: 8, padding: 12, marginBottom: 12, border: '1px solid #555' }}>
+                      <p style={{ color: '#F6AD55', fontSize: 12, fontWeight: 'bold', marginBottom: 6 }}>Configure as variáveis de ambiente:</p>
+                      {['OD_CLIENT_ID', 'OD_CLIENT_SECRET', 'OD_APP_ID', 'OD_MERCHANT_ID', 'OD_MERCHANT_NAME'].map(v => (
+                        <p key={v} style={{ color: '#888', fontSize: 11, fontFamily: 'monospace' }}>{v}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  <p style={{ color: '#aaa', fontSize: 12, fontWeight: 'bold', marginBottom: 8 }}>
+                    Forneça ao CardápioWeb:
+                  </p>
+                  {[
+                    ['Base URL', odSetup.endpoints?.baseUrl],
+                    ['Token URL', odSetup.endpoints?.token],
+                    ['Client ID', odSetup.clientId],
+                    ['App ID', odSetup.appId],
+                  ].map(([label, value]) => (
+                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <span style={{ color: '#888', fontSize: 11, minWidth: 80 }}>{label}:</span>
+                      <span style={{ color: '#D4A528', fontSize: 11, fontFamily: 'monospace', flex: 1, wordBreak: 'break-all' }}>{value}</span>
+                      <button onClick={() => copyToClipboard(value)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', padding: 2 }}>
+                        <Copy size={12} />
+                      </button>
+                    </div>
+                  ))}
+                  <p style={{ color: '#666', fontSize: 11, marginTop: 8, fontStyle: 'italic' }}>
+                    Client Secret: use o valor definido em OD_CLIENT_SECRET (não exibido por segurança).
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
