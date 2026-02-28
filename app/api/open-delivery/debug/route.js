@@ -64,13 +64,27 @@ export async function GET() {
   }
 
   // ── Resultado ────────────────────────────────────────────────────────────
+  const checklist = [
+    { item: 'OD_CLIENT_ID definido',     ok: envStatus.OD_CLIENT_ID },
+    { item: 'OD_CLIENT_SECRET definido', ok: envStatus.OD_CLIENT_SECRET },
+    { item: 'OD_APP_ID definido',        ok: envStatus.OD_APP_ID },
+    { item: 'OD_MERCHANT_ID definido',   ok: envStatus.OD_MERCHANT_ID },
+    { item: 'OD_CW_BASE_URL definido (push ativo)', ok: envStatus.OD_CW_BASE_URL },
+    { item: 'Tabela od_events existe',   ok: odEventsStatus?.ok ?? false },
+    { item: 'Conectividade com CardápioWeb ok', ok: cwConnectivity?.ok ?? false },
+  ];
+
+  const allOk = checklist.every(c => c.ok);
+
   return NextResponse.json({
     timestamp:  new Date().toISOString(),
+    status: allOk ? 'ok' : 'degraded',
     summary: {
       envVarsConfigured: allEnvOk,
       odEnabled:         isODEnabled(),
       cwPushEnabled:     isCWPushEnabled(),
       tableExists:       odEventsStatus?.ok ?? false,
+      allSystemsGo:      allOk,
     },
     envVars: envStatus,
     odEventsTable: odEventsStatus,
@@ -81,15 +95,9 @@ export async function GET() {
       eventsPolling:  `${cfg.baseUrl}/api/open-delivery/v1/events-polling`,
       acknowledgment: `${cfg.baseUrl}/api/open-delivery/v1/events/acknowledgment`,
       orderDetails:   `${cfg.baseUrl}/api/open-delivery/v1/orders/{orderId}`,
+      pushTest:       `${cfg.baseUrl}/api/open-delivery/debug/push-test`,
     },
-    checklist: [
-      { item: 'OD_CLIENT_ID definido',     ok: envStatus.OD_CLIENT_ID },
-      { item: 'OD_CLIENT_SECRET definido', ok: envStatus.OD_CLIENT_SECRET },
-      { item: 'OD_APP_ID definido',        ok: envStatus.OD_APP_ID },
-      { item: 'OD_MERCHANT_ID definido',   ok: envStatus.OD_MERCHANT_ID },
-      { item: 'OD_CW_BASE_URL definido (push ativo)', ok: envStatus.OD_CW_BASE_URL },
-      { item: 'Tabela od_events existe',   ok: odEventsStatus?.ok ?? false },
-    ],
+    checklist,
   });
 }
 
