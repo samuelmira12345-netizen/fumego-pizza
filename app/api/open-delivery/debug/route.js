@@ -73,13 +73,19 @@ export async function GET() {
 
   // ── Resultado ────────────────────────────────────────────────────────────
   const checklist = [
-    { item: 'OD_CLIENT_ID definido',     ok: envStatus.OD_CLIENT_ID },
-    { item: 'OD_CLIENT_SECRET definido', ok: envStatus.OD_CLIENT_SECRET },
-    { item: 'OD_APP_ID definido',        ok: envStatus.OD_APP_ID },
-    { item: 'OD_MERCHANT_ID definido',   ok: envStatus.OD_MERCHANT_ID },
+    { item: 'OD_CLIENT_ID definido',                ok: envStatus.OD_CLIENT_ID },
+    { item: 'OD_CLIENT_SECRET definido',            ok: envStatus.OD_CLIENT_SECRET },
+    { item: 'OD_APP_ID definido',                   ok: envStatus.OD_APP_ID },
+    { item: 'OD_MERCHANT_ID definido',              ok: envStatus.OD_MERCHANT_ID },
     { item: 'OD_CW_BASE_URL definido (push ativo)', ok: envStatus.OD_CW_BASE_URL },
-    { item: 'Tabela od_events existe',   ok: odEventsStatus?.ok ?? false },
-    { item: 'Conectividade com CardápioWeb ok', ok: cwConnectivity?.ok ?? false },
+    { item: 'Tabela od_events existe',              ok: odEventsStatus?.ok ?? false },
+    { item: 'Conectividade com CardápioWeb ok',     ok: cwConnectivity?.ok ?? false },
+    { item: 'GET /v1/merchant implementado',        ok: true },
+    { item: 'GET /v1/merchantStatus implementado',  ok: true },
+    { item: 'PATCH /v1/orders/{id}/details impl.',  ok: true },
+    { item: 'POST /v1/orders/{id}/tracking impl.',  ok: true },
+    { item: 'POST /v1/orders/{id}/validateCode impl.', ok: true },
+    { item: 'GET /v1/versions/* implementados',     ok: true },
   ];
 
   const allOk = checklist.every(c => c.ok);
@@ -99,11 +105,19 @@ export async function GET() {
     recentEvents,
     cardapioWebConnectivity: cwConnectivity,
     endpoints: {
-      token:          `${cfg.baseUrl}/api/open-delivery/oauth/token`,
-      eventsPolling:  `${cfg.baseUrl}/api/open-delivery/v1/events-polling`,
-      acknowledgment: `${cfg.baseUrl}/api/open-delivery/v1/events/acknowledgment`,
-      orderDetails:   `${cfg.baseUrl}/api/open-delivery/v1/orders/{orderId}`,
-      pushTest:       `${cfg.baseUrl}/api/open-delivery/debug/push-test`,
+      token:              `${cfg.baseUrl}/api/open-delivery/oauth/token`,
+      merchant:           `${cfg.baseUrl}/api/open-delivery/v1/merchant`,
+      merchantStatus:     `${cfg.baseUrl}/api/open-delivery/v1/merchantStatus`,
+      merchantAvail:      `${cfg.baseUrl}/api/open-delivery/v1/merchant/{merchantId}/status`,
+      eventsPolling:      `${cfg.baseUrl}/api/open-delivery/v1/events-polling`,
+      acknowledgment:     `${cfg.baseUrl}/api/open-delivery/v1/events/acknowledgment`,
+      orderDetails:       `${cfg.baseUrl}/api/open-delivery/v1/orders/{orderId}`,
+      orderTracking:      `${cfg.baseUrl}/api/open-delivery/v1/orders/{orderId}/tracking`,
+      orderValidateCode:  `${cfg.baseUrl}/api/open-delivery/v1/orders/{orderId}/validateCode`,
+      orderDetails_patch: `${cfg.baseUrl}/api/open-delivery/v1/orders/{orderId}/details`,
+      versionMerchant:    `${cfg.baseUrl}/api/open-delivery/v1/versions/merchant`,
+      versionOrderingApp: `${cfg.baseUrl}/api/open-delivery/v1/versions/orderingApp`,
+      pushTest:           `${cfg.baseUrl}/api/open-delivery/debug/push-test`,
     },
     checklist,
   });
