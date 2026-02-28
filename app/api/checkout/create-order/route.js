@@ -4,6 +4,7 @@ import { hashCpf } from '../../../../lib/cpf-crypto';
 import { sendOrderConfirmationEmail } from '../../../../lib/email';
 import { createOrderSchema } from '../../../../lib/schemas';
 import { isCWPushEnabled, pushEventToCardapioWeb } from '../../../../lib/open-delivery';
+import { logger } from '../../../../lib/logger';
 
 /**
  * Cria o pedido no banco de dados com CPF hasheado server-side.
@@ -71,11 +72,33 @@ export async function POST(request) {
 
     // 2. Push imediato para o CardápioWeb (não aguarda para não atrasar a resposta)
     if (isCWPushEnabled()) {
-      pushEventToCardapioWeb(order.id, 'CREATED').catch(e =>
-        console.error('[OD Push] Exceção ao enviar evento CREATED:', e.message)
-      );
+      pushEventToCardapioWeb(order.id, 'CREATED')
+        .then(result => {
+          if (!result.ok) {
+            // Log estruturado: status HTTP + corpo da resposta do CardápioWeb
+            logger.error('[OD Push] CardápioWeb rejeitou o evento CREATED', {
+              orderId: order.id,
+              status:  result.status,
+              error:   result.error,
+            });
+          } else {
+            logger.info('[OD Push] Evento CREATED aceito pelo CardápioWeb', {
+              orderId: order.id,
+              status:  result.status,
+            });
+          }
+        })
+        .catch(e =>
+          logger.error('[OD Push] Exceção ao enviar evento CREATED ao CardápioWeb', {
+            orderId: order.id,
+            error:   e.message,
+          })
+        );
     } else {
-      console.log('[OD] Push desativado — defina OD_CW_BASE_URL para ativar o envio ao CardápioWeb');
+      logger.warn('[OD Push] OD_CW_BASE_URL não definido — pedido NÃO notificado ao CardápioWeb', {
+        orderId: order.id,
+        hint:    'Defina OD_CW_BASE_URL nas variáveis de ambiente',
+      });
     }
     // ────────────────────────────────────────────────────────────────────────
 
