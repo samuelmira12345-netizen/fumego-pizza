@@ -3,11 +3,11 @@ import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { hashCpf } from '../../../../lib/cpf-crypto';
 import { sendOrderConfirmationEmail } from '../../../../lib/email';
 import { createOrderSchema } from '../../../../lib/schemas';
-import { isODEnabled } from '../../../../lib/open-delivery';
+import { isCWPushEnabled, pushEventToCardapioWeb } from '../../../../lib/open-delivery';
 
 /**
  * Cria o pedido no banco de dados com CPF hasheado server-side.
- * Substitui a escrita direta do cliente anônimo para operações sensíveis.
+ * Após criar, enfileira evento Open Delivery e faz push imediato ao CardápioWeb.
  */
 export async function POST(request) {
   try {
@@ -59,15 +59,25 @@ export async function POST(request) {
         .eq('id', coupon.id);
     }
 
-    // Enfileirar evento Open Delivery CREATED (para CardápioWeb fazer polling)
-    if (isODEnabled()) {
-      supabase.from('od_events').insert({
-        order_id:   order.id,
-        event_type: 'CREATED',
-      }).then(({ error: evErr }) => {
-        if (evErr) console.error('[OD] Erro ao enfileirar evento CREATED:', evErr.message);
-      });
+    // ── Open Delivery ────────────────────────────────────────────────────────
+    // 1. Enfileira na tabela od_events (para suporte a polling)
+    const { error: evErr } = await supabase
+      .from('od_events')
+      .insert({ order_id: order.id, event_type: 'CREATED' });
+    if (evErr) {
+      // Loga mas não bloqueia: a tabela pode não existir ainda (SQL não executado)
+      console.error('[OD] Falha ao inserir od_events — rode open-delivery-schema.sql no Supabase:', evErr.message);
     }
+
+    // 2. Push imediato para o CardápioWeb (não aguarda para não atrasar a resposta)
+    if (isCWPushEnabled()) {
+      pushEventToCardapioWeb(order.id, 'CREATED').catch(e =>
+        console.error('[OD Push] Exceção ao enviar evento CREATED:', e.message)
+      );
+    } else {
+      console.log('[OD] Push desativado — defina OD_CW_BASE_URL para ativar o envio ao CardápioWeb');
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     // Enviar e-mail de confirmação (não bloqueia a resposta se falhar)
     if (orderPayload.customer_email) {
