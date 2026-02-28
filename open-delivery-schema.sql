@@ -24,7 +24,15 @@ CREATE INDEX IF NOT EXISTS od_events_order_id_idx
   ON od_events(order_id);
 
 -- ==========================================
--- RLS
+-- RLS — apenas o backend (service_role) acessa
 -- ==========================================
 ALTER TABLE od_events ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "od_events_service_only" ON od_events USING (false);
+
+-- Nega acesso ao role anon/authenticated (clientes do frontend)
+-- A service_role key do Supabase IGNORA o RLS automaticamente,
+-- então o backend (getSupabaseAdmin) acessa sem restrições.
+CREATE POLICY "od_events_deny_public"
+  ON od_events
+  FOR ALL
+  TO anon, authenticated
+  USING (false);
