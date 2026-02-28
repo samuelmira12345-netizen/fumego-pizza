@@ -51,13 +51,21 @@ export async function GET() {
   }
 
   // ── Teste de conexão com CardápioWeb ─────────────────────────────────────
+  // Nota: não seguimos redirects (redirect=manual) para evitar falso-positivo
+  // em que o servidor redireciona para a página de login retornando 200.
   let cwConnectivity = null;
   if (process.env.OD_CW_BASE_URL) {
     try {
       const res = await fetch(`${process.env.OD_CW_BASE_URL}/v1/merchant`, {
+        redirect: 'manual',
         signal: AbortSignal.timeout(5000),
       });
-      cwConnectivity = { ok: res.ok, status: res.status };
+      const isRedirect = res.status >= 300 && res.status < 400;
+      cwConnectivity = {
+        ok: res.ok,
+        status: res.status,
+        ...(isRedirect ? { warning: 'Endpoint redireciona — OD_CW_BASE_URL pode estar errada' } : {}),
+      };
     } catch (e) {
       cwConnectivity = { ok: false, error: e.message };
     }
