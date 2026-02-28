@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
-import { isODEnabled, isCWPushEnabled, getODConfig, pushEventToCardapioWeb } from '../../../../lib/open-delivery';
+import { isODEnabled, isCWPushEnabled, getODConfig, pushEventToCardapioWeb, orderURL } from '../../../../lib/open-delivery';
 
 /**
  * GET /api/open-delivery/debug
@@ -25,6 +25,12 @@ export async function GET() {
     OD_MERCHANT_NAME: Boolean(process.env.OD_MERCHANT_NAME),
     NEXT_PUBLIC_APP_URL: Boolean(process.env.NEXT_PUBLIC_APP_URL),
   };
+
+  // NEXT_PUBLIC_APP_URL é CRÍTICO: se ausente, orderURL() retorna URL relativa
+  // e o CardápioWeb não consegue buscar detalhes do pedido.
+  const appBaseUrl      = process.env.NEXT_PUBLIC_APP_URL || '';
+  const orderUrlValid   = appBaseUrl.startsWith('http');
+  const sampleOrderUrl  = orderURL('EXAMPLE-ORDER-ID');
 
   const allEnvOk  = Object.values(envStatus).every(Boolean);
   const pushReady = isODEnabled() && isCWPushEnabled();
@@ -78,7 +84,14 @@ export async function GET() {
     { item: 'OD_APP_ID definido',                   ok: envStatus.OD_APP_ID },
     { item: 'OD_MERCHANT_ID definido',              ok: envStatus.OD_MERCHANT_ID },
     { item: 'OD_CW_BASE_URL definido (push ativo)', ok: envStatus.OD_CW_BASE_URL },
-    { item: 'Tabela od_events existe',              ok: odEventsStatus?.ok ?? false },
+    {
+      item: 'NEXT_PUBLIC_APP_URL definido e válido (orderURL acessível pelo CardápioWeb)',
+      ok:   orderUrlValid,
+      ...(orderUrlValid ? {} : { fix: 'Defina NEXT_PUBLIC_APP_URL=https://SEU-DOMINIO.com' }),
+    },
+    { item: 'Tabela od_events existe',              ok: odEventsStatus?.ok ?? false,
+      ...(odEventsStatus?.ok ? {} : { fix: 'Execute open-delivery-schema.sql no Supabase SQL Editor' }),
+    },
     { item: 'Conectividade com CardápioWeb ok',     ok: cwConnectivity?.ok ?? false },
     { item: 'GET /v1/merchant implementado',        ok: true },
     { item: 'GET /v1/merchantStatus implementado',  ok: true },
@@ -94,13 +107,20 @@ export async function GET() {
     timestamp:  new Date().toISOString(),
     status: allOk ? 'ok' : 'degraded',
     summary: {
-      envVarsConfigured: allEnvOk,
-      odEnabled:         isODEnabled(),
-      cwPushEnabled:     isCWPushEnabled(),
-      tableExists:       odEventsStatus?.ok ?? false,
-      allSystemsGo:      allOk,
+      envVarsConfigured:   allEnvOk,
+      odEnabled:           isODEnabled(),
+      cwPushEnabled:       isCWPushEnabled(),
+      orderUrlValid,
+      tableExists:         odEventsStatus?.ok ?? false,
+      allSystemsGo:        allOk,
     },
     envVars: envStatus,
+    // Mostra a URL que seria enviada ao CardápioWeb para buscar pedidos.
+    // Se começar com "/" (relativa), o CardápioWeb NÃO conseguirá acessá-la!
+    sampleOrderUrl,
+    orderUrlStatus: orderUrlValid
+      ? 'OK — URL absoluta e válida'
+      : `ERRO — URL relativa ("${sampleOrderUrl}"). Defina NEXT_PUBLIC_APP_URL=https://SEU-DOMINIO.com`,
     odEventsTable: odEventsStatus,
     recentEvents,
     cardapioWebConnectivity: cwConnectivity,

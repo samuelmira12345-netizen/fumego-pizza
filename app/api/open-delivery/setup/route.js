@@ -49,6 +49,7 @@ export async function GET(request) {
       orderValidCode:   `${baseUrl}/api/open-delivery/v1/orders/{orderId}/validateCode`,
       versionMerchant:  `${baseUrl}/api/open-delivery/v1/versions/merchant`,
       versionOrderingApp: `${baseUrl}/api/open-delivery/v1/versions/orderingApp`,
+      pushRetry:        `${baseUrl}/api/open-delivery/setup/push-retry`,
       baseUrl:          `${baseUrl}/api/open-delivery`,
     },
     instructions: [
