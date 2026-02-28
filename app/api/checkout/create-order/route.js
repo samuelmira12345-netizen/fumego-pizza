@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { hashCpf } from '../../../../lib/cpf-crypto';
 import { sendOrderConfirmationEmail } from '../../../../lib/email';
 import { createOrderSchema } from '../../../../lib/schemas';
+import { isODEnabled } from '../../../../lib/open-delivery';
 
 /**
  * Cria o pedido no banco de dados com CPF hasheado server-side.
@@ -56,6 +57,16 @@ export async function POST(request) {
         .from('coupons')
         .update({ times_used: coupon.times_used + 1 })
         .eq('id', coupon.id);
+    }
+
+    // Enfileirar evento Open Delivery CREATED (para CardápioWeb fazer polling)
+    if (isODEnabled()) {
+      supabase.from('od_events').insert({
+        order_id:   order.id,
+        event_type: 'CREATED',
+      }).then(({ error: evErr }) => {
+        if (evErr) console.error('[OD] Erro ao enfileirar evento CREATED:', evErr.message);
+      });
     }
 
     // Enviar e-mail de confirmação (não bloqueia a resposta se falhar)
