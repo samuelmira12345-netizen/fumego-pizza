@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { getSupabaseAdmin } from '../../../../../lib/supabase';
 import {
   getODConfig,
@@ -331,7 +332,114 @@ export async function POST(request) {
     });
   }
 
-  // ── 7. Push ao CardápioWeb ────────────────────────────────────────────────
+  // ── 7. Verifica endpoint merchantOnboarding (simulação do CardápioWeb) ────
+  // Chama nosso próprio PUT /merchantOnboarding com token local para verificar
+  // se o endpoint está respondendo corretamente (esperado: 201).
+  {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    if (baseUrl && generatedToken) {
+      try {
+        const onboardBody = {
+          getMerchantURL:  { baseURL: `${cfg.cwBaseUrl}/v1/merchant` },
+          ordersWebhookURL: `${cfg.cwBaseUrl}/v1/newEvent`,
+        };
+        const onboardRes = await fetch(
+          `${baseUrl}/api/open-delivery/v1/merchantOnboarding?merchantId=${encodeURIComponent(cfg.merchantId)}`,
+          {
+            method:  'PUT',
+            headers: {
+              'Content-Type':  'application/json',
+              'Authorization': `Bearer ${generatedToken}`,
+            },
+            body:   JSON.stringify(onboardBody),
+            signal: AbortSignal.timeout(8_000),
+          }
+        );
+        const onboardJson = await onboardRes.json().catch(() => ({}));
+        const onboardOk   = onboardRes.status === 201;
+        step('merchantOnboarding_check', onboardOk, {
+          httpStatus:           onboardRes.status,
+          orderingAppMerchantId: onboardJson.orderingAppMerchantId,
+          note: onboardOk
+            ? `PUT /merchantOnboarding OK (201). orderingAppMerchantId="${onboardJson.orderingAppMerchantId}" — CardápioWeb usará este ID para polling. ✓`
+            : 'PUT /merchantOnboarding falhou — verifique o endpoint.',
+          ...(!onboardOk ? { response: JSON.stringify(onboardJson) } : {}),
+        });
+      } catch (e) {
+        step('merchantOnboarding_check', false, { error: e.message });
+      }
+    } else {
+      step('merchantOnboarding_check', false, {
+        note: 'NEXT_PUBLIC_APP_URL não definido ou token não gerado.',
+      });
+    }
+  }
+
+  // ── 8. Push diagnóstico: testa variações de header ─────────────────────
+  // Envia o push com e sem X-App-Id para entender o que o TaxiMachine valida.
+  if (cfg.cwBaseUrl && !dryRun) {
+    try {
+      const diagEvent = {
+        eventId:   crypto.randomUUID(),
+        eventType: 'CREATED',
+        orderId:   'diag-' + Date.now(),
+        orderURL:  orderURL('diag-order'),
+        createdAt: new Date().toISOString(),
+      };
+      const diagBody      = JSON.stringify(diagEvent);
+      const diagSignature = signWebhookBody(diagBody);
+
+      // Tenta sem X-App-Id para ver se o erro muda
+      const noAppIdRes = await fetch(`${cfg.cwBaseUrl}/v1/newEvent`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':     'application/json',
+          'X-App-MerchantId': cfg.merchantId,
+          'X-App-Signature':  diagSignature,
+          // X-App-Id AUSENTE intencionalmente
+        },
+        body:   diagBody,
+        signal: AbortSignal.timeout(8_000),
+      }).catch(() => null);
+
+      const noAppIdStatus = noAppIdRes?.status;
+      const noAppIdText   = noAppIdRes ? await noAppIdRes.text().catch(() => '') : 'timeout';
+
+      // Tenta com X-App-Id = OD_MERCHANT_ID (para ver se merchant ID funciona como App ID)
+      const merchantAsAppIdRes = await fetch(`${cfg.cwBaseUrl}/v1/newEvent`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':     'application/json',
+          'X-App-Id':         cfg.merchantId,
+          'X-App-MerchantId': cfg.merchantId,
+          'X-App-Signature':  diagSignature,
+        },
+        body:   diagBody,
+        signal: AbortSignal.timeout(8_000),
+      }).catch(() => null);
+
+      const maaStatus = merchantAsAppIdRes?.status;
+      const maaText   = merchantAsAppIdRes ? await merchantAsAppIdRes.text().catch(() => '') : 'timeout';
+
+      const anySuccess = [noAppIdStatus, maaStatus].some(s => s && s < 403);
+      step('push_header_variants', true, {
+        note:     anySuccess ? 'Uma variante funcionou! Veja detalhes.' : 'Nenhuma variante passou — X-App-Id exige valor registrado no TaxiMachine.',
+        variants: {
+          sem_X_App_Id:               { httpStatus: noAppIdStatus, response: noAppIdText },
+          merchantId_como_X_App_Id:   { httpStatus: maaStatus,     response: maaText },
+        },
+        conclusion: noAppIdStatus === 403 && JSON.parse(noAppIdText || '{}')?.title === 'Invalid X-App-Id'
+          ? 'TaxiMachine exige X-App-Id mesmo quando omitido → precisa de App ID registrado.'
+          : noAppIdStatus !== 403
+            ? `Sem X-App-Id retornou ${noAppIdStatus} (diferente!) → erro pode ser outro.`
+            : 'Ver variantes acima.',
+      });
+    } catch (e) {
+      step('push_header_variants', false, { error: e.message });
+    }
+  }
+
+  // ── 9. Push principal ao CardápioWeb ─────────────────────────────────────
   if (!isCWPushEnabled()) {
     step('cardapioweb_push', false, {
       error: 'OD_CW_BASE_URL não configurado',
