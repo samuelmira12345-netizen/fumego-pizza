@@ -250,7 +250,88 @@ export async function POST(request) {
     step('order_format', false, { error: e.message });
   }
 
-  // ── 6. Push ao CardápioWeb ────────────────────────────────────────────────
+  // ── 6. Probe TaxiMachine: autentica e descobre sourceAppId esperado ──────
+  // Chama GET {OD_CW_BASE_URL}/v1/merchant/{OD_MERCHANT_ID}/status no TaxiMachine.
+  // Essa resposta contém o `sourceAppId` que eles têm registrado para o nosso app.
+  // Se sourceAppId != OD_APP_ID → esse é o motivo do 403 Invalid X-App-Id.
+  if (cfg.cwBaseUrl && cfg.merchantId) {
+    try {
+      // Tenta OAuth no TaxiMachine usando as credenciais do merchant
+      const cwOauthRes = await fetch(`${cfg.cwBaseUrl}/oauth/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grant_type:    'client_credentials',
+          client_id:     cfg.clientId,
+          client_secret: cfg.clientSecret,
+        }),
+        signal: AbortSignal.timeout(8_000),
+      }).catch(() => null);
+
+      if (!cwOauthRes || !cwOauthRes.ok) {
+        // TaxiMachine pode não expor OAuth para Ordering Apps — não é falha nossa.
+        const errText = cwOauthRes ? await cwOauthRes.text().catch(() => '') : 'timeout/network error';
+        step('taximachine_probe', true, {
+          note:       'TaxiMachine OAuth inacessível — normal para Ordering Apps sem credenciais registradas.',
+          httpStatus: cwOauthRes?.status,
+          detail:     errText,
+          skipped:    true,
+        });
+      } else {
+        const cwToken = await cwOauthRes.json().catch(() => ({}));
+        if (!cwToken.access_token) {
+          step('taximachine_probe', true, {
+            note:    'TaxiMachine OAuth respondeu mas sem access_token.',
+            detail:  JSON.stringify(cwToken),
+            skipped: true,
+          });
+        } else {
+          // Agora chama GET /v1/merchant/{merchantId}/status no TaxiMachine
+          const statusRes = await fetch(
+            `${cfg.cwBaseUrl}/v1/merchant/${cfg.merchantId}/status`,
+            {
+              headers: { 'Authorization': `Bearer ${cwToken.access_token}` },
+              signal:  AbortSignal.timeout(8_000),
+            }
+          ).catch(() => null);
+
+          if (!statusRes || !statusRes.ok) {
+            const errText = statusRes ? await statusRes.text().catch(() => '') : 'timeout/network error';
+            step('taximachine_probe', true, {
+              note:       'Autenticou no TaxiMachine mas /merchant/status retornou erro.',
+              httpStatus: statusRes?.status,
+              detail:     errText,
+            });
+          } else {
+            const statusBody  = await statusRes.json().catch(() => ({}));
+            const sourceAppId = statusBody.sourceAppId || statusBody.orderingAppId || null;
+            const appIdMatch  = sourceAppId ? (sourceAppId === cfg.appId) : null;
+            // Falha APENAS se TaxiMachine retornou um sourceAppId e ele NÃO bate com o nosso
+            step('taximachine_probe', appIdMatch !== false, {
+              merchantStatus: statusBody.status,
+              sourceAppId:    sourceAppId || '(não retornado)',
+              ourOD_APP_ID:   mask(cfg.appId),
+              appIdMatch,
+              note: sourceAppId
+                ? appIdMatch
+                  ? 'sourceAppId bate com OD_APP_ID ✓ — push deve funcionar.'
+                  : `MISMATCH: TaxiMachine espera sourceAppId="${sourceAppId}". Defina OD_APP_ID="${sourceAppId}" no Vercel.`
+                : 'TaxiMachine não retornou sourceAppId — endpoint pode não suportar esse campo ainda.',
+              rawResponse: statusBody,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      step('taximachine_probe', false, { error: e.message });
+    }
+  } else {
+    step('taximachine_probe', false, {
+      note: 'OD_CW_BASE_URL ou OD_MERCHANT_ID não configurados.',
+    });
+  }
+
+  // ── 7. Push ao CardápioWeb ────────────────────────────────────────────────
   if (!isCWPushEnabled()) {
     step('cardapioweb_push', false, {
       error: 'OD_CW_BASE_URL não configurado',
