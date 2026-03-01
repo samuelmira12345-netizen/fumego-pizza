@@ -436,8 +436,12 @@ export async function POST(request) {
         conclusion = 'Uma variante foi aceita (2xx/404) — push pode funcionar com esses headers.';
       } else if (requires_presence && requires_registry) {
         conclusion =
-          'CONFIRMADO: TaxiMachine (1) exige X-App-Id presente [400] E (2) valida o valor contra whitelist interna [403]. ' +
-          'Qualquer UUID não registrado retorna 403. Necessário registrar o app com a Machine Global (suporte.machine.global).';
+          'CONFIRMADO: TaxiMachine (1) exige X-App-Id presente [400] E (2) valida o valor contra lista registrada [403]. ' +
+          'Para registrar: (A) mantenha um UUID fixo como OD_APP_ID no Vercel, ' +
+          '(B) insira EXATAMENTE esse UUID no campo "ID do estabelecimento no outro sistema" no portal CardápioWeb, ' +
+          '(C) clique em Salvar/Reativar a integração para que o CardápioWeb chame nosso PUT /merchantOnboarding ' +
+          '(que agora retorna 201) — isso registra o App ID no TaxiMachine. ' +
+          'Se ainda falhar após reativar, contate suporte.machine.global.';
       } else {
         conclusion = `sem_X_App_Id=${noAppIdStatus}, merchantId_como_appId=${maaStatus}`;
       }
@@ -488,12 +492,21 @@ export async function POST(request) {
             : 'CardápioWeb recebeu o push e retornou 404 (pedido fictício inexistente). Conectividade OK ✓'
           : 'CardápioWeb rejeitou o push — verifique OD_APP_ID e OD_MERCHANT_ID.',
         ...(!pushOk ? {
-          fix: [
-            'Se httpStatus=403: OD_APP_ID ou OD_MERCHANT_ID incorretos.',
-            `OD_APP_ID atual começa com: ${mask(process.env.OD_APP_ID)}`,
-            `OD_MERCHANT_ID atual começa com: ${mask(process.env.OD_MERCHANT_ID)}`,
-            'Compare esses valores com o portal CardápioWeb.',
-          ].join(' | '),
+          fix: pushResult.status === 403
+            ? [
+                'HTTP 403 = TaxiMachine não reconhece nosso X-App-Id. Passos para corrigir:',
+                `1. Confirme que OD_APP_ID no Vercel é um UUID fixo (atual começa com: ${mask(process.env.OD_APP_ID)})`,
+                '2. No portal CardápioWeb → Integrações → Open Delivery: insira ESSE MESMO UUID no campo "ID do estabelecimento no outro sistema"',
+                '3. Clique em Salvar/Reativar — o CardápioWeb chamará nosso PUT /merchantOnboarding (agora funcional, retorna 201) registrando o App ID no TaxiMachine',
+                '4. Aguarde 1-2 min e rode o self-test novamente',
+                'ALTERNATIVA: Se o push continuar falhando, o CardápioWeb faz POLLING automático em GET /v1/events-polling (não precisa de X-App-Id). Verifique se há eventos válidos (não expirados) no passo od_events_table.',
+              ].join(' | ')
+            : [
+                'Push falhou com status ' + pushResult.status,
+                `OD_APP_ID começa com: ${mask(process.env.OD_APP_ID)}`,
+                `OD_MERCHANT_ID começa com: ${mask(process.env.OD_MERCHANT_ID)}`,
+                'Verifique OD_CW_BASE_URL e conectividade com TaxiMachine.',
+              ].join(' | '),
         } : {}),
       });
     } catch (e) {
@@ -519,6 +532,8 @@ export async function POST(request) {
     steps: results,
     nextAction: allOk
       ? 'Todos os testes passaram. Faça um pedido de teste e verifique o painel do CardápioWeb.'
-      : `Problemas em: ${failedSteps.join(', ')}.`,
+      : failedSteps.includes('cardapioweb_push') && !failedSteps.some(s => !['cardapioweb_push','push_header_variants'].includes(s))
+        ? 'Apenas o push ao CardápioWeb está falhando (403 X-App-Id). SOLUÇÃO: (1) copie o OD_APP_ID do Vercel, (2) cole no campo "ID do estabelecimento no outro sistema" no portal CardápioWeb, (3) clique Reativar integração. Após isso, o CardápioWeb também passará a fazer POLLING automático via GET /v1/events-polling — crie um novo pedido de teste para gerar eventos válidos.'
+        : `Problemas em: ${failedSteps.join(', ')}.`,
   });
 }
