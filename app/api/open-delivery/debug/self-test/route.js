@@ -421,18 +421,36 @@ export async function POST(request) {
       const maaStatus = merchantAsAppIdRes?.status;
       const maaText   = merchantAsAppIdRes ? await merchantAsAppIdRes.text().catch(() => '') : 'timeout';
 
-      const anySuccess = [noAppIdStatus, maaStatus].some(s => s && s < 403);
-      step('push_header_variants', true, {
-        note:     anySuccess ? 'Uma variante funcionou! Veja detalhes.' : 'Nenhuma variante passou — X-App-Id exige valor registrado no TaxiMachine.',
+      // Sucesso real = 2xx ou 404 (recebeu mas não encontrou pedido fictício)
+      const anySuccess = [noAppIdStatus, maaStatus].some(s => s && (s < 400 || s === 404));
+
+      // Interpreta o que cada código significa:
+      // 400 "X-App-Id is required" = TaxiMachine valida presença do header
+      // 403 "Invalid X-App-Id"     = TaxiMachine valida o VALOR contra whitelist interna
+      const noAppIdParsed  = (() => { try { return JSON.parse(noAppIdText || '{}'); } catch { return {}; } })();
+      const requires_presence = noAppIdStatus === 400 && noAppIdParsed?.title?.includes('required');
+      const requires_registry  = maaStatus === 403;
+
+      let conclusion;
+      if (anySuccess) {
+        conclusion = 'Uma variante foi aceita (2xx/404) — push pode funcionar com esses headers.';
+      } else if (requires_presence && requires_registry) {
+        conclusion =
+          'CONFIRMADO: TaxiMachine (1) exige X-App-Id presente [400] E (2) valida o valor contra whitelist interna [403]. ' +
+          'Qualquer UUID não registrado retorna 403. Necessário registrar o app com a Machine Global (suporte.machine.global).';
+      } else {
+        conclusion = `sem_X_App_Id=${noAppIdStatus}, merchantId_como_appId=${maaStatus}`;
+      }
+
+      step('push_header_variants', anySuccess, {
+        note: anySuccess
+          ? 'Uma variante foi aceita! Veja detalhes e atualize OD_APP_ID.'
+          : 'Nenhuma variante passou — confirmado: X-App-Id precisa de registro no TaxiMachine.',
         variants: {
-          sem_X_App_Id:               { httpStatus: noAppIdStatus, response: noAppIdText },
-          merchantId_como_X_App_Id:   { httpStatus: maaStatus,     response: maaText },
+          sem_X_App_Id:             { httpStatus: noAppIdStatus, response: noAppIdText },
+          merchantId_como_X_App_Id: { httpStatus: maaStatus,     response: maaText },
         },
-        conclusion: noAppIdStatus === 403 && JSON.parse(noAppIdText || '{}')?.title === 'Invalid X-App-Id'
-          ? 'TaxiMachine exige X-App-Id mesmo quando omitido → precisa de App ID registrado.'
-          : noAppIdStatus !== 403
-            ? `Sem X-App-Id retornou ${noAppIdStatus} (diferente!) → erro pode ser outro.`
-            : 'Ver variantes acima.',
+        conclusion,
       });
     } catch (e) {
       step('push_header_variants', false, { error: e.message });
