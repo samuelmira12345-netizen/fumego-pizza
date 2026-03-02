@@ -21,7 +21,7 @@ export async function POST(request) {
     const raw = await request.json();
     const parsed = forgotPasswordSchema.safeParse(raw);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.errors[0]?.message || 'E-mail inválido' }, { status: 400 });
+      return NextResponse.json({ error: parsed.error.issues?.[0]?.message || 'E-mail inválido' }, { status: 400 });
     }
     const { email } = parsed.data;
 

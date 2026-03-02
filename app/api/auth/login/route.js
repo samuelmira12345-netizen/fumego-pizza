@@ -22,7 +22,7 @@ export async function POST(request) {
     const raw = await request.json();
     const parsed = loginSchema.safeParse(raw);
     if (!parsed.success) {
-      const msg = parsed.error.errors[0]?.message || 'Dados inválidos';
+      const msg = parsed.error.issues?.[0]?.message || 'Dados inválidos';
       return NextResponse.json({ error: msg }, { status: 400 });
     }
     const { email, password } = parsed.data;
