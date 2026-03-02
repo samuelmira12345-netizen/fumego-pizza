@@ -218,6 +218,33 @@ export default function AdminPage() {
     updateSetting('business_hours', JSON.stringify(updated));
   }
 
+  // ── Stock limits ─────────────────────────────────────────────────────
+  function getStockLimits() {
+    const raw = getSetting('stock_limits');
+    if (!raw) return {};
+    try { return JSON.parse(raw); } catch { return {}; }
+  }
+
+  function updateStockLimit(productId, field, value) {
+    const current = getStockLimits();
+    const updated = {
+      ...current,
+      [String(productId)]: { ...(current[String(productId)] || { enabled: false, qty: 0 }), [field]: value },
+    };
+    updateSetting('stock_limits', JSON.stringify(updated));
+  }
+
+  // ── Scheduling ───────────────────────────────────────────────────────
+  function getSchedulingSlots() {
+    const raw = getSetting('scheduling_slots');
+    if (!raw) return [{ time: '12:00', max_orders: 3 }, { time: '18:00', max_orders: 3 }];
+    try { return JSON.parse(raw); } catch { return []; }
+  }
+
+  function updateSchedulingSlots(slots) {
+    updateSetting('scheduling_slots', JSON.stringify(slots));
+  }
+
   // ===== UPLOAD DE FOTO PRODUTO =====
   async function handleImageUpload(productIdx, file) {
     const product = data.products[productIdx];
@@ -421,6 +448,38 @@ export default function AdminPage() {
                 <input className="input-field" placeholder="Ordem" type="number" value={p.sort_order || ''}
                   onChange={e => updateProduct(idx, 'sort_order', parseInt(e.target.value) || 0)} />
               </div>
+
+              {/* Controle de Estoque */}
+              {(() => {
+                const stock = getStockLimits()[String(p.id)] || { enabled: false, qty: 0 };
+                return (
+                  <div style={{ marginTop: 4, padding: '10px 12px', background: '#1A1A1A', borderRadius: 8, border: '1px solid #333' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: stock.enabled ? 8 : 0 }}>
+                      <input type="checkbox" checked={stock.enabled} onChange={e => updateStockLimit(p.id, 'enabled', e.target.checked)} />
+                      <span style={{ fontSize: 12, color: '#bbb', fontWeight: 600 }}>Limitar estoque</span>
+                    </label>
+                    {stock.enabled && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <input className="input-field" type="number" min="0" placeholder="Qtd disponível"
+                          value={stock.qty}
+                          onChange={e => {
+                            const qty = parseInt(e.target.value) || 0;
+                            updateStockLimit(p.id, 'qty', qty);
+                            if (qty <= 0) updateProduct(idx, 'is_active', false);
+                          }}
+                          style={{ maxWidth: 150 }} />
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap',
+                          background: stock.qty <= 0 ? 'rgba(229,83,83,0.2)' : stock.qty <= 3 ? 'rgba(246,173,85,0.2)' : 'rgba(72,187,120,0.2)',
+                          color: stock.qty <= 0 ? '#E53E3E' : stock.qty <= 3 ? '#F6AD55' : '#48BB78',
+                        }}>
+                          {stock.qty <= 0 ? 'Esgotado' : stock.qty <= 3 ? 'Poucas unidades' : 'Disponível'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         ))}
@@ -617,6 +676,78 @@ export default function AdminPage() {
                 onChange={e => updateSetting('special_flavor_description', e.target.value)} rows="3" style={{ resize: 'none' }} />
             </div>
 
+            {/* Agendamento */}
+            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
+              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Clock size={16} color="#D4A528" /> Agendamento de Pedidos
+              </h3>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <input type="checkbox" checked={getSetting('scheduling_enabled') === 'true'}
+                  onChange={e => updateSetting('scheduling_enabled', e.target.checked ? 'true' : 'false')} />
+                <span style={{ color: '#fff', fontSize: 14 }}>Ativar agendamento</span>
+              </label>
+              <p style={{ color: '#888', fontSize: 12, marginBottom: 14 }}>
+                Permite que o cliente escolha data e hora na finalização do pedido.
+              </p>
+
+              {getSetting('scheduling_enabled') === 'true' && (
+                <>
+                  <label style={{ color: '#888', fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    Máximo de dias antecipados para agendamento
+                  </label>
+                  <input className="input-field" type="number" min="1" max="30" placeholder="Ex: 3"
+                    value={getSetting('scheduling_max_days') || '3'}
+                    onChange={e => updateSetting('scheduling_max_days', e.target.value)}
+                    style={{ marginBottom: 16, maxWidth: 120 }} />
+
+                  <div style={{ height: 1, background: '#444', marginBottom: 14 }} />
+
+                  <h4 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 4, fontSize: 13 }}>
+                    Horários disponíveis e capacidade máxima
+                  </h4>
+                  <p style={{ color: '#888', fontSize: 11, marginBottom: 12 }}>
+                    Cada horário pode receber no máximo N pedidos simultâneos.
+                  </p>
+
+                  {getSchedulingSlots().map((slot, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <input type="time" value={slot.time}
+                        onChange={e => {
+                          const slots = [...getSchedulingSlots()];
+                          slots[i] = { ...slots[i], time: e.target.value };
+                          updateSchedulingSlots(slots);
+                        }}
+                        style={{ flex: 1, background: '#1A1A1A', color: '#fff', border: '1px solid #555', borderRadius: 8, padding: '6px 8px', fontSize: 13 }} />
+                      <input type="number" min="1" max="99" value={slot.max_orders}
+                        onChange={e => {
+                          const slots = [...getSchedulingSlots()];
+                          slots[i] = { ...slots[i], max_orders: parseInt(e.target.value) || 1 };
+                          updateSchedulingSlots(slots);
+                        }}
+                        style={{ width: 60, background: '#1A1A1A', color: '#fff', border: '1px solid #555', borderRadius: 8, padding: '6px 8px', fontSize: 13, textAlign: 'center' }} />
+                      <span style={{ color: '#666', fontSize: 11 }}>pedidos</span>
+                      <button onClick={() => {
+                        const slots = getSchedulingSlots().filter((_, j) => j !== i);
+                        updateSchedulingSlots(slots);
+                      }}
+                        style={{ background: 'none', border: 'none', color: '#E53E3E', cursor: 'pointer', padding: 4 }}>
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+
+                  <button onClick={() => {
+                    const slots = [...getSchedulingSlots(), { time: '12:00', max_orders: 3 }];
+                    updateSchedulingSlots(slots);
+                  }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(212,165,40,0.15)', color: '#D4A528', border: '1px solid rgba(212,165,40,0.3)', borderRadius: 8, fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
+                    <Plus size={12} /> Adicionar horário
+                  </button>
+                </>
+              )}
+            </div>
+
             {/* Open Delivery */}
             <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -713,11 +844,20 @@ export default function AdminPage() {
                     }
                   </span>
                 </div>
+                {o.scheduled_for && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, padding: '4px 8px', background: 'rgba(183,148,244,0.15)', border: '1px solid rgba(183,148,244,0.3)', borderRadius: 8, width: 'fit-content' }}>
+                    <Clock size={11} color="#B794F4" />
+                    <span style={{ fontSize: 11, color: '#B794F4', fontWeight: 700 }}>
+                      Agendado: {new Date(o.scheduled_for).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )}
                 {o.observations && <p style={{ color: '#777', fontSize: 11, fontStyle: 'italic', marginTop: 4 }}>Obs: {o.observations}</p>}
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <select value={o.status} onChange={e => updateOrderStatus(o.id, 'status', e.target.value)}
                     style={{ background: '#444', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
                     <option value="pending">Pendente</option>
+                    <option value="scheduled">Agendado</option>
                     <option value="confirmed">Confirmado</option>
                     <option value="preparing">Preparando</option>
                     <option value="delivering">Entregando</option>

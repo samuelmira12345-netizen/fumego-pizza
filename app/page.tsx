@@ -33,11 +33,17 @@ interface DrinkSelection extends Drink {
   quantity: number;
 }
 
+interface CartItemOption {
+  label: string;
+  extra_price: number;
+}
+
 interface CartItem {
   id: number;
   product: Product;
   observations: string;
   drinks: DrinkSelection[];
+  option?: CartItemOption | null;
 }
 
 interface Settings {
@@ -57,6 +63,13 @@ const CARD       = '#1C1500';
 const BORDER     = '#2C1E00';
 const MUTED      = '#7A6040';
 const FAINT      = '#3A2810';
+
+// ── Opções por produto ──────────────────────────────────────────────────────
+const PRODUCT_OPTIONS: Record<string, CartItemOption[]> = {
+  'calabresa':       [{ label: 'Sem cebola', extra_price: 0 }, { label: 'Com cebola', extra_price: 2 }],
+  'marguerita':      [{ label: 'Sem alho',   extra_price: 0 }, { label: 'Com alho',   extra_price: 0 }],
+  'especial-do-mes': [{ label: 'Sem alho',   extra_price: 0 }, { label: 'Com alho',   extra_price: 2 }],
+};
 
 function fmt(price: number | string): string {
   return Number(price).toFixed(2).replace('.', ',');
@@ -78,7 +91,10 @@ export default function HomePage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [observations, setObservations]       = useState('');
   const [selectedDrinks, setSelectedDrinks]   = useState<DrinkSelection[]>([]);
+  const [selectedOption, setSelectedOption]   = useState<CartItemOption | null>(null);
   const [showUserMenu, setShowUserMenu]       = useState(false);
+  const [showEmptyCartToast, setShowEmptyCartToast] = useState(false);
+  const [stockLimits, setStockLimits]         = useState<Record<string, { enabled: boolean; qty: number }>>({});
 
   useEffect(() => {
     loadData();
@@ -104,6 +120,11 @@ export default function HomePage() {
         const s: Settings = {};
         sRes.data.forEach((i: { key: string; value: string }) => { s[i.key] = i.value; });
         setSettings(s);
+
+        // Stock limits
+        if (s.stock_limits) {
+          try { setStockLimits(JSON.parse(s.stock_limits)); } catch {}
+        }
 
         // Compute effective store open status using business hours (Brasília timezone)
         let effectiveOpen = s.store_open === 'true';
@@ -137,10 +158,12 @@ export default function HomePage() {
   }
 
   function openProductModal(product: Product) {
-    if (!storeOpen || !product.is_active) return;
+    if (!storeOpen) return;
     setSelectedProduct(product);
     setObservations('');
     setSelectedDrinks([]);
+    const opts = PRODUCT_OPTIONS[product.slug];
+    setSelectedOption(opts ? opts[0] : null);
     setShowModal(true);
   }
 
@@ -162,12 +185,13 @@ export default function HomePage() {
   }
 
   function addToCart() {
-    if (!selectedProduct) return;
+    if (!selectedProduct || !selectedProduct.is_active) return;
     const item: CartItem = {
       id: Date.now(),
       product: selectedProduct,
       observations,
       drinks: selectedDrinks,
+      option: selectedOption || null,
     };
     saveCart([...cart, item]);
     setShowModal(false);
@@ -177,13 +201,18 @@ export default function HomePage() {
     let t = 0;
     cart.forEach(i => {
       t += Number(i.product.price);
+      if (i.option) t += i.option.extra_price;
       i.drinks?.forEach(d => { t += Number(d.price) * d.quantity; });
     });
     return t;
   }
 
   function goToCheckout() {
-    if (cart.length === 0) return;
+    if (cart.length === 0) {
+      setShowEmptyCartToast(true);
+      setTimeout(() => setShowEmptyCartToast(false), 2500);
+      return;
+    }
     localStorage.setItem('fumego_cart', JSON.stringify(cart));
     router.push('/checkout');
   }
@@ -191,6 +220,7 @@ export default function HomePage() {
   function getModalTotal(): number {
     if (!selectedProduct) return 0;
     let t = Number(selectedProduct.price);
+    if (selectedOption) t += selectedOption.extra_price;
     selectedDrinks.forEach(d => { t += Number(d.price) * d.quantity; });
     return t;
   }
@@ -229,9 +259,28 @@ export default function HomePage() {
     );
   }
 
+  // ── Helpers de estoque ───────────────────────────────────────────────────────
+  function getStock(product: Product): { enabled: boolean; qty: number } | null {
+    const s = stockLimits[String(product.id)];
+    return s?.enabled ? s : null;
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: BG }}>
+
+      {/* ── TOAST CARRINHO VAZIO ── */}
+      {showEmptyCartToast && (
+        <div style={{
+          position: 'fixed', top: 80, left: '50%', transform: 'translateX(-50%)',
+          background: '#1C1500', border: `1px solid ${GOLD}`, borderRadius: 12,
+          padding: '10px 22px', fontSize: 13, color: GOLD, fontWeight: 600,
+          zIndex: 300, boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+          animation: 'fadeIn 0.2s ease-out', whiteSpace: 'nowrap',
+        }}>
+          Seu carrinho está vazio
+        </div>
+      )}
 
       {/* ── HEADER ── */}
       <header className="header" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr' }}>
@@ -350,7 +399,7 @@ export default function HomePage() {
 
       {/* ── PIZZA HERO ── */}
       {calabresa && marguerita && (
-        <section style={{ padding: '32px 16px 16px', textAlign: 'center' }}>
+        <section style={{ padding: '32px 16px 16px', textAlign: 'center', background: 'radial-gradient(ellipse at 50% 30%, rgba(242,168,0,0.07) 0%, transparent 65%)' }}>
           <p style={{ color: FAINT, fontSize: 10, textTransform: 'uppercase', letterSpacing: 5, fontWeight: 700, marginBottom: 24 }}>
             ✦ &nbsp;Pizzas Clássicas&nbsp; ✦
           </p>
@@ -427,6 +476,7 @@ export default function HomePage() {
                   ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(calabresa.price)}</p>
                   : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
                 }
+                {(() => { const s = getStock(calabresa); return s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               </div>
               <div style={{ flex: 1, textAlign: 'center', padding: '32px 8px 18px', background: 'linear-gradient(to top, rgba(8,6,0,0.95) 0%, rgba(8,6,0,0.55) 60%, transparent 100%)', borderRadius: '0 0 150px 0' }}>
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>Marguerita</p>
@@ -434,6 +484,7 @@ export default function HomePage() {
                   ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(marguerita.price)}</p>
                   : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
                 }
+                {(() => { const s = getStock(marguerita); return s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               </div>
             </div>
           </div>
@@ -617,11 +668,46 @@ export default function HomePage() {
             </div>
 
             <p style={{ fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.55 }}>{selectedProduct.description}</p>
-            <p style={{ fontSize: 24, fontWeight: 800, color: GOLD, marginBottom: 22 }}>R$ {fmt(selectedProduct.price)}</p>
+            <p style={{ fontSize: 24, fontWeight: 800, color: selectedProduct.is_active ? GOLD : '#E04040', marginBottom: 22 }}>
+              {selectedProduct.is_active ? `R$ ${fmt(selectedProduct.price)}` : 'ESGOTADO'}
+            </p>
+
+            {/* Opções do produto */}
+            {selectedProduct.is_active && PRODUCT_OPTIONS[selectedProduct.slug] && (
+              <div style={{ marginBottom: 22 }}>
+                <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>Opções</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {PRODUCT_OPTIONS[selectedProduct.slug].map(opt => {
+                    const isSelected = selectedOption?.label === opt.label;
+                    return (
+                      <div key={opt.label} onClick={() => setSelectedOption(opt)} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '12px 14px', borderRadius: 13, cursor: 'pointer',
+                        border: isSelected ? `1.5px solid ${GOLD}` : `1px solid ${BORDER}`,
+                        background: isSelected ? 'rgba(242,168,0,0.07)' : '#1A1400',
+                        transition: 'border-color 0.15s, background 0.15s',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{
+                            width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                            border: isSelected ? `6px solid ${GOLD}` : `2px solid ${BORDER}`,
+                            background: isSelected ? BG : 'transparent',
+                          }} />
+                          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{opt.label}</span>
+                        </div>
+                        <span style={{ color: opt.extra_price > 0 ? GOLD : MUTED, fontSize: 13, fontWeight: 700 }}>
+                          {opt.extra_price > 0 ? `+R$ ${fmt(opt.extra_price)}` : 'Incluso'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div style={{ marginBottom: 22 }}>
               <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>Observações</label>
-              <textarea className="input-field" rows={2} placeholder="Ex: Sem cebola, borda recheada…" value={observations} onChange={e => setObservations(e.target.value)} style={{ resize: 'none' }} />
+              <textarea className="input-field" rows={2} placeholder="Ex: Borda recheada…" value={observations} onChange={e => setObservations(e.target.value)} style={{ resize: 'none' }} />
             </div>
 
             {drinks.length > 0 && (
@@ -673,11 +759,19 @@ export default function HomePage() {
             )}
 
             <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <span style={{ color: MUTED, fontSize: 13 }}>Total deste item:</span>
-                <span style={{ fontSize: 22, fontWeight: 800, color: GOLD }}>R$ {getModalTotal().toFixed(2).replace('.', ',')}</span>
-              </div>
-              <button className="btn-primary" onClick={addToCart}>Adicionar ao Carrinho</button>
+              {selectedProduct.is_active && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <span style={{ color: MUTED, fontSize: 13 }}>Total deste item:</span>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: GOLD }}>R$ {getModalTotal().toFixed(2).replace('.', ',')}</span>
+                </div>
+              )}
+              {selectedProduct.is_active ? (
+                <button className="btn-primary" onClick={addToCart}>Adicionar ao Carrinho</button>
+              ) : (
+                <div style={{ padding: '14px 20px', textAlign: 'center', background: 'rgba(224,64,64,0.1)', border: '1px solid rgba(224,64,64,0.3)', borderRadius: 14, color: '#E04040', fontWeight: 700, letterSpacing: 0.5, fontSize: 14 }}>
+                  Produto esgotado — indisponível no momento
+                </div>
+              )}
             </div>
           </div>
         </div>
