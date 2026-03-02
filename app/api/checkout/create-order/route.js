@@ -47,6 +47,32 @@ export async function POST(request) {
       console.error('Erro ao inserir itens:', itemsErr.message);
     }
 
+    // Decrementar estoque para produtos com controle ativado
+    try {
+      const { data: stockSetting } = await supabase.from('settings').select('value').eq('key', 'stock_limits').single();
+      if (stockSetting?.value) {
+        const stockMap = JSON.parse(stockSetting.value);
+        let changed = false;
+        for (const item of items) {
+          if (!item.product_id) continue;
+          // find product_id key (UUID) in stockMap
+          const entry = stockMap[item.product_id];
+          if (!entry?.enabled) continue;
+          entry.qty = Math.max(0, (entry.qty || 0) - item.quantity);
+          changed = true;
+          if (entry.qty <= 0) {
+            // auto-mark product as inactive
+            await supabase.from('products').update({ is_active: false }).eq('id', item.product_id);
+          }
+        }
+        if (changed) {
+          await supabase.from('settings').upsert({ key: 'stock_limits', value: JSON.stringify(stockMap) }, { onConflict: 'key' });
+        }
+      }
+    } catch (stockErr) {
+      console.error('[Stock] Erro ao decrementar estoque:', stockErr.message);
+    }
+
     // Registrar uso de cupom com CPF hasheado
     if (coupon && cpf) {
       await supabase.from('coupon_usage').insert({

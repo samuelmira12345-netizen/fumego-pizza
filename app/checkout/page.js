@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import {
   ShoppingCart, X, ClipboardCopy, Loader2, CheckCircle2,
-  Landmark, CreditCard, Banknote, Clock, Truck,
+  Landmark, CreditCard, Banknote, Clock, Truck, CalendarClock,
 } from 'lucide-react';
 
 const GOLD   = '#F2A800';
@@ -39,6 +39,15 @@ export default function CheckoutPage() {
   const [paymentExpired, setPaymentExpired] = useState(false);
   const [pixCopied, setPixCopied] = useState(false);
   const [formError, setFormError] = useState('');
+
+  // Agendamento
+  const [schedulingEnabled, setSchedulingEnabled] = useState(false);
+  const [schedulingMaxDays, setSchedulingMaxDays] = useState(3);
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [selectedSlot, setSelectedSlot] = useState('');
+  const [loadingSlots, setLoadingSlots] = useState(false);
 
   // Refs para limpeza de timers ao desmontar o componente
   const pollingIntervalRef = useRef(null);
@@ -75,20 +84,53 @@ export default function CheckoutPage() {
       }));
     }
 
-    supabase.from('settings').select('*').in('key', ['delivery_fee', 'delivery_time', 'instagram_url'])
+    supabase.from('settings').select('*')
+      .in('key', ['delivery_fee', 'delivery_time', 'instagram_url', 'scheduling_enabled', 'scheduling_max_days'])
       .then(({ data }) => {
         if (data) {
-          const fee  = data.find(s => s.key === 'delivery_fee');
-          const time = data.find(s => s.key === 'delivery_time');
+          const fee   = data.find(s => s.key === 'delivery_fee');
+          const time  = data.find(s => s.key === 'delivery_time');
           const insta = data.find(s => s.key === 'instagram_url');
+          const schEn = data.find(s => s.key === 'scheduling_enabled');
+          const schMx = data.find(s => s.key === 'scheduling_max_days');
           if (fee)   setDeliveryFee(Number(fee.value) || 0);
           if (time)  setDeliveryTime(time.value || '40–60 min');
           if (insta) setInstagramUrl(insta.value || '');
+          if (schEn?.value === 'true') setSchedulingEnabled(true);
+          if (schMx) setSchedulingMaxDays(parseInt(schMx.value) || 3);
         }
       });
   }, []);
 
   function updateForm(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
+
+  async function loadAvailableSlots(date) {
+    if (!date) { setAvailableSlots([]); setSelectedSlot(''); return; }
+    setLoadingSlots(true);
+    try {
+      const res = await fetch(`/api/checkout/available-slots?date=${date}`);
+      const data = await res.json();
+      setAvailableSlots(data.slots || []);
+      setSelectedSlot('');
+    } catch { setAvailableSlots([]); }
+    finally { setLoadingSlots(false); }
+  }
+
+  function getMinDate() {
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    return d.toISOString().slice(0, 10);
+  }
+
+  function getMaxDate() {
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    d.setDate(d.getDate() + schedulingMaxDays);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function getScheduledFor() {
+    if (!isScheduled || !scheduledDate || !selectedSlot) return null;
+    return new Date(`${scheduledDate}T${selectedSlot}:00-03:00`).toISOString();
+  }
 
   async function handleCepBlur() {
     const cep = form.zipcode.replace(/\D/g, '');
@@ -110,7 +152,11 @@ export default function CheckoutPage() {
 
   function calcSubtotal() {
     let total = 0;
-    cart.forEach(item => { total += Number(item.product.price); item.drinks?.forEach(d => { total += Number(d.price) * d.quantity; }); });
+    cart.forEach(item => {
+      total += Number(item.product.price);
+      if (item.option?.extra_price) total += item.option.extra_price;
+      item.drinks?.forEach(d => { total += Number(d.price) * d.quantity; });
+    });
     return total;
   }
 
@@ -143,7 +189,11 @@ export default function CheckoutPage() {
     if (newCart.length === 0) router.push('/');
   }
 
-  function isFormValid() { return form.name && form.phone && form.street && form.number && form.neighborhood; }
+  function isFormValid() {
+    if (!form.name || !form.phone || !form.street || !form.number || !form.neighborhood) return false;
+    if (isScheduled && (!scheduledDate || !selectedSlot)) return false;
+    return true;
+  }
 
   async function createOrder() {
     const observations = [
@@ -151,6 +201,7 @@ export default function CheckoutPage() {
       paymentMethod === 'cash' && cashChange ? `Troco para: R$ ${cashChange}` : '',
     ].filter(Boolean).join(' | ');
 
+    const scheduledFor = getScheduledFor();
     const orderPayload = {
       user_id: user?.id || null,
       customer_name: form.name, customer_email: form.email || null,
@@ -165,15 +216,22 @@ export default function CheckoutPage() {
       observations,
       payment_method: paymentMethod,
       payment_status: 'pending',
-      status: 'pending',
+      status: scheduledFor ? 'scheduled' : 'pending',
+      scheduled_for: scheduledFor || null,
     };
 
     const items = [];
     cart.forEach(cartItem => {
+      const optionPrice = cartItem.option?.extra_price || 0;
+      const optionNote  = cartItem.option ? cartItem.option.label : null;
+      const obsNote     = cartItem.observations || null;
+      const fullObs     = [optionNote, obsNote].filter(Boolean).join(' | ') || null;
       items.push({
         product_id: cartItem.product.id, product_name: cartItem.product.name,
-        quantity: 1, unit_price: Number(cartItem.product.price), total_price: Number(cartItem.product.price),
-        observations: cartItem.observations || null,
+        quantity: 1,
+        unit_price:  Number(cartItem.product.price) + optionPrice,
+        total_price: Number(cartItem.product.price) + optionPrice,
+        observations: fullObs,
       });
       cartItem.drinks?.forEach(d => {
         items.push({
@@ -478,12 +536,13 @@ export default function CheckoutPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <p style={{ fontSize: 15, fontWeight: 'bold', color: '#fff' }}>{item.product.name}</p>
+                  {item.option && <p style={{ fontSize: 12, color: GOLD, marginTop: 2 }}>{item.option.label}{item.option.extra_price > 0 ? ` (+R$ ${Number(item.option.extra_price).toFixed(2).replace('.', ',')})` : ''}</p>}
                   {item.drinks?.map(d => <p key={d.id} style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>+ {d.name} {d.size} x{d.quantity}</p>)}
                   {item.observations && <p style={{ fontSize: 11, color: '#3A2810', fontStyle: 'italic', marginTop: 2 }}>Obs: {item.observations}</p>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontWeight: 'bold', color: '#fff' }}>
-                    R$ {(Number(item.product.price) + (item.drinks?.reduce((s, d) => s + Number(d.price) * d.quantity, 0) || 0)).toFixed(2).replace('.', ',')}
+                    R$ {(Number(item.product.price) + (item.option?.extra_price || 0) + (item.drinks?.reduce((s, d) => s + Number(d.price) * d.quantity, 0) || 0)).toFixed(2).replace('.', ',')}
                   </span>
                   <button onClick={() => removeCartItem(item.id)}
                     style={{ background: 'none', border: 'none', color: RED, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -530,6 +589,71 @@ export default function CheckoutPage() {
             </div>
           </div>
         </div>
+
+        {/* AGENDAMENTO */}
+        {schedulingEnabled && (
+          <div style={{ marginBottom: 16 }}>
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <CalendarClock size={15} color={GOLD} /> Quando deseja receber?
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[false, true].map(val => (
+                <div key={String(val)} onClick={() => { setIsScheduled(val); if (!val) { setScheduledDate(''); setSelectedSlot(''); } }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
+                    border: isScheduled === val ? `2px solid ${GOLD}` : `1px solid ${BORDER}`,
+                    background: isScheduled === val ? 'rgba(242,168,0,0.08)' : CARD,
+                  }}>
+                  <div style={{ width: 22, height: 22, borderRadius: '50%', border: isScheduled === val ? `6px solid ${GOLD}` : `2px solid ${BORDER}`, background: isScheduled === val ? BG : 'transparent' }} />
+                  <div>
+                    <p style={{ fontSize: 15, fontWeight: 'bold', color: '#fff' }}>{val ? 'Agendar entrega' : 'Entrega imediata'}</p>
+                    <p style={{ fontSize: 12, color: MUTED }}>{val ? 'Escolha data e horário' : 'O pedido vai para a cozinha agora'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {isScheduled && (
+              <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Data</label>
+                  <input type="date" className="input-field"
+                    min={getMinDate()} max={getMaxDate()}
+                    value={scheduledDate}
+                    onChange={e => { setScheduledDate(e.target.value); loadAvailableSlots(e.target.value); }} />
+                </div>
+
+                {scheduledDate && (
+                  <div>
+                    <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>Horário disponível</label>
+                    {loadingSlots ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: MUTED, fontSize: 13, padding: '12px 0' }}>
+                        <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Verificando horários...
+                      </div>
+                    ) : availableSlots.length === 0 ? (
+                      <p style={{ color: RED, fontSize: 13, padding: '10px 0' }}>Nenhum horário disponível para esta data.</p>
+                    ) : (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {availableSlots.map(slot => (
+                          <button key={slot.time} onClick={() => setSelectedSlot(slot.time)}
+                            style={{
+                              padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                              border: selectedSlot === slot.time ? `2px solid ${GOLD}` : `1px solid ${BORDER}`,
+                              background: selectedSlot === slot.time ? 'rgba(242,168,0,0.12)' : CARD,
+                              color: selectedSlot === slot.time ? GOLD : '#fff',
+                            }}>
+                            {slot.time}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* CUPOM */}
         <div style={{ marginBottom: 16 }}>
