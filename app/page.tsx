@@ -65,10 +65,15 @@ const MUTED      = '#7A6040';
 const FAINT      = '#3A2810';
 
 // ── Opções por produto ──────────────────────────────────────────────────────
+const CAPRICHO_OPTS: CartItemOption[] = [
+  { label: 'Sem alho', extra_price: 0 },
+  { label: 'Com alho', extra_price: 2 },
+];
 const PRODUCT_OPTIONS: Record<string, CartItemOption[]> = {
   'calabresa':       [{ label: 'Sem cebola', extra_price: 0 }, { label: 'Com cebola', extra_price: 2 }],
   'marguerita':      [{ label: 'Sem alho',   extra_price: 0 }, { label: 'Com alho',   extra_price: 0 }],
-  'especial-do-mes': [{ label: 'Sem alho',   extra_price: 0 }, { label: 'Com alho',   extra_price: 2 }],
+  'especial-do-mes': CAPRICHO_OPTS,
+  'capricho':        CAPRICHO_OPTS,
 };
 
 function fmt(price: number | string): string {
@@ -239,7 +244,7 @@ export default function HomePage() {
   const marguerita  = getProduct('marguerita');
   const calabresa   = getProduct('calabresa');
   const combo       = getProduct('combo-classico');
-  const especial    = getProduct('especial-do-mes');
+  const especial    = getProduct('especial-do-mes') ?? getProduct('capricho');
   const logoUrl     = settings.logo_url || null;
   const logoSize    = parseInt(settings.logo_size || '36');
   const deliveryTime = settings.delivery_time || '40–60 min';
@@ -422,7 +427,7 @@ export default function HomePage() {
               {/* Metade esquerda — Calabresa */}
               <div onClick={() => openProductModal(calabresa)} style={{
                 position: 'absolute', top: 0, left: 0, width: '50%', height: '100%',
-                cursor: calabresa.is_active && storeOpen ? 'pointer' : 'default', overflow: 'hidden',
+                cursor: storeOpen ? 'pointer' : 'default', overflow: 'hidden',
               }}>
                 {imgUrl(calabresa) ? (
                   <img src={imgUrl(calabresa)!} alt="Calabresa"
@@ -442,7 +447,7 @@ export default function HomePage() {
               {/* Metade direita — Marguerita */}
               <div onClick={() => openProductModal(marguerita)} style={{
                 position: 'absolute', top: 0, right: 0, width: '50%', height: '100%',
-                cursor: marguerita.is_active && storeOpen ? 'pointer' : 'default', overflow: 'hidden',
+                cursor: storeOpen ? 'pointer' : 'default', overflow: 'hidden',
               }}>
                 {imgUrl(marguerita) ? (
                   <img src={imgUrl(marguerita)!} alt="Marguerita"
@@ -521,27 +526,35 @@ export default function HomePage() {
       )}
 
       {/* ── COMBO ── */}
-      {combo?.is_active && (
+      {combo && (
         <section style={{ margin: '4px 16px 14px' }}>
           <div style={{
             borderRadius: 20, overflow: 'hidden', background: CARD,
-            border: '1px solid rgba(242,168,0,0.2)', boxShadow: '0 6px 32px rgba(0,0,0,0.55)',
+            border: combo.is_active ? '1px solid rgba(242,168,0,0.2)' : `1px solid ${BORDER}`,
+            boxShadow: '0 6px 32px rgba(0,0,0,0.55)',
             cursor: storeOpen ? 'pointer' : 'default',
+            opacity: combo.is_active ? 1 : 0.75,
           }}
             onClick={() => openProductModal(combo)}
           >
             <div style={{ position: 'relative' }}>
               {imgUrl(combo) ? (
-                <img src={imgUrl(combo)!} alt={combo.name} style={{ width: '100%', height: 195, objectFit: 'cover', display: 'block' }} />
+                <img src={imgUrl(combo)!} alt={combo.name} style={{ width: '100%', height: 195, objectFit: 'cover', display: 'block', filter: combo.is_active ? 'none' : 'grayscale(60%) brightness(0.6)' }} />
               ) : (
                 <div style={{ width: '100%', height: 195, background: '#251800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <UtensilsCrossed size={48} color="#5A3800" />
                 </div>
               )}
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,21,0,1) 0%, rgba(28,21,0,0.3) 50%, transparent 100%)' }} />
-              <div style={{ position: 'absolute', top: 14, left: 14, background: '#E04040', color: '#fff', fontSize: 10, fontWeight: 800, padding: '4px 11px', borderRadius: 20, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                Economize R$10
-              </div>
+              {combo.is_active ? (
+                <div style={{ position: 'absolute', top: 14, left: 14, background: '#E04040', color: '#fff', fontSize: 10, fontWeight: 800, padding: '4px 11px', borderRadius: 20, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                  Economize R$10
+                </div>
+              ) : (
+                <div style={{ position: 'absolute', top: 14, left: 14, background: 'rgba(0,0,0,0.7)', color: '#E04040', fontSize: 10, fontWeight: 800, padding: '4px 11px', borderRadius: 20, letterSpacing: 1, textTransform: 'uppercase', border: '1px solid #E04040' }}>
+                  Esgotado
+                </div>
+              )}
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '0 18px 16px' }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 6, background: 'rgba(10,8,0,0.72)', border: '1px solid rgba(242,168,0,0.35)', color: GOLD, fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
                   <Flame size={12} /> Combo Fumêgo
@@ -553,45 +566,48 @@ export default function HomePage() {
               <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.55, marginBottom: 16 }}>{combo.description}</p>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <p style={{ color: FAINT, textDecoration: 'line-through', fontSize: 13 }}>R$ 90,00</p>
-                  <p style={{ color: GOLD, fontSize: 26, fontWeight: 800, lineHeight: 1.1 }}>
-                    R$&nbsp;<span style={{ color: GOLD }}>{fmt(combo.price)}</span>
+                  {combo.is_active && <p style={{ color: FAINT, textDecoration: 'line-through', fontSize: 13 }}>R$ 90,00</p>}
+                  <p style={{ color: combo.is_active ? GOLD : '#E04040', fontSize: combo.is_active ? 26 : 16, fontWeight: 800, lineHeight: 1.1 }}>
+                    {combo.is_active ? <>R$&nbsp;{fmt(combo.price)}</> : 'Indisponível no momento'}
                   </p>
                 </div>
-                <button
-                  onClick={e => { e.stopPropagation(); openProductModal(combo); }}
-                  disabled={!storeOpen}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, color: BG, border: 'none', borderRadius: 13, padding: '13px 20px', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: `0 4px 18px rgba(242,168,0,0.35)` }}
-                >
-                  Pedir <ChevronRight size={16} />
-                </button>
+                {combo.is_active && (
+                  <button
+                    onClick={e => { e.stopPropagation(); openProductModal(combo); }}
+                    disabled={!storeOpen}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, color: BG, border: 'none', borderRadius: 13, padding: '13px 20px', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: `0 4px 18px rgba(242,168,0,0.35)` }}
+                  >
+                    Pedir <ChevronRight size={16} />
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </section>
       )}
 
-      {/* ── ESPECIAL DO MÊS ── */}
-      {especial?.is_active && (
+      {/* ── ESPECIAL DO MÊS / CAPRICHO ── */}
+      {especial && (
         <section style={{ margin: '0 16px 20px' }}>
           <div style={{
             borderRadius: 20, overflow: 'hidden', background: CARD,
             border: `1px solid ${BORDER}`, boxShadow: '0 6px 32px rgba(0,0,0,0.45)',
             cursor: storeOpen ? 'pointer' : 'default',
+            opacity: especial.is_active ? 1 : 0.75,
           }}
             onClick={() => openProductModal(especial)}
           >
             <div style={{ position: 'relative' }}>
               {imgUrl(especial) ? (
-                <img src={imgUrl(especial)!} alt="Especial" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
+                <img src={imgUrl(especial)!} alt="Especial" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block', filter: especial.is_active ? 'none' : 'grayscale(60%) brightness(0.6)' }} />
               ) : (
                 <div style={{ width: '100%', height: 180, background: '#201600', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Star size={48} color="#5A3800" />
                 </div>
               )}
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,21,0,0.9) 0%, transparent 55%)' }} />
-              <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(10,8,0,0.72)', border: '1px solid rgba(242,168,0,0.4)', color: GOLD, fontSize: 10, fontWeight: 700, padding: '4px 11px', borderRadius: 20, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                <Star size={11} fill={GOLD} /> Especial do Mês
+              <div style={{ position: 'absolute', top: 14, left: 14, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(10,8,0,0.72)', border: `1px solid ${especial.is_active ? 'rgba(242,168,0,0.4)' : '#E04040'}`, color: especial.is_active ? GOLD : '#E04040', fontSize: 10, fontWeight: 700, padding: '4px 11px', borderRadius: 20, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                <Star size={11} fill={especial.is_active ? GOLD : '#E04040'} /> {especial.is_active ? 'Especial do Mês' : 'Esgotado'}
               </div>
             </div>
             <div style={{ padding: '16px 18px 18px' }}>
@@ -602,14 +618,18 @@ export default function HomePage() {
                 {settings.special_flavor_description || especial.description}
               </p>
               <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: GOLD, fontSize: 26, fontWeight: 800 }}>R$ {fmt(especial.price)}</span>
-                <button
-                  onClick={e => { e.stopPropagation(); openProductModal(especial); }}
-                  disabled={!storeOpen}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 20px', background: 'transparent', color: GOLD, border: `1.5px solid ${GOLD}`, borderRadius: 13, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
-                >
-                  Quero <ChevronRight size={16} />
-                </button>
+                <span style={{ color: especial.is_active ? GOLD : '#E04040', fontSize: especial.is_active ? 26 : 15, fontWeight: 800 }}>
+                  {especial.is_active ? `R$ ${fmt(especial.price)}` : 'Indisponível no momento'}
+                </span>
+                {especial.is_active && (
+                  <button
+                    onClick={e => { e.stopPropagation(); openProductModal(especial); }}
+                    disabled={!storeOpen}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 20px', background: 'transparent', color: GOLD, border: `1.5px solid ${GOLD}`, borderRadius: 13, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    Quero <ChevronRight size={16} />
+                  </button>
+                )}
               </div>
             </div>
           </div>
