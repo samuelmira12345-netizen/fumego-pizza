@@ -56,6 +56,18 @@ export default function AdminPage() {
     if (saved) setAdminToken(saved);
   }, []);
 
+  // ── Auto-dispatch de pedidos agendados (substitui o Vercel Cron) ──────────
+  // Executa a cada 5 minutos enquanto o admin está aberto e autenticado.
+  useEffect(() => {
+    if (!authenticated) return;
+    async function dispatch() {
+      try { await fetch('/api/cron/dispatch-scheduled'); } catch {}
+    }
+    dispatch(); // Dispara imediatamente ao autenticar
+    const iv = setInterval(dispatch, 5 * 60 * 1000);
+    return () => clearInterval(iv);
+  }, [authenticated]);
+
   // Helper: POST /api/admin with Authorization header
   const adminFetch = useCallback(async (action, actionData, token) => {
     const tok = token || adminToken;
