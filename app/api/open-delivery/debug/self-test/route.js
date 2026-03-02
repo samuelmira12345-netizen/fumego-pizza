@@ -421,8 +421,25 @@ export async function POST(request) {
       const maaStatus = merchantAsAppIdRes?.status;
       const maaText   = merchantAsAppIdRes ? await merchantAsAppIdRes.text().catch(() => '') : 'timeout';
 
+      // Tenta com X-App-Id = OD_CLIENT_ID — empresas confirmaram que credenciais são suficientes,
+      // portanto o CardápioWeb/TaxiMachine pode validar X-App-Id contra o client_id cadastrado.
+      const clientIdAsAppIdRes = await fetch(`${cfg.cwBaseUrl}/v1/newEvent`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':     'application/json',
+          'X-App-Id':         cfg.clientId,
+          'X-App-MerchantId': cfg.merchantId,
+          'X-App-Signature':  diagSignature,
+        },
+        body:   diagBody,
+        signal: AbortSignal.timeout(8_000),
+      }).catch(() => null);
+
+      const caaStatus = clientIdAsAppIdRes?.status;
+      const caaText   = clientIdAsAppIdRes ? await clientIdAsAppIdRes.text().catch(() => '') : 'timeout';
+
       // Sucesso real = 2xx ou 404 (recebeu mas não encontrou pedido fictício)
-      const anySuccess = [noAppIdStatus, maaStatus].some(s => s && (s < 400 || s === 404));
+      const anySuccess = [noAppIdStatus, maaStatus, caaStatus].some(s => s && (s < 400 || s === 404));
 
       // Interpreta o que cada código significa:
       // 400 "X-App-Id is required" = TaxiMachine valida presença do header
@@ -431,8 +448,15 @@ export async function POST(request) {
       const requires_presence = noAppIdStatus === 400 && noAppIdParsed?.title?.includes('required');
       const requires_registry  = maaStatus === 403;
 
+      // Determina qual variante foi aceita (se alguma)
+      const clientIdAccepted = caaStatus && (caaStatus < 400 || caaStatus === 404);
+
       let conclusion;
-      if (anySuccess) {
+      if (clientIdAccepted) {
+        conclusion =
+          'OD_CLIENT_ID foi aceito como X-App-Id ✓ — push já deve funcionar. ' +
+          'Confirme que OD_APP_ID não está definido (ou está em branco) para que o fallback use OD_CLIENT_ID automaticamente.';
+      } else if (anySuccess) {
         conclusion = 'Uma variante foi aceita (2xx/404) — push pode funcionar com esses headers.';
       } else if (requires_presence && requires_registry) {
         conclusion =
@@ -443,16 +467,19 @@ export async function POST(request) {
           '(que agora retorna 201) — isso registra o App ID no TaxiMachine. ' +
           'Se ainda falhar após reativar, contate suporte.machine.global.';
       } else {
-        conclusion = `sem_X_App_Id=${noAppIdStatus}, merchantId_como_appId=${maaStatus}`;
+        conclusion = `sem_X_App_Id=${noAppIdStatus}, merchantId_como_appId=${maaStatus}, clientId_como_appId=${caaStatus}`;
       }
 
       step('push_header_variants', anySuccess, {
         note: anySuccess
-          ? 'Uma variante foi aceita! Veja detalhes e atualize OD_APP_ID.'
+          ? clientIdAccepted
+            ? 'OD_CLIENT_ID aceito como X-App-Id ✓ — push está funcionando!'
+            : 'Uma variante foi aceita! Veja detalhes.'
           : 'Nenhuma variante passou — confirmado: X-App-Id precisa de registro no TaxiMachine.',
         variants: {
-          sem_X_App_Id:             { httpStatus: noAppIdStatus, response: noAppIdText },
-          merchantId_como_X_App_Id: { httpStatus: maaStatus,     response: maaText },
+          sem_X_App_Id:              { httpStatus: noAppIdStatus, response: noAppIdText },
+          merchantId_como_X_App_Id:  { httpStatus: maaStatus,     response: maaText },
+          clientId_como_X_App_Id:    { httpStatus: caaStatus,     response: caaText, note: 'OD_CLIENT_ID — empresas confirmaram que credenciais são suficientes' },
         },
         conclusion,
       });
