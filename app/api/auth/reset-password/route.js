@@ -20,7 +20,7 @@ export async function POST(request) {
     const raw = await request.json();
     const parsed = resetPasswordSchema.safeParse(raw);
     if (!parsed.success) {
-      return NextResponse.json({ error: parsed.error.errors[0]?.message || 'Dados inválidos' }, { status: 400 });
+      return NextResponse.json({ error: parsed.error.issues?.[0]?.message || 'Dados inválidos' }, { status: 400 });
     }
     const { token, new_password } = parsed.data;
 

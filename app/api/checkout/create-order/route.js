@@ -15,7 +15,7 @@ export async function POST(request) {
     const raw = await request.json();
     const parsed = createOrderSchema.safeParse(raw);
     if (!parsed.success) {
-      const msg = parsed.error.errors[0]?.message || 'Dados do pedido inválidos';
+      const msg = parsed.error.issues?.[0]?.message || 'Dados do pedido inválidos';
       return NextResponse.json({ error: msg }, { status: 400 });
     }
     const { orderPayload, items, coupon, cpf } = parsed.data;
@@ -29,6 +29,12 @@ export async function POST(request) {
       ...orderPayload,
       customer_cpf: cpfHash,
     };
+
+    // Não enviar scheduled_for: null para o banco — evita erro se a coluna ainda não existe.
+    // Pedidos sem agendamento simplesmente não definem esse campo.
+    if (!securePayload.scheduled_for) {
+      delete securePayload.scheduled_for;
+    }
 
     const { data: order, error: orderErr } = await supabase
       .from('orders')
