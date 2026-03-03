@@ -241,9 +241,38 @@ export default function AdminPage() {
     const current = getStockLimits();
     const updated = {
       ...current,
-      [String(productId)]: { ...(current[String(productId)] || { enabled: false, qty: 0 }), [field]: value },
+      [String(productId)]: { ...(current[String(productId)] || { enabled: false, qty: 0, low_stock_threshold: 3 }), [field]: value },
     };
     updateSetting('stock_limits', JSON.stringify(updated));
+  }
+
+  // ── Posição de imagem dos produtos ───────────────────────────────────
+  function getImagePositions() {
+    const raw = getSetting('image_positions');
+    if (!raw) return {};
+    try { return JSON.parse(raw); } catch { return {}; }
+  }
+
+  function updateImagePosition(productId, x, y) {
+    const current = getImagePositions();
+    const updated = { ...current, [String(productId)]: { x, y } };
+    updateSetting('image_positions', JSON.stringify(updated));
+  }
+
+  // ── Estoque de bebidas ────────────────────────────────────────────────
+  function getDrinkStockLimits() {
+    const raw = getSetting('drink_stock_limits');
+    if (!raw) return {};
+    try { return JSON.parse(raw); } catch { return {}; }
+  }
+
+  function updateDrinkStockLimit(drinkId, field, value) {
+    const current = getDrinkStockLimits();
+    const updated = {
+      ...current,
+      [String(drinkId)]: { ...(current[String(drinkId)] || { enabled: false, qty: 0 }), [field]: value },
+    };
+    updateSetting('drink_stock_limits', JSON.stringify(updated));
   }
 
   // ── Scheduling ───────────────────────────────────────────────────────
@@ -432,11 +461,37 @@ export default function AdminPage() {
                 <span style={{ fontSize: 12, color: p.is_active ? '#48BB78' : '#E53E3E' }}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
               </label>
             </div>
-            {p.image_url && (
-              <div style={{ marginBottom: 10 }}>
-                <img src={p.image_url} alt={p.name} style={{ width: '100%', maxHeight: 120, objectFit: 'cover', borderRadius: 8 }} />
-              </div>
-            )}
+            {p.image_url && (() => {
+              const pos = getImagePositions()[String(p.id)] || { x: 50, y: 50 };
+              return (
+                <div style={{ marginBottom: 10 }}>
+                  <p style={{ fontSize: 11, color: '#999', marginBottom: 5, fontWeight: 600 }}>
+                    Posição da foto — Clique para ajustar ({pos.x}% H, {pos.y}% V)
+                  </p>
+                  <div
+                    style={{ position: 'relative', width: '100%', height: 130, cursor: 'crosshair', borderRadius: 8, overflow: 'hidden', border: '2px solid #555', userSelect: 'none' }}
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+                      const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
+                      updateImagePosition(p.id, x, y);
+                    }}
+                  >
+                    <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos.x}% ${pos.y}%`, pointerEvents: 'none', display: 'block' }} />
+                    <div style={{
+                      position: 'absolute', left: `${pos.x}%`, top: `${pos.y}%`,
+                      transform: 'translate(-50%, -50%)',
+                      width: 16, height: 16, borderRadius: '50%',
+                      background: 'rgba(242,168,0,0.9)', border: '2px solid #fff',
+                      boxShadow: '0 0 6px rgba(0,0,0,0.8)', pointerEvents: 'none',
+                    }} />
+                    <div style={{ position: 'absolute', left: `${pos.x}%`, top: 0, bottom: 0, width: 1, background: 'rgba(242,168,0,0.35)', pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', top: `${pos.y}%`, left: 0, right: 0, height: 1, background: 'rgba(242,168,0,0.35)', pointerEvents: 'none' }} />
+                  </div>
+                  <p style={{ fontSize: 10, color: '#666', marginTop: 4 }}>Clique na imagem para definir o ponto de foco do recorte</p>
+                </div>
+              );
+            })()}
             <div style={{ marginBottom: 10 }}>
               <label style={{
                 display: 'inline-block', padding: '8px 16px', background: '#444', color: '#fff', borderRadius: 8,
@@ -470,24 +525,34 @@ export default function AdminPage() {
                       <input type="checkbox" checked={stock.enabled} onChange={e => updateStockLimit(p.id, 'enabled', e.target.checked)} />
                       <span style={{ fontSize: 12, color: '#bbb', fontWeight: 600 }}>Limitar estoque</span>
                     </label>
-                    {stock.enabled && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <input className="input-field" type="number" min="0" placeholder="Qtd disponível"
-                          value={stock.qty}
-                          onChange={e => {
-                            const qty = parseInt(e.target.value) || 0;
-                            updateStockLimit(p.id, 'qty', qty);
-                          }}
-                          style={{ maxWidth: 150 }} />
-                        <span style={{
-                          fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap',
-                          background: stock.qty <= 0 ? 'rgba(229,83,83,0.2)' : stock.qty <= 3 ? 'rgba(246,173,85,0.2)' : 'rgba(72,187,120,0.2)',
-                          color: stock.qty <= 0 ? '#E53E3E' : stock.qty <= 3 ? '#F6AD55' : '#48BB78',
-                        }}>
-                          {stock.qty <= 0 ? 'Esgotado' : stock.qty <= 3 ? 'Poucas unidades' : 'Disponível'}
-                        </span>
-                      </div>
-                    )}
+                    {stock.enabled && (() => {
+                      const thr = stock.low_stock_threshold ?? 3;
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input className="input-field" type="number" min="0" placeholder="Qtd disponível"
+                              value={stock.qty}
+                              onChange={e => updateStockLimit(p.id, 'qty', parseInt(e.target.value) || 0)}
+                              style={{ maxWidth: 150 }} />
+                            <span style={{
+                              fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap',
+                              background: stock.qty <= 0 ? 'rgba(229,83,83,0.2)' : stock.qty <= thr ? 'rgba(246,173,85,0.2)' : 'rgba(72,187,120,0.2)',
+                              color: stock.qty <= 0 ? '#E53E3E' : stock.qty <= thr ? '#F6AD55' : '#48BB78',
+                            }}>
+                              {stock.qty <= 0 ? 'Esgotado' : stock.qty <= thr ? 'Poucas unidades' : 'Disponível'}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input className="input-field" type="number" min="1" max="50"
+                              placeholder="Aviso poucas unid. (ex: 3)"
+                              value={thr}
+                              onChange={e => updateStockLimit(p.id, 'low_stock_threshold', parseInt(e.target.value) || 3)}
+                              style={{ maxWidth: 150 }} />
+                            <span style={{ fontSize: 10, color: '#666' }}>= qtd para "Poucas unidades"</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })()}
@@ -518,6 +583,34 @@ export default function AdminPage() {
                 </div>
                 <input className="input-field" placeholder="Preço" type="number" step="0.01" value={d.price || ''}
                   onChange={e => updateDrink(idx, 'price', e.target.value)} />
+
+                {/* Controle de Estoque da Bebida */}
+                {(() => {
+                  const dstock = getDrinkStockLimits()[String(d.id)] || { enabled: false, qty: 0 };
+                  return (
+                    <div style={{ marginTop: 8, padding: '10px 12px', background: '#1A1A1A', borderRadius: 8, border: '1px solid #333' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: dstock.enabled ? 8 : 0 }}>
+                        <input type="checkbox" checked={dstock.enabled} onChange={e => updateDrinkStockLimit(d.id, 'enabled', e.target.checked)} />
+                        <span style={{ fontSize: 12, color: '#bbb', fontWeight: 600 }}>Limitar estoque</span>
+                      </label>
+                      {dstock.enabled && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <input className="input-field" type="number" min="0" placeholder="Qtd disponível"
+                            value={dstock.qty}
+                            onChange={e => updateDrinkStockLimit(d.id, 'qty', parseInt(e.target.value) || 0)}
+                            style={{ maxWidth: 150 }} />
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap',
+                            background: dstock.qty <= 0 ? 'rgba(229,83,83,0.2)' : 'rgba(72,187,120,0.2)',
+                            color: dstock.qty <= 0 ? '#E53E3E' : '#48BB78',
+                          }}>
+                            {dstock.qty <= 0 ? 'Esgotado' : 'Disponível'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
 
