@@ -44,6 +44,7 @@ interface CartItem {
   observations: string;
   drinks: DrinkSelection[];
   option?: CartItemOption | null;
+  option2?: CartItemOption | null;
 }
 
 interface Settings {
@@ -65,15 +66,18 @@ const MUTED      = '#7A6040';
 const FAINT      = '#3A2810';
 
 // ── Opções por produto ──────────────────────────────────────────────────────
-const CAPRICHO_OPTS: CartItemOption[] = [
-  { label: 'Sem alho', extra_price: 0 },
-  { label: 'Com alho', extra_price: 2 },
+const COMBO_CALABRESA_OPTS: CartItemOption[] = [
+  { label: 'Sem cebola', extra_price: 0 },
+  { label: 'Com cebola', extra_price: 2 },
+];
+const COMBO_MARGUERITA_OPTS: CartItemOption[] = [
+  { label: 'Sem alho',       extra_price: 0 },
+  { label: 'Com alho',       extra_price: 0 },
+  { label: 'Alho caprichado', extra_price: 2 },
 ];
 const PRODUCT_OPTIONS: Record<string, CartItemOption[]> = {
-  'calabresa':       [{ label: 'Sem cebola', extra_price: 0 }, { label: 'Com cebola', extra_price: 2 }],
-  'marguerita':      [{ label: 'Sem alho',   extra_price: 0 }, { label: 'Com alho',   extra_price: 0 }],
-  'especial-do-mes': CAPRICHO_OPTS,
-  'capricho':        CAPRICHO_OPTS,
+  'calabresa': [{ label: 'Sem cebola', extra_price: 0 }, { label: 'Com cebola', extra_price: 2 }],
+  'marguerita': [{ label: 'Sem alho', extra_price: 0 }, { label: 'Com alho', extra_price: 0 }, { label: 'Alho caprichado', extra_price: 2 }],
 };
 
 function fmt(price: number | string): string {
@@ -97,6 +101,7 @@ export default function HomePage() {
   const [observations, setObservations]       = useState('');
   const [selectedDrinks, setSelectedDrinks]   = useState<DrinkSelection[]>([]);
   const [selectedOption, setSelectedOption]   = useState<CartItemOption | null>(null);
+  const [selectedOption2, setSelectedOption2] = useState<CartItemOption | null>(null);
   const [showUserMenu, setShowUserMenu]       = useState(false);
   const [showEmptyCartToast, setShowEmptyCartToast] = useState(false);
   const [stockLimits, setStockLimits]         = useState<Record<string, { enabled: boolean; qty: number }>>({});
@@ -167,8 +172,14 @@ export default function HomePage() {
     setSelectedProduct(product);
     setObservations('');
     setSelectedDrinks([]);
-    const opts = PRODUCT_OPTIONS[product.slug];
-    setSelectedOption(opts ? opts[0] : null);
+    if (product.slug === 'combo-classico') {
+      setSelectedOption(COMBO_CALABRESA_OPTS[0]);
+      setSelectedOption2(COMBO_MARGUERITA_OPTS[0]);
+    } else {
+      const opts = PRODUCT_OPTIONS[product.slug];
+      setSelectedOption(opts ? opts[0] : null);
+      setSelectedOption2(null);
+    }
     setShowModal(true);
   }
 
@@ -197,6 +208,7 @@ export default function HomePage() {
       observations,
       drinks: selectedDrinks,
       option: selectedOption || null,
+      option2: selectedOption2 || null,
     };
     saveCart([...cart, item]);
     setShowModal(false);
@@ -207,6 +219,7 @@ export default function HomePage() {
     cart.forEach(i => {
       t += Number(i.product.price);
       if (i.option) t += i.option.extra_price;
+      if (i.option2) t += i.option2.extra_price;
       i.drinks?.forEach(d => { t += Number(d.price) * d.quantity; });
     });
     return t;
@@ -226,6 +239,7 @@ export default function HomePage() {
     if (!selectedProduct) return 0;
     let t = Number(selectedProduct.price);
     if (selectedOption) t += selectedOption.extra_price;
+    if (selectedOption2) t += selectedOption2.extra_price;
     selectedDrinks.forEach(d => { t += Number(d.price) * d.quantity; });
     return t;
   }
@@ -404,7 +418,7 @@ export default function HomePage() {
 
       {/* ── PIZZA HERO ── */}
       {calabresa && marguerita && (
-        <section style={{ padding: '32px 16px 16px', textAlign: 'center', background: 'radial-gradient(ellipse at 50% 30%, rgba(242,168,0,0.07) 0%, transparent 65%)' }}>
+        <section style={{ padding: '32px 16px 16px', textAlign: 'center', background: 'radial-gradient(ellipse at 50% 30%, rgba(242,168,0,0.20) 0%, transparent 65%)' }}>
           <p style={{ color: FAINT, fontSize: 10, textTransform: 'uppercase', letterSpacing: 5, fontWeight: 700, marginBottom: 24 }}>
             ✦ &nbsp;Pizzas Clássicas&nbsp; ✦
           </p>
@@ -481,7 +495,7 @@ export default function HomePage() {
                   ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(calabresa.price)}</p>
                   : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
                 }
-                {(() => { const s = getStock(calabresa); return s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
+                {(() => { const s = getStock(calabresa); return calabresa.is_active && s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               </div>
               <div style={{ flex: 1, textAlign: 'center', padding: '32px 8px 18px', background: 'linear-gradient(to top, rgba(8,6,0,0.95) 0%, rgba(8,6,0,0.55) 60%, transparent 100%)', borderRadius: '0 0 150px 0' }}>
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>Marguerita</p>
@@ -489,7 +503,7 @@ export default function HomePage() {
                   ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(marguerita.price)}</p>
                   : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
                 }
-                {(() => { const s = getStock(marguerita); return s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
+                {(() => { const s = getStock(marguerita); return marguerita.is_active && s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               </div>
             </div>
           </div>
@@ -563,7 +577,8 @@ export default function HomePage() {
               </div>
             </div>
             <div style={{ padding: '14px 18px 18px' }}>
-              <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.55, marginBottom: 16 }}>{combo.description}</p>
+              <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.55, marginBottom: 8 }}>{combo.description}</p>
+              {(() => { const s = getStock(combo); return combo.is_active && s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 11, color: '#F6AD55', marginBottom: 8, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   {combo.is_active && <p style={{ color: FAINT, textDecoration: 'line-through', fontSize: 13 }}>R$ 90,00</p>}
@@ -617,6 +632,7 @@ export default function HomePage() {
               <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.55, marginTop: 7 }}>
                 {settings.special_flavor_description || especial.description}
               </p>
+              {(() => { const s = getStock(especial); return especial.is_active && s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 11, color: '#F6AD55', marginTop: 6, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ color: especial.is_active ? GOLD : '#E04040', fontSize: especial.is_active ? 26 : 15, fontWeight: 800 }}>
                   {especial.is_active ? `R$ ${fmt(especial.price)}` : 'Indisponível no momento'}
@@ -692,8 +708,60 @@ export default function HomePage() {
               {selectedProduct.is_active ? `R$ ${fmt(selectedProduct.price)}` : 'ESGOTADO'}
             </p>
 
-            {/* Opções do produto */}
-            {selectedProduct.is_active && PRODUCT_OPTIONS[selectedProduct.slug] && (
+            {/* Opções do produto — Combo Fumêgo (duas pizzas) */}
+            {selectedProduct.is_active && selectedProduct.slug === 'combo-classico' && (
+              <div style={{ marginBottom: 22 }}>
+                <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>Pizza Calabresa</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                  {COMBO_CALABRESA_OPTS.map(opt => {
+                    const isSelected = selectedOption?.label === opt.label;
+                    return (
+                      <div key={opt.label} onClick={() => setSelectedOption(opt)} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '12px 14px', borderRadius: 13, cursor: 'pointer',
+                        border: isSelected ? `1.5px solid ${GOLD}` : `1px solid ${BORDER}`,
+                        background: isSelected ? 'rgba(242,168,0,0.07)' : '#1A1400',
+                        transition: 'border-color 0.15s, background 0.15s',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, border: isSelected ? `6px solid ${GOLD}` : `2px solid ${BORDER}`, background: isSelected ? BG : 'transparent' }} />
+                          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{opt.label}</span>
+                        </div>
+                        <span style={{ color: opt.extra_price > 0 ? GOLD : MUTED, fontSize: 13, fontWeight: 700 }}>
+                          {opt.extra_price > 0 ? `+R$ ${fmt(opt.extra_price)}` : 'Incluso'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>Pizza Marguerita</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {COMBO_MARGUERITA_OPTS.map(opt => {
+                    const isSelected = selectedOption2?.label === opt.label;
+                    return (
+                      <div key={opt.label} onClick={() => setSelectedOption2(opt)} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '12px 14px', borderRadius: 13, cursor: 'pointer',
+                        border: isSelected ? `1.5px solid ${GOLD}` : `1px solid ${BORDER}`,
+                        background: isSelected ? 'rgba(242,168,0,0.07)' : '#1A1400',
+                        transition: 'border-color 0.15s, background 0.15s',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, border: isSelected ? `6px solid ${GOLD}` : `2px solid ${BORDER}`, background: isSelected ? BG : 'transparent' }} />
+                          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{opt.label}</span>
+                        </div>
+                        <span style={{ color: opt.extra_price > 0 ? GOLD : MUTED, fontSize: 13, fontWeight: 700 }}>
+                          {opt.extra_price > 0 ? `+R$ ${fmt(opt.extra_price)}` : 'Incluso'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Opções do produto — outros sabores */}
+            {selectedProduct.is_active && selectedProduct.slug !== 'combo-classico' && PRODUCT_OPTIONS[selectedProduct.slug] && (
               <div style={{ marginBottom: 22 }}>
                 <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>Opções</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
