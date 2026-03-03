@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import { X, GlassWater, Minus, Plus } from 'lucide-react';
 import type { Product, Drink, DrinkSelection, CartItemOption } from './types';
 import {
@@ -7,6 +8,7 @@ import {
   fmt,
   COMBO_CALABRESA_OPTS, COMBO_MARGUERITA_OPTS, PRODUCT_OPTIONS,
 } from './tokens';
+import { useScrollToStep } from '../../../hooks/useScrollToStep';
 
 interface ProductModalProps {
   product: Product;
@@ -78,6 +80,41 @@ export default function ProductModal({
 }: ProductModalProps) {
   const isCombo = product.slug === 'combo-classico';
   const singleOpts = PRODUCT_OPTIONS[product.slug];
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollToStep = useScrollToStep(300);
+
+  // ── Handlers com scroll guiado ──────────────────────────────────────────────
+
+  /** Opção principal → rola para próximo passo lógico */
+  function handleSelectOption(opt: CartItemOption) {
+    setSelectedOption(opt);
+    if (isCombo) {
+      scrollToStep('modal-opts-marguerita', scrollContainerRef.current);
+    } else if (drinks.length > 0) {
+      scrollToStep('modal-drinks', scrollContainerRef.current);
+    } else {
+      scrollToStep('modal-add-to-cart', scrollContainerRef.current);
+    }
+  }
+
+  /** Segunda opção do combo (marguerita) → rola para bebidas ou botão */
+  function handleSelectOption2(opt: CartItemOption) {
+    setSelectedOption2(opt);
+    if (drinks.length > 0) {
+      scrollToStep('modal-drinks', scrollContainerRef.current);
+    } else {
+      scrollToStep('modal-add-to-cart', scrollContainerRef.current);
+    }
+  }
+
+  /** Bebida adicionada (não removida) → rola para o botão de adicionar */
+  function handleToggleDrink(drink: Drink) {
+    const isAlreadySelected = selectedDrinks.some(d => d.id === drink.id);
+    toggleDrink(drink);
+    if (!isAlreadySelected) {
+      scrollToStep('modal-add-to-cart', scrollContainerRef.current);
+    }
+  }
 
   return (
     <div
@@ -88,7 +125,9 @@ export default function ProductModal({
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
       }}
     >
+      {/* Container com scroll — ref necessária para scroll interno */}
       <div
+        ref={scrollContainerRef}
         onClick={e => e.stopPropagation()}
         style={{
           background: '#141000', borderRadius: '24px 24px 0 0',
@@ -131,7 +170,7 @@ export default function ProductModal({
           {product.is_active ? `R$ ${fmt(product.price)}` : 'ESGOTADO'}
         </p>
 
-        {/* Opções — Combo (duas pizzas) */}
+        {/* ── Opções — Combo (duas pizzas) ─────────────────────────────── */}
         {product.is_active && isCombo && (
           <div style={{ marginBottom: 22 }}>
             <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>
@@ -143,27 +182,31 @@ export default function ProductModal({
                   key={opt.label}
                   opt={opt}
                   isSelected={selectedOption?.label === opt.label}
-                  onClick={() => setSelectedOption(opt)}
+                  onClick={() => handleSelectOption(opt)}
                 />
               ))}
             </div>
-            <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>
-              Pizza Marguerita
-            </label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {COMBO_MARGUERITA_OPTS.map(opt => (
-                <OptionRow
-                  key={opt.label}
-                  opt={opt}
-                  isSelected={selectedOption2?.label === opt.label}
-                  onClick={() => setSelectedOption2(opt)}
-                />
-              ))}
+
+            {/* Alvo do scroll após selecionar calabresa */}
+            <div id="modal-opts-marguerita">
+              <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>
+                Pizza Marguerita
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {COMBO_MARGUERITA_OPTS.map(opt => (
+                  <OptionRow
+                    key={opt.label}
+                    opt={opt}
+                    isSelected={selectedOption2?.label === opt.label}
+                    onClick={() => handleSelectOption2(opt)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         )}
 
-        {/* Opções — sabor único */}
+        {/* ── Opções — sabor único ──────────────────────────────────────── */}
         {product.is_active && !isCombo && singleOpts && (
           <div style={{ marginBottom: 22 }}>
             <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>
@@ -175,7 +218,7 @@ export default function ProductModal({
                   key={opt.label}
                   opt={opt}
                   isSelected={selectedOption?.label === opt.label}
-                  onClick={() => setSelectedOption(opt)}
+                  onClick={() => handleSelectOption(opt)}
                 />
               ))}
             </div>
@@ -197,9 +240,9 @@ export default function ProductModal({
           />
         </div>
 
-        {/* Bebidas */}
+        {/* ── Bebidas — alvo do scroll após opção selecionada ─────────── */}
         {drinks.length > 0 && (
-          <div style={{ marginBottom: 26 }}>
+          <div id="modal-drinks" style={{ marginBottom: 26 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
               <GlassWater size={14} color={MUTED} />
               <p style={{ fontSize: 11, color: MUTED, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5 }}>
@@ -212,7 +255,7 @@ export default function ProductModal({
                 return (
                   <div
                     key={drink.id}
-                    onClick={() => toggleDrink(drink)}
+                    onClick={() => handleToggleDrink(drink)}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '12px 14px', borderRadius: 13,
@@ -266,8 +309,8 @@ export default function ProductModal({
           </div>
         )}
 
-        {/* Rodapé — total e botão */}
-        <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 20 }}>
+        {/* ── Rodapé — alvo do scroll após bebida selecionada ─────────── */}
+        <div id="modal-add-to-cart" style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 20 }}>
           {product.is_active && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <span style={{ color: MUTED, fontSize: 13 }}>Total deste item:</span>
