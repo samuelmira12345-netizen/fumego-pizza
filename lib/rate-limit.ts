@@ -108,12 +108,11 @@ async function checkRateLimitSupabase(
   await supabase.from('rate_limit_log').insert({ key });
 
   // Limpeza assíncrona de entradas antigas (não bloqueia a resposta)
-  supabase
+  // void: descarta o PromiseLike intencionalmente (fire-and-forget)
+  void supabase
     .from('rate_limit_log')
     .delete()
-    .lt('attempted_at', windowStart)
-    .then(() => {})
-    .catch(() => {});
+    .lt('attempted_at', windowStart);
 
   return { allowed: true, retryAfterMs: 0 };
 }
