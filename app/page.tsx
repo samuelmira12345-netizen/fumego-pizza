@@ -104,7 +104,8 @@ export default function HomePage() {
   const [selectedOption2, setSelectedOption2] = useState<CartItemOption | null>(null);
   const [showUserMenu, setShowUserMenu]       = useState(false);
   const [showEmptyCartToast, setShowEmptyCartToast] = useState(false);
-  const [stockLimits, setStockLimits]         = useState<Record<string, { enabled: boolean; qty: number }>>({});
+  const [stockLimits, setStockLimits]         = useState<Record<string, { enabled: boolean; qty: number; low_stock_threshold?: number }>>({});
+  const [imagePositions, setImagePositions]   = useState<Record<string, { x: number; y: number }>>({});
 
   useEffect(() => {
     loadData();
@@ -134,6 +135,11 @@ export default function HomePage() {
         // Stock limits
         if (s.stock_limits) {
           try { setStockLimits(JSON.parse(s.stock_limits)); } catch {}
+        }
+
+        // Image positions
+        if (s.image_positions) {
+          try { setImagePositions(JSON.parse(s.image_positions)); } catch {}
         }
 
         // Compute effective store open status using business hours (Brasília timezone)
@@ -279,9 +285,14 @@ export default function HomePage() {
   }
 
   // ── Helpers de estoque ───────────────────────────────────────────────────────
-  function getStock(product: Product): { enabled: boolean; qty: number } | null {
+  function getStock(product: Product): { enabled: boolean; qty: number; low_stock_threshold?: number } | null {
     const s = stockLimits[String(product.id)];
     return s?.enabled ? s : null;
+  }
+
+  function getImgPosition(product: Product, fallback = '50% 50%'): string {
+    const pos = imagePositions[String(product.id)];
+    return pos ? `${pos.x}% ${pos.y}%` : fallback;
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -445,7 +456,7 @@ export default function HomePage() {
               }}>
                 {imgUrl(calabresa) ? (
                   <img src={imgUrl(calabresa)!} alt="Calabresa"
-                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: 'left center', filter: calabresa.is_active ? 'none' : 'grayscale(70%) brightness(0.5)' }} />
+                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: getImgPosition(calabresa, '0% 50%'), filter: calabresa.is_active ? 'none' : 'grayscale(70%) brightness(0.5)' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', background: calabresa.is_active ? 'linear-gradient(160deg, #5A1800, #8B3200)' : '#2A1A1A' }} />
                 )}
@@ -465,7 +476,7 @@ export default function HomePage() {
               }}>
                 {imgUrl(marguerita) ? (
                   <img src={imgUrl(marguerita)!} alt="Marguerita"
-                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: 'right center', filter: marguerita.is_active ? 'none' : 'grayscale(70%) brightness(0.5)' }} />
+                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: getImgPosition(marguerita, '100% 50%'), filter: marguerita.is_active ? 'none' : 'grayscale(70%) brightness(0.5)' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', background: marguerita.is_active ? 'linear-gradient(160deg, #1A5A1A, #2E7D32)' : '#1A2A1A' }} />
                 )}
@@ -495,7 +506,7 @@ export default function HomePage() {
                   ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(calabresa.price)}</p>
                   : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
                 }
-                {(() => { const s = getStock(calabresa); return calabresa.is_active && s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
+                {(() => { const s = getStock(calabresa); const thr = s?.low_stock_threshold ?? 3; return calabresa.is_active && s && s.qty > 0 && s.qty <= thr ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               </div>
               <div style={{ flex: 1, textAlign: 'center', padding: '32px 8px 18px', background: 'linear-gradient(to top, rgba(8,6,0,0.95) 0%, rgba(8,6,0,0.55) 60%, transparent 100%)', borderRadius: '0 0 150px 0' }}>
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>Marguerita</p>
@@ -503,7 +514,7 @@ export default function HomePage() {
                   ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(marguerita.price)}</p>
                   : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
                 }
-                {(() => { const s = getStock(marguerita); return marguerita.is_active && s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
+                {(() => { const s = getStock(marguerita); const thr = s?.low_stock_threshold ?? 3; return marguerita.is_active && s && s.qty > 0 && s.qty <= thr ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               </div>
             </div>
           </div>
@@ -553,7 +564,7 @@ export default function HomePage() {
           >
             <div style={{ position: 'relative' }}>
               {imgUrl(combo) ? (
-                <img src={imgUrl(combo)!} alt={combo.name} style={{ width: '100%', height: 195, objectFit: 'cover', display: 'block', filter: combo.is_active ? 'none' : 'grayscale(60%) brightness(0.6)' }} />
+                <img src={imgUrl(combo)!} alt={combo.name} style={{ width: '100%', height: 195, objectFit: 'cover', objectPosition: getImgPosition(combo), display: 'block', filter: combo.is_active ? 'none' : 'grayscale(60%) brightness(0.6)' }} />
               ) : (
                 <div style={{ width: '100%', height: 195, background: '#251800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <UtensilsCrossed size={48} color="#5A3800" />
@@ -578,7 +589,7 @@ export default function HomePage() {
             </div>
             <div style={{ padding: '14px 18px 18px' }}>
               <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.55, marginBottom: 8 }}>{combo.description}</p>
-              {(() => { const s = getStock(combo); return combo.is_active && s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 11, color: '#F6AD55', marginBottom: 8, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
+              {(() => { const s = getStock(combo); const thr = s?.low_stock_threshold ?? 3; return combo.is_active && s && s.qty > 0 && s.qty <= thr ? <p style={{ fontSize: 11, color: '#F6AD55', marginBottom: 8, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   {combo.is_active && <p style={{ color: FAINT, textDecoration: 'line-through', fontSize: 13 }}>R$ 90,00</p>}
@@ -614,7 +625,7 @@ export default function HomePage() {
           >
             <div style={{ position: 'relative' }}>
               {imgUrl(especial) ? (
-                <img src={imgUrl(especial)!} alt="Especial" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block', filter: especial.is_active ? 'none' : 'grayscale(60%) brightness(0.6)' }} />
+                <img src={imgUrl(especial)!} alt="Especial" style={{ width: '100%', height: 180, objectFit: 'cover', objectPosition: getImgPosition(especial), display: 'block', filter: especial.is_active ? 'none' : 'grayscale(60%) brightness(0.6)' }} />
               ) : (
                 <div style={{ width: '100%', height: 180, background: '#201600', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Star size={48} color="#5A3800" />
@@ -632,7 +643,7 @@ export default function HomePage() {
               <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.55, marginTop: 7 }}>
                 {settings.special_flavor_description || especial.description}
               </p>
-              {(() => { const s = getStock(especial); return especial.is_active && s && s.qty > 0 && s.qty <= 3 ? <p style={{ fontSize: 11, color: '#F6AD55', marginTop: 6, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
+              {(() => { const s = getStock(especial); const thr = s?.low_stock_threshold ?? 3; return especial.is_active && s && s.qty > 0 && s.qty <= thr ? <p style={{ fontSize: 11, color: '#F6AD55', marginTop: 6, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ color: especial.is_active ? GOLD : '#E04040', fontSize: especial.is_active ? 26 : 15, fontWeight: 800 }}>
                   {especial.is_active ? `R$ ${fmt(especial.price)}` : 'Indisponível no momento'}

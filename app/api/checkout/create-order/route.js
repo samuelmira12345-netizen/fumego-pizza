@@ -22,6 +22,41 @@ export async function POST(request) {
 
     const supabase = getSupabaseAdmin();
 
+    // ── Validar estoque antes de criar o pedido ───────────────────────────────
+    try {
+      const [{ data: stockSetting }, { data: drinkStockSetting }] = await Promise.all([
+        supabase.from('settings').select('value').eq('key', 'stock_limits').single(),
+        supabase.from('settings').select('value').eq('key', 'drink_stock_limits').single(),
+      ]);
+
+      if (stockSetting?.value) {
+        const stockMap = JSON.parse(stockSetting.value);
+        for (const item of items) {
+          if (!item.product_id) continue;
+          const entry = stockMap[item.product_id];
+          if (!entry?.enabled) continue;
+          if ((entry.qty || 0) <= 0) {
+            return NextResponse.json({ error: `"${item.product_name}" está esgotado e não pode ser pedido.` }, { status: 409 });
+          }
+        }
+      }
+
+      if (drinkStockSetting?.value) {
+        const drinkStockMap = JSON.parse(drinkStockSetting.value);
+        for (const item of items) {
+          if (!item.drink_id) continue;
+          const entry = drinkStockMap[item.drink_id];
+          if (!entry?.enabled) continue;
+          if ((entry.qty || 0) < item.quantity) {
+            return NextResponse.json({ error: `"${item.product_name}" não tem estoque suficiente.` }, { status: 409 });
+          }
+        }
+      }
+    } catch (validationErr) {
+      console.error('[Stock] Erro na validação de estoque:', validationErr.message);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     // Hash do CPF no servidor (não expõe o dado em texto puro)
     const cpfHash = cpf ? hashCpf(cpf) : null;
 
@@ -77,6 +112,30 @@ export async function POST(request) {
       }
     } catch (stockErr) {
       console.error('[Stock] Erro ao decrementar estoque:', stockErr.message);
+    }
+
+    // Decrementar estoque de bebidas
+    try {
+      const { data: drinkStockSetting } = await supabase.from('settings').select('value').eq('key', 'drink_stock_limits').single();
+      if (drinkStockSetting?.value) {
+        const drinkStockMap = JSON.parse(drinkStockSetting.value);
+        let changed = false;
+        for (const item of items) {
+          if (!item.drink_id) continue;
+          const entry = drinkStockMap[item.drink_id];
+          if (!entry?.enabled) continue;
+          entry.qty = Math.max(0, (entry.qty || 0) - item.quantity);
+          changed = true;
+          if (entry.qty <= 0) {
+            await supabase.from('drinks').update({ is_active: false }).eq('id', item.drink_id);
+          }
+        }
+        if (changed) {
+          await supabase.from('settings').upsert({ key: 'drink_stock_limits', value: JSON.stringify(drinkStockMap) }, { onConflict: 'key' });
+        }
+      }
+    } catch (drinkStockErr) {
+      console.error('[DrinkStock] Erro ao decrementar estoque de bebidas:', drinkStockErr.message);
     }
 
     // Registrar uso de cupom com CPF hasheado

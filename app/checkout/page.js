@@ -314,7 +314,7 @@ export default function CheckoutPage() {
 
     } catch (e) {
       console.error('Erro:', e);
-      setPixError({ error: 'Erro ao processar pedido', details: 'Verifique os dados e tente novamente.' });
+      setFormError(e.message || 'Erro ao processar pedido. Verifique os dados e tente novamente.');
     } finally {
       setLoading(false);
     }
