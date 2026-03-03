@@ -5,7 +5,7 @@ import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 /** GET /api/payment-status/:orderId — retorna payment_status + status do pedido. */
 export async function GET(request, { params }) {
   const ip = getClientIp(request);
-  const { allowed, retryAfterMs } = checkRateLimit(`payment-status:${ip}`, 120, 60_000);
+  const { allowed, retryAfterMs } = await checkRateLimit(`payment-status:${ip}`, 120, 60_000);
   if (!allowed) {
     const retryAfterSec = Math.ceil(retryAfterMs / 1000);
     return NextResponse.json(
@@ -40,7 +40,7 @@ export async function GET(request, { params }) {
 /** POST /api/payment-status/:orderId — cancela o pedido (chamado após timeout do PIX). */
 export async function POST(request, { params }) {
   const ip = getClientIp(request);
-  const { allowed, retryAfterMs } = checkRateLimit(`payment-cancel:${ip}`, 20, 60_000);
+  const { allowed, retryAfterMs } = await checkRateLimit(`payment-cancel:${ip}`, 20, 60_000);
   if (!allowed) {
     const retryAfterSec = Math.ceil(retryAfterMs / 1000);
     return NextResponse.json(

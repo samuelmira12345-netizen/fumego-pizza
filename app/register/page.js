@@ -24,8 +24,10 @@ export default function RegisterPage() {
 
   function upd(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
 
-  async function handleCepBlur() {
-    const cep = form.address_zipcode.replace(/\D/g, '');
+  async function handleCepBlur(e) {
+    // Usa e.target.value diretamente para evitar closure stale com estado React
+    const rawValue = e?.target?.value ?? form.address_zipcode;
+    const cep = rawValue.replace(/\D/g, '');
     if (cep.length !== 8) return;
     setCepLoading(true);
     try {
@@ -54,6 +56,7 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // envia/recebe cookies httpOnly
         body: JSON.stringify({
           name: form.name, email: form.email, phone: form.phone, password: form.password,
           address_street:       form.address_street,
@@ -67,7 +70,7 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Erro ao cadastrar'); return; }
-      localStorage.setItem('fumego_token', data.token);
+      // JWT armazenado em cookie httpOnly pelo servidor (seguro contra XSS).
       localStorage.setItem('fumego_user', JSON.stringify(data.user));
       router.push('/');
     } catch { setError('Erro de conexão'); }

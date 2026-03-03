@@ -25,11 +25,13 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // envia/recebe cookies httpOnly
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Erro ao fazer login'); return; }
-      localStorage.setItem('fumego_token', data.token);
+      // JWT armazenado em cookie httpOnly pelo servidor (seguro contra XSS).
+      // Apenas os dados de perfil (sem credenciais) ficam no localStorage para a UI.
       localStorage.setItem('fumego_user', JSON.stringify(data.user));
       router.push('/');
     } catch (e) { setError('Erro de conexão'); }

@@ -28,7 +28,6 @@ function Section({ title, children }) {
 export default function AccountPage() {
   const router = useRouter();
   const [user, setUser]           = useState(null);
-  const [token, setToken]         = useState('');
   const [loading, setLoading]     = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [msg, setMsg]             = useState('');
@@ -43,12 +42,10 @@ export default function AccountPage() {
 
   useEffect(() => {
     try {
-      const raw  = localStorage.getItem('fumego_user');
-      const tok  = localStorage.getItem('fumego_token');
-      if (!raw || !tok) { router.push('/login'); return; }
+      const raw = localStorage.getItem('fumego_user');
+      if (!raw) { router.push('/login'); return; }
       const u = JSON.parse(raw);
       setUser(u);
-      setToken(tok);
       setForm(prev => ({
         ...prev,
         name:                 u.name                 || '',
@@ -68,8 +65,10 @@ export default function AccountPage() {
 
   function upd(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
 
-  async function handleCepBlur() {
-    const cep = form.address_zipcode.replace(/\D/g, '');
+  async function handleCepBlur(e) {
+    // Usa e.target.value diretamente para evitar closure stale com estado React
+    const rawValue = e?.target?.value ?? form.address_zipcode;
+    const cep = rawValue.replace(/\D/g, '');
     if (cep.length !== 8) return;
     setCepLoading(true);
     try {
@@ -96,8 +95,8 @@ export default function AccountPage() {
     }
     setLoading(true);
     try {
+      // JWT enviado via cookie httpOnly (sem precisar do token no body)
       const body = {
-        token,
         name:  form.name,  email: form.email,
         phone: form.phone, cpf:   form.cpf,
         address_street:       form.address_street,
@@ -113,7 +112,9 @@ export default function AccountPage() {
         body.new_password     = form.new_password;
       }
       const res  = await fetch('/api/auth/update', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // envia cookie httpOnly automaticamente
         body: JSON.stringify(body),
       });
       const data = await res.json();

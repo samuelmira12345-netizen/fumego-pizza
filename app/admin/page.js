@@ -6,9 +6,11 @@ import {
   Flame, UtensilsCrossed, GlassWater, Settings, Package,
   Upload, Loader2, Trash2, Plus, Check, Save,
   Palette, Store, Star, Landmark, CreditCard, Banknote, Clock,
-  Plug, RefreshCw, X, CheckCircle2, Bike, Link2, Copy,
+  Plug, RefreshCw, X, Link2, Copy,
 } from 'lucide-react';
 import { DEFAULT_BUSINESS_HOURS, DAY_LABELS, DAY_ORDER } from '../../lib/store-hours';
+import OrdersTab from '../components/admin/OrdersTab';
+import CardapioWebTab from '../components/admin/CardapioWebTab';
 
 const SESSION_KEY = 'admin_token';
 
@@ -922,266 +924,29 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* PEDIDOS */}
+        {/* PEDIDOS (componente extraído em components/admin/OrdersTab.js) */}
         {tab === 'orders' && (
-          <div>
-            {data.orders.map(o => (
-              <div key={o.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid #444' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ color: '#D4A528', fontWeight: 'bold' }}>#{o.order_number}</span>
-                  <span style={{ color: '#888', fontSize: 12 }}>{new Date(o.created_at).toLocaleString('pt-BR')}</span>
-                </div>
-                <p style={{ color: '#fff', fontSize: 14 }}>{o.customer_name} - {o.customer_phone}</p>
-                <p style={{ color: '#aaa', fontSize: 12 }}>{o.delivery_street}, {o.delivery_number} - {o.delivery_neighborhood}</p>
-                <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center' }}>
-                  <p style={{ color: '#D4A528', fontWeight: 'bold' }}>R$ {Number(o.total).toFixed(2).replace('.', ',')}</p>
-                  <span style={{
-                    fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 'bold',
-                    background: o.payment_method === 'pix' ? '#0066CC' : o.payment_method === 'card' ? '#9333EA' : '#48BB78',
-                    color: '#fff',
-                  }}>
-                    {o.payment_method === 'pix'
-                      ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Landmark size={11} /> PIX</span>
-                      : o.payment_method === 'card'
-                      ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CreditCard size={11} /> Cartão</span>
-                      : <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Banknote size={11} /> Dinheiro</span>
-                    }
-                  </span>
-                </div>
-                {o.scheduled_for && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, padding: '4px 8px', background: 'rgba(183,148,244,0.15)', border: '1px solid rgba(183,148,244,0.3)', borderRadius: 8, width: 'fit-content' }}>
-                    <Clock size={11} color="#B794F4" />
-                    <span style={{ fontSize: 11, color: '#B794F4', fontWeight: 700 }}>
-                      Agendado: {new Date(o.scheduled_for).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                )}
-                {o.observations && <p style={{ color: '#777', fontSize: 11, fontStyle: 'italic', marginTop: 4 }}>Obs: {o.observations}</p>}
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <select value={o.status} onChange={e => updateOrderStatus(o.id, 'status', e.target.value)}
-                    style={{ background: '#444', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
-                    <option value="pending">Pendente</option>
-                    <option value="scheduled">Agendado</option>
-                    <option value="confirmed">Confirmado</option>
-                    <option value="preparing">Preparando</option>
-                    <option value="delivering">Entregando</option>
-                    <option value="delivered">Entregue</option>
-                    <option value="cancelled">Cancelado</option>
-                  </select>
-                  <select value={o.payment_status} onChange={e => updateOrderStatus(o.id, 'payment_status', e.target.value)}
-                    style={{ background: '#444', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
-                    <option value="pending">Pag. Pendente</option>
-                    <option value="approved">Pag. Aprovado</option>
-                    <option value="refunded">Reembolsado</option>
-                  </select>
-                </div>
-              </div>
-            ))}
-
-            {/* Paginação */}
-            {hasMoreOrders && (
-              <button onClick={loadMoreOrders} disabled={loadingMore}
-                style={{ width: '100%', padding: '12px', background: '#333', color: '#D4A528', border: '1px solid #D4A528', borderRadius: 10, fontSize: 14, fontWeight: 'bold', cursor: 'pointer', opacity: loadingMore ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                {loadingMore
-                  ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Carregando...</>
-                  : 'Carregar mais pedidos'
-                }
-              </button>
-            )}
-          </div>
+          <OrdersTab
+            orders={data.orders}
+            hasMoreOrders={hasMoreOrders}
+            loadingMore={loadingMore}
+            onUpdateStatus={updateOrderStatus}
+            onLoadMore={loadMoreOrders}
+          />
         )}
 
-        {/* ── CARDÁPIOWEB ───────────────────────────────────────────────── */}
+        {/* ── CARDÁPIOWEB (componente extraído em components/admin/CardapioWebTab.js) */}
         {tab === 'cardapioweb' && (
-          <div>
-            {/* Cabeçalho com botões de ação */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h2 style={{ color: '#D4A528', fontWeight: 'bold', fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Plug size={16} color="#D4A528" /> Pedidos CardápioWeb
-              </h2>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={loadCWOrders} disabled={cwLoading}
-                  style={{ padding: '8px 12px', background: '#333', color: '#D4A528', border: '1px solid #444', borderRadius: 8, fontSize: 12, fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <RefreshCw size={13} style={cwLoading ? { animation: 'spin 1s linear infinite' } : {}} />
-                  {cwLoading ? 'Atualizando...' : 'Atualizar'}
-                </button>
-                <button onClick={syncCWOrders} disabled={cwSyncing}
-                  style={{ padding: '8px 12px', background: '#D4A528', color: '#000', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <Plug size={13} style={cwSyncing ? { animation: 'spin 1s linear infinite' } : {}} />
-                  {cwSyncing ? 'Sincronizando...' : 'Sincronizar API'}
-                </button>
-              </div>
-            </div>
-
-            {cwMsg && (
-              <p style={{ fontSize: 13, textAlign: 'center', marginBottom: 12, padding: '8px 12px', borderRadius: 8, background: cwMsg.includes('✅') ? 'rgba(72,187,120,0.1)' : 'rgba(224,64,64,0.1)', color: cwMsg.includes('✅') ? '#48BB78' : '#E04040' }}>
-                {cwMsg}
-              </p>
-            )}
-
-            {cwLoading && cwOrders.length === 0 && (
-              <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>
-                <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: 8 }} />
-                <p>Carregando pedidos...</p>
-              </div>
-            )}
-
-            {!cwLoading && cwOrders.length === 0 && (
-              <div style={{ textAlign: 'center', padding: 40, background: '#2D2D2D', borderRadius: 12, border: '1px dashed #444' }}>
-                <Plug size={32} color="#555" style={{ marginBottom: 12 }} />
-                <p style={{ color: '#888', fontSize: 14, marginBottom: 6 }}>Nenhum pedido do CardápioWeb encontrado.</p>
-                <p style={{ color: '#666', fontSize: 12 }}>
-                  Clique em "Sincronizar API" para buscar pedidos recentes, ou aguarde novos pedidos via webhook.
-                </p>
-              </div>
-            )}
-
-            {cwOrders.map(o => {
-              const addr = o.delivery_address || {};
-              const items = Array.isArray(o.items) ? o.items : [];
-              const payments = Array.isArray(o.payments) ? o.payments : [];
-              const statusColors = {
-                waiting_confirmation: '#F6AD55',
-                confirmed:            '#63B3ED',
-                released:             '#68D391',
-                waiting_to_catch:     '#F6AD55',
-                delivered:            '#48BB78',
-                closed:               '#718096',
-                canceled:             '#E04040',
-                scheduled_confirmed:  '#B794F4',
-              };
-              const statusLabels = {
-                waiting_confirmation: 'Aguardando',
-                confirmed:            'Confirmado',
-                released:             'Em Entrega',
-                waiting_to_catch:     'Aguard. Retirada',
-                delivered:            'Entregue',
-                closed:               'Finalizado',
-                canceled:             'Cancelado',
-                scheduled_confirmed:  'Agendado',
-              };
-              const orderTypeLabel = { delivery: 'Delivery', takeout: 'Retirada', onsite: 'Mesa', closed_table: 'Comanda' };
-              const paymentMethodLabel = { money: 'Dinheiro', credit_card: 'Cartão Crédito', debit_card: 'Cartão Débito', pix: 'PIX', online_credit_card: 'Cartão Online' };
-              const statusColor = statusColors[o.status] || '#888';
-              const isActionable = ['waiting_confirmation', 'confirmed', 'released', 'waiting_to_catch', 'delivered'].includes(o.status);
-
-              return (
-                <div key={o.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, marginBottom: 12, border: `1px solid ${statusColor}44` }}>
-                  {/* Cabeçalho do pedido */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                        <span style={{ color: '#D4A528', fontWeight: 'bold', fontSize: 15 }}>
-                          #{o.cw_display_id || o.cw_order_id}
-                        </span>
-                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, fontWeight: 'bold', background: `${statusColor}22`, color: statusColor, border: `1px solid ${statusColor}55` }}>
-                          {statusLabels[o.status] || o.status}
-                        </span>
-                        {o.order_type && (
-                          <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: '#333', color: '#aaa' }}>
-                            {orderTypeLabel[o.order_type] || o.order_type}
-                          </span>
-                        )}
-                      </div>
-                      <span style={{ color: '#666', fontSize: 11 }}>
-                        {o.cw_created_at ? new Date(o.cw_created_at).toLocaleString('pt-BR') : '—'}
-                      </span>
-                    </div>
-                    <span style={{ color: '#D4A528', fontWeight: 'bold', fontSize: 16 }}>
-                      R$ {Number(o.total || 0).toFixed(2).replace('.', ',')}
-                    </span>
-                  </div>
-
-                  {/* Cliente */}
-                  <p style={{ color: '#fff', fontSize: 14, marginBottom: 4 }}>
-                    {o.customer_name || '—'} {o.customer_phone ? `· ${o.customer_phone}` : ''}
-                  </p>
-
-                  {/* Endereço de entrega */}
-                  {addr && addr.street && (
-                    <p style={{ color: '#aaa', fontSize: 12, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Bike size={11} />
-                      {addr.street}{addr.number ? `, ${addr.number}` : ''}{addr.neighborhood ? ` — ${addr.neighborhood}` : ''}{addr.complement ? ` (${addr.complement})` : ''}
-                    </p>
-                  )}
-
-                  {/* Itens */}
-                  {items.length > 0 && (
-                    <div style={{ background: '#1C1500', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
-                      {items.map((item, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#ccc', marginBottom: i < items.length - 1 ? 4 : 0 }}>
-                          <span>{item.quantity}x {item.name}</span>
-                          <span style={{ color: '#D4A528' }}>R$ {Number(item.total_price || 0).toFixed(2).replace('.', ',')}</span>
-                        </div>
-                      ))}
-                      {o.delivery_fee > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#777', marginTop: 4, paddingTop: 4, borderTop: '1px solid #333' }}>
-                          <span>Taxa de entrega</span>
-                          <span>R$ {Number(o.delivery_fee).toFixed(2).replace('.', ',')}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Pagamento */}
-                  {payments.length > 0 && (
-                    <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>
-                      {payments.map(p => paymentMethodLabel[p.payment_method] || p.payment_method).join(' + ')}
-                    </p>
-                  )}
-
-                  {/* Observação */}
-                  {o.observation && (
-                    <p style={{ color: '#777', fontSize: 11, fontStyle: 'italic', marginBottom: 8 }}>
-                      Obs: {o.observation}
-                    </p>
-                  )}
-
-                  {/* Botões de ação */}
-                  {isActionable && (
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                      {o.status === 'waiting_confirmation' && (
-                        <button onClick={() => cwOrderAction(o.cw_order_id, 'confirm')}
-                          style={{ flex: 1, padding: '8px', background: 'rgba(99,179,237,0.15)', color: '#63B3ED', border: '1px solid rgba(99,179,237,0.4)', borderRadius: 8, fontSize: 12, fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                          <Check size={13} /> Confirmar
-                        </button>
-                      )}
-                      {o.status === 'confirmed' && (
-                        <button onClick={() => cwOrderAction(o.cw_order_id, 'ready')}
-                          style={{ flex: 1, padding: '8px', background: 'rgba(104,211,145,0.15)', color: '#68D391', border: '1px solid rgba(104,211,145,0.4)', borderRadius: 8, fontSize: 12, fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                          <Package size={13} /> Pronto / Saiu
-                        </button>
-                      )}
-                      {o.status === 'released' && (
-                        <button onClick={() => cwOrderAction(o.cw_order_id, 'delivered')}
-                          style={{ flex: 1, padding: '8px', background: 'rgba(72,187,120,0.15)', color: '#48BB78', border: '1px solid rgba(72,187,120,0.4)', borderRadius: 8, fontSize: 12, fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                          <CheckCircle2 size={13} /> Entregue
-                        </button>
-                      )}
-                      {(o.status === 'waiting_to_catch' || o.status === 'delivered') && (
-                        <button onClick={() => cwOrderAction(o.cw_order_id, 'finalize')}
-                          style={{ flex: 1, padding: '8px', background: 'rgba(113,128,150,0.15)', color: '#A0AEC0', border: '1px solid rgba(113,128,150,0.4)', borderRadius: 8, fontSize: 12, fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                          <CheckCircle2 size={13} /> Finalizar
-                        </button>
-                      )}
-                      {['waiting_confirmation', 'confirmed'].includes(o.status) && (
-                        <button onClick={() => {
-                          const reason = prompt('Motivo do cancelamento (opcional):');
-                          if (reason !== null) cwOrderAction(o.cw_order_id, 'cancel', reason);
-                        }}
-                          style={{ padding: '8px 12px', background: 'rgba(224,64,64,0.1)', color: '#E04040', border: '1px solid rgba(224,64,64,0.3)', borderRadius: 8, fontSize: 12, fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-                          <X size={13} /> Cancelar
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <CardapioWebTab
+            orders={cwOrders}
+            loading={cwLoading}
+            syncing={cwSyncing}
+            msg={cwMsg}
+            onRefresh={loadCWOrders}
+            onSync={syncCWOrders}
+            onOrderAction={cwOrderAction}
+          />
         )}
-      </div>
-
       {/* BOTÃO SALVAR FIXO */}
       {tab !== 'orders' && tab !== 'cardapioweb' && (
         <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, padding: '12px 16px', background: '#2D2D2D', borderTop: '2px solid #D4A528', zIndex: 40 }}>

@@ -246,3 +246,28 @@ CREATE POLICY "product_images_update" ON storage.objects
 
 CREATE POLICY "product_images_delete" ON storage.objects
   FOR DELETE USING (bucket_id = 'product-images' AND auth.role() = 'service_role');
+
+
+-- ==========================================
+-- RATE LIMITING DISTRIBUÍDO (lib/rate-limit.ts)
+-- ==========================================
+-- Tabela usada pelo rate limiter baseado em Supabase.
+-- Permite que o rate limiting funcione em ambientes serverless
+-- multi-instância (ex.: Vercel) sem necessidade de Redis/Upstash.
+--
+-- Execute este bloco uma única vez no Supabase SQL Editor.
+
+CREATE TABLE IF NOT EXISTS rate_limit_log (
+  id         BIGSERIAL PRIMARY KEY,
+  key        TEXT        NOT NULL,        -- ex.: "login:127.0.0.1"
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limit_log_key_created
+  ON rate_limit_log (key, created_at);
+
+-- A tabela é acessada apenas via service role (server-side); sem RLS pública.
+-- Registros antigos são limpos automaticamente pela própria lib (TTL na query).
+-- Para um cleanup periódico adicional, crie uma pg_cron job:
+--   SELECT cron.schedule('cleanup-rate-limit', '*/10 * * * *',
+--     $$DELETE FROM rate_limit_log WHERE created_at < NOW() - INTERVAL '1 hour'$$);

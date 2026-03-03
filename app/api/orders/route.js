@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { checkRateLimit, getClientIp } from '../../../lib/rate-limit';
+import { getAuthUser } from '../../../lib/auth';
 
 /** GET /api/orders — retorna os pedidos do usuário autenticado. */
 export async function GET(request) {
   const ip = getClientIp(request);
-  const { allowed, retryAfterMs } = checkRateLimit(`orders:${ip}`, 30, 60_000);
+  const { allowed, retryAfterMs } = await checkRateLimit(`orders:${ip}`, 30, 60_000);
   if (!allowed) {
     const retryAfterSec = Math.ceil(retryAfterMs / 1000);
     return NextResponse.json(
@@ -15,25 +15,12 @@ export async function GET(request) {
     );
   }
 
-  const auth   = request.headers.get('authorization') || '';
-  const token  = auth.replace('Bearer ', '').trim();
-  const secret = process.env.JWT_SECRET;
-
-  if (!token || !secret) {
+  // Aceita token via cookie httpOnly (preferencial) ou Authorization header
+  const decoded = getAuthUser(request);
+  if (!decoded?.userId) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
-
-  let decoded;
-  try {
-    decoded = jwt.verify(token, secret);
-  } catch {
-    return NextResponse.json({ error: 'Token inválido ou expirado' }, { status: 401 });
-  }
-
   const userId = decoded.userId;
-  if (!userId) {
-    return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-  }
 
   try {
     const supabase = getSupabaseAdmin();

@@ -1,28 +1,30 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { encryptCpf, decryptCpf } from '../../../../lib/cpf-crypto';
+import { getAuthUser } from '../../../../lib/auth';
 
 export async function POST(request) {
   try {
+    // Aceita token via cookie httpOnly (preferencial) ou via campo token no body (legado)
+    let decoded = getAuthUser(request);
+
+    const body = await request.json();
     const {
-      token,
       name, email, phone, cpf,
       address_street, address_number, address_complement,
       address_neighborhood, address_city, address_state, address_zipcode,
       current_password, new_password,
-    } = await request.json();
+    } = body;
 
-    if (!token) return NextResponse.json({ error: 'Token obrigatório' }, { status: 401 });
+    // Fallback legado: token no body (para clientes que ainda não usam cookie)
+    if (!decoded && body.token) {
+      const { verifyUserToken } = await import('../../../../lib/auth');
+      decoded = verifyUserToken(body.token);
+    }
 
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) return NextResponse.json({ error: 'Servidor mal configurado' }, { status: 500 });
-    let decoded;
-    try {
-      decoded = jwt.verify(token, jwtSecret);
-    } catch {
-      return NextResponse.json({ error: 'Token inválido ou expirado' }, { status: 401 });
+    if (!decoded?.userId) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const supabase = getSupabaseAdmin();
