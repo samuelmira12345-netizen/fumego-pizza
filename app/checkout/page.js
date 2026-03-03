@@ -7,6 +7,7 @@ import {
   ShoppingCart, X, ClipboardCopy, Loader2, CheckCircle2,
   Landmark, CreditCard, Banknote, Clock, Truck, CalendarClock,
 } from 'lucide-react';
+import { useScrollToStep } from '../../hooks/useScrollToStep';
 
 const GOLD   = '#F2A800';
 const BG     = '#080600';
@@ -52,6 +53,9 @@ export default function CheckoutPage() {
   // Refs para limpeza de timers ao desmontar o componente
   const pollingIntervalRef = useRef(null);
   const pollingTimeoutRef = useRef(null);
+
+  // Scroll guiado entre passos do checkout
+  const scrollToStep = useScrollToStep(300);
 
   const [form, setForm] = useState({
     name: '', email: '', phone: '', cpf: '',
@@ -586,7 +590,9 @@ export default function CheckoutPage() {
               <input className="input-field" placeholder="Número *" value={form.number} onChange={e => updateForm('number', e.target.value)} />
               <input className="input-field" placeholder="Complemento" value={form.complement} onChange={e => updateForm('complement', e.target.value)} />
             </div>
-            <input className="input-field" placeholder="Bairro *" value={form.neighborhood} onChange={e => updateForm('neighborhood', e.target.value)} />
+            <input className="input-field" placeholder="Bairro *" value={form.neighborhood}
+              onChange={e => updateForm('neighborhood', e.target.value)}
+              onBlur={e => { if (e.target.value.trim()) scrollToStep('checkout-payment'); }} />
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
               <input className="input-field" placeholder="Cidade" value={form.city} onChange={e => updateForm('city', e.target.value)} />
               <input className="input-field" placeholder="Estado" value={form.state} onChange={e => updateForm('state', e.target.value)} maxLength={2} />
@@ -677,8 +683,8 @@ export default function CheckoutPage() {
           {couponApplied && <p style={{ color: GREEN, fontSize: 12, marginTop: 4 }}>Cupom aplicado!</p>}
         </div>
 
-        {/* FORMA DE PAGAMENTO */}
-        <div style={{ marginBottom: 16 }}>
+        {/* FORMA DE PAGAMENTO — alvo do scroll após endereço preenchido */}
+        <div id="checkout-payment" style={{ marginBottom: 16 }}>
           <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Forma de Pagamento</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[
@@ -687,7 +693,7 @@ export default function CheckoutPage() {
               { id: 'card_delivery',Icon: CreditCard,  label: 'Cartão na entrega',   desc: 'Maquininha na hora da entrega' },
               { id: 'cash',         Icon: Banknote,    label: 'Dinheiro',             desc: 'Pagar na entrega' },
             ].map(pm => (
-              <div key={pm.id} onClick={() => setPaymentMethod(pm.id)}
+              <div key={pm.id} onClick={() => { setPaymentMethod(pm.id); scrollToStep('checkout-submit'); }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
@@ -761,19 +767,21 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        {/* BOTÃO */}
-        <button className="btn-primary" onClick={handleSubmitOrder} disabled={loading || !isFormValid()}
-          style={{ padding: 16, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          {loading
-            ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Processando...</>
-            : paymentMethod === 'pix'
-              ? <><Landmark size={18} /> Pagar com PIX</>
-              : paymentMethod === 'card'
-                ? <><CreditCard size={18} /> Pagar com Cartão (online)</>
-                : paymentMethod === 'card_delivery'
-                  ? <><CreditCard size={18} /> Finalizar (Cartão na Entrega)</>
-                  : <><Banknote size={18} /> Finalizar Pedido (Dinheiro)</>}
-        </button>
+        {/* BOTÃO — alvo do scroll após forma de pagamento selecionada */}
+        <div id="checkout-submit">
+          <button className="btn-primary" onClick={handleSubmitOrder} disabled={loading || !isFormValid()}
+            style={{ padding: 16, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            {loading
+              ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Processando...</>
+              : paymentMethod === 'pix'
+                ? <><Landmark size={18} /> Pagar com PIX</>
+                : paymentMethod === 'card'
+                  ? <><CreditCard size={18} /> Pagar com Cartão (online)</>
+                  : paymentMethod === 'card_delivery'
+                    ? <><CreditCard size={18} /> Finalizar (Cartão na Entrega)</>
+                    : <><Banknote size={18} /> Finalizar Pedido (Dinheiro)</>}
+          </button>
+        </div>
       </div>
     </div>
   );
