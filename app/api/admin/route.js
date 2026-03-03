@@ -20,7 +20,7 @@ function verifyAdminToken(request) {
 export async function POST(request) {
   try {
     const ip = getClientIp(request);
-    const { allowed, retryAfterMs } = checkRateLimit(`admin:${ip}`, 20, 15 * 60_000);
+    const { allowed, retryAfterMs } = await checkRateLimit(`admin:${ip}`, 20, 15 * 60_000);
     if (!allowed) {
       const retryAfterSec = Math.ceil(retryAfterMs / 1000);
       return NextResponse.json(

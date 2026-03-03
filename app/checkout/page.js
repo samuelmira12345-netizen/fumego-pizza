@@ -132,8 +132,10 @@ export default function CheckoutPage() {
     return new Date(`${scheduledDate}T${selectedSlot}:00-03:00`).toISOString();
   }
 
-  async function handleCepBlur() {
-    const cep = form.zipcode.replace(/\D/g, '');
+  async function handleCepBlur(e) {
+    // Usa e.target.value diretamente para evitar closure stale com estado React
+    const rawValue = e?.target?.value ?? form.zipcode;
+    const cep = rawValue.replace(/\D/g, '');
     if (cep.length !== 8) return;
     setCepLoading(true);
     try {
@@ -142,8 +144,10 @@ export default function CheckoutPage() {
       if (!data.erro) {
         setForm(prev => ({
           ...prev,
-          street: data.logradouro || prev.street, neighborhood: data.bairro || prev.neighborhood,
-          city: data.localidade || prev.city, state: data.uf || prev.state,
+          street:       data.logradouro  || prev.street,
+          neighborhood: data.bairro      || prev.neighborhood,
+          city:         data.localidade  || prev.city,
+          state:        data.uf          || prev.state,
         }));
       }
     } catch (e) { console.error('Erro CEP:', e); }

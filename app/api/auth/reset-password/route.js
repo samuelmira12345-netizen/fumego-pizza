@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs';
 /** POST /api/auth/reset-password — redefine a senha usando o token enviado por e-mail. */
 export async function POST(request) {
   const ip = getClientIp(request);
-  const { allowed, retryAfterMs } = checkRateLimit(`reset-pwd:${ip}`, 5, 15 * 60_000);
+  const { allowed, retryAfterMs } = await checkRateLimit(`reset-pwd:${ip}`, 5, 15 * 60_000);
   if (!allowed) {
     const retryAfterSec = Math.ceil(retryAfterMs / 1000);
     return NextResponse.json(

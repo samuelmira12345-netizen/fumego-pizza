@@ -2,59 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import {
-  ShoppingCart, User, LogOut, Settings, Package,
-  X, Clock, Truck, ChevronRight, Flame, Star,
-  Minus, Plus, GlassWater, UtensilsCrossed,
+  Clock, Truck, ChevronRight, Flame, Star, UtensilsCrossed,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useRouter } from 'next/navigation';
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-interface Product {
-  id: number;
-  slug: string;
-  name: string;
-  price: number | string;
-  description: string;
-  image_url: string | null;
-  is_active: boolean;
-  sort_order: number;
-}
+// ── Componentes extraídos ─────────────────────────────────────────────────────
+import StoreHeader from './components/home/StoreHeader';
+import ProductModal from './components/home/ProductModal';
+import FloatingCart from './components/home/FloatingCart';
+import type { Product, Drink, DrinkSelection, CartItem, CartItemOption, AppSettings, AppUser, StockLimit, ImagePosition } from './components/home/types';
 
-interface Drink {
-  id: number;
-  name: string;
-  price: number | string;
-  size: string;
-  is_active: boolean;
-}
-
-interface DrinkSelection extends Drink {
-  quantity: number;
-}
-
-interface CartItemOption {
-  label: string;
-  extra_price: number;
-}
-
-interface CartItem {
-  id: number;
-  product: Product;
-  observations: string;
-  drinks: DrinkSelection[];
-  option?: CartItemOption | null;
-  option2?: CartItemOption | null;
-}
-
-interface Settings {
-  [key: string]: string;
-}
-
-interface User {
-  name: string;
-  email: string;
-}
+// ── Tipos locais ──────────────────────────────────────────────────────────────
+// (Types migrados para app/components/home/types.ts)
+// Mantidos aqui como aliases para retrocompatibilidade interna do arquivo:
+type Settings = AppSettings;
+type User = AppUser;
 
 // ── Tokens ────────────────────────────────────────────────────────────────────
 const GOLD       = '#F2A800';
@@ -104,8 +67,8 @@ export default function HomePage() {
   const [selectedOption2, setSelectedOption2] = useState<CartItemOption | null>(null);
   const [showUserMenu, setShowUserMenu]       = useState(false);
   const [showEmptyCartToast, setShowEmptyCartToast] = useState(false);
-  const [stockLimits, setStockLimits]         = useState<Record<string, { enabled: boolean; qty: number; low_stock_threshold?: number }>>({});
-  const [imagePositions, setImagePositions]   = useState<Record<string, { x: number; y: number }>>({});
+  const [stockLimits, setStockLimits]         = useState<Record<string, StockLimit>>({});
+  const [imagePositions, setImagePositions]   = useState<Record<string, ImagePosition>>({});
 
   useEffect(() => {
     loadData();
@@ -254,8 +217,9 @@ export default function HomePage() {
     return product?.image_url ?? null;
   }
 
-  function logout() {
-    localStorage.removeItem('fumego_token');
+  async function logout() {
+    // Invalida o cookie httpOnly no servidor antes de limpar o estado local
+    try { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); } catch {}
     localStorage.removeItem('fumego_user');
     setUser(null);
     setShowUserMenu(false);
@@ -312,108 +276,17 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ── HEADER ── */}
-      <header className="header" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr' }}>
-        {/* left — logo */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          {logoUrl && (
-            <img src={logoUrl} alt="Logo" style={{ height: logoSize, objectFit: 'contain', display: 'block' }} />
-          )}
-        </div>
-
-        {/* center — nome */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
-          <h1 style={{
-            fontFamily: 'var(--font-cinzel), Cinzel, Georgia, serif',
-            fontSize: 22, fontWeight: 900, color: GOLD,
-            letterSpacing: 5, textShadow: `0 0 24px rgba(242,168,0,0.4)`,
-          }}>
-            FUMÊGO
-          </h1>
-        </div>
-
-        {/* right — ícones */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14 }}>
-          {/* Carrinho */}
-          <button onClick={goToCheckout} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', position: 'relative', padding: 4 }}>
-            <ShoppingCart size={22} color={cartCount > 0 ? GOLD : '#888'} />
-            {cartCount > 0 && (
-              <span style={{
-                position: 'absolute', top: -4, right: -6,
-                background: '#E04040', color: '#fff',
-                fontSize: 9, fontWeight: 800, width: 17, height: 17, borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: `1.5px solid ${BG}`,
-              }}>
-                {cartCount}
-              </span>
-            )}
-          </button>
-
-          {/* Perfil */}
-          {user ? (
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={() => setShowUserMenu(prev => !prev)}
-                style={{
-                  width: 32, height: 32, borderRadius: '50%',
-                  background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`,
-                  color: BG, border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer',
-                  boxShadow: showUserMenu ? `0 0 0 2px ${GOLD}` : `0 0 12px rgba(242,168,0,0.35)`,
-                  transition: 'box-shadow 0.15s',
-                }}
-              >
-                {user.name?.charAt(0).toUpperCase()}
-              </button>
-
-              {showUserMenu && (
-                <>
-                  <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setShowUserMenu(false)} />
-                  <div style={{
-                    position: 'absolute', top: 42, right: 0,
-                    background: '#1A1400', border: `1px solid ${BORDER}`,
-                    borderRadius: 14, padding: '6px 0', minWidth: 210, zIndex: 200,
-                    boxShadow: '0 12px 40px rgba(0,0,0,0.7)',
-                    animation: 'fadeIn 0.15s ease-out',
-                  }}>
-                    <div style={{ padding: '10px 16px 10px', borderBottom: `1px solid ${BORDER}` }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{user.name}</p>
-                      <p style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{user.email}</p>
-                    </div>
-
-                    {[
-                      { icon: <Settings size={15} />, label: 'Configurações da conta', action: () => { setShowUserMenu(false); router.push('/account'); } },
-                      { icon: <Package size={15} />, label: 'Ver meus pedidos', action: () => { setShowUserMenu(false); router.push('/orders'); } },
-                    ].map(item => (
-                      <button key={item.label}
-                        onClick={item.action}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', color: '#fff', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
-                      >
-                        <span style={{ color: MUTED }}>{item.icon}</span>
-                        {item.label}
-                      </button>
-                    ))}
-
-                    <div style={{ height: 1, background: BORDER, margin: '4px 0' }} />
-
-                    <button
-                      onClick={logout}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '11px 16px', background: 'none', border: 'none', color: '#E04040', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}
-                    >
-                      <LogOut size={15} />
-                      Sair da conta
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
-            <button onClick={() => router.push('/login')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-              <User size={22} color={MUTED} />
-            </button>
-          )}
-        </div>
-      </header>
+      {/* ── HEADER (componente extraído) ── */}
+      <StoreHeader
+        user={user}
+        cartCount={cartCount}
+        showUserMenu={showUserMenu}
+        setShowUserMenu={setShowUserMenu}
+        logoUrl={logoUrl}
+        logoSize={logoSize}
+        onGoToCheckout={goToCheckout}
+        onLogout={logout}
+      />
 
       {/* ── LOJA FECHADA ── */}
       {!storeOpen && (
@@ -663,217 +536,36 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* ── CARRINHO FLUTUANTE ── */}
-      {cartCount > 0 && (
-        <div style={{
-          position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-          width: '100%', maxWidth: 480, padding: '14px 18px',
-          background: 'rgba(18, 13, 0, 0.97)', backdropFilter: 'blur(20px)',
-          borderTop: '1px solid rgba(242,168,0,0.2)', zIndex: 40,
-          boxShadow: '0 -8px 40px rgba(0,0,0,0.7)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ShoppingCart size={16} color={GOLD} />
-              <span style={{ color: GOLD, fontWeight: 800 }}>{cartCount}</span>
-              <span style={{ color: MUTED, fontSize: 13 }}>{cartCount === 1 ? 'item' : 'itens'}</span>
-            </div>
-            <span style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>R$ {getCartTotal().toFixed(2).replace('.', ',')}</span>
-          </div>
-          <button className="btn-primary" onClick={goToCheckout}>
-            Ir para o Checkout
-          </button>
-        </div>
-      )}
+      {/* ── CARRINHO FLUTUANTE (componente extraído) ── */}
+      <FloatingCart
+        itemCount={cartCount}
+        total={getCartTotal()}
+        onCheckout={goToCheckout}
+      />
 
       {/* ── FOOTER ── */}
       <footer style={{ textAlign: 'center', color: FAINT, fontSize: 11, padding: '12px 16px', paddingBottom: cartCount > 0 ? 132 : 24, letterSpacing: 2, textTransform: 'uppercase' }}>
         Fumêgo © {new Date().getFullYear()}
       </footer>
 
-      {/* ── MODAL PRODUTO ── */}
+      {/* ── MODAL PRODUTO (componente extraído) ── */}
       {showModal && selectedProduct && (
-        <div onClick={() => setShowModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)', zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: '#141000', borderRadius: '24px 24px 0 0', border: `1px solid ${BORDER}`,
-            borderBottom: 'none', width: '100%', maxWidth: 480,
-            maxHeight: '88vh', overflowY: 'auto', padding: '0 20px 36px',
-            animation: 'slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
-            boxShadow: `0 -4px 50px rgba(242,168,0,0.07)`,
-          }}>
-            <div style={{ padding: '14px 0 22px', display: 'flex', justifyContent: 'center' }}>
-              <div style={{ width: 36, height: 4, background: BORDER, borderRadius: 2 }} />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-              <h3 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 22, fontWeight: 700, color: '#fff', flex: 1, paddingRight: 12, lineHeight: 1.2 }}>
-                {selectedProduct.name}
-              </h3>
-              <button onClick={() => setShowModal(false)} style={{ background: BORDER, border: 'none', color: MUTED, width: 32, height: 32, borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <X size={14} />
-              </button>
-            </div>
-
-            <p style={{ fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.55 }}>{selectedProduct.description}</p>
-            <p style={{ fontSize: 24, fontWeight: 800, color: selectedProduct.is_active ? GOLD : '#E04040', marginBottom: 22 }}>
-              {selectedProduct.is_active ? `R$ ${fmt(selectedProduct.price)}` : 'ESGOTADO'}
-            </p>
-
-            {/* Opções do produto — Combo Fumêgo (duas pizzas) */}
-            {selectedProduct.is_active && selectedProduct.slug === 'combo-classico' && (
-              <div style={{ marginBottom: 22 }}>
-                <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>Pizza Calabresa</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                  {COMBO_CALABRESA_OPTS.map(opt => {
-                    const isSelected = selectedOption?.label === opt.label;
-                    return (
-                      <div key={opt.label} onClick={() => setSelectedOption(opt)} style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '12px 14px', borderRadius: 13, cursor: 'pointer',
-                        border: isSelected ? `1.5px solid ${GOLD}` : `1px solid ${BORDER}`,
-                        background: isSelected ? 'rgba(242,168,0,0.07)' : '#1A1400',
-                        transition: 'border-color 0.15s, background 0.15s',
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, border: isSelected ? `6px solid ${GOLD}` : `2px solid ${BORDER}`, background: isSelected ? BG : 'transparent' }} />
-                          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{opt.label}</span>
-                        </div>
-                        <span style={{ color: opt.extra_price > 0 ? GOLD : MUTED, fontSize: 13, fontWeight: 700 }}>
-                          {opt.extra_price > 0 ? `+R$ ${fmt(opt.extra_price)}` : 'Incluso'}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-                <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>Pizza Marguerita</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {COMBO_MARGUERITA_OPTS.map(opt => {
-                    const isSelected = selectedOption2?.label === opt.label;
-                    return (
-                      <div key={opt.label} onClick={() => setSelectedOption2(opt)} style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '12px 14px', borderRadius: 13, cursor: 'pointer',
-                        border: isSelected ? `1.5px solid ${GOLD}` : `1px solid ${BORDER}`,
-                        background: isSelected ? 'rgba(242,168,0,0.07)' : '#1A1400',
-                        transition: 'border-color 0.15s, background 0.15s',
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, border: isSelected ? `6px solid ${GOLD}` : `2px solid ${BORDER}`, background: isSelected ? BG : 'transparent' }} />
-                          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{opt.label}</span>
-                        </div>
-                        <span style={{ color: opt.extra_price > 0 ? GOLD : MUTED, fontSize: 13, fontWeight: 700 }}>
-                          {opt.extra_price > 0 ? `+R$ ${fmt(opt.extra_price)}` : 'Incluso'}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Opções do produto — outros sabores */}
-            {selectedProduct.is_active && selectedProduct.slug !== 'combo-classico' && PRODUCT_OPTIONS[selectedProduct.slug] && (
-              <div style={{ marginBottom: 22 }}>
-                <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>Opções</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {PRODUCT_OPTIONS[selectedProduct.slug].map(opt => {
-                    const isSelected = selectedOption?.label === opt.label;
-                    return (
-                      <div key={opt.label} onClick={() => setSelectedOption(opt)} style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '12px 14px', borderRadius: 13, cursor: 'pointer',
-                        border: isSelected ? `1.5px solid ${GOLD}` : `1px solid ${BORDER}`,
-                        background: isSelected ? 'rgba(242,168,0,0.07)' : '#1A1400',
-                        transition: 'border-color 0.15s, background 0.15s',
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{
-                            width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
-                            border: isSelected ? `6px solid ${GOLD}` : `2px solid ${BORDER}`,
-                            background: isSelected ? BG : 'transparent',
-                          }} />
-                          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{opt.label}</span>
-                        </div>
-                        <span style={{ color: opt.extra_price > 0 ? GOLD : MUTED, fontSize: 13, fontWeight: 700 }}>
-                          {opt.extra_price > 0 ? `+R$ ${fmt(opt.extra_price)}` : 'Incluso'}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div style={{ marginBottom: 22 }}>
-              <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>Observações</label>
-              <textarea className="input-field" rows={2} placeholder="Ex: Borda recheada…" value={observations} onChange={e => setObservations(e.target.value)} style={{ resize: 'none' }} />
-            </div>
-
-            {drinks.length > 0 && (
-              <div style={{ marginBottom: 26 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                  <GlassWater size={14} color={MUTED} />
-                  <p style={{ fontSize: 11, color: MUTED, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5 }}>Adicionar bebida?</p>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {drinks.map(drink => {
-                    const sel = selectedDrinks.find(d => d.id === drink.id);
-                    return (
-                      <div key={drink.id} onClick={() => toggleDrink(drink)} style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '12px 14px', borderRadius: 13,
-                        border: sel ? `1.5px solid ${GOLD}` : `1px solid ${BORDER}`,
-                        background: sel ? 'rgba(242,168,0,0.07)' : '#1A1400',
-                        cursor: 'pointer', transition: 'border-color 0.15s, background 0.15s',
-                      }}>
-                        <div>
-                          <p style={{ fontSize: 14, fontWeight: 600, color: '#fff' }}>{drink.name}</p>
-                          <p style={{ fontSize: 12, color: MUTED }}>{drink.size}</p>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: GOLD }}>R$ {fmt(drink.price)}</span>
-                          {sel && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
-                              <button
-                                onClick={() => updateDrinkQty(drink.id, sel.quantity - 1)}
-                                style={{ width: 28, height: 28, borderRadius: '50%', background: BORDER, color: MUTED, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                              >
-                                <Minus size={14} />
-                              </button>
-                              <span style={{ color: '#fff', fontSize: 14, width: 18, textAlign: 'center' }}>{sel.quantity}</span>
-                              <button
-                                onClick={() => updateDrinkQty(drink.id, sel.quantity + 1)}
-                                style={{ width: 28, height: 28, borderRadius: '50%', background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`, color: BG, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                              >
-                                <Plus size={14} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 20 }}>
-              {selectedProduct.is_active && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <span style={{ color: MUTED, fontSize: 13 }}>Total deste item:</span>
-                  <span style={{ fontSize: 22, fontWeight: 800, color: GOLD }}>R$ {getModalTotal().toFixed(2).replace('.', ',')}</span>
-                </div>
-              )}
-              {selectedProduct.is_active ? (
-                <button className="btn-primary" onClick={addToCart}>Adicionar ao Carrinho</button>
-              ) : (
-                <div style={{ padding: '14px 20px', textAlign: 'center', background: 'rgba(224,64,64,0.1)', border: '1px solid rgba(224,64,64,0.3)', borderRadius: 14, color: '#E04040', fontWeight: 700, letterSpacing: 0.5, fontSize: 14 }}>
-                  Produto esgotado — indisponível no momento
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <ProductModal
+          product={selectedProduct}
+          drinks={drinks}
+          observations={observations}
+          setObservations={setObservations}
+          selectedDrinks={selectedDrinks}
+          toggleDrink={toggleDrink}
+          updateDrinkQty={updateDrinkQty}
+          selectedOption={selectedOption}
+          setSelectedOption={setSelectedOption}
+          selectedOption2={selectedOption2}
+          setSelectedOption2={setSelectedOption2}
+          modalTotal={getModalTotal()}
+          onClose={() => setShowModal(false)}
+          onAddToCart={addToCart}
+        />
       )}
     </div>
   );

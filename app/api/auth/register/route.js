@@ -3,8 +3,8 @@ import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { sendVerificationEmail } from '../../../../lib/email';
 import { registerSchema } from '../../../../lib/schemas';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { signUserToken, setAuthCookie } from '../../../../lib/auth';
 
 export async function POST(request) {
   try {
@@ -47,9 +47,7 @@ export async function POST(request) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) return NextResponse.json({ error: 'Servidor mal configurado' }, { status: 500 });
-    const token = jwt.sign({ userId: user.id, email: user.email }, jwtSecret, { expiresIn: '30d' });
+    const token = signUserToken(user.id, user.email);
 
     // Enviar e-mail de verificação (não bloqueia a resposta se falhar)
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -64,7 +62,12 @@ export async function POST(request) {
     });
 
     const { password_hash: _, ...safeUser } = user;
-    return NextResponse.json({ token, user: safeUser });
+
+    // Define token em cookie httpOnly (proteção XSS) e também retorna no body
+    // para retrocompatibilidade com clientes que ainda usam Authorization header.
+    const response = NextResponse.json({ token, user: safeUser });
+    setAuthCookie(response, token);
+    return response;
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

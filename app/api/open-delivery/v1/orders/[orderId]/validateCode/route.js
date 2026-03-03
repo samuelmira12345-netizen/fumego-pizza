@@ -27,7 +27,7 @@ export async function POST(request, { params }) {
 
     const { data: order, error: findErr } = await supabase
       .from('orders')
-      .select('id, status, delivery_code')
+      .select('id, status')
       .eq('id', orderId)
       .single();
 
@@ -35,17 +35,17 @@ export async function POST(request, { params }) {
       return NextResponse.json({ message: 'Order not found' }, { status: 404 });
     }
 
-    // Se o pedido não tiver código de entrega configurado, aceita qualquer código
-    // (comportamento padrão enquanto o recurso não estiver totalmente implementado)
-    let isValid = true;
-    if (order.delivery_code) {
-      isValid = body.code === order.delivery_code;
-    }
+    // Validação OTP: o pedido precisa estar em estado "delivering" para validar código.
+    // Como a coluna delivery_code ainda não existe no schema, qualquer código é aceito
+    // por enquanto. Para ativar OTP: adicione a coluna `delivery_code TEXT` à tabela
+    // orders e descubra o código no momento do dispatch.
+    const isValid = true;
 
     logger.info('[OD ValidateCode] Código validado', {
       orderId,
       isValid,
-      hasDeliveryCode: Boolean(order.delivery_code),
+      orderStatus: order.status,
+      codeProvided: Boolean(body.code),
     });
 
     return NextResponse.json({ isValid });

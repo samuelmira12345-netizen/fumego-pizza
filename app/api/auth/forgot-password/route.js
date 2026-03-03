@@ -8,7 +8,7 @@ import crypto from 'crypto';
 /** POST /api/auth/forgot-password — envia e-mail de recuperação de senha. */
 export async function POST(request) {
   const ip = getClientIp(request);
-  const { allowed, retryAfterMs } = checkRateLimit(`forgot-pwd:${ip}`, 5, 15 * 60_000);
+  const { allowed, retryAfterMs } = await checkRateLimit(`forgot-pwd:${ip}`, 5, 15 * 60_000);
   if (!allowed) {
     const retryAfterSec = Math.ceil(retryAfterMs / 1000);
     return NextResponse.json(

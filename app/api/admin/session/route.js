@@ -5,7 +5,7 @@ import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 /** POST /api/admin/session — troca senha pelo token de sessão (8 h). */
 export async function POST(request) {
   const ip = getClientIp(request);
-  const { allowed, retryAfterMs } = checkRateLimit(`admin-session:${ip}`, 5, 15 * 60_000);
+  const { allowed, retryAfterMs } = await checkRateLimit(`admin-session:${ip}`, 5, 15 * 60_000);
   if (!allowed) {
     const retryAfterSec = Math.ceil(retryAfterMs / 1000);
     return NextResponse.json(

@@ -2,15 +2,15 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { loginSchema } from '../../../../lib/schemas';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 import { decryptCpf } from '../../../../lib/cpf-crypto';
+import { signUserToken, setAuthCookie } from '../../../../lib/auth';
 
 export async function POST(request) {
   try {
     // Rate limiting: máximo 10 tentativas por IP a cada 15 minutos
     const ip = getClientIp(request);
-    const { allowed, retryAfterMs } = checkRateLimit(`login:${ip}`, 10, 15 * 60_000);
+    const { allowed, retryAfterMs } = await checkRateLimit(`login:${ip}`, 10, 15 * 60_000);
     if (!allowed) {
       const retryAfterSec = Math.ceil(retryAfterMs / 1000);
       return NextResponse.json(
@@ -40,14 +40,17 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 });
     }
 
-    const jwtSecret = process.env.JWT_SECRET;
-    if (!jwtSecret) return NextResponse.json({ error: 'Servidor mal configurado' }, { status: 500 });
-    const token = jwt.sign({ userId: user.id, email: user.email }, jwtSecret, { expiresIn: '30d' });
+    const token = signUserToken(user.id, user.email);
 
     const { password_hash, ...safeUser } = user;
     // Descriptografar CPF antes de retornar ao cliente
     if (safeUser.cpf) safeUser.cpf = decryptCpf(safeUser.cpf) || '';
-    return NextResponse.json({ token, user: safeUser });
+
+    // Define token em cookie httpOnly (proteção XSS) e também retorna no body
+    // para retrocompatibilidade com clientes que ainda usam Authorization header.
+    const response = NextResponse.json({ token, user: safeUser });
+    setAuthCookie(response, token);
+    return response;
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
