@@ -477,7 +477,6 @@ export default function AdminPage() {
                           onChange={e => {
                             const qty = parseInt(e.target.value) || 0;
                             updateStockLimit(p.id, 'qty', qty);
-                            if (qty <= 0) updateProduct(idx, 'is_active', false);
                           }}
                           style={{ maxWidth: 150 }} />
                         <span style={{
