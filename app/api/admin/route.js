@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { checkRateLimit, getClientIp } from '../../../lib/rate-limit';
 import { logger } from '../../../lib/logger';
+import { earnCashback } from '../../../lib/cashback';
 
 function verifyAdminToken(request) {
   const auth   = request.headers.get('authorization') || '';
@@ -88,6 +89,20 @@ export async function POST(request) {
       if (status)         updates.status         = status;
       if (payment_status) updates.payment_status = payment_status;
       await supabase.from('orders').update(updates).eq('id', id);
+
+      // Gera cashback quando loja finaliza o pedido manualmente (dinheiro/cartão na entrega)
+      if (status === 'delivered') {
+        const { data: order } = await supabase
+          .from('orders')
+          .select('user_id, total, payment_method')
+          .eq('id', id)
+          .single();
+        if (order?.user_id && ['cash', 'card_delivery'].includes(order.payment_method)) {
+          earnCashback(supabase, order.user_id, id, order.total)
+            .catch(e => logger.error('[Cashback] Earn error on admin update_order', { id, err: e.message }));
+        }
+      }
+
       return NextResponse.json({ success: true });
     }
 

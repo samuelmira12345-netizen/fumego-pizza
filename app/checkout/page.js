@@ -356,13 +356,7 @@ export default function CheckoutPage() {
       }
 
       else if (paymentMethod === 'cash' || paymentMethod === 'card_delivery') {
-        // Para pagamentos confirmados na entrega, gera cashback imediatamente
-        if (user?.id) {
-          fetch('/api/cashback/earn', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: user.id, order_id: order.id, order_total: calcTotal() }),
-          }).catch(() => {});
-        }
+        // Cashback será gerado quando a loja finalizar o pedido (status → "delivered")
         localStorage.removeItem('fumego_cart');
         setCashOrderDone(true);
         setOrderCreated(true);
