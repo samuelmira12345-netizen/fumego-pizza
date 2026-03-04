@@ -269,12 +269,31 @@ export default function AdminPage() {
   }
 
   function updateDrinkStockLimit(drinkId, field, value) {
-    const current = getDrinkStockLimits();
-    const updated = {
-      ...current,
-      [String(drinkId)]: { ...(current[String(drinkId)] || { enabled: false, qty: 0 }), [field]: value },
-    };
-    updateSetting('drink_stock_limits', JSON.stringify(updated));
+    setData(prev => {
+      // Atualiza drink_stock_limits no settings
+      const raw = prev.settings.find(s => s.key === 'drink_stock_limits')?.value;
+      let current = {};
+      try { current = JSON.parse(raw || '{}'); } catch {}
+      const existing = current[String(drinkId)] || { enabled: false, qty: 0 };
+      const entry = { ...existing, [field]: value };
+      const newMap = { ...current, [String(drinkId)]: entry };
+
+      const settingsIdx = prev.settings.findIndex(s => s.key === 'drink_stock_limits');
+      const newSettings = settingsIdx >= 0
+        ? prev.settings.map((s, i) => i === settingsIdx ? { ...s, value: JSON.stringify(newMap) } : s)
+        : [...prev.settings, { key: 'drink_stock_limits', value: JSON.stringify(newMap) }];
+
+      // Sincroniza is_active da bebida:
+      // - estoque ativo com qty 0 → inativa a bebida
+      // - estoque ativo com qty > 0 → ativa a bebida
+      // - estoque desativado → ativa a bebida (sem limite = sempre disponível)
+      const outOfStock = entry.enabled && entry.qty <= 0;
+      const newDrinks = prev.drinks.map(d =>
+        String(d.id) === String(drinkId) ? { ...d, is_active: !outOfStock } : d
+      );
+
+      return { ...prev, settings: newSettings, drinks: newDrinks };
+    });
   }
 
   // ── Scheduling ───────────────────────────────────────────────────────

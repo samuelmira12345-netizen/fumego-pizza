@@ -82,7 +82,6 @@ export default function HomePage() {
         supabase.from('settings').select('*'),
       ]);
       if (pRes.data) setProducts(pRes.data);
-      if (dRes.data) setDrinks(dRes.data);
       if (sRes.data) {
         const s: Settings = {};
         sRes.data.forEach((i: { key: string; value: string }) => { s[i.key] = i.value; });
@@ -97,6 +96,19 @@ export default function HomePage() {
         // Stock limits
         if (s.stock_limits) {
           try { setStockLimits(JSON.parse(s.stock_limits)); } catch {}
+        }
+
+        // Filtra bebidas: remove as que têm controle de estoque ativo com qty = 0
+        if (dRes.data) {
+          let drinkStockMap: Record<string, { enabled: boolean; qty: number }> = {};
+          if (s.drink_stock_limits) {
+            try { drinkStockMap = JSON.parse(s.drink_stock_limits); } catch {}
+          }
+          const visibleDrinks = dRes.data.filter((d: Drink) => {
+            const sl = drinkStockMap[String(d.id)];
+            return !sl || !sl.enabled || sl.qty > 0;
+          });
+          setDrinks(visibleDrinks);
         }
 
         // Image positions
@@ -126,6 +138,9 @@ export default function HomePage() {
         }
         setStoreOpen(effectiveOpen);
         setTodayLabel(label);
+      } else if (dRes.data) {
+        // Fallback: sem settings, mostra todas as bebidas ativas
+        setDrinks(dRes.data);
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
