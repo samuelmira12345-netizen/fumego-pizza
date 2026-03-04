@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { ShoppingCart, User, Settings, Package, LogOut, Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GOLD, GOLD_LIGHT, BG, BORDER, MUTED } from './tokens';
@@ -22,6 +23,27 @@ export default function StoreHeader({
   logoUrl, logoSize, onGoToCheckout, onLogout, cashbackBalance = 0,
 }: StoreHeaderProps) {
   const router = useRouter();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Fecha o menu ao clicar/tocar fora dele
+  useEffect(() => {
+    if (!showUserMenu) return;
+
+    function handleOutside(e: MouseEvent | TouchEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+
+    // Usa mousedown + touchstart para cobrir desktop e mobile (iOS)
+    document.addEventListener('mousedown', handleOutside, true);
+    document.addEventListener('touchstart', handleOutside, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutside, true);
+      document.removeEventListener('touchstart', handleOutside, true);
+    };
+  }, [showUserMenu, setShowUserMenu]);
 
   return (
     <header className="header" style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr' }}>
@@ -66,7 +88,7 @@ export default function StoreHeader({
 
         {/* Perfil */}
         {user ? (
-          <div style={{ position: 'relative' }}>
+          <div ref={menuRef} style={{ position: 'relative' }}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
               style={{
@@ -82,7 +104,6 @@ export default function StoreHeader({
 
             {showUserMenu && (
               <>
-                <div style={{ position: 'fixed', inset: 0, zIndex: 150 }} onClick={() => setShowUserMenu(false)} />
                 <div style={{
                   position: 'absolute', top: 42, right: 0,
                   background: '#1A1400', border: `1px solid ${BORDER}`,
