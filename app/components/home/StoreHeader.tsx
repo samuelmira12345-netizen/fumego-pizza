@@ -70,6 +70,7 @@ export default function StoreHeader({
         {/* Carrinho */}
         <button
           onClick={onGoToCheckout}
+          aria-label={cartCount > 0 ? `Ver carrinho (${cartCount} ${cartCount === 1 ? 'item' : 'itens'})` : 'Ver carrinho'}
           style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', position: 'relative', padding: 4 }}
         >
           <ShoppingCart size={22} color={cartCount > 0 ? GOLD : '#888'} />
@@ -91,6 +92,9 @@ export default function StoreHeader({
           <div ref={menuRef} style={{ position: 'relative' }}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
+              aria-label={showUserMenu ? 'Fechar menu do usuário' : `Menu do usuário — ${user.name}`}
+              aria-expanded={showUserMenu}
+              aria-haspopup="menu"
               style={{
                 width: 32, height: 32, borderRadius: '50%',
                 background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`,
@@ -181,6 +185,7 @@ export default function StoreHeader({
         ) : (
           <button
             onClick={() => router.push('/login')}
+            aria-label="Entrar na conta"
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
           >
             <User size={22} color={MUTED} />

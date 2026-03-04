@@ -118,6 +118,7 @@ export default function ProductModal({
 
   return (
     <div
+      role="presentation"
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)',
@@ -127,6 +128,9 @@ export default function ProductModal({
     >
       {/* Container com scroll — ref necessária para scroll interno */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-modal-title"
         ref={scrollContainerRef}
         onClick={e => e.stopPropagation()}
         style={{
@@ -145,7 +149,7 @@ export default function ProductModal({
 
         {/* Título */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-          <h3 style={{
+          <h3 id="product-modal-title" style={{
             fontFamily: 'var(--font-playfair), Georgia, serif',
             fontSize: 22, fontWeight: 700, color: '#fff', flex: 1, paddingRight: 12, lineHeight: 1.2,
           }}>
@@ -153,6 +157,7 @@ export default function ProductModal({
           </h3>
           <button
             onClick={onClose}
+            aria-label="Fechar"
             style={{
               background: BORDER, border: 'none', color: MUTED,
               width: 32, height: 32, borderRadius: '50%', cursor: 'pointer',

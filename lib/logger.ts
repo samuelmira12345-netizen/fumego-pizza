@@ -2,8 +2,8 @@
  * lib/logger.ts — Logging estruturado para APIs Next.js.
  *
  * Emite JSON (em produção) ou texto legível (em desenvolvimento).
- * Para integrar com Sentry ou Datadog, adicione o SDK correspondente
- * dentro de logError() abaixo.
+ * Integração com Sentry: defina NEXT_PUBLIC_SENTRY_DSN nas variáveis de
+ * ambiente e instale @sentry/nextjs (`npm i @sentry/nextjs`).
  */
 
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -19,6 +19,17 @@ function formatLog(level: LogLevel, message: string, meta: LogMeta = {}): string
   return `[${level.toUpperCase()}] ${message}${metaStr}`;
 }
 
+/** Captura exceção no Sentry se disponível (falha silenciosa se não instalado). */
+async function captureException(err: Error): Promise<void> {
+  if (!IS_PROD || !process.env.NEXT_PUBLIC_SENTRY_DSN) return;
+  try {
+    const Sentry = await import('@sentry/nextjs');
+    Sentry.captureException(err);
+  } catch {
+    // @sentry/nextjs não instalado — ignorar silenciosamente
+  }
+}
+
 export const logger = {
   info(message: string, meta: LogMeta = {}): void {
     console.log(formatLog('info', message, meta));
@@ -31,7 +42,8 @@ export const logger = {
       ? { error: errorOrMeta.message, stack: IS_PROD ? undefined : errorOrMeta.stack }
       : errorOrMeta;
     console.error(formatLog('error', message, meta));
-    // TODO: integrar Sentry aqui se necessário:
-    // if (IS_PROD && errorOrMeta instanceof Error) Sentry.captureException(errorOrMeta);
+    if (errorOrMeta instanceof Error) {
+      captureException(errorOrMeta);
+    }
   },
 };

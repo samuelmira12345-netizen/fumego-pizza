@@ -75,6 +75,9 @@ export default function CheckoutPage() {
   // Scroll guiado entre passos do checkout
   const scrollToStep = useScrollToStep(300);
 
+  // Modal de confirmação exibido antes de enviar o pedido
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
   const [form, setForm] = useState({
     name: '', email: '', phone: '', cpf: '',
     street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipcode: '',
@@ -305,7 +308,8 @@ export default function CheckoutPage() {
     return result.order;
   }
 
-  async function handleSubmitOrder() {
+  /** Valida o formulário e, se válido, abre o modal de confirmação. */
+  function handleSubmitOrder() {
     if (!isFormValid()) {
       const missing = [];
       if (!form.name.trim())         missing.push('Nome completo');
@@ -316,7 +320,6 @@ export default function CheckoutPage() {
       if (isScheduled && !scheduledDate)  missing.push('Data de agendamento');
       if (isScheduled && !selectedSlot)   missing.push('Horário de agendamento');
       setFormError(`Preencha os campos obrigatórios antes de finalizar: ${missing.join(', ')}.`);
-      // Rola para a primeira seção com dado faltando
       if (!form.name.trim() || !form.phone.trim()) {
         scrollToStep('checkout-personal');
       } else if (!form.street.trim() || !form.number.trim() || !form.neighborhood.trim()) {
@@ -326,11 +329,18 @@ export default function CheckoutPage() {
       }
       return;
     }
-    // Guarda contra duplo clique: impede segunda submissão antes do re-render
+    setFormError('');
+    setShowConfirmModal(true);
+  }
+
+  /** Chamado após o usuário confirmar no modal — executa a submissão real. */
+  async function doSubmitOrder() {
+    setShowConfirmModal(false);
+
+    // Guarda contra duplo clique
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
 
-    setFormError('');
     setLoading(true);
     setPixError(null);
 
@@ -915,6 +925,87 @@ export default function CheckoutPage() {
                     : <><Banknote size={18} /> Finalizar Pedido (Dinheiro)</>}
           </button>
         </div>
+
+        {/* MODAL DE CONFIRMAÇÃO DO PEDIDO */}
+        {showConfirmModal && (
+          <div
+            role="presentation"
+            onClick={() => setShowConfirmModal(false)}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)',
+              backdropFilter: 'blur(4px)', zIndex: 100,
+              display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="confirm-order-title"
+              onClick={e => e.stopPropagation()}
+              style={{
+                background: '#141000', borderRadius: '20px 20px 0 0',
+                border: `1px solid #2C1E00`, borderBottom: 'none',
+                width: '100%', maxWidth: 480, padding: '24px 20px 36px',
+                animation: 'slideUp 0.3s cubic-bezier(0.16,1,0.3,1)',
+              }}
+            >
+              <h3 id="confirm-order-title" style={{
+                color: '#fff', fontSize: 18, fontWeight: 700, marginBottom: 4,
+                fontFamily: 'var(--font-playfair), Georgia, serif',
+              }}>
+                Confirmar pedido?
+              </h3>
+              <p style={{ color: '#7A6040', fontSize: 13, marginBottom: 20 }}>
+                {form.street}, {form.number} — {form.neighborhood}
+              </p>
+
+              {/* Resumo do carrinho */}
+              <div style={{ background: '#1C1500', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
+                {cart.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#ccc', marginBottom: i < cart.length - 1 ? 6 : 0 }}>
+                    <span>{item.product.name}{item.option ? ` (${item.option.label})` : ''}</span>
+                    <span style={{ color: GOLD }}>R$ {(Number(item.product.price) + (item.option?.extra_price || 0)).toFixed(2).replace('.', ',')}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Forma de pagamento e total */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#7A6040', marginBottom: 6 }}>
+                <span>Pagamento</span>
+                <span style={{ color: '#ccc' }}>
+                  {paymentMethod === 'pix' ? 'PIX' : paymentMethod === 'card' ? 'Cartão online' : paymentMethod === 'card_delivery' ? 'Cartão na entrega' : 'Dinheiro'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 18, fontWeight: 700, borderTop: '1px solid #2C1E00', paddingTop: 12, marginBottom: 20 }}>
+                <span style={{ color: GOLD }}>Total</span>
+                <span style={{ color: GOLD }}>R$ {calcTotal().toFixed(2).replace('.', ',')}</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  style={{
+                    flex: 1, padding: '14px 0', borderRadius: 14,
+                    background: 'none', border: '1px solid #2C1E00',
+                    color: '#7A6040', fontSize: 15, fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  Voltar
+                </button>
+                <button
+                  onClick={doSubmitOrder}
+                  style={{
+                    flex: 2, padding: '14px 0', borderRadius: 14,
+                    background: GOLD, border: 'none',
+                    color: '#080600', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                  }}
+                >
+                  Confirmar pedido
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
