@@ -141,9 +141,9 @@ export async function POST(request) {
     });
   }
 
-  // ── 4. Simula o que o CardápioWeb faz: autentica em nossos endpoints ───────
+  // ── 4. Simula o que o CardápioWeb faz: autentica e chama nossos endpoints ──
   // O CardápioWeb chama nosso /oauth/token com OD_CLIENT_ID + OD_CLIENT_SECRET
-  // para obter um Bearer token, e depois usa esse token para GET /v1/orders/{id}
+  // para obter um Bearer token, depois GET /v1/orders/{id} e GET /v1/events-polling
   try {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
     if (!baseUrl) {
@@ -176,22 +176,49 @@ export async function POST(request) {
           ].join(' | '),
         });
       } else {
-        // Testa também o GET /v1/orders com esse token (usando o pedido mais recente)
-        let orderTestNote = 'Token OAuth válido.';
+        const token = tokenBody.access_token;
+        const detail = {};
+
+        // Testa GET /v1/orders/{id} com o pedido mais recente
         if (recentEvents.length > 0) {
           const testOrderId = recentEvents[0].order_id;
           const orderRes = await fetch(`${baseUrl}/api/open-delivery/v1/orders/${testOrderId}`, {
-            headers: { 'Authorization': `Bearer ${tokenBody.access_token}` },
+            headers: { 'Authorization': `Bearer ${token}` },
             signal: AbortSignal.timeout(8_000),
           }).catch(() => null);
-          if (orderRes?.ok) {
-            orderTestNote = `Token OAuth válido. GET /v1/orders/${testOrderId.slice(0,8)}… retornou ${orderRes.status} — CardápioWeb consegue buscar detalhes do pedido ✓`;
-          } else {
-            orderTestNote = `Token OAuth válido mas GET /v1/orders retornou ${orderRes?.status ?? 'erro de rede'} — verifique o endpoint de pedidos.`;
-          }
+          detail.ordersEndpoint = {
+            httpStatus: orderRes?.status ?? 'timeout',
+            ok: orderRes?.ok ?? false,
+            note: orderRes?.ok
+              ? `GET /v1/orders/${testOrderId.slice(0,8)}… retornou ${orderRes.status} ✓`
+              : `GET /v1/orders retornou ${orderRes?.status ?? 'timeout'} — verifique o endpoint`,
+          };
         }
-        step('cardapioweb_auth_simulation', true, {
-          note: orderTestNote,
+
+        // Testa GET /v1/events-polling (o principal endpoint que CardápioWeb chama)
+        const pollRes = await fetch(`${baseUrl}/api/open-delivery/v1/events-polling`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          signal: AbortSignal.timeout(8_000),
+        }).catch(() => null);
+        const pollBody = pollRes ? await pollRes.json().catch(() => null) : null;
+        detail.eventsPollingEndpoint = {
+          httpStatus: pollRes?.status ?? 'timeout',
+          ok: pollRes?.ok ?? false,
+          eventsReturned: Array.isArray(pollBody) ? pollBody.length : (pollBody?.events?.length ?? 'erro ao parsear'),
+          note: pollRes?.ok
+            ? `GET /v1/events-polling OK ✓ — retornou ${Array.isArray(pollBody) ? pollBody.length : '?'} evento(s). Se CardápioWeb estiver configurado para poll, verá esses eventos.`
+            : `GET /v1/events-polling retornou ${pollRes?.status ?? 'timeout'} — endpoint pode estar com problema`,
+        };
+
+        const allEndpointsOk = (detail.ordersEndpoint?.ok !== false) && detail.eventsPollingEndpoint.ok;
+        step('cardapioweb_auth_simulation', allEndpointsOk, {
+          note: allEndpointsOk
+            ? 'OAuth + endpoints acessíveis ✓ — se CardápioWeb estiver configurado para polling, os pedidos devem aparecer.'
+            : 'Algum endpoint falhou — veja detalhes.',
+          ...detail,
+          pollingInstruction: 'Para CardápioWeb fazer polling: configure em Configurações → Integrações → API Open Delivery: ' +
+            `Base URL = ${baseUrl}/api/open-delivery | Token URL = ${baseUrl}/api/open-delivery/oauth/token | ` +
+            `Client ID = ${mask(process.env.OD_CLIENT_ID)} | Client Secret = (OD_CLIENT_SECRET)`,
         });
       }
     }
@@ -425,20 +452,28 @@ export async function POST(request) {
         newEventResponse = nr ? await nr.text().catch(() => '') : 'timeout';
       }
 
-      const oauthOk      = Boolean(accessToken);
-      const newEventOk   = newEventStatus != null && (newEventStatus < 400 || newEventStatus === 404);
-      const anySuccess   = oauthOk && newEventOk;
+      const oauthOk          = Boolean(accessToken);
+      // 404 JSON = endpoint existe mas pedido fictício não encontrado → ok
+      // 404 HTML = rota não existe no servidor → falha real
+      const is404Html        = newEventStatus === 404 && (newEventResponse || '').includes('<!DOCTYPE');
+      const newEventOk       = newEventStatus != null && (newEventStatus < 400 || (newEventStatus === 404 && !is404Html));
+      const anySuccess       = oauthOk && newEventOk;
 
       let conclusion;
       if (anySuccess) {
-        conclusion = 'OAuth + Bearer token funcionando ✓ — push deve entregar pedidos ao CardápioWeb.';
+        conclusion = 'OAuth + Bearer token funcionando ✓ — push entrega pedidos ao CardápioWeb.';
       } else if (!oauthOk) {
         conclusion = `OAuth falhou (${oauthStatus}): ${(oauthResponse || '').slice(0, 200)}. ` +
           'Verifique OD_CLIENT_ID e OD_CLIENT_SECRET no portal CardápioWeb (Configurações → Integrações → API Open Delivery). ' +
           'OD_CW_BASE_URL deve ser: https://integracao.cardapioweb.com/api/open_delivery';
+      } else if (is404Html) {
+        conclusion = `OAuth OK mas /v1/newEvent retornou 404 HTML — o endpoint não existe em OD_CW_BASE_URL. ` +
+          'Esse servidor (integracao.cardapioweb.com) não recebe eventos de ordering apps externos. ' +
+          'SOLUÇÃO: Configure o CardápioWeb para fazer polling do nosso servidor ' +
+          '(veja "pollingInstruction" no step cardapioweb_auth_simulation) ' +
+          'OU contate suporte.machine.global para registrar o Fumego como parceiro e obter acesso ao endpoint correto.';
       } else {
-        conclusion = `OAuth OK mas /v1/newEvent retornou ${newEventStatus}: ${(newEventResponse || '').slice(0, 200)}. ` +
-          'Verifique OD_MERCHANT_ID.';
+        conclusion = `OAuth OK mas /v1/newEvent retornou ${newEventStatus}: ${(newEventResponse || '').slice(0, 200)}.`;
       }
 
       step('push_header_variants', anySuccess, {
@@ -475,35 +510,33 @@ export async function POST(request) {
     const testOrderId = 'self-test-' + Date.now();
     try {
       const pushResult = await pushEventToCardapioWeb(testOrderId, 'CREATED');
-      // 404 = CardápioWeb recebeu mas não encontrou o pedido fictício → conectividade OK
-      const pushOk = pushResult.ok || pushResult.status === 404;
+      const errText = pushResult.error || '';
+      // 404 HTML = endpoint não existe no servidor (rota não encontrada)
+      // 404 JSON = endpoint existe mas pedido fictício não foi encontrado (conectividade OK)
+      const is404Html = pushResult.status === 404 && (errText.includes('<!DOCTYPE') || errText.includes('<html'));
+      const pushOk = pushResult.ok || (pushResult.status === 404 && !is404Html);
       step('cardapioweb_push', pushOk, {
         testOrderId,
-        httpStatus:         pushResult.status,
-        response:           pushResult.error || 'ok',
-        appId_sent:         mask(process.env.OD_APP_ID),
-        merchantId_sent:    mask(process.env.OD_MERCHANT_ID),
+        httpStatus:      pushResult.status,
+        responsePreview: errText.slice(0, 120) || 'ok',
+        merchantId_sent: mask(process.env.OD_MERCHANT_ID),
         note: pushOk
           ? pushResult.ok
-            ? 'CardápioWeb aceitou o push (200/204). Conectividade OK ✓'
-            : 'CardápioWeb recebeu o push e retornou 404 (pedido fictício inexistente). Conectividade OK ✓'
-          : 'CardápioWeb rejeitou o push — verifique OD_APP_ID e OD_MERCHANT_ID.',
-        ...(!pushOk ? {
-          fix: pushResult.status === 403
-            ? [
-                'HTTP 403 = TaxiMachine não reconhece nosso X-App-Id. Passos para corrigir:',
-                `1. Confirme que OD_APP_ID no Vercel é um UUID fixo (atual começa com: ${mask(process.env.OD_APP_ID)})`,
-                '2. No portal CardápioWeb → Integrações → Open Delivery: insira ESSE MESMO UUID no campo "ID do estabelecimento no outro sistema"',
-                '3. Clique em Salvar/Reativar — o CardápioWeb chamará nosso PUT /merchantOnboarding (agora funcional, retorna 201) registrando o App ID no TaxiMachine',
-                '4. Aguarde 1-2 min e rode o self-test novamente',
-                'ALTERNATIVA: Se o push continuar falhando, o CardápioWeb faz POLLING automático em GET /v1/events-polling (não precisa de X-App-Id). Verifique se há eventos válidos (não expirados) no passo od_events_table.',
-              ].join(' | ')
-            : [
-                'Push falhou com status ' + pushResult.status,
-                `OD_APP_ID começa com: ${mask(process.env.OD_APP_ID)}`,
-                `OD_MERCHANT_ID começa com: ${mask(process.env.OD_MERCHANT_ID)}`,
-                'Verifique OD_CW_BASE_URL e conectividade com TaxiMachine.',
-              ].join(' | '),
+            ? 'CardápioWeb aceitou o push (2xx) ✓'
+            : 'CardápioWeb retornou 404-JSON (pedido fictício não encontrado — endpoint existe) ✓'
+          : is404Html
+            ? 'Endpoint /v1/newEvent NÃO EXISTE em OD_CW_BASE_URL. A URL base está errada ou esse servidor não recebe eventos externos.'
+            : `Push falhou com status ${pushResult.status}`,
+        ...(is404Html ? {
+          fix: [
+            `OD_CW_BASE_URL atual (${process.env.OD_CW_BASE_URL}) não tem o endpoint /v1/newEvent.`,
+            'OPÇÃO A (polling — recomendado): Configure no portal CardápioWeb os dados do nosso servidor para que ele faça polling.',
+            '  Veja "pollingInstruction" no step cardapioweb_auth_simulation para os valores exatos.',
+            'OPÇÃO B (push direto): Contate o time do CardápioWeb/TaxiMachine para registrar o Fumego como ordering app parceiro e receber um X-App-Id válido.',
+          ].join(' | '),
+        } : {}),
+        ...(!pushOk && !is404Html && pushResult.status ? {
+          fix: `Erro ${pushResult.status}: ${errText.slice(0, 200)}`,
         } : {}),
       });
     } catch (e) {
@@ -528,9 +561,13 @@ export async function POST(request) {
     dryRun,
     steps: results,
     nextAction: allOk
-      ? 'Todos os testes passaram. Faça um pedido de teste e verifique o painel do CardápioWeb.'
-      : failedSteps.includes('cardapioweb_push') && !failedSteps.some(s => !['cardapioweb_push','push_header_variants'].includes(s))
-        ? 'Apenas o push ao CardápioWeb está falhando (403 X-App-Id). SOLUÇÃO: (1) copie o OD_APP_ID do Vercel, (2) cole no campo "ID do estabelecimento no outro sistema" no portal CardápioWeb, (3) clique Reativar integração. Após isso, o CardápioWeb também passará a fazer POLLING automático via GET /v1/events-polling — crie um novo pedido de teste para gerar eventos válidos.'
+      ? 'Todos os testes passaram. Se pedidos ainda não aparecem no CardápioWeb, verifique se o polling está configurado no portal CardápioWeb (veja "pollingInstruction" no step cardapioweb_auth_simulation).'
+      : failedSteps.includes('cardapioweb_push') || failedSteps.includes('push_header_variants')
+        ? 'Push falhando (endpoint /v1/newEvent não existe em integracao.cardapioweb.com). ' +
+          'SOLUÇÃO IMEDIATA — Configure polling no portal CardápioWeb: ' +
+          `Configurações → Integrações → API Open Delivery → URL do nosso servidor = ${process.env.NEXT_PUBLIC_APP_URL}/api/open-delivery | ` +
+          `Token URL = ${process.env.NEXT_PUBLIC_APP_URL}/api/open-delivery/oauth/token. ` +
+          'SOLUÇÃO ALTERNATIVA — contate suporte.machine.global para registrar o Fumego como app parceiro (X-App-Id).'
         : `Problemas em: ${failedSteps.join(', ')}.`,
   });
 }
