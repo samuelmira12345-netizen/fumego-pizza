@@ -226,6 +226,7 @@ export default function ProductModal({
         )}
 
         {/* Observações */}
+        {product.is_active && (
         <div style={{ marginBottom: 22 }}>
           <label style={{ fontSize: 11, color: MUTED, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.5, fontWeight: 600 }}>
             Observações
@@ -239,9 +240,10 @@ export default function ProductModal({
             style={{ resize: 'none' }}
           />
         </div>
+        )}
 
         {/* ── Bebidas — alvo do scroll após opção selecionada ─────────── */}
-        {drinks.length > 0 && (
+        {product.is_active && drinks.length > 0 && (
           <div id="modal-drinks" style={{ marginBottom: 26 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
               <GlassWater size={14} color={MUTED} />
