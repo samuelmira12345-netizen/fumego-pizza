@@ -85,15 +85,20 @@ export async function GET() {
         signal: AbortSignal.timeout(5000),
       });
       const responseText = await res.text().catch(() => '');
-      // 200/201/204 = sucesso. 400/422 = chegou ao servidor mas payload inválido (conectividade ok).
-      // 401/403 = chegou mas credenciais erradas. 5xx ou network error = problema real.
-      const reachable = res.status < 500;
+      // 200/201/204 = sucesso
+      // 400/422    = endpoint existe, payload inválido (conectividade ok)
+      // 401/403    = endpoint existe, credenciais rejeitadas
+      // 404        = endpoint não encontrado → OD_CW_BASE_URL errada
+      // 5xx / erro = problema de rede ou servidor fora
+      const endpointFound = res.status !== 404;
+      const reachable     = res.status < 500 && endpointFound;
       cwConnectivity = {
         ok: reachable,
         status: res.status,
         response: responseText.slice(0, 200),
         ...(res.ok ? { note: 'Servidor aceitou o evento' } : {}),
-        ...(!reachable ? { warning: 'Servidor retornou 5xx — verifique OD_CW_BASE_URL' } : {}),
+        ...(res.status === 404 ? { warning: 'Endpoint /v1/newEvent não encontrado — OD_CW_BASE_URL está errada. Tente https://integracao.cardapioweb.com/api/open_delivery' } : {}),
+        ...(!reachable && res.status >= 500 ? { warning: 'Servidor retornou 5xx — verifique OD_CW_BASE_URL' } : {}),
         ...((res.status === 401 || res.status === 403) ? { warning: 'Credenciais rejeitadas — verifique OD_APP_ID / OD_MERCHANT_ID' } : {}),
       };
     } catch (e) {
