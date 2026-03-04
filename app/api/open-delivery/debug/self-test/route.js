@@ -375,8 +375,8 @@ export async function POST(request) {
     }
   }
 
-  // ── 8. Push diagnóstico: testa variações de header ─────────────────────
-  // Envia o push com e sem X-App-Id para entender o que o TaxiMachine valida.
+  // ── 8. Push diagnóstico: testa OAuth + Bearer token ─────────────────────
+  // Confirma que o CardápioWeb aceita autenticação OAuth com as credenciais configuradas.
   if (cfg.cwBaseUrl && !dryRun) {
     try {
       const diagEvent = {
@@ -386,101 +386,71 @@ export async function POST(request) {
         orderURL:  orderURL('diag-order'),
         createdAt: new Date().toISOString(),
       };
-      const diagBody      = JSON.stringify(diagEvent);
-      const diagSignature = signWebhookBody(diagBody);
+      const diagBody = JSON.stringify(diagEvent);
 
-      // Tenta sem X-App-Id para ver se o erro muda
-      const noAppIdRes = await fetch(`${cfg.cwBaseUrl}/v1/newEvent`, {
-        method:  'POST',
-        headers: {
-          'Content-Type':     'application/json',
-          'X-App-MerchantId': cfg.merchantId,
-          'X-App-Signature':  diagSignature,
-          // X-App-Id AUSENTE intencionalmente
-        },
-        body:   diagBody,
-        signal: AbortSignal.timeout(8_000),
-      }).catch(() => null);
+      // Passo A: Tenta OAuth para obter Bearer token
+      let accessToken   = null;
+      let oauthStatus   = null;
+      let oauthResponse = null;
+      for (const [ct, body] of [
+        ['application/json', JSON.stringify({ grant_type: 'client_credentials', client_id: cfg.clientId, client_secret: cfg.clientSecret })],
+        ['application/x-www-form-urlencoded', `grant_type=client_credentials&client_id=${encodeURIComponent(cfg.clientId)}&client_secret=${encodeURIComponent(cfg.clientSecret)}`],
+      ]) {
+        const tr = await fetch(`${cfg.cwBaseUrl}/oauth/token`, {
+          method: 'POST', headers: { 'Content-Type': ct }, body,
+          signal: AbortSignal.timeout(8_000),
+        }).catch(() => null);
+        if (!tr) continue;
+        oauthStatus   = tr.status;
+        oauthResponse = await tr.text().catch(() => '');
+        const data    = (() => { try { return JSON.parse(oauthResponse); } catch { return {}; } })();
+        if (tr.ok && data.access_token) { accessToken = data.access_token; break; }
+      }
 
-      const noAppIdStatus = noAppIdRes?.status;
-      const noAppIdText   = noAppIdRes ? await noAppIdRes.text().catch(() => '') : 'timeout';
+      // Passo B: Com token, tenta POST /v1/newEvent
+      let newEventStatus   = null;
+      let newEventResponse = null;
+      if (accessToken) {
+        const nr = await fetch(`${cfg.cwBaseUrl}/v1/newEvent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type':     'application/json',
+            'Authorization':    `Bearer ${accessToken}`,
+            'X-App-MerchantId': cfg.merchantId,
+          },
+          body:   diagBody,
+          signal: AbortSignal.timeout(8_000),
+        }).catch(() => null);
+        newEventStatus   = nr?.status;
+        newEventResponse = nr ? await nr.text().catch(() => '') : 'timeout';
+      }
 
-      // Tenta com X-App-Id = OD_MERCHANT_ID (para ver se merchant ID funciona como App ID)
-      const merchantAsAppIdRes = await fetch(`${cfg.cwBaseUrl}/v1/newEvent`, {
-        method:  'POST',
-        headers: {
-          'Content-Type':     'application/json',
-          'X-App-Id':         cfg.merchantId,
-          'X-App-MerchantId': cfg.merchantId,
-          'X-App-Signature':  diagSignature,
-        },
-        body:   diagBody,
-        signal: AbortSignal.timeout(8_000),
-      }).catch(() => null);
-
-      const maaStatus = merchantAsAppIdRes?.status;
-      const maaText   = merchantAsAppIdRes ? await merchantAsAppIdRes.text().catch(() => '') : 'timeout';
-
-      // Tenta com X-App-Id = OD_CLIENT_ID — empresas confirmaram que credenciais são suficientes,
-      // portanto o CardápioWeb/TaxiMachine pode validar X-App-Id contra o client_id cadastrado.
-      const clientIdAsAppIdRes = await fetch(`${cfg.cwBaseUrl}/v1/newEvent`, {
-        method:  'POST',
-        headers: {
-          'Content-Type':     'application/json',
-          'X-App-Id':         cfg.clientId,
-          'X-App-MerchantId': cfg.merchantId,
-          'X-App-Signature':  diagSignature,
-        },
-        body:   diagBody,
-        signal: AbortSignal.timeout(8_000),
-      }).catch(() => null);
-
-      const caaStatus = clientIdAsAppIdRes?.status;
-      const caaText   = clientIdAsAppIdRes ? await clientIdAsAppIdRes.text().catch(() => '') : 'timeout';
-
-      // Sucesso real = 2xx ou 404 (recebeu mas não encontrou pedido fictício)
-      const anySuccess = [noAppIdStatus, maaStatus, caaStatus].some(s => s && (s < 400 || s === 404));
-
-      // Interpreta o que cada código significa:
-      // 400 "X-App-Id is required" = TaxiMachine valida presença do header
-      // 403 "Invalid X-App-Id"     = TaxiMachine valida o VALOR contra whitelist interna
-      const noAppIdParsed  = (() => { try { return JSON.parse(noAppIdText || '{}'); } catch { return {}; } })();
-      const requires_presence = noAppIdStatus === 400 && noAppIdParsed?.title?.includes('required');
-      const requires_registry  = maaStatus === 403;
-
-      // Determina qual variante foi aceita (se alguma)
-      const clientIdAccepted = caaStatus && (caaStatus < 400 || caaStatus === 404);
+      const oauthOk      = Boolean(accessToken);
+      const newEventOk   = newEventStatus != null && (newEventStatus < 400 || newEventStatus === 404);
+      const anySuccess   = oauthOk && newEventOk;
 
       let conclusion;
-      if (clientIdAccepted) {
-        conclusion =
-          'OD_CLIENT_ID foi aceito como X-App-Id ✓ — push já deve funcionar. ' +
-          'Confirme que OD_APP_ID não está definido (ou está em branco) para que o fallback use OD_CLIENT_ID automaticamente.';
-      } else if (anySuccess) {
-        conclusion = 'Uma variante foi aceita (2xx/404) — push pode funcionar com esses headers.';
-      } else if (requires_presence && requires_registry) {
-        conclusion =
-          'CONFIRMADO: TaxiMachine (1) exige X-App-Id presente [400] E (2) valida o valor contra lista registrada [403]. ' +
-          'Para registrar: (A) mantenha um UUID fixo como OD_APP_ID no Vercel, ' +
-          '(B) insira EXATAMENTE esse UUID no campo "ID do estabelecimento no outro sistema" no portal CardápioWeb, ' +
-          '(C) clique em Salvar/Reativar a integração para que o CardápioWeb chame nosso PUT /merchantOnboarding ' +
-          '(que agora retorna 201) — isso registra o App ID no TaxiMachine. ' +
-          'Se ainda falhar após reativar, contate suporte.machine.global.';
+      if (anySuccess) {
+        conclusion = 'OAuth + Bearer token funcionando ✓ — push deve entregar pedidos ao CardápioWeb.';
+      } else if (!oauthOk) {
+        conclusion = `OAuth falhou (${oauthStatus}): ${(oauthResponse || '').slice(0, 200)}. ` +
+          'Verifique OD_CLIENT_ID e OD_CLIENT_SECRET no portal CardápioWeb (Configurações → Integrações → API Open Delivery). ' +
+          'OD_CW_BASE_URL deve ser: https://integracao.cardapioweb.com/api/open_delivery';
       } else {
-        conclusion = `sem_X_App_Id=${noAppIdStatus}, merchantId_como_appId=${maaStatus}, clientId_como_appId=${caaStatus}`;
+        conclusion = `OAuth OK mas /v1/newEvent retornou ${newEventStatus}: ${(newEventResponse || '').slice(0, 200)}. ` +
+          'Verifique OD_MERCHANT_ID.';
       }
 
       step('push_header_variants', anySuccess, {
         note: anySuccess
-          ? clientIdAccepted
-            ? 'OD_CLIENT_ID aceito como X-App-Id ✓ — push está funcionando!'
-            : 'Uma variante foi aceita! Veja detalhes.'
-          : 'Nenhuma variante passou — confirmado: X-App-Id precisa de registro no TaxiMachine.',
-        variants: {
-          sem_X_App_Id:              { httpStatus: noAppIdStatus, response: noAppIdText },
-          merchantId_como_X_App_Id:  { httpStatus: maaStatus,     response: maaText },
-          clientId_como_X_App_Id:    { httpStatus: caaStatus,     response: caaText, note: 'OD_CLIENT_ID — empresas confirmaram que credenciais são suficientes' },
-        },
+          ? 'OAuth + Bearer token aceito pelo CardápioWeb ✓'
+          : oauthOk
+            ? `/v1/newEvent rejeitou com ${newEventStatus} — verifique OD_MERCHANT_ID`
+            : `OAuth falhou com ${oauthStatus} — verifique credenciais`,
+        oauth: { httpStatus: oauthStatus, tokenObtained: oauthOk, response: oauthOk ? '(token omitido)' : (oauthResponse || '').slice(0, 200) },
+        newEvent: accessToken
+          ? { httpStatus: newEventStatus, response: (newEventResponse || '').slice(0, 200) }
+          : { skipped: 'OAuth falhou — sem token para testar' },
         conclusion,
       });
     } catch (e) {
