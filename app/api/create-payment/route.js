@@ -169,6 +169,18 @@ export async function POST(request) {
       } else if (mpResponse.status === 400) {
         errorMsg = 'Dados inválidos';
         errorDetails = mpData.cause?.map(c => `${c.code}: ${c.description || ''}`).join('; ') || mpData.message || '';
+      } else if (mpResponse.status === 403) {
+        const cause2209 = mpData.cause?.find(c => c.code === 2209);
+        if (cause2209) {
+          errorMsg = 'Token de teste — pagamentos reais bloqueados';
+          errorDetails =
+            'O Access Token configurado é de TESTE. Para receber PIX de verdade, ' +
+            'acesse Mercado Pago → Credenciais → Produção e copie o token que começa com "APP_USR-" ' +
+            '(sem "TEST" no meio). Atualize na Vercel e faça Redeploy.';
+        } else {
+          errorMsg = mpData.message || 'Acesso negado';
+          errorDetails = JSON.stringify(mpData.cause || mpData);
+        }
       } else if (mpData.message === 'internal_error') {
         errorMsg = 'Erro interno do Mercado Pago';
         errorDetails = 'Copie o Access Token novamente, cole na Vercel sem espaços, e faça Redeploy.';
