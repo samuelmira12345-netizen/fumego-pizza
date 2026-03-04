@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
-import { isODEnabled, isCWPushEnabled, getODConfig, pushEventToCardapioWeb, orderURL } from '../../../../lib/open-delivery';
+import { isODEnabled, isCWPushEnabled, getODConfig, pushEventToCardapioWeb, orderURL, signWebhookBody } from '../../../../lib/open-delivery';
 
 /**
  * GET /api/open-delivery/debug
@@ -57,20 +57,44 @@ export async function GET() {
   }
 
   // ── Teste de conexão com CardápioWeb ─────────────────────────────────────
-  // Nota: não seguimos redirects (redirect=manual) para evitar falso-positivo
-  // em que o servidor redireciona para a página de login retornando 200.
+  // Testamos POST /v1/newEvent com payload mínimo (dry-run).
+  // GET sem auth sempre retorna 302 (redirect para login) — isso é normal e não indica erro.
   let cwConnectivity = null;
   if (process.env.OD_CW_BASE_URL) {
     try {
-      const res = await fetch(`${process.env.OD_CW_BASE_URL}/v1/merchant`, {
-        redirect: 'manual',
+      const cwBaseUrl  = process.env.OD_CW_BASE_URL;
+      const appId      = process.env.OD_APP_ID || process.env.OD_CLIENT_ID || '';
+      const merchantId = process.env.OD_MERCHANT_ID || '';
+      const testBody   = JSON.stringify({
+        eventId:   'debug-connectivity-test',
+        eventType: 'PING',
+        orderId:   'debug-test',
+        orderURL:  orderURL('debug-test'),
+        createdAt: new Date().toISOString(),
+      });
+      const sig = signWebhookBody(testBody);
+      const res = await fetch(`${cwBaseUrl}/v1/newEvent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':     'application/json',
+          'X-App-Id':         appId,
+          'X-App-MerchantId': merchantId,
+          'X-App-Signature':  sig,
+        },
+        body: testBody,
         signal: AbortSignal.timeout(5000),
       });
-      const isRedirect = res.status >= 300 && res.status < 400;
+      const responseText = await res.text().catch(() => '');
+      // 200/201/204 = sucesso. 400/422 = chegou ao servidor mas payload inválido (conectividade ok).
+      // 401/403 = chegou mas credenciais erradas. 5xx ou network error = problema real.
+      const reachable = res.status < 500;
       cwConnectivity = {
-        ok: res.ok,
+        ok: reachable,
         status: res.status,
-        ...(isRedirect ? { warning: 'Endpoint redireciona — OD_CW_BASE_URL pode estar errada' } : {}),
+        response: responseText.slice(0, 200),
+        ...(res.ok ? { note: 'Servidor aceitou o evento' } : {}),
+        ...(!reachable ? { warning: 'Servidor retornou 5xx — verifique OD_CW_BASE_URL' } : {}),
+        ...((res.status === 401 || res.status === 403) ? { warning: 'Credenciais rejeitadas — verifique OD_APP_ID / OD_MERCHANT_ID' } : {}),
       };
     } catch (e) {
       cwConnectivity = { ok: false, error: e.message };
