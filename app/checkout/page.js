@@ -608,7 +608,8 @@ export default function CheckoutPage() {
 
   // ===== CHECKOUT =====
   return (
-    <div style={{ minHeight: '100vh', background: BG }}>
+    <div style={{ minHeight: '100vh', background: BG, animation: 'checkoutFadeIn 0.22s ease-out' }}>
+      <style>{`@keyframes checkoutFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
       <header className="header" style={{ justifyContent: 'space-between' }}>
         <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: GOLD, fontSize: 22, cursor: 'pointer', width: 32 }}>←</button>
         <h1 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 18, fontWeight: 'bold', color: GOLD }}>Checkout</h1>
@@ -650,14 +651,31 @@ export default function CheckoutPage() {
 
         {/* DADOS PESSOAIS */}
         <div id="checkout-personal" style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Seus Dados</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <input className="input-field" placeholder="Nome completo *" value={form.name} onChange={e => updateForm('name', e.target.value)} />
-            <input className="input-field" placeholder="Telefone com DDD *" value={form.phone} onChange={e => updateForm('phone', e.target.value)} type="tel" />
-            <input className="input-field" placeholder="E-mail" value={form.email} onChange={e => updateForm('email', e.target.value)} type="email" />
-            <input className="input-field" placeholder="CPF (para cupom/PIX)" value={form.cpf} onChange={e => updateForm('cpf', e.target.value)}
-              onBlur={() => { if (form.name.trim() && form.phone.trim()) scrollToStep('checkout-address'); }} />
-          </div>
+          {user ? (
+            /* Usuário logado — exibe resumo limpo */
+            <div style={{ background: CARD, borderRadius: 16, padding: 14, border: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 3 }}>{user.name}</p>
+                {user.phone && <p style={{ fontSize: 12, color: MUTED }}>{user.phone}</p>}
+                {user.email && <p style={{ fontSize: 12, color: MUTED }}>{user.email}</p>}
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: GREEN, background: 'rgba(72,187,120,0.12)', padding: '4px 10px', borderRadius: 20 }}>
+                Logado
+              </span>
+            </div>
+          ) : (
+            /* Visitante — formulário completo */
+            <>
+              <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Seus Dados</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <input className="input-field" placeholder="Nome completo *" value={form.name} onChange={e => updateForm('name', e.target.value)} />
+                <input className="input-field" placeholder="Telefone com DDD *" value={form.phone} onChange={e => updateForm('phone', e.target.value)} type="tel" />
+                <input className="input-field" placeholder="E-mail" value={form.email} onChange={e => updateForm('email', e.target.value)} type="email" />
+                <input className="input-field" placeholder="CPF (para cupom/PIX)" value={form.cpf} onChange={e => updateForm('cpf', e.target.value)}
+                  onBlur={() => { if (form.name.trim() && form.phone.trim()) scrollToStep('checkout-address'); }} />
+              </div>
+            </>
+          )}
         </div>
 
         {/* ENDEREÇO */}
