@@ -145,13 +145,9 @@ export async function POST(request) {
       useCashback(supabase, orderPayload.user_id, order.id, cashbackUsed)
         .catch(e => console.error('[Cashback] Erro ao consumir saldo:', e.message));
     }
-
-    // ── Cashback: gerar crédito para pagamentos que não precisam de confirmação
-    //    (cash e card_delivery são confirmados na hora do pedido)
-    if (['cash', 'card_delivery'].includes(orderPayload.payment_method) && orderPayload.user_id) {
-      earnCashback(supabase, orderPayload.user_id, order.id, orderPayload.total)
-        .catch(e => console.error('[Cashback] Erro ao gerar cashback:', e.message));
-    }
+    // Nota: o cashback é GERADO apenas quando a loja finaliza o pedido (status → "delivered").
+    // PIX/cartão online: gerado na confirmação do pagamento (pix-webhook ou polling).
+    // Dinheiro/cartão na entrega: gerado pelo callback OD /delivered ou admin update_order.
     // ─────────────────────────────────────────────────────────────────────────
 
     // Registrar uso de cupom com CPF hasheado
