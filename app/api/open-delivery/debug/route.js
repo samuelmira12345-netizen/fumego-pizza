@@ -57,50 +57,76 @@ export async function GET() {
   }
 
   // ── Teste de conexão com CardápioWeb ─────────────────────────────────────
-  // Testamos POST /v1/newEvent com payload mínimo (dry-run).
-  // GET sem auth sempre retorna 302 (redirect para login) — isso é normal e não indica erro.
+  // 1. Tenta OAuth para obter Bearer token usando OD_CLIENT_ID + OD_CLIENT_SECRET
+  // 2. Com o token, envia POST /v1/newEvent de teste
   let cwConnectivity = null;
   if (process.env.OD_CW_BASE_URL) {
     try {
-      const cwBaseUrl  = process.env.OD_CW_BASE_URL;
-      const appId      = process.env.OD_APP_ID || process.env.OD_CLIENT_ID || '';
-      const merchantId = process.env.OD_MERCHANT_ID || '';
-      const testBody   = JSON.stringify({
-        eventId:   'debug-connectivity-test',
-        eventType: 'PING',
-        orderId:   'debug-test',
-        orderURL:  orderURL('debug-test'),
-        createdAt: new Date().toISOString(),
-      });
-      const sig = signWebhookBody(testBody);
-      const res = await fetch(`${cwBaseUrl}/v1/newEvent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type':     'application/json',
-          'X-App-Id':         appId,
-          'X-App-MerchantId': merchantId,
-          'X-App-Signature':  sig,
-        },
-        body: testBody,
-        signal: AbortSignal.timeout(5000),
-      });
-      const responseText = await res.text().catch(() => '');
-      // 200/201/204 = sucesso
-      // 400/422    = endpoint existe, payload inválido (conectividade ok)
-      // 401/403    = endpoint existe, credenciais rejeitadas
-      // 404        = endpoint não encontrado → OD_CW_BASE_URL errada
-      // 5xx / erro = problema de rede ou servidor fora
-      const endpointFound = res.status !== 404;
-      const reachable     = res.status < 500 && endpointFound;
-      cwConnectivity = {
-        ok: reachable,
-        status: res.status,
-        response: responseText.slice(0, 200),
-        ...(res.ok ? { note: 'Servidor aceitou o evento' } : {}),
-        ...(res.status === 404 ? { warning: 'Endpoint /v1/newEvent não encontrado — OD_CW_BASE_URL está errada. Use: https://api.taximachine.com.br/integra/delivery/opendelivery' } : {}),
-        ...(!reachable && res.status >= 500 ? { warning: 'Servidor retornou 5xx — verifique OD_CW_BASE_URL' } : {}),
-        ...((res.status === 401 || res.status === 403) ? { warning: 'Credenciais rejeitadas — verifique OD_APP_ID / OD_MERCHANT_ID' } : {}),
-      };
+      const cwBaseUrl    = process.env.OD_CW_BASE_URL;
+      const clientId     = process.env.OD_CLIENT_ID     || '';
+      const clientSecret = process.env.OD_CLIENT_SECRET || '';
+      const merchantId   = process.env.OD_MERCHANT_ID   || '';
+
+      // Passo 1: OAuth
+      let accessToken   = null;
+      let oauthStatus   = null;
+      let oauthResponse = null;
+      for (const [ct, body] of [
+        ['application/json', JSON.stringify({ grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret })],
+        ['application/x-www-form-urlencoded', `grant_type=client_credentials&client_id=${encodeURIComponent(clientId)}&client_secret=${encodeURIComponent(clientSecret)}`],
+      ]) {
+        const tr = await fetch(`${cwBaseUrl}/oauth/token`, {
+          method: 'POST', headers: { 'Content-Type': ct }, body,
+          signal: AbortSignal.timeout(5000),
+        }).catch(() => null);
+        if (!tr) continue;
+        oauthStatus   = tr.status;
+        oauthResponse = await tr.text().catch(() => '');
+        const data    = (() => { try { return JSON.parse(oauthResponse); } catch { return {}; } })();
+        if (tr.ok && data.access_token) { accessToken = data.access_token; break; }
+      }
+
+      if (!accessToken) {
+        cwConnectivity = {
+          ok: false,
+          oauthStatus,
+          oauthResponse: (oauthResponse || '').slice(0, 300),
+          warning: `OAuth falhou (${oauthStatus}) — verifique OD_CLIENT_ID e OD_CLIENT_SECRET no portal CardápioWeb (Configurações → Integrações → API Open Delivery)`,
+        };
+      } else {
+        // Passo 2: POST /v1/newEvent com Bearer token
+        const testBody = JSON.stringify({
+          eventId:   'debug-connectivity-test',
+          eventType: 'PING',
+          orderId:   'debug-test',
+          orderURL:  orderURL('debug-test'),
+          createdAt: new Date().toISOString(),
+        });
+        const res = await fetch(`${cwBaseUrl}/v1/newEvent`, {
+          method: 'POST',
+          headers: {
+            'Content-Type':     'application/json',
+            'Authorization':    `Bearer ${accessToken}`,
+            'X-App-MerchantId': merchantId,
+          },
+          body: testBody,
+          signal: AbortSignal.timeout(5000),
+        });
+        const responseText = await res.text().catch(() => '');
+        const endpointFound = res.status !== 404;
+        const reachable     = res.status < 500 && endpointFound;
+        cwConnectivity = {
+          ok: reachable,
+          oauthStatus: 200,
+          oauthNote:   'Token OAuth obtido com sucesso ✓',
+          status: res.status,
+          response: responseText.slice(0, 200),
+          ...(res.ok ? { note: 'CardápioWeb aceitou o evento ✓' } : {}),
+          ...(res.status === 404 ? { warning: 'Endpoint /v1/newEvent não encontrado — verifique OD_CW_BASE_URL. Deve ser: https://integracao.cardapioweb.com/api/open_delivery' } : {}),
+          ...(!reachable && res.status >= 500 ? { warning: 'Servidor retornou 5xx — verifique OD_CW_BASE_URL' } : {}),
+          ...((res.status === 401 || res.status === 403) ? { warning: 'Token aceito mas /v1/newEvent rejeitou — verifique OD_MERCHANT_ID' } : {}),
+        };
+      }
     } catch (e) {
       cwConnectivity = { ok: false, error: e.message };
     }
