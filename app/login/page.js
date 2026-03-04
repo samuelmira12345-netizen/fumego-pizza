@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Flame, Loader2 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 const GOLD   = '#F2A800';
 const BG     = '#080600';
@@ -16,6 +17,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+
+  useEffect(() => {
+    supabase.from('settings').select('value').eq('key', 'logo_url').single()
+      .then(({ data }) => { if (data?.value) setLogoUrl(data.value); })
+      .catch(() => {});
+  }, []);
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -45,7 +53,9 @@ export default function LoginPage() {
         {/* Logo / header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <Flame size={48} color={GOLD} style={{ filter: 'drop-shadow(0 0 12px rgba(242,168,0,0.5))' }} />
+            {logoUrl
+              ? <img src={logoUrl} alt="Fumêgo" style={{ height: 56, objectFit: 'contain', filter: 'drop-shadow(0 0 12px rgba(242,168,0,0.5))' }} />
+              : <Flame size={48} color={GOLD} style={{ filter: 'drop-shadow(0 0 12px rgba(242,168,0,0.5))' }} />}
           </div>
           <h1 style={{
             fontFamily: 'var(--font-cinzel), Cinzel, Georgia, serif',

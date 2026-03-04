@@ -51,6 +51,7 @@ export default function HomePage() {
   const [cashbackBalance, setCashbackBalance] = useState(0);
 
   useEffect(() => {
+    router.prefetch('/checkout');
     loadData();
     try {
       const u = localStorage.getItem('fumego_user');
