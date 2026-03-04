@@ -90,6 +90,11 @@ export default function AccountPage() {
   async function handleSave(e) {
     e.preventDefault();
     setMsg(''); setError('');
+    if (!form.current_password.trim()) {
+      setError('Preencha o campo "Senha atual" para salvar as alterações.');
+      document.getElementById('current-password-field')?.focus();
+      return;
+    }
     if (form.new_password && form.new_password !== form.confirm_password) {
       setError('As novas senhas não coincidem'); return;
     }
@@ -107,9 +112,9 @@ export default function AccountPage() {
         address_state:        form.address_state,
         address_zipcode:      form.address_zipcode,
       };
+      body.current_password = form.current_password;
       if (form.new_password) {
-        body.current_password = form.current_password;
-        body.new_password     = form.new_password;
+        body.new_password = form.new_password;
       }
       const res  = await fetch('/api/auth/update', {
         method: 'POST',
@@ -163,6 +168,11 @@ export default function AccountPage() {
 
         {/* Dados Pessoais */}
         <Section title="Dados Pessoais">
+          <p style={{ fontSize: 12, color: MUTED, marginTop: -4, marginBottom: 2, lineHeight: 1.5 }}>
+            Para salvar qualquer alteração é necessário preencher o campo{' '}
+            <strong style={{ color: GOLD }}>"Senha atual"</strong>{' '}
+            na seção abaixo.
+          </p>
           <input className="input-field" placeholder="Nome completo *"
             value={form.name} onChange={e => upd('name', e.target.value)} required />
           <input className="input-field" type="email" placeholder="E-mail *"
@@ -219,7 +229,7 @@ export default function AccountPage() {
               Esqueceu a senha?
             </button>
           </div>
-          <input className="input-field" type="password" placeholder="Senha atual"
+          <input id="current-password-field" className="input-field" type="password" placeholder="Senha atual *"
             value={form.current_password} onChange={e => upd('current_password', e.target.value)} />
           <input className="input-field" type="password" placeholder="Nova senha (mín. 6 caracteres)"
             value={form.new_password} onChange={e => upd('new_password', e.target.value)} />

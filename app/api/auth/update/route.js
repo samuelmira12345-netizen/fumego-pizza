@@ -30,6 +30,15 @@ export async function POST(request) {
     const supabase = getSupabaseAdmin();
     const userId = decoded.userId;
 
+    // Senha atual é obrigatória para qualquer alteração de dados
+    if (!current_password) {
+      return NextResponse.json({ error: 'Informe a senha atual para salvar as alterações.' }, { status: 400 });
+    }
+    const { data: currentUser } = await supabase.from('users').select('password_hash').eq('id', userId).single();
+    if (!currentUser) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+    const passwordValid = await bcrypt.compare(current_password, currentUser.password_hash);
+    if (!passwordValid) return NextResponse.json({ error: 'Senha atual incorreta. Verifique e tente novamente.' }, { status: 400 });
+
     const updates = {};
     if (name)                        updates.name                  = name;
     if (email)                       updates.email                 = email.toLowerCase().trim();
@@ -49,17 +58,9 @@ export async function POST(request) {
     if (address_state       !== undefined) updates.address_state       = address_state;
     if (address_zipcode     !== undefined) updates.address_zipcode     = address_zipcode;
 
-    // Troca de senha
+    // Troca de senha (current_password já foi verificado acima)
     if (new_password) {
-      if (!current_password) return NextResponse.json({ error: 'Informe a senha atual para trocá-la' }, { status: 400 });
       if (new_password.length < 6) return NextResponse.json({ error: 'Nova senha deve ter pelo menos 6 caracteres' }, { status: 400 });
-
-      const { data: current } = await supabase.from('users').select('password_hash').eq('id', userId).single();
-      if (!current) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
-
-      const valid = await bcrypt.compare(current_password, current.password_hash);
-      if (!valid) return NextResponse.json({ error: 'Senha atual incorreta' }, { status: 400 });
-
       updates.password_hash = await bcrypt.hash(new_password, 10);
     }
 
