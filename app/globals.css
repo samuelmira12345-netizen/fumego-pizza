@@ -74,13 +74,25 @@ body {
 .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* ===== INPUTS ===== */
+
+/*
+ * iOS Safari dá zoom automático em qualquer input com font-size < 16px,
+ * ignorando maximum-scale=1 e user-scalable=no do viewport.
+ * Forçar 16px é a única solução confiável — sem JS, sem hacks.
+ */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]),
+textarea,
+select {
+  font-size: 16px;
+}
+
 .input-field {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 13px 14px;
   color: var(--text);
-  font-size: 14px;
+  font-size: 16px;
   width: 100%;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
