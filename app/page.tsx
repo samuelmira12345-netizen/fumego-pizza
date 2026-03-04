@@ -57,6 +57,9 @@ export default function HomePage() {
   const [storeOpen, setStoreOpen]             = useState(true);
   const [todayLabel, setTodayLabel]           = useState<string | null>(null);
   const [loading, setLoading]                 = useState(true);
+  const [loadingLogoUrl, setLoadingLogoUrl]   = useState<string | null>(() => {
+    try { return localStorage.getItem('fumego_logo_url'); } catch { return null; }
+  });
   const [user, setUser]                       = useState<User | null>(null);
   const [cart, setCart]                       = useState<CartItem[]>([]);
   const [showModal, setShowModal]             = useState(false);
@@ -107,6 +110,12 @@ export default function HomePage() {
         const s: Settings = {};
         sRes.data.forEach((i: { key: string; value: string }) => { s[i.key] = i.value; });
         setSettings(s);
+
+        // Cacheia a logo no localStorage para ser usada na próxima tela de loading
+        if (s.logo_url) {
+          try { localStorage.setItem('fumego_logo_url', s.logo_url); } catch {}
+          setLoadingLogoUrl(s.logo_url);
+        }
 
         // Stock limits
         if (s.stock_limits) {
@@ -250,13 +259,22 @@ export default function HomePage() {
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: BG }}>
-        <div style={{ textAlign: 'center' }}>
-          <Flame size={48} color={GOLD} style={{ filter: 'drop-shadow(0 0 16px rgba(242,168,0,0.5))' }} />
-          <p style={{ color: GOLD, marginTop: 16, animation: 'pulse 1.5s infinite', fontSize: 12, letterSpacing: 3, textTransform: 'uppercase', fontWeight: 700 }}>
-            Carregando…
-          </p>
-        </div>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: BG }}>
+        {loadingLogoUrl ? (
+          <img
+            src={loadingLogoUrl}
+            alt="FUMÊGO"
+            style={{ width: 96, height: 96, objectFit: 'contain', filter: 'drop-shadow(0 0 28px rgba(242,168,0,0.5))' }}
+          />
+        ) : (
+          <Flame size={64} color={GOLD} style={{ filter: 'drop-shadow(0 0 20px rgba(242,168,0,0.5))' }} />
+        )}
+        <p style={{ fontFamily: 'var(--font-cinzel), Cinzel, Georgia, serif', fontSize: 34, fontWeight: 900, color: GOLD, letterSpacing: 8, marginTop: 22, textShadow: '0 0 28px rgba(242,168,0,0.45)' }}>
+          FUMÊGO
+        </p>
+        <p style={{ color: GOLD, marginTop: 18, animation: 'pulse 1.5s infinite', fontSize: 11, letterSpacing: 3, textTransform: 'uppercase', fontWeight: 700 }}>
+          Carregando…
+        </p>
       </div>
     );
   }
