@@ -23,6 +23,7 @@ function formatLog(level: LogLevel, message: string, meta: LogMeta = {}): string
 async function captureException(err: Error): Promise<void> {
   if (!IS_PROD || !process.env.NEXT_PUBLIC_SENTRY_DSN) return;
   try {
+    // @ts-ignore — @sentry/nextjs é opcional; instale o pacote e defina NEXT_PUBLIC_SENTRY_DSN para ativar
     const Sentry = await import('@sentry/nextjs');
     Sentry.captureException(err);
   } catch {
