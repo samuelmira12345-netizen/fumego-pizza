@@ -12,40 +12,16 @@ import StoreHeader from './components/home/StoreHeader';
 import ProductModal from './components/home/ProductModal';
 import FloatingCart from './components/home/FloatingCart';
 import type { Product, Drink, DrinkSelection, CartItem, CartItemOption, AppSettings, AppUser, StockLimit, ImagePosition } from './components/home/types';
+import {
+  GOLD, GOLD_LIGHT, BG, CARD, BORDER, MUTED, FAINT,
+  PRODUCT_OPTIONS, COMBO_CALABRESA_OPTS, COMBO_MARGUERITA_OPTS, fmt,
+} from './components/home/tokens';
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 // (Types migrados para app/components/home/types.ts)
 // Mantidos aqui como aliases para retrocompatibilidade interna do arquivo:
 type Settings = AppSettings;
 type User = AppUser;
-
-// ── Tokens ────────────────────────────────────────────────────────────────────
-const GOLD       = '#F2A800';
-const GOLD_LIGHT = '#FFD060';
-const BG         = '#080600';
-const CARD       = '#1C1500';
-const BORDER     = '#2C1E00';
-const MUTED      = '#7A6040';
-const FAINT      = '#3A2810';
-
-// ── Opções por produto ──────────────────────────────────────────────────────
-const COMBO_CALABRESA_OPTS: CartItemOption[] = [
-  { label: 'Sem cebola', extra_price: 0 },
-  { label: 'Com cebola', extra_price: 2 },
-];
-const COMBO_MARGUERITA_OPTS: CartItemOption[] = [
-  { label: 'Sem alho',       extra_price: 0 },
-  { label: 'Com alho',       extra_price: 0 },
-  { label: 'Alho caprichado', extra_price: 2 },
-];
-const PRODUCT_OPTIONS: Record<string, CartItemOption[]> = {
-  'calabresa': [{ label: 'Sem cebola', extra_price: 0 }, { label: 'Com cebola', extra_price: 2 }],
-  'marguerita': [{ label: 'Sem alho', extra_price: 0 }, { label: 'Com alho', extra_price: 0 }, { label: 'Alho caprichado', extra_price: 2 }],
-};
-
-function fmt(price: number | string): string {
-  return Number(price).toFixed(2).replace('.', ',');
-}
 
 // ── Componente ────────────────────────────────────────────────────────────────
 export default function HomePage() {

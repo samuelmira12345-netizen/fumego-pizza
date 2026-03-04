@@ -59,6 +59,19 @@ export default function CheckoutPage() {
   const pollingIntervalRef = useRef(null);
   const pollingTimeoutRef = useRef(null);
 
+  // Chave de idempotência: gerada uma vez por sessão de checkout.
+  // Enviada ao server via X-Idempotency-Key para evitar pedidos duplicados
+  // caso o usuário clique duas vezes em "Confirmar" ou a rede reenvie a requisição.
+  const idempotencyKeyRef = useRef(
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2) + Date.now().toString(36)
+  );
+
+  // Guarda de submissão em andamento: impede duplo envio mesmo se o estado
+  // ainda não foi atualizado (evita duplo clique antes do re-render).
+  const isSubmittingRef = useRef(false);
+
   // Scroll guiado entre passos do checkout
   const scrollToStep = useScrollToStep(300);
 
@@ -271,10 +284,15 @@ export default function CheckoutPage() {
       });
     });
 
-    // Criação do pedido via API server-side para garantir hash do CPF
+    // Criação do pedido via API server-side para garantir hash do CPF.
+    // O header X-Idempotency-Key garante que cliques duplos ou retransmissões
+    // de rede não criem pedidos duplicados.
     const res = await fetch('/api/checkout/create-order', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': idempotencyKeyRef.current,
+      },
       body: JSON.stringify({
         orderPayload,
         items,
@@ -308,6 +326,10 @@ export default function CheckoutPage() {
       }
       return;
     }
+    // Guarda contra duplo clique: impede segunda submissão antes do re-render
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
     setFormError('');
     setLoading(true);
     setPixError(null);
@@ -365,6 +387,8 @@ export default function CheckoutPage() {
     } catch (e) {
       console.error('Erro:', e);
       setFormError(e.message || 'Erro ao processar pedido. Verifique os dados e tente novamente.');
+      // Libera a guarda de submissão para o usuário poder tentar novamente
+      isSubmittingRef.current = false;
     } finally {
       setLoading(false);
     }

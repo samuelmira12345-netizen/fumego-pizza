@@ -1,6 +1,36 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
+import { logger } from '../../../../lib/logger';
+
+/**
+ * Verifica a senha do admin com suporte a bcrypt.
+ *
+ * Fluxo de autenticação:
+ *  1. Se ADMIN_PASSWORD_HASH estiver definida (hash bcrypt), usa bcrypt.compare — RECOMENDADO.
+ *  2. Caso contrário, cai no ADMIN_PASSWORD (texto puro) como fallback de compatibilidade.
+ *
+ * Para migrar para bcrypt, execute no terminal:
+ *   node -e "const b=require('bcryptjs');b.hash('SUA_SENHA',12).then(h=>console.log(h))"
+ * Defina o resultado como ADMIN_PASSWORD_HASH e remova ADMIN_PASSWORD.
+ */
+async function verifyAdminPassword(inputPassword) {
+  const hashEnv  = process.env.ADMIN_PASSWORD_HASH;
+  const plainEnv = process.env.ADMIN_PASSWORD;
+
+  if (hashEnv) {
+    return bcrypt.compare(inputPassword, hashEnv);
+  }
+
+  if (plainEnv) {
+    // Aviso: use ADMIN_PASSWORD_HASH com bcrypt em produção
+    logger.warn('[Admin] ADMIN_PASSWORD_HASH não definida — usando ADMIN_PASSWORD em texto puro. Migre para ADMIN_PASSWORD_HASH.');
+    return inputPassword === plainEnv;
+  }
+
+  return false;
+}
 
 /** POST /api/admin/session — troca senha pelo token de sessão (8 h). */
 export async function POST(request) {
@@ -16,13 +46,14 @@ export async function POST(request) {
 
   try {
     const { password } = await request.json();
-    const adminPwd = process.env.ADMIN_PASSWORD;
-    const secret   = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+    const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
 
-    if (!adminPwd || !secret) {
+    if (!secret) {
       return NextResponse.json({ error: 'Servidor mal configurado' }, { status: 500 });
     }
-    if (password !== adminPwd) {
+
+    const isValid = await verifyAdminPassword(password);
+    if (!isValid) {
       return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 });
     }
 

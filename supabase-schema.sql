@@ -271,3 +271,44 @@ CREATE INDEX IF NOT EXISTS idx_rate_limit_log_key_created
 -- Para um cleanup periódico adicional, crie uma pg_cron job:
 --   SELECT cron.schedule('cleanup-rate-limit', '*/10 * * * *',
 --     $$DELETE FROM rate_limit_log WHERE created_at < NOW() - INTERVAL '1 hour'$$);
+
+-- ==========================================
+-- ÍNDICES DE PERFORMANCE
+-- Melhora consultas de pedidos por usuário, paginação por data e carregamento
+-- de itens de pedido. Importante à medida que o volume de dados cresce.
+-- ==========================================
+
+-- Pedidos: busca por usuário (tela "meus pedidos")
+CREATE INDEX IF NOT EXISTS idx_orders_user_id
+  ON orders (user_id);
+
+-- Pedidos: paginação por data (admin e histórico)
+CREATE INDEX IF NOT EXISTS idx_orders_created_at
+  ON orders (created_at DESC);
+
+-- Pedidos: status + data (filtros do admin)
+CREATE INDEX IF NOT EXISTS idx_orders_status_created_at
+  ON orders (status, created_at DESC);
+
+-- Itens: carregamento dos itens de um pedido
+CREATE INDEX IF NOT EXISTS idx_order_items_order_id
+  ON order_items (order_id);
+
+-- Uso de cupons: verificar se CPF já usou determinado cupom
+CREATE INDEX IF NOT EXISTS idx_coupon_usage_coupon_cpf
+  ON coupon_usage (coupon_id, cpf);
+
+-- Tokens de verificação de e-mail: lookup por token
+CREATE INDEX IF NOT EXISTS idx_email_verification_tokens_token
+  ON email_verification_tokens (token);
+
+-- Tokens de recuperação de senha: lookup por token
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token
+  ON password_reset_tokens (token);
+
+-- ==========================================
+-- COLUNAS ADICIONAIS (execute se ainda não existirem)
+-- ==========================================
+
+-- Chave de idempotência para evitar pedidos duplicados no checkout
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS idempotency_key TEXT UNIQUE;
