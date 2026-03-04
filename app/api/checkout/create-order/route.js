@@ -5,6 +5,7 @@ import { sendOrderConfirmationEmail } from '../../../../lib/email';
 import { createOrderSchema } from '../../../../lib/schemas';
 import { isCWPushEnabled, pushEventToCardapioWeb } from '../../../../lib/open-delivery';
 import { logger } from '../../../../lib/logger';
+import { earnCashback, useCashback } from '../../../../lib/cashback';
 
 /**
  * Cria o pedido no banco de dados com CPF hasheado server-side.
@@ -137,6 +138,21 @@ export async function POST(request) {
     } catch (drinkStockErr) {
       console.error('[DrinkStock] Erro ao decrementar estoque de bebidas:', drinkStockErr.message);
     }
+
+    // ── Cashback: consumir saldo (FIFO) se o cliente usou cashback ───────────
+    const cashbackUsed = orderPayload.cashback_used || 0;
+    if (cashbackUsed > 0 && orderPayload.user_id) {
+      useCashback(supabase, orderPayload.user_id, order.id, cashbackUsed)
+        .catch(e => console.error('[Cashback] Erro ao consumir saldo:', e.message));
+    }
+
+    // ── Cashback: gerar crédito para pagamentos que não precisam de confirmação
+    //    (cash e card_delivery são confirmados na hora do pedido)
+    if (['cash', 'card_delivery'].includes(orderPayload.payment_method) && orderPayload.user_id) {
+      earnCashback(supabase, orderPayload.user_id, order.id, orderPayload.total)
+        .catch(e => console.error('[Cashback] Erro ao gerar cashback:', e.message));
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Registrar uso de cupom com CPF hasheado
     if (coupon && cpf) {

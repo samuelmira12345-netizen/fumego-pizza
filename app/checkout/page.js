@@ -41,6 +41,11 @@ export default function CheckoutPage() {
   const [pixCopied, setPixCopied] = useState(false);
   const [formError, setFormError] = useState('');
 
+  // Cashback
+  const [cashbackBalance, setCashbackBalance] = useState(0);
+  const [cashbackTxs, setCashbackTxs]         = useState([]);
+  const [useCashbackBalance, setUseCashbackBalance] = useState(false);
+
   // Agendamento
   const [schedulingEnabled, setSchedulingEnabled] = useState(false);
   const [schedulingMaxDays, setSchedulingMaxDays] = useState(3);
@@ -86,6 +91,13 @@ export default function CheckoutPage() {
         complement: u.address_complement || '', neighborhood: u.address_neighborhood || '',
         city: u.address_city || '', state: u.address_state || '', zipcode: u.address_zipcode || '',
       }));
+      // Busca saldo de cashback do usuário
+      if (u.id) {
+        fetch(`/api/cashback/balance?user_id=${u.id}`)
+          .then(r => r.json())
+          .then(data => { setCashbackBalance(data.balance || 0); setCashbackTxs(data.transactions || []); })
+          .catch(() => {});
+      }
     }
 
     supabase.from('settings').select('*')
@@ -175,7 +187,16 @@ export default function CheckoutPage() {
     return couponApplied.discount_fixed || 0;
   }
 
-  function calcTotal() { return Math.max(0, calcSubtotal() + deliveryFee - calcDiscount()); }
+  /** Total antes de aplicar o cashback */
+  function calcBeforeCashback() { return Math.max(0, calcSubtotal() + deliveryFee - calcDiscount()); }
+
+  /** Desconto de cashback: máximo 50% do total pré-cashback */
+  function calcCashbackDiscount() {
+    if (!useCashbackBalance || cashbackBalance <= 0) return 0;
+    return Math.min(cashbackBalance, calcBeforeCashback() * 0.5);
+  }
+
+  function calcTotal() { return Math.max(0, calcBeforeCashback() - calcCashbackDiscount()); }
 
   async function applyCoupon() {
     setCouponError('');
@@ -219,7 +240,8 @@ export default function CheckoutPage() {
       delivery_complement: form.complement || null, delivery_neighborhood: form.neighborhood,
       delivery_city: form.city || 'Cidade', delivery_state: form.state || 'MG',
       delivery_zipcode: form.zipcode || null,
-      subtotal: calcSubtotal(), delivery_fee: deliveryFee, discount: calcDiscount(), total: calcTotal(),
+      subtotal: calcSubtotal(), delivery_fee: deliveryFee, discount: calcDiscount(),
+      cashback_used: calcCashbackDiscount(), total: calcTotal(),
       coupon_code: couponApplied ? couponCode.toUpperCase() : null,
       observations,
       payment_method: paymentMethod,
@@ -266,7 +288,26 @@ export default function CheckoutPage() {
   }
 
   async function handleSubmitOrder() {
-    if (!isFormValid()) { setFormError('Preencha: Nome, Telefone, Rua, Número e Bairro.'); return; }
+    if (!isFormValid()) {
+      const missing = [];
+      if (!form.name.trim())         missing.push('Nome completo');
+      if (!form.phone.trim())        missing.push('Telefone com DDD');
+      if (!form.street.trim())       missing.push('Rua / Avenida');
+      if (!form.number.trim())       missing.push('Número');
+      if (!form.neighborhood.trim()) missing.push('Bairro');
+      if (isScheduled && !scheduledDate)  missing.push('Data de agendamento');
+      if (isScheduled && !selectedSlot)   missing.push('Horário de agendamento');
+      setFormError(`Preencha os campos obrigatórios antes de finalizar: ${missing.join(', ')}.`);
+      // Rola para a primeira seção com dado faltando
+      if (!form.name.trim() || !form.phone.trim()) {
+        scrollToStep('checkout-personal');
+      } else if (!form.street.trim() || !form.number.trim() || !form.neighborhood.trim()) {
+        scrollToStep('checkout-address');
+      } else if (isScheduled && (!scheduledDate || !selectedSlot)) {
+        scrollToStep('checkout-scheduling');
+      }
+      return;
+    }
     setFormError('');
     setLoading(true);
     setPixError(null);
@@ -291,7 +332,7 @@ export default function CheckoutPage() {
         // PIX data já foi salvo no banco pela API /api/create-payment (server-side)
         setPixData(pix);
         setOrderCreated(true);
-        startPaymentCheck(order.id);
+        startPaymentCheck(order.id, user?.id || null, calcTotal());
       }
 
       else if (paymentMethod === 'card') {
@@ -315,6 +356,13 @@ export default function CheckoutPage() {
       }
 
       else if (paymentMethod === 'cash' || paymentMethod === 'card_delivery') {
+        // Para pagamentos confirmados na entrega, gera cashback imediatamente
+        if (user?.id) {
+          fetch('/api/cashback/earn', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.id, order_id: order.id, order_total: calcTotal() }),
+          }).catch(() => {});
+        }
         localStorage.removeItem('fumego_cart');
         setCashOrderDone(true);
         setOrderCreated(true);
@@ -328,7 +376,7 @@ export default function CheckoutPage() {
     }
   }
 
-  function startPaymentCheck(orderId) {
+  function startPaymentCheck(orderId, userId, orderTotal) {
     setCheckingPayment(true);
     let expired = false;
 
@@ -343,6 +391,13 @@ export default function CheckoutPage() {
           setPaymentConfirmed(true);
           setCheckingPayment(false);
           localStorage.removeItem('fumego_cart');
+          // Gera cashback após confirmação do pagamento PIX/cartão
+          if (userId) {
+            fetch('/api/cashback/earn', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: userId, order_id: orderId, order_total: orderTotal }),
+            }).catch(() => {});
+          }
         } else if (data?.payment_status === 'cancelled') {
           clearInterval(iv);
           pollingIntervalRef.current = null;
@@ -566,18 +621,19 @@ export default function CheckoutPage() {
         </div>
 
         {/* DADOS PESSOAIS */}
-        <div style={{ marginBottom: 16 }}>
+        <div id="checkout-personal" style={{ marginBottom: 16 }}>
           <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Seus Dados</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <input className="input-field" placeholder="Nome completo *" value={form.name} onChange={e => updateForm('name', e.target.value)} />
             <input className="input-field" placeholder="Telefone com DDD *" value={form.phone} onChange={e => updateForm('phone', e.target.value)} type="tel" />
             <input className="input-field" placeholder="E-mail" value={form.email} onChange={e => updateForm('email', e.target.value)} type="email" />
-            <input className="input-field" placeholder="CPF (para cupom/PIX)" value={form.cpf} onChange={e => updateForm('cpf', e.target.value)} />
+            <input className="input-field" placeholder="CPF (para cupom/PIX)" value={form.cpf} onChange={e => updateForm('cpf', e.target.value)}
+              onBlur={() => { if (form.name.trim() && form.phone.trim()) scrollToStep('checkout-address'); }} />
           </div>
         </div>
 
         {/* ENDEREÇO */}
-        <div style={{ marginBottom: 16 }}>
+        <div id="checkout-address" style={{ marginBottom: 16 }}>
           <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Endereço de Entrega</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ position: 'relative' }}>
@@ -592,7 +648,7 @@ export default function CheckoutPage() {
             </div>
             <input className="input-field" placeholder="Bairro *" value={form.neighborhood}
               onChange={e => updateForm('neighborhood', e.target.value)}
-              onBlur={e => { if (e.target.value.trim()) scrollToStep('checkout-payment'); }} />
+              onBlur={e => { if (e.target.value.trim()) scrollToStep(schedulingEnabled ? 'checkout-scheduling' : 'checkout-payment'); }} />
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
               <input className="input-field" placeholder="Cidade" value={form.city} onChange={e => updateForm('city', e.target.value)} />
               <input className="input-field" placeholder="Estado" value={form.state} onChange={e => updateForm('state', e.target.value)} maxLength={2} />
@@ -602,13 +658,13 @@ export default function CheckoutPage() {
 
         {/* AGENDAMENTO */}
         {schedulingEnabled && (
-          <div style={{ marginBottom: 16 }}>
+          <div id="checkout-scheduling" style={{ marginBottom: 16 }}>
             <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
               <CalendarClock size={15} color={GOLD} /> Quando deseja receber?
             </h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {[false, true].map(val => (
-                <div key={String(val)} onClick={() => { setIsScheduled(val); if (!val) { setScheduledDate(''); setSelectedSlot(''); } }}
+                <div key={String(val)} onClick={() => { setIsScheduled(val); if (!val) { setScheduledDate(''); setSelectedSlot(''); scrollToStep('checkout-payment'); } }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 12,
                     padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
@@ -646,7 +702,7 @@ export default function CheckoutPage() {
                     ) : (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {availableSlots.map(slot => (
-                          <button key={slot.time} onClick={() => setSelectedSlot(slot.time)}
+                          <button key={slot.time} onClick={() => { setSelectedSlot(slot.time); scrollToStep('checkout-payment'); }}
                             style={{
                               padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer',
                               border: selectedSlot === slot.time ? `2px solid ${GOLD}` : `1px solid ${BORDER}`,
@@ -682,6 +738,60 @@ export default function CheckoutPage() {
           {couponError && <p style={{ color: RED, fontSize: 12, marginTop: 4 }}>{couponError}</p>}
           {couponApplied && <p style={{ color: GREEN, fontSize: 12, marginTop: 4 }}>Cupom aplicado!</p>}
         </div>
+
+        {/* CASHBACK — exibido apenas para usuários com saldo disponível */}
+        {user && cashbackBalance > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>
+              Saldo de Cashback
+            </h2>
+            <div
+              onClick={() => setUseCashbackBalance(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '14px 16px', borderRadius: 12, cursor: 'pointer',
+                border: useCashbackBalance ? `2px solid ${GOLD}` : `1px solid ${BORDER}`,
+                background: useCashbackBalance ? 'rgba(242,168,0,0.08)' : CARD,
+                transition: 'all 0.2s',
+              }}
+            >
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                border: useCashbackBalance ? `6px solid ${GOLD}` : `2px solid ${BORDER}`,
+                background: useCashbackBalance ? BG : 'transparent',
+              }} />
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Usar Saldo de Cashback</p>
+                <p style={{ fontSize: 12, color: MUTED }}>
+                  Disponível: R$ {cashbackBalance.toFixed(2).replace('.', ',')} · Máx. 50% do pedido
+                </p>
+              </div>
+            </div>
+
+            {/* Breakdown ao vivo quando cashback está ativado */}
+            {useCashbackBalance && (
+              <div style={{
+                marginTop: 10, background: 'rgba(242,168,0,0.05)',
+                border: `1px solid ${GOLD}33`, borderRadius: 12, padding: '12px 16px',
+                display: 'flex', flexDirection: 'column', gap: 6,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: MUTED }}>
+                  <span>Valor do pedido</span>
+                  <span style={{ color: '#fff' }}>R$ {calcBeforeCashback().toFixed(2).replace('.', ',')}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: GREEN }}>
+                  <span>Desconto Cashback (máx. 50%)</span>
+                  <span>− R$ {calcCashbackDiscount().toFixed(2).replace('.', ',')}</span>
+                </div>
+                <div style={{ height: 1, background: BORDER, margin: '4px 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 17, fontWeight: 800, color: GOLD }}>
+                  <span>Total a Pagar</span>
+                  <span>R$ {calcTotal().toFixed(2).replace('.', ',')}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* FORMA DE PAGAMENTO — alvo do scroll após endereço preenchido */}
         <div id="checkout-payment" style={{ marginBottom: 16 }}>
@@ -740,7 +850,12 @@ export default function CheckoutPage() {
           )}
           {calcDiscount() > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>
-              <span style={{ color: GREEN }}>Desconto</span><span style={{ color: GREEN }}>-R$ {calcDiscount().toFixed(2).replace('.', ',')}</span>
+              <span style={{ color: GREEN }}>Desconto cupom</span><span style={{ color: GREEN }}>-R$ {calcDiscount().toFixed(2).replace('.', ',')}</span>
+            </div>
+          )}
+          {calcCashbackDiscount() > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>
+              <span style={{ color: GREEN }}>Cashback</span><span style={{ color: GREEN }}>-R$ {calcCashbackDiscount().toFixed(2).replace('.', ',')}</span>
             </div>
           )}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 20, fontWeight: 'bold', borderTop: `1px solid ${BORDER}`, paddingTop: 10, marginTop: 4 }}>

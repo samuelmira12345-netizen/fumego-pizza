@@ -1,6 +1,6 @@
 'use client';
 
-import { ShoppingCart, User, Settings, Package, LogOut } from 'lucide-react';
+import { ShoppingCart, User, Settings, Package, LogOut, Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GOLD, GOLD_LIGHT, BG, BORDER, MUTED } from './tokens';
 import type { AppUser } from './types';
@@ -14,11 +14,12 @@ interface StoreHeaderProps {
   logoSize: number;
   onGoToCheckout: () => void;
   onLogout: () => void;
+  cashbackBalance?: number;
 }
 
 export default function StoreHeader({
   user, cartCount, showUserMenu, setShowUserMenu,
-  logoUrl, logoSize, onGoToCheckout, onLogout,
+  logoUrl, logoSize, onGoToCheckout, onLogout, cashbackBalance = 0,
 }: StoreHeaderProps) {
   const router = useRouter();
 
@@ -96,13 +97,21 @@ export default function StoreHeader({
 
                   {[
                     {
+                      icon: <Wallet size={15} />,
+                      label: 'Minha Carteira',
+                      badge: cashbackBalance > 0 ? `R$ ${cashbackBalance.toFixed(2).replace('.', ',')}` : null,
+                      action: () => { setShowUserMenu(false); router.push('/wallet'); },
+                    },
+                    {
                       icon: <Settings size={15} />,
                       label: 'Configurações da conta',
+                      badge: null,
                       action: () => { setShowUserMenu(false); router.push('/account'); },
                     },
                     {
                       icon: <Package size={15} />,
                       label: 'Ver meus pedidos',
+                      badge: null,
                       action: () => { setShowUserMenu(false); router.push('/orders'); },
                     },
                   ].map(item => (
@@ -117,7 +126,16 @@ export default function StoreHeader({
                       }}
                     >
                       <span style={{ color: MUTED }}>{item.icon}</span>
-                      {item.label}
+                      <span style={{ flex: 1 }}>{item.label}</span>
+                      {item.badge && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, color: GOLD,
+                          background: 'rgba(242,168,0,0.12)', borderRadius: 8,
+                          padding: '2px 7px', border: `1px solid ${GOLD}44`,
+                        }}>
+                          {item.badge}
+                        </span>
+                      )}
                     </button>
                   ))}
 
