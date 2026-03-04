@@ -69,10 +69,23 @@ export default function HomePage() {
   const [showEmptyCartToast, setShowEmptyCartToast] = useState(false);
   const [stockLimits, setStockLimits]         = useState<Record<string, StockLimit>>({});
   const [imagePositions, setImagePositions]   = useState<Record<string, ImagePosition>>({});
+  const [cashbackBalance, setCashbackBalance] = useState(0);
 
   useEffect(() => {
     loadData();
-    try { const u = localStorage.getItem('fumego_user'); if (u) setUser(JSON.parse(u)); } catch {}
+    try {
+      const u = localStorage.getItem('fumego_user');
+      if (u) {
+        const parsed = JSON.parse(u);
+        setUser(parsed);
+        if (parsed?.id) {
+          fetch(`/api/cashback/balance?user_id=${parsed.id}`)
+            .then(r => r.json())
+            .then(d => setCashbackBalance(d.balance || 0))
+            .catch(() => {});
+        }
+      }
+    } catch {}
     try { const c = localStorage.getItem('fumego_cart'); if (c) setCart(JSON.parse(c)); } catch {}
   }, []);
 
@@ -286,6 +299,7 @@ export default function HomePage() {
         logoSize={logoSize}
         onGoToCheckout={goToCheckout}
         onLogout={logout}
+        cashbackBalance={cashbackBalance}
       />
 
       {/* ── LOJA FECHADA ── */}
