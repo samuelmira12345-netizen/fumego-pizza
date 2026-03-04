@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import bcrypt from 'bcryptjs';
-import { encryptCpf, decryptCpf } from '../../../../lib/cpf-crypto';
+import { encryptCpf, decryptCpf, validateCpf } from '../../../../lib/cpf-crypto';
 import { getAuthUser } from '../../../../lib/auth';
 
 export async function POST(request) {
@@ -34,8 +34,11 @@ export async function POST(request) {
     if (name)                        updates.name                  = name;
     if (email)                       updates.email                 = email.toLowerCase().trim();
     if (phone  !== undefined)        updates.phone                 = phone;
-    // Criptografar CPF antes de armazenar no banco
+    // Validar e criptografar CPF antes de armazenar no banco
     if (cpf !== undefined) {
+      if (cpf && !validateCpf(cpf)) {
+        return NextResponse.json({ error: 'CPF inválido. Verifique os dígitos e tente novamente.' }, { status: 400 });
+      }
       updates.cpf = cpf ? encryptCpf(cpf) : null;
     }
     if (address_street      !== undefined) updates.address_street      = address_street;
