@@ -12,7 +12,7 @@ import { useEffect } from 'react';
  *   3. gesturestart / gesturechange → preventDefault (Safari iOS)
  *   4. touchstart com 2+ dedos → preventDefault (todos os browsers)
  *   5. wheel com ctrlKey → preventDefault (trackpad pinch no desktop)
- *   6. focusout em inputs → reseta scale do viewport suavemente (iOS teclado)
+ *   6. "allow-then-lock" no meta viewport ao fechar o teclado virtual
  *
  * O bloqueio NÃO afeta scroll manual, cliques, tap ou swipe de 1 dedo.
  */
@@ -45,40 +45,74 @@ export default function ZoomBlocker() {
     }
 
     // ── Reset de zoom ao fechar o teclado virtual (iOS Safari) ────────────
-    // Quando um input perde o foco, o iOS pode manter o zoom aplicado.
-    // Forçamos o reset manipulando o meta viewport para que o iOS releia
-    // a escala desejada e retorne suavemente ao zoom 1.
+    // O iOS ignora mudanças no meta viewport quando o valor não muda.
+    // O truque "allow-then-lock": primeiro LIBERAR o zoom (maximum-scale=5)
+    // para que o iOS aceite a instrução, depois IMEDIATAMENTE TRAVAR em 1.
+    // Isso força o iOS a reler e aplicar a escala desejada.
+    let resetScheduled = false;
+
     function resetViewportZoom() {
+      resetScheduled = false;
       const meta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null;
       if (!meta) return;
-      const original = meta.getAttribute('content') ?? '';
-      // Força o iOS a reler o viewport adicionando initial-scale explícito
-      meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content');
-      // Restaura o conteúdo original após um frame para que a transição seja suave
+
+      // Passo 1: liberar o zoom — iOS precisa ver que é permitido mudar
+      meta.setAttribute(
+        'content',
+        'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=5, user-scalable=yes',
+      );
+
+      // Passo 2: no próximo frame, travar novamente em scale=1
       requestAnimationFrame(() => {
-        setTimeout(() => meta.setAttribute('content', original), 80);
+        meta.setAttribute(
+          'content',
+          'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content',
+        );
       });
     }
 
+    function scheduleReset(delay: number) {
+      if (resetScheduled) return;
+      resetScheduled = true;
+      setTimeout(resetViewportZoom, delay);
+    }
+
+    // Método primário: focusout em inputs
     function onInputFocusOut(e: FocusEvent) {
       const target = e.target as HTMLElement;
       if (!target) return;
       const tag = target.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
-        // Aguarda o teclado começar a fechar antes de resetar
-        setTimeout(resetViewportZoom, 150);
+        // Aguarda a animação do teclado terminar (~300-400ms no iOS)
+        scheduleReset(400);
       }
+    }
+
+    // Método secundário: visualViewport resize detecta fechamento do teclado
+    // com mais precisão do que apenas o focusout
+    let kbOpen = false;
+    function onVVResize() {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      // Teclado aberto → altura da viewport visual < 75% da janela
+      const nowKbOpen = vv.height < window.innerHeight * 0.75;
+      if (kbOpen && !nowKbOpen) {
+        // Teclado acabou de fechar — aguarda mais um pouco para o scale
+        // terminar de ser ajustado pelo sistema antes de forçar o reset
+        scheduleReset(200);
+      }
+      kbOpen = nowKbOpen;
     }
 
     const opts = { passive: false } as AddEventListenerOptions;
 
-    document.addEventListener('gesturestart',  blockGesture,     opts);
-    document.addEventListener('gesturechange', blockGesture,     opts);
-    document.addEventListener('touchstart',    blockMultiTouch,  opts);
-    document.addEventListener('touchstart',    blockDoubleTap,   opts);
-    document.addEventListener('wheel',         blockCtrlWheel,   opts);
-    // Captura na fase de captura (true) para pegar todos os inputs da página
-    document.addEventListener('focusout',      onInputFocusOut,  true);
+    document.addEventListener('gesturestart',  blockGesture,    opts);
+    document.addEventListener('gesturechange', blockGesture,    opts);
+    document.addEventListener('touchstart',    blockMultiTouch, opts);
+    document.addEventListener('touchstart',    blockDoubleTap,  opts);
+    document.addEventListener('wheel',         blockCtrlWheel,  opts);
+    document.addEventListener('focusout',      onInputFocusOut, true);
+    window.visualViewport?.addEventListener('resize', onVVResize);
 
     return () => {
       document.removeEventListener('gesturestart',  blockGesture);
@@ -87,6 +121,7 @@ export default function ZoomBlocker() {
       document.removeEventListener('touchstart',    blockDoubleTap);
       document.removeEventListener('wheel',         blockCtrlWheel);
       document.removeEventListener('focusout',      onInputFocusOut, true);
+      window.visualViewport?.removeEventListener('resize', onVVResize);
     };
   }, []);
 
