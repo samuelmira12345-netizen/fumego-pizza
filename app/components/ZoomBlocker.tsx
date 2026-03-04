@@ -12,6 +12,7 @@ import { useEffect } from 'react';
  *   3. gesturestart / gesturechange → preventDefault (Safari iOS)
  *   4. touchstart com 2+ dedos → preventDefault (todos os browsers)
  *   5. wheel com ctrlKey → preventDefault (trackpad pinch no desktop)
+ *   6. focusout em inputs → reseta scale do viewport suavemente (iOS teclado)
  *
  * O bloqueio NÃO afeta scroll manual, cliques, tap ou swipe de 1 dedo.
  */
@@ -43,6 +44,32 @@ export default function ZoomBlocker() {
       if (e.ctrlKey) e.preventDefault();
     }
 
+    // ── Reset de zoom ao fechar o teclado virtual (iOS Safari) ────────────
+    // Quando um input perde o foco, o iOS pode manter o zoom aplicado.
+    // Forçamos o reset manipulando o meta viewport para que o iOS releia
+    // a escala desejada e retorne suavemente ao zoom 1.
+    function resetViewportZoom() {
+      const meta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null;
+      if (!meta) return;
+      const original = meta.getAttribute('content') ?? '';
+      // Força o iOS a reler o viewport adicionando initial-scale explícito
+      meta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=resizes-content');
+      // Restaura o conteúdo original após um frame para que a transição seja suave
+      requestAnimationFrame(() => {
+        setTimeout(() => meta.setAttribute('content', original), 80);
+      });
+    }
+
+    function onInputFocusOut(e: FocusEvent) {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+      const tag = target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        // Aguarda o teclado começar a fechar antes de resetar
+        setTimeout(resetViewportZoom, 150);
+      }
+    }
+
     const opts = { passive: false } as AddEventListenerOptions;
 
     document.addEventListener('gesturestart',  blockGesture,     opts);
@@ -50,6 +77,8 @@ export default function ZoomBlocker() {
     document.addEventListener('touchstart',    blockMultiTouch,  opts);
     document.addEventListener('touchstart',    blockDoubleTap,   opts);
     document.addEventListener('wheel',         blockCtrlWheel,   opts);
+    // Captura na fase de captura (true) para pegar todos os inputs da página
+    document.addEventListener('focusout',      onInputFocusOut,  true);
 
     return () => {
       document.removeEventListener('gesturestart',  blockGesture);
@@ -57,6 +86,7 @@ export default function ZoomBlocker() {
       document.removeEventListener('touchstart',    blockMultiTouch);
       document.removeEventListener('touchstart',    blockDoubleTap);
       document.removeEventListener('wheel',         blockCtrlWheel);
+      document.removeEventListener('focusout',      onInputFocusOut, true);
     };
   }, []);
 

@@ -279,13 +279,18 @@ export default function HomePage() {
       {/* ── TOAST CARRINHO VAZIO ── */}
       {showEmptyCartToast && (
         <div style={{
-          position: 'fixed', top: 80, left: '50%', transform: 'translateX(-50%)',
-          background: '#1C1500', border: `1px solid ${GOLD}`, borderRadius: 12,
-          padding: '10px 22px', fontSize: 13, color: GOLD, fontWeight: 600,
-          zIndex: 300, boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-          animation: 'fadeIn 0.2s ease-out', whiteSpace: 'nowrap',
+          position: 'fixed', top: 80, left: 0, right: 0,
+          display: 'flex', justifyContent: 'center',
+          zIndex: 300, pointerEvents: 'none',
         }}>
-          Seu carrinho está vazio
+          <div style={{
+            background: '#1C1500', border: `1px solid ${GOLD}`, borderRadius: 12,
+            padding: '10px 22px', fontSize: 13, color: GOLD, fontWeight: 600,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+            animation: 'fadeIn 0.2s ease-out', whiteSpace: 'nowrap',
+          }}>
+            Seu carrinho está vazio
+          </div>
         </div>
       )}
 
@@ -317,7 +322,7 @@ export default function HomePage() {
       {/* ── PIZZA HERO ── */}
       {calabresa && marguerita && (
         <section style={{ padding: '32px 16px 16px', textAlign: 'center', background: 'radial-gradient(ellipse at 50% 30%, rgba(242,168,0,0.20) 0%, transparent 65%)' }}>
-          <p style={{ color: FAINT, fontSize: 10, textTransform: 'uppercase', letterSpacing: 5, fontWeight: 700, marginBottom: 24 }}>
+          <p style={{ color: MUTED, fontSize: 10, textTransform: 'uppercase', letterSpacing: 5, fontWeight: 700, marginBottom: 24 }}>
             ✦ &nbsp;Pizzas Clássicas&nbsp; ✦
           </p>
 
@@ -407,7 +412,7 @@ export default function HomePage() {
           </div>
 
           {/* Info abaixo do círculo */}
-          <p style={{ color: '#2E1E08', fontSize: 11, marginTop: 20, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+          <p style={{ color: MUTED, fontSize: 11, marginTop: 20, letterSpacing: 1.5, textTransform: 'uppercase' }}>
             toque para pedir
           </p>
 
@@ -426,12 +431,12 @@ export default function HomePage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 8 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: FAINT, fontSize: 12 }}>
-              <Truck size={13} color={FAINT} /> Apenas entrega
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: MUTED, fontSize: 12 }}>
+              <Truck size={13} color={MUTED} /> Apenas entrega
             </span>
             <span style={{ width: 1, height: 12, background: BORDER, display: 'inline-block' }} />
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: FAINT, fontSize: 12 }}>
-              <Clock size={13} color={FAINT} /> {deliveryTime}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: MUTED, fontSize: 12 }}>
+              <Clock size={13} color={MUTED} /> {deliveryTime}
             </span>
           </div>
         </section>
