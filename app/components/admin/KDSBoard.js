@@ -5,35 +5,35 @@ import {
   Phone, MapPin, Clock, ChefHat, Truck, CheckCircle, XCircle,
   Printer, RefreshCw, Volume2, VolumeX, X, Bell, Calendar,
   CreditCard, Zap, Banknote, AlertTriangle, User, List,
-  LayoutGrid, Edit2, Check,
+  EyeOff, Eye, ChevronDown,
 } from 'lucide-react';
 
-// ── Configuração de status ─────────────────────────────────────────────────────
+// ── Status config ──────────────────────────────────────────────────────────────
 
 const S = {
   pending: {
-    label: 'NOVOS',        color: '#D97706', bg: '#FFFBEB', border: '#FDE68A',
-    headerBg: '#F59E0B',   text: '#fff',     icon: Bell,
+    label: 'NOVOS',        color: '#B45309', bg: '#FEFCE8', border: '#FEF08A',
+    headerBg: '#D97706',   text: '#fff',     icon: Bell,
   },
   scheduled: {
-    label: 'AGENDADOS',    color: '#0D9488', bg: '#F0FDFA', border: '#99F6E4',
-    headerBg: '#14B8A6',   text: '#fff',     icon: Calendar,
+    label: 'AGENDADOS',    color: '#0F766E', bg: '#F0FDFA', border: '#99F6E4',
+    headerBg: '#0D9488',   text: '#fff',     icon: Calendar,
   },
   confirmed: {
-    label: 'EM PREPARO',   color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE',
-    headerBg: '#3B82F6',   text: '#fff',     icon: ChefHat,
+    label: 'EM PREPARO',   color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE',
+    headerBg: '#2563EB',   text: '#fff',     icon: ChefHat,
   },
   preparing: {
-    label: 'EM PREPARO',   color: '#2563EB', bg: '#EFF6FF', border: '#BFDBFE',
-    headerBg: '#3B82F6',   text: '#fff',     icon: ChefHat,
+    label: 'EM PREPARO',   color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE',
+    headerBg: '#2563EB',   text: '#fff',     icon: ChefHat,
   },
   delivering: {
-    label: 'EM ENTREGA',   color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE',
-    headerBg: '#8B5CF6',   text: '#fff',     icon: Truck,
+    label: 'EM ENTREGA',   color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE',
+    headerBg: '#7C3AED',   text: '#fff',     icon: Truck,
   },
   delivered: {
-    label: 'FINALIZADOS',  color: '#059669', bg: '#ECFDF5', border: '#A7F3D0',
-    headerBg: '#10B981',   text: '#fff',     icon: CheckCircle,
+    label: 'FINALIZADOS',  color: '#047857', bg: '#ECFDF5', border: '#A7F3D0',
+    headerBg: '#059669',   text: '#fff',     icon: CheckCircle,
   },
   cancelled: {
     label: 'CANCELADOS',   color: '#6B7280', bg: '#F9FAFB', border: '#E5E7EB',
@@ -41,21 +41,18 @@ const S = {
   },
 };
 
-// Colunas do Kanban (em ordem visual)
 const COLUMNS = [
-  { id: 'novos',       statuses: ['pending'],              cfg: S.pending },
-  { id: 'agendados',   statuses: ['scheduled'],            cfg: S.scheduled },
-  { id: 'preparo',     statuses: ['confirmed','preparing'], cfg: S.confirmed },
-  { id: 'entrega',     statuses: ['delivering'],            cfg: S.delivering },
-  { id: 'finalizados', statuses: ['delivered'],             cfg: S.delivered },
+  { id: 'novos',       statuses: ['pending'],               cfg: S.pending },
+  { id: 'agendados',   statuses: ['scheduled'],             cfg: S.scheduled },
+  { id: 'preparo',     statuses: ['confirmed', 'preparing'], cfg: S.confirmed },
+  { id: 'entrega',     statuses: ['delivering'],             cfg: S.delivering },
+  { id: 'finalizados', statuses: ['delivered'],              cfg: S.delivered },
 ];
 
-// ── Formas de pagamento ───────────────────────────────────────────────────────
-
 const PM = {
-  pix:          { label: 'PIX',    icon: Zap,        color: '#2563EB' },
-  cash:         { label: 'Dinheiro', icon: Banknote, color: '#059669' },
-  card_delivery:{ label: 'Cartão', icon: CreditCard,  color: '#7C3AED' },
+  pix:          { label: 'PIX',      icon: Zap,        color: '#1D4ED8' },
+  cash:         { label: 'Dinheiro', icon: Banknote,   color: '#059669' },
+  card_delivery:{ label: 'Cartão',   icon: CreditCard, color: '#7C3AED' },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -105,29 +102,35 @@ function todaySP() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-// Beep simples via Web Audio API
+function orderDateSP(isoStr) {
+  return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
+// Beep estridente via Web Audio API (onda quadrada, mais alto)
 function playBeep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [[880, 0], [1100, 0.15], [880, 0.3]].forEach(([freq, t]) => {
+    // 5 tons ascendentes em onda quadrada para máxima atenção
+    [[880, 0, 0.25], [1100, 0.20, 0.25], [1320, 0.40, 0.25], [1100, 0.60, 0.20], [1320, 0.80, 0.35]].forEach(([freq, t, dur]) => {
       const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.connect(gain);
+      gain.connect(ctx.destination);
       osc.frequency.setValueAtTime(freq, ctx.currentTime + t);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime + t);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.12);
+      gain.gain.setValueAtTime(0.65, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur);
       osc.start(ctx.currentTime + t);
-      osc.stop(ctx.currentTime + t + 0.13);
+      osc.stop(ctx.currentTime + t + dur + 0.01);
     });
   } catch {}
 }
 
-// ── Timer que força re-render a cada 30s ──────────────────────────────────────
-
-function useMinuteTick() {
+// Timer que força re-render a cada 10s para atualizar timers dos cards
+function useSecondTick() {
   const [tick, setTick] = useState(0);
   useEffect(() => {
-    const iv = setInterval(() => setTick(t => t + 1), 30000);
+    const iv = setInterval(() => setTick(t => t + 1), 10000);
     return () => clearInterval(iv);
   }, []);
   return tick;
@@ -135,91 +138,90 @@ function useMinuteTick() {
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onClick, onQuickAction, isNew }) {
+function OrderCard({ order, onClick, onQuickAction, isNew, onDragStart }) {
   const cfg  = S[order.status] || S.pending;
   const mins = elapsedMins(order.created_at);
   const pm   = PM[order.payment_method];
 
-  // Próxima ação rápida disponível
   const quickAction = {
-    pending:    { label: 'Aceitar',     next: 'confirmed',  bg: S.pending.headerBg },
-    scheduled:  { label: 'Aceitar',     next: 'confirmed',  bg: S.scheduled.headerBg },
-    confirmed:  { label: '→ Entrega',   next: 'delivering', bg: S.delivering.headerBg },
-    preparing:  { label: '→ Entrega',   next: 'delivering', bg: S.delivering.headerBg },
-    delivering: { label: '✓ Finalizar', next: 'delivered',  bg: S.delivered.headerBg },
+    scheduled:  { label: '→ Preparo',    next: 'confirmed',  bg: S.confirmed.headerBg },
+    confirmed:  { label: '→ Entrega',    next: 'delivering', bg: S.delivering.headerBg },
+    preparing:  { label: '→ Entrega',    next: 'delivering', bg: S.delivering.headerBg },
+    delivering: { label: '✓ Finalizar',  next: 'delivered',  bg: S.delivered.headerBg },
   }[order.status];
 
   return (
     <div
+      draggable
+      onDragStart={e => { onDragStart(order); e.dataTransfer.effectAllowed = 'move'; }}
       onClick={onClick}
       style={{
         background: '#fff',
-        borderRadius: 10,
-        border: `1px solid ${isNew ? cfg.color : '#E5E7EB'}`,
-        borderLeft: `5px solid ${cfg.color}`,
-        padding: '13px 13px 11px',
-        cursor: 'pointer',
+        borderRadius: 4,
+        border: `1px solid ${isNew ? cfg.color : '#D1D5DB'}`,
+        borderLeft: `4px solid ${cfg.color}`,
+        padding: '11px 12px 10px',
+        cursor: 'grab',
         boxShadow: isNew
-          ? `0 0 0 2px ${cfg.color}50, 0 2px 8px rgba(0,0,0,0.08)`
-          : '0 1px 3px rgba(0,0,0,0.06)',
-        transition: 'box-shadow 0.15s, transform 0.1s',
+          ? `0 0 0 2px ${cfg.color}30, 0 2px 6px rgba(0,0,0,0.07)`
+          : '0 1px 2px rgba(0,0,0,0.05)',
+        transition: 'box-shadow 0.12s, transform 0.1s, opacity 0.1s',
         position: 'relative',
         userSelect: 'none',
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.13)';
-        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 3px 12px rgba(0,0,0,0.12)';
+        e.currentTarget.style.transform = 'translateY(-1px)';
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.boxShadow = isNew ? `0 0 0 2px ${cfg.color}50` : '0 1px 3px rgba(0,0,0,0.06)';
+        e.currentTarget.style.boxShadow = isNew ? `0 0 0 2px ${cfg.color}30` : '0 1px 2px rgba(0,0,0,0.05)';
         e.currentTarget.style.transform = 'translateY(0)';
       }}
     >
-      {/* Indicador de novo pedido */}
       {isNew && (
         <div style={{
-          position: 'absolute', top: 10, right: 10,
-          width: 9, height: 9, borderRadius: '50%', background: '#EF4444',
+          position: 'absolute', top: 9, right: 9,
+          width: 8, height: 8, borderRadius: '50%', background: '#EF4444',
           boxShadow: '0 0 0 3px #FEE2E2',
           animation: 'kdsPulse 1.2s ease-in-out infinite',
         }} />
       )}
 
-      {/* Linha 1: número + timer */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: 20, fontWeight: 900, color: '#111827', fontFamily: 'monospace', letterSpacing: -0.5 }}>
+      {/* Número + timer */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+        <span style={{ fontSize: 19, fontWeight: 900, color: '#111827', fontFamily: 'monospace', letterSpacing: -0.5 }}>
           #{order.order_number || String(order.id).slice(-4).toUpperCase()}
         </span>
         <span style={{
-          fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 20,
-          background: timerColor(mins) + '18',
+          fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 3,
+          background: timerColor(mins) + '15',
           color: timerColor(mins),
-          border: `1px solid ${timerColor(mins)}40`,
+          border: `1px solid ${timerColor(mins)}35`,
         }}>
           ⏱ {fmtElapsed(mins)}
         </span>
       </div>
 
-      {/* Linha 2: cliente */}
-      <p style={{ fontSize: 13, fontWeight: 700, color: '#1F2937', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {/* Cliente */}
+      <p style={{ fontSize: 13, fontWeight: 700, color: '#1F2937', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {order.customer_name}
       </p>
 
-      {/* Linha 3: bairro */}
-      <p style={{ fontSize: 11, color: '#6B7280', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {/* Bairro */}
+      <p style={{ fontSize: 11, color: '#6B7280', marginBottom: 7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         📍 {order.delivery_neighborhood || '—'}
       </p>
 
-      {/* Observações (destaque laranja) */}
+      {/* Obs */}
       {order.observations && (
-        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 6, padding: '5px 8px', marginBottom: 8 }}>
+        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 3, padding: '4px 7px', marginBottom: 7 }}>
           <p style={{ fontSize: 11, color: '#92400E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             ⚠️ {order.observations}
           </p>
         </div>
       )}
 
-      {/* Linha footer: pagamento + ação rápida */}
+      {/* Footer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           {pm && <pm.icon size={12} color={pm.color} />}
@@ -230,7 +232,7 @@ function OrderCard({ order, onClick, onQuickAction, isNew }) {
           <button
             onClick={e => { e.stopPropagation(); onQuickAction(order.id, 'status', quickAction.next); }}
             style={{
-              padding: '5px 11px', borderRadius: 8, border: 'none',
+              padding: '4px 10px', borderRadius: 3, border: 'none',
               background: quickAction.bg, color: '#fff',
               fontSize: 11, fontWeight: 700, cursor: 'pointer',
               whiteSpace: 'nowrap',
@@ -246,60 +248,95 @@ function OrderCard({ order, onClick, onQuickAction, isNew }) {
 
 // ── Coluna Kanban ─────────────────────────────────────────────────────────────
 
-function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds }) {
+// Mapeamento: qual status é atribuído ao soltar em cada coluna
+const DROP_TARGET_STATUS = {
+  novos:       'pending',
+  agendados:   'scheduled',
+  preparo:     'confirmed',
+  entrega:     'delivering',
+  finalizados: 'delivered',
+};
+
+function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStart, onDrop }) {
+  const [isDragOver, setIsDragOver] = useState(false);
   const cards = orders
     .filter(o => col.statuses.includes(o.status))
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // FIFO
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
   const Icon = col.cfg.icon;
-
-  // Compact mode for finalizados (shows last 5 only)
   const isFinalized = col.id === 'finalizados';
   const visible = isFinalized ? cards.slice(-8) : cards;
 
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setIsDragOver(true);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setIsDragOver(false);
+    onDrop(DROP_TARGET_STATUS[col.id]);
+  }
+
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column',
-      flex: '0 0 286px', minWidth: 286,
-      background: col.cfg.bg,
-      borderRadius: 14,
-      border: `1px solid ${col.cfg.border}`,
-      maxHeight: '100%',
-      overflow: 'hidden',
-    }}>
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={handleDrop}
+      style={{
+        display: 'flex', flexDirection: 'column',
+        flex: '0 0 300px', minWidth: 300,
+        background: isDragOver ? col.cfg.bg : '#F8FAFC',
+        borderRadius: 6,
+        border: `${isDragOver ? 2 : 1}px solid ${isDragOver ? col.cfg.headerBg : col.cfg.border}`,
+        maxHeight: '100%',
+        overflow: 'hidden',
+        transition: 'border 0.12s, background 0.12s',
+      }}
+    >
       {/* Header */}
       <div style={{
         background: col.cfg.headerBg,
-        padding: '11px 14px',
+        padding: '10px 13px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexShrink: 0, borderRadius: '13px 13px 0 0',
+        flexShrink: 0, borderRadius: isDragOver ? '4px 4px 0 0' : '5px 5px 0 0',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Icon size={15} color="#fff" />
-          <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <Icon size={14} color="#fff" />
+          <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: 0.8 }}>
             {col.cfg.label}
           </span>
         </div>
         <div style={{
-          background: 'rgba(255,255,255,0.25)', color: '#fff',
-          fontSize: 13, fontWeight: 900, minWidth: 26, height: 26, borderRadius: '50%',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px',
+          background: 'rgba(255,255,255,0.22)', color: '#fff',
+          fontSize: 13, fontWeight: 900, minWidth: 24, height: 24, borderRadius: 3,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px',
         }}>
           {cards.length}
         </div>
       </div>
 
+      {/* Drop hint */}
+      {isDragOver && (
+        <div style={{ padding: '8px 9px 0' }}>
+          <div style={{ border: `2px dashed ${col.cfg.headerBg}`, borderRadius: 4, padding: '8px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: col.cfg.headerBg }}>
+            Soltar aqui → {col.cfg.label}
+          </div>
+        </div>
+      )}
+
       {/* Cards */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 10px 14px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {visible.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: col.cfg.color + '80', fontSize: 13 }}>
-            <Icon size={28} style={{ margin: '0 auto 10px', display: 'block', opacity: 0.4 }} />
+      <div style={{ flex: 1, overflowY: 'auto', padding: '9px 9px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {visible.length === 0 && !isDragOver ? (
+          <div style={{ textAlign: 'center', padding: '36px 0', color: col.cfg.color + '70', fontSize: 13 }}>
+            <Icon size={26} style={{ margin: '0 auto 9px', display: 'block', opacity: 0.35 }} />
             Nenhum pedido
           </div>
         ) : (
           <>
             {isFinalized && cards.length > 8 && (
-              <p style={{ textAlign: 'center', fontSize: 11, color: col.cfg.color, fontWeight: 600, padding: '4px 0' }}>
+              <p style={{ textAlign: 'center', fontSize: 11, color: col.cfg.color, fontWeight: 600, padding: '3px 0' }}>
                 +{cards.length - 8} pedidos anteriores
               </p>
             )}
@@ -310,6 +347,7 @@ function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds }) {
                 onClick={() => onCardClick(o)}
                 onQuickAction={onQuickAction}
                 isNew={newIds.has(o.id)}
+                onDragStart={onDragStart}
               />
             ))}
           </>
@@ -329,13 +367,12 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPrint }) 
   const PMIcon = pm.icon;
 
   const actionButtons = [
-    order.status === 'pending'    && { label: '✓ Aceitar Pedido',         next: 'confirmed',  bg: S.confirmed.headerBg,  primary: true  },
-    order.status === 'scheduled'  && { label: '✓ Aceitar Agendado',       next: 'confirmed',  bg: S.confirmed.headerBg,  primary: true  },
+    order.status === 'scheduled'  && { label: '✓ Aceitar Agendado',     next: 'confirmed',  bg: S.confirmed.headerBg,  primary: true },
     (order.status === 'confirmed' || order.status === 'preparing')
-                                  && { label: '🚚 Enviar para Entrega',   next: 'delivering', bg: S.delivering.headerBg, primary: true  },
-    order.status === 'delivering' && { label: '✓ Finalizar Pedido',       next: 'delivered',  bg: S.delivered.headerBg,  primary: true  },
+                                  && { label: '🚚 Enviar para Entrega', next: 'delivering', bg: S.delivering.headerBg, primary: true },
+    order.status === 'delivering' && { label: '✓ Finalizar Pedido',     next: 'delivered',  bg: S.delivered.headerBg,  primary: true },
     !['delivered','cancelled'].includes(order.status)
-                                  && { label: '✕ Cancelar',              next: 'cancelled',  bg: '#EF4444',             primary: false },
+                                  && { label: '✕ Cancelar',            next: 'cancelled',  bg: '#EF4444',             primary: false },
   ].filter(Boolean);
 
   const sub   = parseFloat(order.subtotal)     || 0;
@@ -345,100 +382,94 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPrint }) 
 
   return (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: 20 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: 16 }}
       onClick={onClose}
     >
       <div
-        style={{ background: '#fff', borderRadius: 16, width: 460, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.28)', borderTop: `5px solid ${cfg.headerBg}` }}
+        style={{ background: '#fff', borderRadius: 8, width: 480, maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', borderTop: `4px solid ${cfg.headerBg}` }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Modal header */}
-        <div style={{ padding: '20px 22px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        {/* Header */}
+        <div style={{ padding: '18px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
-              <span style={{ fontSize: 26, fontWeight: 900, color: '#111827', fontFamily: 'monospace' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 4 }}>
+              <span style={{ fontSize: 24, fontWeight: 900, color: '#111827', fontFamily: 'monospace' }}>
                 #{order.order_number || String(order.id).slice(-4).toUpperCase()}
               </span>
-              <span style={{ fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 20, background: cfg.color + '18', color: cfg.color, border: `1px solid ${cfg.color}40`, letterSpacing: 0.5 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 9px', borderRadius: 3, background: cfg.color + '16', color: cfg.color, border: `1px solid ${cfg.color}35`, letterSpacing: 0.4 }}>
                 {cfg.label}
               </span>
             </div>
-            <div style={{ display: 'flex', gap: 14, fontSize: 12, color: '#6B7280' }}>
+            <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#6B7280' }}>
               <span>🕐 {fmtDateFull(order.created_at)}</span>
               <span style={{ color: timerColor(mins), fontWeight: 700 }}>⏱ {fmtElapsed(mins)}</span>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', borderRadius: 8, width: 34, height: 34, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <X size={16} color="#6B7280" />
+          <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', borderRadius: 4, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <X size={15} color="#6B7280" />
           </button>
         </div>
 
-        <div style={{ padding: '16px 22px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ padding: '14px 20px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           {/* Cliente */}
-          <Section label="Cliente" icon={<User size={13} />}>
-            <p style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 6 }}>{order.customer_name}</p>
+          <Section label="Cliente" icon={<User size={12} />}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 5 }}>{order.customer_name}</p>
             {order.customer_phone && (
               <a href={`tel:${order.customer_phone}`}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#2563EB', textDecoration: 'none', fontWeight: 600, background: '#EFF6FF', padding: '5px 12px', borderRadius: 20, border: '1px solid #BFDBFE' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#2563EB', textDecoration: 'none', fontWeight: 600, background: '#EFF6FF', padding: '4px 10px', borderRadius: 4, border: '1px solid #BFDBFE' }}
                 onClick={e => e.stopPropagation()}>
-                <Phone size={13} /> {fmtPhone(order.customer_phone)}
+                <Phone size={12} /> {fmtPhone(order.customer_phone)}
               </a>
             )}
           </Section>
 
           {/* Endereço */}
-          <Section label="Endereço de Entrega" icon={<MapPin size={13} />}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
+          <Section label="Endereço" icon={<MapPin size={12} />}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
               {order.delivery_street}, {order.delivery_number}
               {order.delivery_complement ? ` — ${order.delivery_complement}` : ''}
             </p>
-            <p style={{ fontSize: 13, color: '#6B7280' }}>
+            <p style={{ fontSize: 12, color: '#6B7280' }}>
               {order.delivery_neighborhood}{order.delivery_city ? `, ${order.delivery_city}` : ''}
               {order.delivery_zipcode ? ` · ${order.delivery_zipcode}` : ''}
             </p>
           </Section>
 
           {/* Itens */}
-          <Section label="Itens do Pedido" icon={<List size={13} />}>
+          <Section label="Itens do Pedido" icon={<List size={12} />}>
             {itemsLoading ? (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#9CA3AF', fontSize: 13 }}>
-                <div style={{ width: 14, height: 14, border: '2px solid #E5E7EB', borderTopColor: '#6B7280', borderRadius: '50%', animation: 'kdsSpinModal 0.8s linear infinite' }} />
-                Carregando itens...
+              <div style={{ display: 'flex', gap: 7, alignItems: 'center', color: '#9CA3AF', fontSize: 13 }}>
+                <div style={{ width: 13, height: 13, border: '2px solid #E5E7EB', borderTopColor: '#6B7280', borderRadius: '50%', animation: 'kdsSpin 0.8s linear infinite' }} />
+                Carregando...
               </div>
             ) : items.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {items.map((item, i) => (
                   <div key={i}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
-                          {item.quantity}× {item.product_name}
-                        </span>
-                        <span style={{ fontSize: 12, color: '#9CA3AF', marginLeft: 6 }}>
-                          ({fmtBRL(item.unit_price)} un.)
-                        </span>
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap', marginLeft: 10 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
+                        {item.quantity}× {item.product_name}
+                        <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 400, marginLeft: 5 }}>({fmtBRL(item.unit_price)} un.)</span>
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap', marginLeft: 8 }}>
                         {fmtBRL(item.total_price)}
                       </span>
                     </div>
                     {item.observations && (
-                      <p style={{ fontSize: 11, color: '#B45309', background: '#FFFBEB', padding: '3px 8px', borderRadius: 5, marginTop: 3, border: '1px solid #FDE68A' }}>
+                      <p style={{ fontSize: 11, color: '#B45309', background: '#FFFBEB', padding: '2px 7px', borderRadius: 3, marginTop: 2, border: '1px solid #FDE68A' }}>
                         ⚠️ {item.observations}
                       </p>
                     )}
                   </div>
                 ))}
-
-                {/* Totais */}
-                <div style={{ marginTop: 6, paddingTop: 10, borderTop: '1px dashed #E5E7EB', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ marginTop: 5, paddingTop: 8, borderTop: '1px dashed #E5E7EB', display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <Row label="Subtotal" value={fmtBRL(sub)} />
-                  {disc > 0 && <Row label="Desconto (cupom)" value={`-${fmtBRL(disc)}`} valueColor="#EF4444" />}
-                  {fee > 0  && <Row label="Taxa de entrega"  value={fmtBRL(fee)} />}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid #E5E7EB', marginTop: 2 }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: '#111827' }}>Total</span>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: '#111827' }}>{fmtBRL(total)}</span>
+                  {disc > 0 && <Row label="Desconto" value={`-${fmtBRL(disc)}`} valueColor="#EF4444" />}
+                  {fee > 0  && <Row label="Taxa de entrega" value={fmtBRL(fee)} />}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 5, borderTop: '1px solid #E5E7EB', marginTop: 2 }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Total</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>{fmtBRL(total)}</span>
                   </div>
                 </div>
               </div>
@@ -447,58 +478,55 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPrint }) 
             )}
           </Section>
 
-          {/* Observações gerais */}
+          {/* Obs */}
           {order.observations && (
-            <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '12px 14px' }}>
-              <p style={{ fontSize: 11, fontWeight: 800, color: '#92400E', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>
-                ⚠️ Observações do Pedido
+            <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 5, padding: '10px 12px' }}>
+              <p style={{ fontSize: 10, fontWeight: 800, color: '#92400E', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+                ⚠️ Observações
               </p>
-              <p style={{ fontSize: 14, color: '#78350F', fontWeight: 500 }}>{order.observations}</p>
+              <p style={{ fontSize: 13, color: '#78350F' }}>{order.observations}</p>
             </div>
           )}
 
           {/* Pagamento */}
-          <Section label="Pagamento" icon={<PMIcon size={13} />}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <PMIcon size={18} color={pm.color} />
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>{pm.label}</span>
+          <Section label="Pagamento" icon={<PMIcon size={12} />}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <PMIcon size={16} color={pm.color} />
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{pm.label}</span>
               <span style={{
-                marginLeft: 'auto', fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
+                marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 3,
                 background: order.payment_status === 'paid' ? '#ECFDF5' : '#FFFBEB',
-                color:      order.payment_status === 'paid' ? '#059669'  : '#D97706',
+                color:      order.payment_status === 'paid' ? '#059669' : '#D97706',
                 border: `1px solid ${order.payment_status === 'paid' ? '#A7F3D0' : '#FDE68A'}`,
               }}>
-                {order.payment_status === 'paid' ? '● Pago' : '● Aguardando pagamento'}
+                {order.payment_status === 'paid' ? '● Pago' : '● Aguardando'}
               </span>
             </div>
             {order.coupon_code && (
-              <p style={{ fontSize: 12, color: '#6B7280', marginTop: 6 }}>
+              <p style={{ fontSize: 12, color: '#6B7280', marginTop: 5 }}>
                 🏷️ Cupom: <strong>{order.coupon_code}</strong> (-{fmtBRL(disc)})
               </p>
             )}
           </Section>
 
-          {/* Botões de ação */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, paddingTop: 4 }}>
-            {/* Ações primárias */}
-            <div style={{ display: 'flex', gap: 9 }}>
+          {/* Botões */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 2 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
               {actionButtons.filter(a => a.primary).map(a => (
                 <button key={a.next} onClick={() => { onAction(order.id, 'status', a.next); onClose(); }}
-                  style={{ flex: 1, padding: '13px', borderRadius: 10, border: 'none', background: a.bg, color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', letterSpacing: 0.3 }}>
+                  style={{ flex: 1, padding: '12px', borderRadius: 5, border: 'none', background: a.bg, color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
                   {a.label}
                 </button>
               ))}
             </div>
-
-            {/* Ações secundárias */}
-            <div style={{ display: 'flex', gap: 9 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={onPrint}
-                style={{ flex: 1, padding: '10px', borderRadius: 10, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <Printer size={14} /> Reimprimir
+                style={{ flex: 1, padding: '9px', borderRadius: 5, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                <Printer size={13} /> Reimprimir
               </button>
               {actionButtons.filter(a => !a.primary).map(a => (
                 <button key={a.next} onClick={() => { onAction(order.id, 'status', a.next); onClose(); }}
-                  style={{ flex: 1, padding: '10px', borderRadius: 10, border: `1px solid ${a.bg}50`, background: a.bg + '12', color: a.bg, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  style={{ flex: 1, padding: '9px', borderRadius: 5, border: `1px solid ${a.bg}40`, background: a.bg + '10', color: a.bg, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                   {a.label}
                 </button>
               ))}
@@ -514,10 +542,10 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPrint }) 
 
 function Section({ label, icon, children }) {
   return (
-    <div style={{ background: '#F9FAFB', borderRadius: 10, padding: '13px 14px', border: '1px solid #E5E7EB' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
+    <div style={{ background: '#F9FAFB', borderRadius: 5, padding: '11px 13px', border: '1px solid #E5E7EB' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
         <span style={{ color: '#6B7280' }}>{icon}</span>
-        <span style={{ fontSize: 10, fontWeight: 800, color: '#9CA3AF', letterSpacing: 1.2, textTransform: 'uppercase' }}>{label}</span>
+        <span style={{ fontSize: 10, fontWeight: 800, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase' }}>{label}</span>
       </div>
       {children}
     </div>
@@ -527,18 +555,16 @@ function Section({ label, icon, children }) {
 function Row({ label, value, valueColor }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-      <span style={{ fontSize: 13, color: '#6B7280' }}>{label}</span>
-      <span style={{ fontSize: 13, color: valueColor || '#374151', fontWeight: 500 }}>{value}</span>
+      <span style={{ fontSize: 12, color: '#6B7280' }}>{label}</span>
+      <span style={{ fontSize: 12, color: valueColor || '#374151', fontWeight: 500 }}>{value}</span>
     </div>
   );
 }
 
-// ── Ticket médio rápido ────────────────────────────────────────────────────────
-
-function QuickStat({ label, value, color }) {
+function QuickStat({ label, value, color, hidden }) {
   return (
-    <div style={{ textAlign: 'center', padding: '8px 16px', background: color + '12', borderRadius: 8, border: `1px solid ${color}25` }}>
-      <p style={{ fontSize: 16, fontWeight: 800, color }}>{value}</p>
+    <div style={{ textAlign: 'center', padding: '6px 14px', background: color + '10', borderRadius: 4, border: `1px solid ${color}20` }}>
+      <p style={{ fontSize: 15, fontWeight: 800, color, filter: hidden ? 'blur(6px)' : 'none', userSelect: hidden ? 'none' : 'auto' }}>{value}</p>
       <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1 }}>{label}</p>
     </div>
   );
@@ -547,29 +573,35 @@ function QuickStat({ label, value, color }) {
 // ── KDS Board Principal ───────────────────────────────────────────────────────
 
 export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken, loading }) {
-  const [modal, setModal]             = useState(null);   // order selecionado
-  const [items, setItems]             = useState([]);
+  const [modal, setModal]               = useState(null);
+  const [items, setItems]               = useState([]);
   const [itemsLoading, setItemsLoading] = useState(false);
-  const [soundOn, setSoundOn]         = useState(true);
-  const [newIds, setNewIds]           = useState(new Set());
-  const [countdown, setCountdown]     = useState(30);
-  const [filter, setFilter]           = useState('today'); // today | all
-  const prevIdsRef                    = useRef(new Set());
-  const tick                          = useMinuteTick();
+  const [soundOn, setSoundOn]           = useState(true);
+  const [newIds, setNewIds]             = useState(new Set());
+  const [countdown, setCountdown]       = useState(10);
+  const [filterMode, setFilterMode]     = useState('today');
+  const [filterDate, setFilterDate]     = useState(todaySP());
+  const [showRevenue, setShowRevenue]   = useState(true);
+  const [dragging, setDragging]         = useState(null); // order being dragged
+  const prevIdsRef                      = useRef(new Set());
+  const onUpdateRef                     = useRef(onUpdateStatus);
+  const tick                            = useSecondTick();
+
+  // Keep onUpdateStatus ref fresh to avoid stale closure in auto-accept
+  useEffect(() => { onUpdateRef.current = onUpdateStatus; }, [onUpdateStatus]);
 
   // Filtro por data
   const today = todaySP();
-  const visible = filter === 'today'
-    ? orders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) === today)
-    : orders;
+  const activeDate = filterMode === 'today' ? today : filterDate;
+  const visible = orders.filter(o => orderDateSP(o.created_at) === activeDate);
 
-  // Estatísticas rápidas de hoje
-  const todayOrders  = orders.filter(o => new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }) === today);
+  // Stats do dia corrente (sempre hoje)
+  const todayOrders  = orders.filter(o => orderDateSP(o.created_at) === today);
   const activeToday  = todayOrders.filter(o => !['cancelled','delivered'].includes(o.status)).length;
   const doneToday    = todayOrders.filter(o => o.status === 'delivered').length;
-  const revenueToday = todayOrders.filter(o => o.status !== 'cancelled').reduce((s,o) => s + (parseFloat(o.total)||0), 0);
+  const revenueToday = todayOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
 
-  // Detectar novos pedidos (para beep + highlight)
+  // Detectar novos pedidos → beep + highlight + auto-aceitar pending
   useEffect(() => {
     const cur = new Set(orders.map(o => o.id));
     const added = new Set([...cur].filter(id => !prevIdsRef.current.has(id) && prevIdsRef.current.size > 0));
@@ -577,23 +609,27 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken
       setNewIds(added);
       if (soundOn) playBeep();
       setTimeout(() => setNewIds(new Set()), 12000);
+      // Auto-aceitar pedidos novos que não sejam agendados
+      orders
+        .filter(o => added.has(o.id) && o.status === 'pending')
+        .forEach(o => onUpdateRef.current(o.id, 'status', 'confirmed'));
     }
     prevIdsRef.current = cur;
   }, [orders, soundOn]);
 
-  // Auto-refresh countdown
+  // Auto-refresh a cada 10s
   useEffect(() => {
-    setCountdown(30);
+    setCountdown(10);
     const iv = setInterval(() => {
       setCountdown(c => {
-        if (c <= 1) { onRefresh(); return 30; }
+        if (c <= 1) { onRefresh(); return 10; }
         return c - 1;
       });
     }, 1000);
     return () => clearInterval(iv);
   }, [onRefresh]);
 
-  // Abrir modal e buscar itens
+  // Abrir modal
   async function openModal(order) {
     setModal(order);
     setItems([]);
@@ -628,15 +664,15 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken
       `  ${modal.customer_name}`,
       `  ${fmtPhone(modal.customer_phone) || ''}`,
       ``,
-      `  ${modal.delivery_street}, ${modal.delivery_number}${modal.delivery_complement ? ' — ' + modal.delivery_complement : ''}`,
-      `  ${modal.delivery_neighborhood}${modal.delivery_city ? ', ' + modal.delivery_city : ''}`,
+      `  ${modal.delivery_street || ''}, ${modal.delivery_number || ''}${modal.delivery_complement ? ' — ' + modal.delivery_complement : ''}`,
+      `  ${modal.delivery_neighborhood || ''}${modal.delivery_city ? ', ' + modal.delivery_city : ''}`,
       `════════════════════════`,
       body,
       `────────────────────────`,
-      parseFloat(modal.discount) > 0 ? `  Desconto:        -${fmtBRL(modal.discount)}` : '',
-      parseFloat(modal.delivery_fee) > 0 ? `  Taxa entrega:    ${fmtBRL(modal.delivery_fee)}` : '',
-      `  TOTAL:           ${fmtBRL(modal.total)}`,
-      `  ${PM[modal.payment_method]?.label || modal.payment_method}`,
+      parseFloat(modal.discount) > 0     ? `  Desconto:     -${fmtBRL(modal.discount)}` : '',
+      parseFloat(modal.delivery_fee) > 0 ? `  Taxa entrega:  ${fmtBRL(modal.delivery_fee)}` : '',
+      `  TOTAL:         ${fmtBRL(modal.total)}`,
+      `  ${PM[modal.payment_method]?.label || modal.payment_method || ''}`,
       `════════════════════════`,
       modal.observations ? `  OBS: ${modal.observations}` : '',
     ].filter(l => l !== undefined).join('\n');
@@ -646,66 +682,87 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken
     w.document.close();
   }
 
-  // Colunas visíveis (oculta "Agendados" se vazio)
   const hasScheduled = visible.some(o => o.status === 'scheduled');
   const cols = COLUMNS.filter(c => c.id !== 'agendados' || hasScheduled);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', background: '#F4F5F7', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', background: '#F1F3F5', overflow: 'hidden' }}>
 
-      {/* ── Barra superior ──────────────────────────────────────────────────── */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '10px 22px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      {/* ── Barra superior ────────────────────────────────────────────────── */}
+      <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '9px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 
-        {/* Título */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <ChefHat size={19} color="#F59E0B" />
-          <span style={{ fontSize: 16, fontWeight: 800, color: '#111827' }}>KDS · Pedidos</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <ChefHat size={18} color="#D97706" />
+          <span style={{ fontSize: 15, fontWeight: 800, color: '#111827' }}>KDS</span>
         </div>
 
-        {/* Stats rápidas */}
-        <div style={{ display: 'flex', gap: 8, marginLeft: 8 }}>
+        {/* Stats */}
+        <div style={{ display: 'flex', gap: 7, marginLeft: 6 }}>
           <QuickStat label="Ativos"      value={activeToday}          color="#D97706" />
           <QuickStat label="Finalizados" value={doneToday}            color="#059669" />
-          <QuickStat label="Faturado"    value={fmtBRL(revenueToday)} color="#2563EB" />
+          <QuickStat label="Faturado"    value={fmtBRL(revenueToday)} color="#2563EB" hidden={!showRevenue} />
+          <button
+            onClick={() => setShowRevenue(s => !s)}
+            title={showRevenue ? 'Ocultar faturamento' : 'Mostrar faturamento'}
+            style={{ display: 'flex', alignItems: 'center', padding: '4px 7px', borderRadius: 4, border: '1px solid #E5E7EB', background: '#F9FAFB', cursor: 'pointer', color: '#6B7280' }}
+          >
+            {showRevenue ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
         </div>
 
         <div style={{ flex: 1 }} />
 
-        {/* Filtro hoje / todos */}
-        <div style={{ display: 'flex', gap: 3, background: '#F3F4F6', borderRadius: 8, padding: 3 }}>
-          {[{ k:'today',label:'Hoje'},{k:'all',label:'Todos'}].map(f => (
-            <button key={f.k} onClick={() => setFilter(f.k)} style={{
-              padding: '5px 14px', borderRadius: 6, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              background: filter === f.k ? '#fff' : 'transparent',
-              color:      filter === f.k ? '#111827' : '#6B7280',
-              boxShadow:  filter === f.k ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            }}>{f.label}</button>
-          ))}
+        {/* Filtro período */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button
+            onClick={() => setFilterMode('today')}
+            style={{
+              padding: '5px 13px', borderRadius: 4, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              background: filterMode === 'today' ? '#111827' : '#F3F4F6',
+              color: filterMode === 'today' ? '#fff' : '#6B7280',
+            }}
+          >
+            HOJE
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: filterMode === 'custom' ? '#111827' : '#F3F4F6', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
+            onClick={() => setFilterMode('custom')}>
+            <Calendar size={12} color={filterMode === 'custom' ? '#fff' : '#6B7280'} />
+            <input
+              type="date"
+              value={filterDate}
+              onChange={e => { setFilterDate(e.target.value); setFilterMode('custom'); }}
+              onClick={e => e.stopPropagation()}
+              style={{ border: 'none', background: 'transparent', fontSize: 12, fontWeight: 600, color: filterMode === 'custom' ? '#fff' : '#6B7280', cursor: 'pointer', outline: 'none', width: 110 }}
+            />
+          </div>
         </div>
 
-        {/* Auto-refresh indicator */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9CA3AF' }}>
-          <div style={{ width: 7, height: 7, borderRadius: '50%', background: loading ? '#F59E0B' : '#10B981' }} />
-          Atualiza em {countdown}s
+        {/* Countdown */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#9CA3AF' }}>
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: loading ? '#F59E0B' : '#10B981' }} />
+          {countdown}s
         </div>
 
-        {/* Refresh manual */}
-        <button onClick={() => { onRefresh(); setCountdown(30); }} disabled={loading}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-          <RefreshCw size={13} style={loading ? { animation: 'kdsSpinModal 1s linear infinite' } : {}} />
+        {/* Refresh */}
+        <button onClick={() => { onRefresh(); setCountdown(10); }} disabled={loading}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 4, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+          <RefreshCw size={12} style={loading ? { animation: 'kdsSpin 1s linear infinite' } : {}} />
           Atualizar
         </button>
 
         {/* Som */}
         <button onClick={() => setSoundOn(s => !s)}
-          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: '1px solid ' + (soundOn ? '#A7F3D0' : '#E5E7EB'), background: soundOn ? '#ECFDF5' : '#F9FAFB', color: soundOn ? '#059669' : '#9CA3AF', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-          {soundOn ? <Volume2 size={14} /> : <VolumeX size={14} />}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 4, border: '1px solid ' + (soundOn ? '#A7F3D0' : '#E5E7EB'), background: soundOn ? '#ECFDF5' : '#F9FAFB', color: soundOn ? '#059669' : '#9CA3AF', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+          {soundOn ? <Volume2 size={13} /> : <VolumeX size={13} />}
           {soundOn ? 'Som' : 'Mudo'}
         </button>
       </div>
 
-      {/* ── Kanban columns ───────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', padding: '14px 18px', display: 'flex', gap: 13, alignItems: 'stretch' }}>
+      {/* ── Kanban ───────────────────────────────────────────────────────── */}
+      <div
+        style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', padding: '12px 16px', display: 'flex', gap: 11, alignItems: 'stretch' }}
+        onDragEnd={() => setDragging(null)}
+      >
         {cols.map(col => (
           <KDSColumn
             key={col.id}
@@ -714,11 +771,18 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken
             onCardClick={openModal}
             onQuickAction={handleAction}
             newIds={newIds}
+            onDragStart={order => setDragging(order)}
+            onDrop={targetStatus => {
+              if (dragging && dragging.status !== targetStatus) {
+                handleAction(dragging.id, 'status', targetStatus);
+              }
+              setDragging(null);
+            }}
           />
         ))}
       </div>
 
-      {/* ── Modal ────────────────────────────────────────────────────────────── */}
+      {/* ── Modal ────────────────────────────────────────────────────────── */}
       {modal && (
         <OrderModal
           order={modal}
@@ -733,9 +797,9 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken
       <style>{`
         @keyframes kdsPulse {
           0%, 100% { opacity: 1; transform: scale(1); }
-          50%       { opacity: 0.5; transform: scale(0.85); }
+          50%       { opacity: 0.4; transform: scale(0.8); }
         }
-        @keyframes kdsSpinModal {
+        @keyframes kdsSpin {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
         }
