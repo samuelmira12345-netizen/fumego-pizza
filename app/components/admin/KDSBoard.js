@@ -585,7 +585,7 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshO
   const [showRevenue, setShowRevenue]   = useState(true);
   const [dragging, setDragging]         = useState(null);
   const [showDrawer, setShowDrawer]     = useState(false);
-  const prevIdsRef                      = useRef(new Set());
+  const seenIdsRef                      = useRef(null); // null = primeira carga ainda não ocorreu
   const onUpdateRef                     = useRef(onUpdateStatus);
   const tick                            = useSecondTick();
 
@@ -605,8 +605,17 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshO
 
   // Detectar novos pedidos → beep + highlight + auto-aceitar pending
   useEffect(() => {
+    if (!orders.length) return;
     const cur = new Set(orders.map(o => o.id));
-    const added = new Set([...cur].filter(id => !prevIdsRef.current.has(id) && prevIdsRef.current.size > 0));
+    if (seenIdsRef.current === null) {
+      // Primeira carga com dados reais: marcar todos como vistos, sem som
+      seenIdsRef.current = new Set(cur);
+      return;
+    }
+    // seenIdsRef só cresce — evita falsos-positivos quando um refresh
+    // paginado retorna menos pedidos que o anterior e o próximo os traz de volta
+    const added = new Set([...cur].filter(id => !seenIdsRef.current.has(id)));
+    cur.forEach(id => seenIdsRef.current.add(id));
     if (added.size > 0) {
       setNewIds(added);
       if (soundOn) playBeep();
@@ -616,7 +625,6 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshO
         .filter(o => added.has(o.id) && o.status === 'pending')
         .forEach(o => onUpdateRef.current(o.id, 'status', 'confirmed'));
     }
-    prevIdsRef.current = cur;
   }, [orders, soundOn]);
 
   // Auto-refresh a cada 15s usando get_orders_only (leve, sem rebuscar produtos/config)

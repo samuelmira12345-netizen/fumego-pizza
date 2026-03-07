@@ -109,7 +109,9 @@ select {
 body.admin-desktop {
   max-width: none !important;
   background: #F4F5F7 !important;
-  overflow-x: hidden;
+  /* overflow-x: clip não cria scroll container como 'hidden' faz,
+     evitando o bug de teclado virtual no iOS/Safari */
+  overflow-x: clip;
 }
 
 /* ===== ANIMATIONS ===== */

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ShoppingBag, DollarSign, TrendingUp, ChefHat,
   Truck, CheckCircle, XCircle, Clock, BarChart2, RefreshCw,
@@ -183,9 +183,36 @@ export default function Dashboard({ orders, onRefresh, loading }) {
   const today     = todaySP();
   const yesterday = yesterdaySP();
 
+  const [filterMode, setFilterMode] = useState('today');
+  const [dateFrom, setDateFrom]     = useState(today);
+  const [dateTo, setDateTo]         = useState(today);
+
+  const periodLabel =
+    filterMode === 'today'     ? 'hoje'  :
+    filterMode === 'yesterday' ? 'ontem' :
+    dateFrom === dateTo        ? fmtDate(dateFrom) :
+    `${fmtDate(dateFrom)} – ${fmtDate(dateTo)}`;
+
+  function selectMode(mode) {
+    setFilterMode(mode);
+    if (mode === 'today')     { setDateFrom(today);     setDateTo(today);     }
+    if (mode === 'yesterday') { setDateFrom(yesterday); setDateTo(yesterday); }
+  }
+
   const metrics = useMemo(() => {
-    const todayOrders     = orders.filter(o => toSPDate(o.created_at) === today);
-    const yesterdayOrders = orders.filter(o => toSPDate(o.created_at) === yesterday);
+    // Pedidos do período selecionado
+    let todayOrders;
+    if (filterMode === 'today') {
+      todayOrders = orders.filter(o => toSPDate(o.created_at) === today);
+    } else if (filterMode === 'yesterday') {
+      todayOrders = orders.filter(o => toSPDate(o.created_at) === yesterday);
+    } else {
+      todayOrders = orders.filter(o => { const d = toSPDate(o.created_at); return d >= dateFrom && d <= dateTo; });
+    }
+    // Comparativo: ontem (só no modo "hoje")
+    const yesterdayOrders = filterMode === 'today'
+      ? orders.filter(o => toSPDate(o.created_at) === yesterday)
+      : [];
 
     // ── Helpers de agregação ──────────────────────────────────────────────
     function agg(list) {
@@ -236,21 +263,40 @@ export default function Dashboard({ orders, onRefresh, loading }) {
       return ((todayV - yestV) / yestV) * 100;
     }
 
-    // Vendas por hora (10h–23h)
+    // Vendas por hora (10h–23h) — somente para seleção de dia único
+    const isSingleDay = filterMode !== 'custom' || dateFrom === dateTo;
     const hourlyData = Array.from({ length: 14 }, (_, i) => {
       const h = i + 10;
-      const total = todayOrders
-        .filter(o => o.status !== 'cancelled')
-        .filter(o => toSPHour(o.created_at) === h)
-        .reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
+      const total = isSingleDay
+        ? todayOrders
+            .filter(o => o.status !== 'cancelled' && toSPHour(o.created_at) === h)
+            .reduce((s, o) => s + (parseFloat(o.total) || 0), 0)
+        : 0;
       return { hour: `${String(h).padStart(2,'0')}h`, total };
     });
 
-    // Pedidos nos últimos 7 dias
+    // Receita por dia — para períodos multi-dia
+    let dailyData = null;
+    if (!isSingleDay) {
+      const days = [];
+      const start = new Date(dateFrom + 'T12:00:00');
+      const end   = new Date(dateTo   + 'T12:00:00');
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        days.push(d.toLocaleDateString('en-CA'));
+      }
+      dailyData = days.map(date => ({
+        date:  fmtDate(date),
+        total: orders.filter(o => toSPDate(o.created_at) === date && o.status !== 'cancelled')
+                     .reduce((s, o) => s + (parseFloat(o.total) || 0), 0),
+      }));
+    }
+
+    // Últimos 7 dias — referência = fim do período selecionado
+    const refDate = filterMode === 'today' ? today : filterMode === 'yesterday' ? yesterday : dateTo;
     const last7 = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
+      const d = new Date(refDate + 'T12:00:00');
       d.setDate(d.getDate() - (6 - i));
-      return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+      return d.toLocaleDateString('en-CA');
     });
     const weeklyData = last7.map(date => ({
       date: fmtDate(date),
@@ -265,10 +311,10 @@ export default function Dashboard({ orders, onRefresh, loading }) {
         .reduce((s, o) => s + (parseFloat(o.total) || 0), 0),
     }));
 
-    return { td, yd, delta, hourlyData, weeklyData, weeklyRevenue };
-  }, [orders, today, yesterday]);
+    return { td, yd, delta, hourlyData, isSingleDay, dailyData, weeklyData, weeklyRevenue };
+  }, [orders, today, yesterday, filterMode, dateFrom, dateTo]);
 
-  const { td, yd, delta, hourlyData, weeklyData, weeklyRevenue } = metrics;
+  const { td, yd, delta, hourlyData, isSingleDay, dailyData, weeklyData, weeklyRevenue } = metrics;
 
   const now = new Date().toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo',
@@ -298,14 +344,57 @@ export default function Dashboard({ orders, onRefresh, loading }) {
         </button>
       </div>
 
+      {/* ── Filtro de período ───────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+        {[
+          { k: 'today',     l: 'Hoje'    },
+          { k: 'yesterday', l: 'Ontem'   },
+          { k: 'custom',    l: 'Período' },
+        ].map(({ k, l }) => (
+          <button
+            key={k}
+            onClick={() => selectMode(k)}
+            style={{
+              padding: '6px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', border: '1px solid #E5E7EB',
+              background: filterMode === k ? '#111827' : '#fff',
+              color:      filterMode === k ? '#fff'    : '#6B7280',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+              transition: 'background 0.15s',
+            }}
+          >{l}</button>
+        ))}
+
+        {filterMode === 'custom' && (
+          <>
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo}
+              onChange={e => setDateFrom(e.target.value)}
+              style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', cursor: 'pointer', color: '#374151' }}
+            />
+            <span style={{ fontSize: 12, color: '#9CA3AF' }}>até</span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom}
+              max={today}
+              onChange={e => setDateTo(e.target.value)}
+              style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', cursor: 'pointer', color: '#374151' }}
+            />
+          </>
+        )}
+      </div>
+
       {/* ── OPERAÇÃO DO DIA ────────────────────────────────────────────────── */}
-      <SectionTitle>Operação do dia</SectionTitle>
+      <SectionTitle>Operação — {periodLabel}</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
 
         <KpiCard icon={ShoppingBag} iconColor="#6366F1" iconBg="rgba(99,102,241,0.1)"
-          label="Pedidos do dia" value={td.total}
+          label={`Pedidos — ${periodLabel}`} value={td.total}
           sub={`${td.pending} pendente${td.pending !== 1 ? 's' : ''}`}
-          delta={delta(td.total, yd.total)} deltaLabel={`ontem: ${yd.total}`}
+          delta={delta(td.total, yd.total)} deltaLabel={filterMode === 'today' ? `ontem: ${yd.total}` : null}
         />
         <KpiCard icon={ChefHat} iconColor="#F97316" iconBg="rgba(249,115,22,0.1)"
           label="Em produção" value={td.inProduction}
@@ -319,7 +408,7 @@ export default function Dashboard({ orders, onRefresh, loading }) {
         <KpiCard icon={CheckCircle} iconColor="#10B981" iconBg="rgba(16,185,129,0.1)"
           label="Finalizados" value={td.delivered}
           highlight={td.delivered > 0 ? '#10B981' : '#111827'}
-          delta={delta(td.delivered, yd.delivered)} deltaLabel={`ontem: ${yd.delivered}`}
+          delta={delta(td.delivered, yd.delivered)} deltaLabel={filterMode === 'today' ? `ontem: ${yd.delivered}` : null}
         />
         <KpiCard icon={XCircle} iconColor="#EF4444" iconBg="rgba(239,68,68,0.1)"
           label="Cancelados" value={td.cancelled}
@@ -331,18 +420,18 @@ export default function Dashboard({ orders, onRefresh, loading }) {
       </div>
 
       {/* ── FINANCEIRO DO DIA ─────────────────────────────────────────────── */}
-      <SectionTitle>Financeiro do dia</SectionTitle>
+      <SectionTitle>Financeiro — {periodLabel}</SectionTitle>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
 
         <KpiCard icon={DollarSign} iconColor="#10B981" iconBg="rgba(16,185,129,0.1)"
           label="Faturamento bruto" value={fmtBRL(td.revenue)}
           sub="pedidos não cancelados"
-          delta={delta(td.revenue, yd.revenue)} deltaLabel={`ontem: ${fmtBRL(yd.revenue)}`}
+          delta={delta(td.revenue, yd.revenue)} deltaLabel={filterMode === 'today' ? `ontem: ${fmtBRL(yd.revenue)}` : null}
         />
         <KpiCard icon={TrendingUp} iconColor="#F2A800" iconBg="rgba(242,168,0,0.1)"
           label="Ticket médio" value={fmtBRL(td.avgTicket)}
           sub="por pedido ativo"
-          delta={delta(td.avgTicket, yd.avgTicket)} deltaLabel={`ontem: ${fmtBRL(yd.avgTicket)}`}
+          delta={delta(td.avgTicket, yd.avgTicket)} deltaLabel={filterMode === 'today' ? `ontem: ${fmtBRL(yd.avgTicket)}` : null}
         />
         <KpiCard icon={Truck} iconColor="#3B82F6" iconBg="rgba(59,130,246,0.1)"
           label="Taxa de entrega" value={fmtBRL(td.delivFee)}
@@ -370,7 +459,7 @@ export default function Dashboard({ orders, onRefresh, loading }) {
       {/* ── FORMAS DE PAGAMENTO ────────────────────────────────────────────── */}
       {Object.keys(td.byPayment).length > 0 && (
         <>
-          <SectionTitle>Formas de pagamento — hoje</SectionTitle>
+          <SectionTitle>Formas de pagamento — {periodLabel}</SectionTitle>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 28 }}>
             {Object.entries(td.byPayment).map(([method, { count, revenue }]) => (
               <PaymentMethodCard key={method} method={method} count={count} revenue={revenue} total={td.active} />
@@ -383,18 +472,24 @@ export default function Dashboard({ orders, onRefresh, loading }) {
       <SectionTitle>Gráficos</SectionTitle>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 12 }}>
 
-        {/* Faturamento por hora — hoje */}
+        {/* Faturamento por hora (dia único) ou por dia (período) */}
         <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <BarChart2 size={16} color="#F2A800" />
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Faturamento por hora — hoje</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
+                {isSingleDay ? `Faturamento por hora — ${periodLabel}` : `Faturamento por dia — ${periodLabel}`}
+              </h3>
             </div>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>10h–23h · pedidos ativos</span>
+            <span style={{ fontSize: 11, color: '#9CA3AF' }}>{isSingleDay ? '10h–23h · pedidos ativos' : 'pedidos ativos'}</span>
           </div>
-          {hourlyData.every(d => d.total === 0)
-            ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhuma venda registrada hoje</div>
-            : <BarChart data={hourlyData} labelKey="hour" valueKey="total" color="#F2A800" formatValue={fmtBRL} height={220} isCurrency />
+          {isSingleDay
+            ? hourlyData.every(d => d.total === 0)
+              ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhuma venda registrada</div>
+              : <BarChart data={hourlyData} labelKey="hour" valueKey="total" color="#F2A800" formatValue={fmtBRL} height={220} isCurrency />
+            : !dailyData || dailyData.every(d => d.total === 0)
+              ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhuma venda no período</div>
+              : <BarChart data={dailyData} labelKey="date" valueKey="total" color="#F2A800" formatValue={fmtBRL} height={220} isCurrency />
           }
         </div>
 
