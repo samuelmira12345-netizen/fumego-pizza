@@ -11,16 +11,5 @@ const nextConfig = {
       },
     ],
   },
-
-  // Open Delivery: o padrão define o path GET /v1/events:polling com dois-pontos.
-  // Next.js não suporta dois-pontos em nomes de diretórios, então usamos um rewrite.
-  async rewrites() {
-    return [
-      {
-        source:      '/api/open-delivery/v1/events\\:polling',
-        destination: '/api/open-delivery/v1/events-polling',
-      },
-    ];
-  },
 };
 module.exports = nextConfig;

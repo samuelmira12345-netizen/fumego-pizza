@@ -3,13 +3,13 @@ import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { hashCpf, validateCpf } from '../../../../lib/cpf-crypto';
 import { sendOrderConfirmationEmail } from '../../../../lib/email';
 import { createOrderSchema } from '../../../../lib/schemas';
-import { isCWPushEnabled, pushEventToCardapioWeb } from '../../../../lib/open-delivery';
+import { isCWPartnerEnabled, pushOrderToCW } from '../../../../lib/cardapioweb-partner';
 import { logger } from '../../../../lib/logger';
 import { earnCashback, useCashback } from '../../../../lib/cashback';
 
 /**
  * Cria o pedido no banco de dados com CPF hasheado server-side.
- * Após criar, enfileira evento Open Delivery e faz push imediato ao CardápioWeb.
+ * Após criar, envia o pedido para o CardápioWeb via Partner API.
  *
  * Idempotência: o cliente pode enviar o header X-Idempotency-Key (UUID gerado no client).
  * Se um pedido já foi criado com a mesma chave, retorna o pedido existente sem criar duplicata.
@@ -212,41 +212,38 @@ export async function POST(request) {
         .eq('id', coupon.id);
     }
 
-    // ── Open Delivery ────────────────────────────────────────────────────────
-    const { error: evErr } = await supabase
-      .from('od_events')
-      .insert({ order_id: order.id, event_type: 'CREATED' });
-    if (evErr) {
-      logger.error('[OD] Falha ao inserir od_events — rode open-delivery-schema.sql no Supabase', {
-        error: evErr.message,
-      });
-    }
-
-    if (isCWPushEnabled()) {
-      pushEventToCardapioWeb(order.id, 'CREATED')
+    // ── Cardápio Web Partner API ──────────────────────────────────────────────
+    // Envia o pedido ao painel do CardápioWeb (não bloqueia a resposta ao cliente)
+    if (isCWPartnerEnabled()) {
+      pushOrderToCW(order, orderItems)
         .then(result => {
-          if (!result.ok) {
-            logger.error('[OD Push] CardápioWeb rejeitou o evento CREATED', {
-              orderId: order.id, status: result.status, error: result.error,
+          if (result.ok) {
+            logger.info('[CW Partner] Pedido enviado com sucesso ao CardápioWeb', {
+              orderId:   order.id,
+              cwOrderId: result.data?.id,
             });
           } else {
-            logger.info('[OD Push] Evento CREATED aceito pelo CardápioWeb', {
-              orderId: order.id, status: result.status,
+            logger.error('[CW Partner] Falha ao enviar pedido ao CardápioWeb', {
+              orderId: order.id,
+              status:  result.status,
+              errors:  result.errors,
+              error:   result.error,
             });
           }
         })
         .catch(e =>
-          logger.error('[OD Push] Exceção ao enviar evento CREATED ao CardápioWeb', {
-            orderId: order.id, error: e.message,
+          logger.error('[CW Partner] Exceção ao enviar pedido ao CardápioWeb', {
+            orderId: order.id,
+            error:   e.message,
           })
         );
     } else {
-      logger.warn('[OD Push] OD_CW_BASE_URL não definido — pedido NÃO notificado ao CardápioWeb', {
+      logger.warn('[CW Partner] Integração inativa — pedido NÃO enviado ao CardápioWeb', {
         orderId: order.id,
-        hint: 'Defina OD_CW_BASE_URL nas variáveis de ambiente',
+        hint:    'Configure CW_BASE_URL, CW_API_KEY e CW_PARTNER_KEY no Vercel.',
       });
     }
-    // ────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Enviar e-mail de confirmação (não bloqueia a resposta se falhar)
     if (orderPayload.customer_email) {
