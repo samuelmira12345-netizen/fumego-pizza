@@ -7,43 +7,235 @@ import {
   Upload, Loader2, Trash2, Plus, Check, Save,
   Palette, Store, Star, Landmark, CreditCard, Banknote, Clock,
   Plug, RefreshCw, X, Copy,
+  LayoutDashboard, ShoppingBag, Users, ChefHat, Truck,
+  Megaphone, Wallet, Archive, BarChart2, LogOut, ChevronRight,
 } from 'lucide-react';
 import { DEFAULT_BUSINESS_HOURS, DAY_LABELS, DAY_ORDER } from '../../lib/store-hours';
 import OrdersTab from '../components/admin/OrdersTab';
 import CardapioWebTab from '../components/admin/CardapioWebTab';
+import Dashboard from '../components/admin/Dashboard';
 
 const SESSION_KEY = 'admin_token';
 
+// ── Cores do CRM ──────────────────────────────────────────────────────────────
+const C = {
+  sidebar:       '#111827',
+  sidebarHover:  '#1F2937',
+  sidebarActive: '#1F2937',
+  gold:          '#F2A800',
+  goldDim:       'rgba(242,168,0,0.15)',
+  bg:            '#F4F5F7',
+  card:          '#ffffff',
+  border:        '#E5E7EB',
+  text:          '#111827',
+  textMuted:     '#6B7280',
+  textLight:     '#9CA3AF',
+  danger:        '#EF4444',
+  success:       '#10B981',
+};
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+
+const NAV_GROUPS = [
+  {
+    label: 'GERAL',
+    items: [
+      { key: 'dashboard',   icon: LayoutDashboard, label: 'Dashboard' },
+      { key: 'orders',      icon: ShoppingBag,     label: 'Pedidos' },
+      { key: 'clients',     icon: Users,           label: 'Clientes',   soon: true },
+    ],
+  },
+  {
+    label: 'OPERAÇÃO',
+    items: [
+      { key: 'products',    icon: UtensilsCrossed, label: 'Produtos' },
+      { key: 'drinks',      icon: GlassWater,      label: 'Bebidas' },
+      { key: 'cardapioweb', icon: Plug,            label: 'CardápioWeb' },
+      { key: 'deliveries',  icon: Truck,           label: 'Entregas',   soon: true },
+    ],
+  },
+  {
+    label: 'CRESCIMENTO',
+    items: [
+      { key: 'marketing',   icon: Megaphone,       label: 'Marketing',  soon: true },
+      { key: 'financial',   icon: Wallet,          label: 'Financeiro', soon: true },
+      { key: 'stock',       icon: Archive,         label: 'Estoque',    soon: true },
+      { key: 'reports',     icon: BarChart2,       label: 'Relatórios', soon: true },
+    ],
+  },
+  {
+    label: 'SISTEMA',
+    items: [
+      { key: 'settings',    icon: Settings,        label: 'Configurações' },
+    ],
+  },
+];
+
+function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize }) {
+  return (
+    <aside style={{
+      width: 240,
+      minWidth: 240,
+      background: C.sidebar,
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100vh',
+      position: 'sticky',
+      top: 0,
+      overflowY: 'auto',
+      flexShrink: 0,
+    }}>
+      {/* Brand */}
+      <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {logoUrl
+            ? <img src={logoUrl} alt="Logo" style={{ height: Math.min(logoSize, 36), objectFit: 'contain' }} />
+            : <Flame size={28} color={C.gold} />
+          }
+          <div>
+            <p style={{ fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: 2, fontFamily: 'Georgia,serif' }}>FUMÊGO</p>
+            <p style={{ fontSize: 10, color: C.gold, fontWeight: 600, letterSpacing: 1.5, marginTop: 1 }}>CRM</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav style={{ flex: 1, padding: '16px 12px', overflowY: 'auto' }}>
+        {NAV_GROUPS.map(group => (
+          <div key={group.label} style={{ marginBottom: 24 }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: 1.5, paddingLeft: 8, marginBottom: 6 }}>
+              {group.label}
+            </p>
+            {group.items.map(item => {
+              const Icon = item.icon;
+              const isActive = section === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => !item.soon && onNavigate(item.key)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 10px', borderRadius: 8, border: 'none',
+                    background: isActive ? C.goldDim : 'transparent',
+                    color: isActive ? C.gold : item.soon ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.7)',
+                    fontSize: 13, fontWeight: isActive ? 600 : 400,
+                    cursor: item.soon ? 'default' : 'pointer',
+                    marginBottom: 2,
+                    textAlign: 'left',
+                    transition: 'background 0.15s, color 0.15s',
+                  }}
+                  onMouseEnter={e => { if (!isActive && !item.soon) e.currentTarget.style.background = C.sidebarHover; }}
+                  onMouseLeave={e => { if (!isActive && !item.soon) e.currentTarget.style.background = 'transparent'; }}
+                >
+                  <Icon size={16} style={{ flexShrink: 0 }} />
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {item.soon && (
+                    <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)', padding: '2px 6px', borderRadius: 10 }}>
+                      EM BREVE
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+
+      {/* Logout */}
+      <div style={{ padding: '12px 12px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <button
+          onClick={onLogout}
+          style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+            padding: '9px 10px', borderRadius: 8, border: 'none',
+            background: 'transparent', color: 'rgba(255,255,255,0.4)',
+            fontSize: 13, cursor: 'pointer', textAlign: 'left',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#EF4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; e.currentTarget.style.background = 'transparent'; }}
+        >
+          <LogOut size={16} />
+          Sair
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+// ── Coming Soon placeholder ───────────────────────────────────────────────────
+
+function ComingSoon({ label }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 400, gap: 12 }}>
+      <div style={{ width: 56, height: 56, borderRadius: 16, background: C.goldDim, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Clock size={26} color={C.gold} />
+      </div>
+      <h3 style={{ fontSize: 18, fontWeight: 700, color: C.text }}>{label}</h3>
+      <p style={{ fontSize: 14, color: C.textMuted }}>Esta seção está em desenvolvimento e estará disponível em breve.</p>
+    </div>
+  );
+}
+
+// ── Page Header ───────────────────────────────────────────────────────────────
+
+function PageHeader({ section }) {
+  const labels = {
+    dashboard:   'Dashboard',
+    orders:      'Pedidos',
+    products:    'Produtos',
+    drinks:      'Bebidas',
+    cardapioweb: 'CardápioWeb',
+    settings:    'Configurações',
+  };
+  return (
+    <div style={{ padding: '20px 32px 0', borderBottom: '1px solid ' + C.border, background: C.card, marginBottom: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, fontSize: 12, color: C.textLight }}>
+        <span>Admin</span>
+        <ChevronRight size={12} />
+        <span style={{ color: C.text, fontWeight: 600 }}>{labels[section] || section}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Admin Page (Main) ─────────────────────────────────────────────────────────
+
 export default function AdminPage() {
-  const [password, setPassword] = useState('');
-  const [adminToken, setAdminToken] = useState('');
-  const [authenticated, setAuthenticated] = useState(false);
-  const [tab, setTab] = useState('products');
-  const [data, setData] = useState({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
-  const [hasMoreOrders, setHasMoreOrders] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState('');
+  const [password, setPassword]               = useState('');
+  const [adminToken, setAdminToken]           = useState('');
+  const [authenticated, setAuthenticated]     = useState(false);
+  const [section, setSection]                 = useState('dashboard');
+  const [data, setData]                       = useState({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
+  const [hasMoreOrders, setHasMoreOrders]     = useState(false);
+  const [loadingMore, setLoadingMore]         = useState(false);
+  const [loading, setLoading]                 = useState(false);
+  const [saving, setSaving]                   = useState(false);
+  const [msg, setMsg]                         = useState('');
 
-  // ── CardápioWeb ────────────────────────────────────────────
-  const [cwOrders, setCwOrders] = useState([]);
-  const [cwLoading, setCwLoading] = useState(false);
-  const [cwSyncing, setCwSyncing] = useState(false);
-  const [cwMsg, setCwMsg] = useState('');
+  // ── CardápioWeb ─────────────────────────────────────────────────────────────
+  const [cwOrders, setCwOrders]       = useState([]);
+  const [cwLoading, setCwLoading]     = useState(false);
+  const [cwSyncing, setCwSyncing]     = useState(false);
+  const [cwMsg, setCwMsg]             = useState('');
 
-  // ── CardápioWeb Partner API ─────────────────────────────────
-  const [cwPartnerStatus, setCwPartnerStatus] = useState(null);
+  // ── CardápioWeb Partner API ─────────────────────────────────────────────────
+  const [cwPartnerStatus, setCwPartnerStatus]   = useState(null);
   const [cwPartnerLoading, setCwPartnerLoading] = useState(false);
 
-  // ── Open Delivery (removido — substituído pela Partner API) ─────────────────
-  const [uploadingId, setUploadingId] = useState(null);
+  const [uploadingId, setUploadingId]   = useState(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [newDrink, setNewDrink] = useState({ name: '', size: '', price: '' });
-  const [addingDrink, setAddingDrink] = useState(false);
+  const [newDrink, setNewDrink]         = useState({ name: '', size: '', price: '' });
+  const [addingDrink, setAddingDrink]   = useState(false);
+
   // Logo visível antes do login
-  const [loginLogo, setLoginLogo] = useState('');
+  const [loginLogo, setLoginLogo]       = useState('');
   const [loginLogoSize, setLoginLogoSize] = useState(48);
+
+  // ── Aplicar/remover override de body para desktop ───────────────────────────
+  useEffect(() => {
+    document.body.classList.add('admin-desktop');
+    return () => document.body.classList.remove('admin-desktop');
+  }, []);
 
   useEffect(() => {
     supabase.from('settings').select('key,value').in('key', ['logo_url', 'logo_size'])
@@ -55,24 +247,22 @@ export default function AdminPage() {
         if (size) setLoginLogoSize(parseInt(size) || 48);
       });
 
-    // Restore token from sessionStorage
     const saved = sessionStorage.getItem(SESSION_KEY);
     if (saved) setAdminToken(saved);
   }, []);
 
-  // ── Auto-dispatch de pedidos agendados (substitui o Vercel Cron) ──────────
-  // Executa a cada 5 minutos enquanto o admin está aberto e autenticado.
+  // ── Auto-dispatch de pedidos agendados ──────────────────────────────────────
   useEffect(() => {
     if (!authenticated) return;
     async function dispatch() {
       try { await fetch('/api/cron/dispatch-scheduled'); } catch {}
     }
-    dispatch(); // Dispara imediatamente ao autenticar
+    dispatch();
     const iv = setInterval(dispatch, 5 * 60 * 1000);
     return () => clearInterval(iv);
   }, [authenticated]);
 
-  // Helper: POST /api/admin with Authorization header
+  // ── adminFetch helper ───────────────────────────────────────────────────────
   const adminFetch = useCallback(async (action, actionData, token) => {
     const tok = token || adminToken;
     const res = await fetch('/api/admin', {
@@ -86,7 +276,7 @@ export default function AdminPage() {
     return res;
   }, [adminToken]);
 
-  // ── Helpers CardápioWeb Partner API ──────────────────────────────────────
+  // ── CardápioWeb helpers ─────────────────────────────────────────────────────
 
   async function testCWPartner() {
     setCwPartnerLoading(true);
@@ -106,8 +296,6 @@ export default function AdminPage() {
   function copyToClipboard(text) {
     navigator.clipboard.writeText(text).catch(() => {});
   }
-
-  // ── Helpers CardápioWeb ───────────────────────────────────────────────────
 
   async function loadCWOrders() {
     setCwLoading(true);
@@ -155,10 +343,11 @@ export default function AdminPage() {
     } catch (e) { alert('Erro ao atualizar pedido'); }
   }
 
+  // ── Auth ────────────────────────────────────────────────────────────────────
+
   async function handleLogin() {
     setLoading(true);
     try {
-      // 1) Trocar senha por token de sessão (8h)
       const sessionRes = await fetch('/api/admin/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -171,7 +360,6 @@ export default function AdminPage() {
       sessionStorage.setItem(SESSION_KEY, token);
       setAdminToken(token);
 
-      // 2) Carregar dados com o token recém-obtido
       const res = await adminFetch('get_data', {}, token);
       const d = await res.json();
       if (d.error) { alert(d.error); return; }
@@ -179,6 +367,25 @@ export default function AdminPage() {
       setHasMoreOrders(d.hasMore || false);
       setAuthenticated(true);
     } catch (e) { alert('Erro de conexão'); }
+    finally { setLoading(false); }
+  }
+
+  function handleLogout() {
+    sessionStorage.removeItem(SESSION_KEY);
+    setAdminToken('');
+    setAuthenticated(false);
+    setData({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
+  }
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const res = await adminFetch('get_data', {});
+      const d = await res.json();
+      if (d.error) { alert(d.error); return; }
+      setData(d);
+      setHasMoreOrders(d.hasMore || false);
+    } catch (e) { alert('Erro ao atualizar dados'); }
     finally { setLoading(false); }
   }
 
@@ -194,6 +401,8 @@ export default function AdminPage() {
     } catch (e) { setMsg('❌ Erro ao salvar'); }
     finally { setSaving(false); }
   }
+
+  // ── CRUD helpers ────────────────────────────────────────────────────────────
 
   function updateProduct(idx, field, value) {
     setData(prev => {
@@ -237,7 +446,6 @@ export default function AdminPage() {
     updateSetting('business_hours', JSON.stringify(updated));
   }
 
-  // ── Stock limits ─────────────────────────────────────────────────────
   function getStockLimits() {
     const raw = getSetting('stock_limits');
     if (!raw) return {};
@@ -253,7 +461,6 @@ export default function AdminPage() {
     updateSetting('stock_limits', JSON.stringify(updated));
   }
 
-  // ── Posição de imagem dos produtos ───────────────────────────────────
   function getImagePositions() {
     const raw = getSetting('image_positions');
     if (!raw) return {};
@@ -266,7 +473,6 @@ export default function AdminPage() {
     updateSetting('image_positions', JSON.stringify(updated));
   }
 
-  // ── Estoque de bebidas ────────────────────────────────────────────────
   function getDrinkStockLimits() {
     const raw = getSetting('drink_stock_limits');
     if (!raw) return {};
@@ -275,7 +481,6 @@ export default function AdminPage() {
 
   function updateDrinkStockLimit(drinkId, field, value) {
     setData(prev => {
-      // Atualiza drink_stock_limits no settings
       const raw = prev.settings.find(s => s.key === 'drink_stock_limits')?.value;
       let current = {};
       try { current = JSON.parse(raw || '{}'); } catch {}
@@ -288,10 +493,6 @@ export default function AdminPage() {
         ? prev.settings.map((s, i) => i === settingsIdx ? { ...s, value: JSON.stringify(newMap) } : s)
         : [...prev.settings, { key: 'drink_stock_limits', value: JSON.stringify(newMap) }];
 
-      // Sincroniza is_active da bebida:
-      // - estoque ativo com qty 0 → inativa a bebida
-      // - estoque ativo com qty > 0 → ativa a bebida
-      // - estoque desativado → ativa a bebida (sem limite = sempre disponível)
       const outOfStock = entry.enabled && entry.qty <= 0;
       const newDrinks = prev.drinks.map(d =>
         String(d.id) === String(drinkId) ? { ...d, is_active: !outOfStock } : d
@@ -301,7 +502,6 @@ export default function AdminPage() {
     });
   }
 
-  // ── Scheduling ───────────────────────────────────────────────────────
   function getSchedulingSlots() {
     const raw = getSetting('scheduling_slots');
     if (!raw) return [{ time: '12:00', max_orders: 3 }, { time: '18:00', max_orders: 3 }];
@@ -312,7 +512,8 @@ export default function AdminPage() {
     updateSetting('scheduling_slots', JSON.stringify(slots));
   }
 
-  // ===== UPLOAD DE FOTO PRODUTO =====
+  // ── Uploads ─────────────────────────────────────────────────────────────────
+
   async function handleImageUpload(productIdx, file) {
     const product = data.products[productIdx];
     if (!file || !product) return;
@@ -331,14 +532,12 @@ export default function AdminPage() {
       });
       const result = await res.json();
       if (!res.ok) { alert(`Erro no upload: ${result.error}`); return; }
-
       updateProduct(productIdx, 'image_url', result.url);
       alert('✅ Foto enviada e salva!');
     } catch (e) { alert('Erro: ' + e.message); }
     finally { setUploadingId(null); }
   }
 
-  // ===== UPLOAD DE LOGO =====
   async function handleLogoUpload(file) {
     if (!file) return;
     setUploadingLogo(true);
@@ -355,7 +554,6 @@ export default function AdminPage() {
       });
       const result = await res.json();
       if (!res.ok) { alert(`Erro no upload: ${result.error}`); return; }
-
       updateSetting('logo_url', result.url);
       alert('✅ Logo enviada com sucesso!');
     } catch (e) { alert('Erro: ' + e.message); }
@@ -425,572 +623,482 @@ export default function AdminPage() {
     finally { setLoadingMore(false); }
   }
 
-  // LOGIN
+  // ── Handle section change ───────────────────────────────────────────────────
+  function handleNavigate(key) {
+    setSection(key);
+    if (key === 'cardapioweb' && cwOrders.length === 0) loadCWOrders();
+    setMsg('');
+  }
+
+  // ── Login screen ────────────────────────────────────────────────────────────
   if (!authenticated) {
     return (
-      <div style={{ minHeight: '100vh', background: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-        <div style={{ width: '100%', maxWidth: 360, textAlign: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+      <div style={{
+        minHeight: '100vh', background: '#0F172A',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+      }}>
+        <div style={{ width: '100%', maxWidth: 380, textAlign: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
             {loginLogo
               ? <img src={loginLogo} alt="Logo" style={{ height: loginLogoSize, objectFit: 'contain' }} />
-              : <Flame size={48} color="#D4A528" />
+              : <Flame size={48} color="#F2A800" />
             }
           </div>
-          <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 24, fontWeight: 'bold', color: '#D4A528', margin: '12px 0' }}>Admin FUMÊGO</h1>
-          <input className="input-field" type="password" placeholder="Senha do admin" value={password}
-            onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            style={{ marginBottom: 12 }} />
-          <button className="btn-primary" onClick={handleLogin} disabled={loading}>
-            {loading ? 'Entrando...' : 'Entrar'}
-          </button>
+          <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 26, fontWeight: 800, color: '#F2A800', letterSpacing: 3, marginBottom: 4 }}>
+            FUMÊGO
+          </h1>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', letterSpacing: 2, marginBottom: 32 }}>CRM · PAINEL ADMINISTRATIVO</p>
+
+          <div style={{ background: '#1E293B', borderRadius: 16, padding: 28, border: '1px solid rgba(255,255,255,0.08)' }}>
+            <input
+              className="input-field"
+              type="password"
+              placeholder="Senha do administrador"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              style={{ marginBottom: 14, background: '#0F172A', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }}
+            />
+            <button
+              className="btn-primary"
+              onClick={handleLogin}
+              disabled={loading}
+              style={{ borderRadius: 10 }}
+            >
+              {loading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
+  // ── Conteúdo de cada seção ──────────────────────────────────────────────────
+
+  const showSaveBar = ['products', 'drinks', 'settings'].includes(section);
+
   return (
-    <div style={{ minHeight: '100vh', background: '#1A1A1A' }}>
-      <header style={{ background: '#1A1A1A', padding: '12px 16px', borderBottom: '1px solid #333', position: 'sticky', top: 0, zIndex: 100 }}>
-        <h1 style={{ fontFamily: 'Georgia,serif', fontSize: 18, fontWeight: 'bold', color: '#D4A528', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Flame size={20} color="#D4A528" /> Admin FUMÊGO
-        </h1>
-      </header>
+    <div style={{ display: 'flex', minHeight: '100vh', background: C.bg }}>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #333', overflowX: 'auto' }}>
-        {['products', 'drinks', 'settings', 'orders', 'cardapioweb'].map(t => (
-          <button key={t} onClick={() => { setTab(t); if (t === 'cardapioweb' && cwOrders.length === 0) loadCWOrders(); }}
-            style={{ padding: '10px 16px', background: tab === t ? '#D4A528' : 'transparent', color: tab === t ? '#000' : '#888',
-              border: 'none', fontSize: 13, fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-            {t === 'products'
-              ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><UtensilsCrossed size={14} /> Produtos</span>
-              : t === 'drinks'
-              ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><GlassWater size={14} /> Bebidas</span>
-              : t === 'settings'
-              ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings size={14} /> Config</span>
-              : t === 'cardapioweb'
-              ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Plug size={14} /> CardápioWeb</span>
-              : <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Package size={14} /> Pedidos</span>
-            }
-          </button>
-        ))}
-      </div>
+      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
+      <Sidebar
+        section={section}
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+        logoUrl={getSetting('logo_url')}
+        logoSize={parseInt(getSetting('logo_size') || '36')}
+      />
 
-      <div style={{ padding: 16, paddingBottom: 80 }}>
-        {/* PRODUTOS */}
-        {tab === 'products' && data.products.map((p, idx) => (
-          <div key={p.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid #444' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold', fontSize: 16 }}>{p.name}</h3>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                <input type="checkbox" checked={p.is_active} onChange={e => updateProduct(idx, 'is_active', e.target.checked)} />
-                <span style={{ fontSize: 12, color: p.is_active ? '#48BB78' : '#E53E3E' }}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
-              </label>
-            </div>
-            {p.image_url && (() => {
-              const pos = getImagePositions()[String(p.id)] || { x: 50, y: 50 };
-              return (
-                <div style={{ marginBottom: 10 }}>
-                  <p style={{ fontSize: 11, color: '#999', marginBottom: 5, fontWeight: 600 }}>
-                    Posição da foto — Clique para ajustar ({pos.x}% H, {pos.y}% V)
-                  </p>
-                  <div
-                    style={{ position: 'relative', width: '100%', height: 130, cursor: 'crosshair', borderRadius: 8, overflow: 'hidden', border: '2px solid #555', userSelect: 'none' }}
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
-                      const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
-                      updateImagePosition(p.id, x, y);
-                    }}
-                  >
-                    <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos.x}% ${pos.y}%`, pointerEvents: 'none', display: 'block' }} />
-                    <div style={{
-                      position: 'absolute', left: `${pos.x}%`, top: `${pos.y}%`,
-                      transform: 'translate(-50%, -50%)',
-                      width: 16, height: 16, borderRadius: '50%',
-                      background: 'rgba(242,168,0,0.9)', border: '2px solid #fff',
-                      boxShadow: '0 0 6px rgba(0,0,0,0.8)', pointerEvents: 'none',
-                    }} />
-                    <div style={{ position: 'absolute', left: `${pos.x}%`, top: 0, bottom: 0, width: 1, background: 'rgba(242,168,0,0.35)', pointerEvents: 'none' }} />
-                    <div style={{ position: 'absolute', top: `${pos.y}%`, left: 0, right: 0, height: 1, background: 'rgba(242,168,0,0.35)', pointerEvents: 'none' }} />
-                  </div>
-                  <p style={{ fontSize: 10, color: '#666', marginTop: 4 }}>Clique na imagem para definir o ponto de foco do recorte</p>
-                </div>
-              );
-            })()}
-            <div style={{ marginBottom: 10 }}>
-              <label style={{
-                display: 'inline-block', padding: '8px 16px', background: '#444', color: '#fff', borderRadius: 8,
-                fontSize: 13, cursor: 'pointer', opacity: uploadingId === p.id ? 0.5 : 1,
-              }}>
-                {uploadingId === p.id
-                  ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</span>
-                  : <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Upload size={13} /> Enviar foto</span>
-                }
-                <input type="file" accept="image/*" style={{ display: 'none' }}
-                  onChange={e => { if (e.target.files[0]) handleImageUpload(idx, e.target.files[0]); }}
-                  disabled={uploadingId === p.id} />
-              </label>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <input className="input-field" placeholder="Descrição" value={p.description || ''}
-                onChange={e => updateProduct(idx, 'description', e.target.value)} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <input className="input-field" placeholder="Preço" type="number" step="0.01" value={p.price || ''}
-                  onChange={e => updateProduct(idx, 'price', e.target.value)} />
-                <input className="input-field" placeholder="Ordem" type="number" value={p.sort_order || ''}
-                  onChange={e => updateProduct(idx, 'sort_order', parseInt(e.target.value) || 0)} />
-              </div>
+      {/* ── Conteúdo principal ───────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'auto' }}>
 
-              {/* Controle de Estoque */}
-              {(() => {
-                const stock = getStockLimits()[String(p.id)] || { enabled: false, qty: 0 };
-                return (
-                  <div style={{ marginTop: 4, padding: '10px 12px', background: '#1A1A1A', borderRadius: 8, border: '1px solid #333' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: stock.enabled ? 8 : 0 }}>
-                      <input type="checkbox" checked={stock.enabled} onChange={e => updateStockLimit(p.id, 'enabled', e.target.checked)} />
-                      <span style={{ fontSize: 12, color: '#bbb', fontWeight: 600 }}>Limitar estoque</span>
+        {/* Page Header */}
+        {section !== 'dashboard' && <PageHeader section={section} />}
+
+        {/* ── DASHBOARD ─────────────────────────────────────────────────── */}
+        {section === 'dashboard' && (
+          <Dashboard
+            orders={data.orders}
+            onRefresh={loadData}
+            loading={loading}
+          />
+        )}
+
+        {/* ── PEDIDOS ───────────────────────────────────────────────────── */}
+        {section === 'orders' && (
+          <div style={{ padding: '24px 32px', paddingBottom: 60 }}>
+            <OrdersTab
+              orders={data.orders}
+              hasMoreOrders={hasMoreOrders}
+              loadingMore={loadingMore}
+              onUpdateStatus={updateOrderStatus}
+              onLoadMore={loadMoreOrders}
+            />
+          </div>
+        )}
+
+        {/* ── PRODUTOS ──────────────────────────────────────────────────── */}
+        {section === 'products' && (
+          <div style={{ padding: '24px 32px', paddingBottom: 100 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 16 }}>
+              {data.products.map((p, idx) => (
+                <div key={p.id} style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <h3 style={{ color: C.text, fontWeight: 700, fontSize: 15 }}>{p.name}</h3>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={p.is_active} onChange={e => updateProduct(idx, 'is_active', e.target.checked)} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: p.is_active ? C.success : C.danger }}>{p.is_active ? 'Ativo' : 'Inativo'}</span>
                     </label>
-                    {stock.enabled && (() => {
-                      const thr = stock.low_stock_threshold ?? 3;
+                  </div>
+
+                  {p.image_url && (() => {
+                    const pos = getImagePositions()[String(p.id)] || { x: 50, y: 50 };
+                    return (
+                      <div style={{ marginBottom: 12 }}>
+                        <p style={{ fontSize: 11, color: C.textLight, marginBottom: 5, fontWeight: 600 }}>
+                          Posição da foto — Clique para ajustar ({pos.x}% H, {pos.y}% V)
+                        </p>
+                        <div
+                          style={{ position: 'relative', width: '100%', height: 130, cursor: 'crosshair', borderRadius: 8, overflow: 'hidden', border: '2px solid ' + C.border, userSelect: 'none' }}
+                          onClick={(e) => {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const x = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+                            const y = Math.max(0, Math.min(100, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
+                            updateImagePosition(p.id, x, y);
+                          }}
+                        >
+                          <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos.x}% ${pos.y}%`, pointerEvents: 'none', display: 'block' }} />
+                          <div style={{ position: 'absolute', left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', width: 14, height: 14, borderRadius: '50%', background: 'rgba(242,168,0,0.9)', border: '2px solid #fff', boxShadow: '0 0 6px rgba(0,0,0,0.5)', pointerEvents: 'none' }} />
+                          <div style={{ position: 'absolute', left: `${pos.x}%`, top: 0, bottom: 0, width: 1, background: 'rgba(242,168,0,0.35)', pointerEvents: 'none' }} />
+                          <div style={{ position: 'absolute', top: `${pos.y}%`, left: 0, right: 0, height: 1, background: 'rgba(242,168,0,0.35)', pointerEvents: 'none' }} />
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#F3F4F6', color: C.text, borderRadius: 8, fontSize: 13, cursor: 'pointer', border: '1px solid ' + C.border, opacity: uploadingId === p.id ? 0.5 : 1 }}>
+                      {uploadingId === p.id
+                        ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
+                        : <><Upload size={13} /> Enviar foto</>
+                      }
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleImageUpload(idx, e.target.files[0]); }} disabled={uploadingId === p.id} />
+                    </label>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <input className="input-field" placeholder="Descrição" value={p.description || ''} onChange={e => updateProduct(idx, 'description', e.target.value)} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <input className="input-field" placeholder="Preço" type="number" step="0.01" value={p.price || ''} onChange={e => updateProduct(idx, 'price', e.target.value)} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                      <input className="input-field" placeholder="Ordem" type="number" value={p.sort_order || ''} onChange={e => updateProduct(idx, 'sort_order', parseInt(e.target.value) || 0)} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                    </div>
+
+                    {(() => {
+                      const stock = getStockLimits()[String(p.id)] || { enabled: false, qty: 0 };
                       return (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input className="input-field" type="number" min="0" placeholder="Qtd disponível"
-                              value={stock.qty}
-                              onChange={e => updateStockLimit(p.id, 'qty', parseInt(e.target.value) || 0)}
-                              style={{ maxWidth: 150 }} />
-                            <span style={{
-                              fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap',
-                              background: stock.qty <= 0 ? 'rgba(229,83,83,0.2)' : stock.qty <= thr ? 'rgba(246,173,85,0.2)' : 'rgba(72,187,120,0.2)',
-                              color: stock.qty <= 0 ? '#E53E3E' : stock.qty <= thr ? '#F6AD55' : '#48BB78',
-                            }}>
-                              {stock.qty <= 0 ? 'Esgotado' : stock.qty <= thr ? 'Poucas unidades' : 'Disponível'}
-                            </span>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <input className="input-field" type="number" min="1" max="50"
-                              placeholder="Aviso poucas unid. (ex: 3)"
-                              value={thr}
-                              onChange={e => updateStockLimit(p.id, 'low_stock_threshold', parseInt(e.target.value) || 3)}
-                              style={{ maxWidth: 150 }} />
-                            <span style={{ fontSize: 10, color: '#666' }}>= qtd para "Poucas unidades"</span>
-                          </div>
+                        <div style={{ padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, border: '1px solid ' + C.border }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: stock.enabled ? 8 : 0 }}>
+                            <input type="checkbox" checked={stock.enabled} onChange={e => updateStockLimit(p.id, 'enabled', e.target.checked)} />
+                            <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>Limitar estoque</span>
+                          </label>
+                          {stock.enabled && (() => {
+                            const thr = stock.low_stock_threshold ?? 3;
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <input className="input-field" type="number" min="0" placeholder="Qtd disponível" value={stock.qty} onChange={e => updateStockLimit(p.id, 'qty', parseInt(e.target.value) || 0)} style={{ maxWidth: 140, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap', background: stock.qty <= 0 ? 'rgba(239,68,68,0.1)' : stock.qty <= thr ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)', color: stock.qty <= 0 ? C.danger : stock.qty <= thr ? '#D97706' : C.success }}>
+                                    {stock.qty <= 0 ? 'Esgotado' : stock.qty <= thr ? 'Poucas unidades' : 'Disponível'}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <input className="input-field" type="number" min="1" max="50" placeholder="Aviso poucas unid. (ex: 3)" value={thr} onChange={e => updateStockLimit(p.id, 'low_stock_threshold', parseInt(e.target.value) || 3)} style={{ maxWidth: 140, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                                  <span style={{ fontSize: 10, color: C.textLight }}>= qtd para "Poucas unidades"</span>
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })()}
                   </div>
-                );
-              })()}
-            </div>
-          </div>
-        ))}
-
-        {/* BEBIDAS */}
-        {tab === 'drinks' && (
-          <div>
-            {data.drinks.map((d, idx) => (
-              <div key={d.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, marginBottom: 12, border: '1px solid #444' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                    <input type="checkbox" checked={d.is_active} onChange={e => updateDrink(idx, 'is_active', e.target.checked)} />
-                    <span style={{ fontSize: 12, color: d.is_active ? '#48BB78' : '#E53E3E' }}>{d.is_active ? 'Ativo' : 'Inativo'}</span>
-                  </label>
-                  <button onClick={() => handleDeleteDrink(d.id)}
-                    style={{ background: 'rgba(229,83,83,0.15)', border: '1px solid rgba(229,83,83,0.3)', color: '#E53E3E', borderRadius: 8, padding: '4px 12px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Trash2 size={13} /> Excluir
-                  </button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                  <input className="input-field" placeholder="Marca/Nome" value={d.name || ''}
-                    onChange={e => updateDrink(idx, 'name', e.target.value)} />
-                  <input className="input-field" placeholder="Tamanho (ex: 600ml)" value={d.size || ''}
-                    onChange={e => updateDrink(idx, 'size', e.target.value)} />
-                </div>
-                <input className="input-field" placeholder="Preço" type="number" step="0.01" value={d.price || ''}
-                  onChange={e => updateDrink(idx, 'price', e.target.value)} />
-
-                {/* Controle de Estoque da Bebida */}
-                {(() => {
-                  const dstock = getDrinkStockLimits()[String(d.id)] || { enabled: false, qty: 0 };
-                  return (
-                    <div style={{ marginTop: 8, padding: '10px 12px', background: '#1A1A1A', borderRadius: 8, border: '1px solid #333' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: dstock.enabled ? 8 : 0 }}>
-                        <input type="checkbox" checked={dstock.enabled} onChange={e => updateDrinkStockLimit(d.id, 'enabled', e.target.checked)} />
-                        <span style={{ fontSize: 12, color: '#bbb', fontWeight: 600 }}>Limitar estoque</span>
-                      </label>
-                      {dstock.enabled && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <input className="input-field" type="number" min="0" placeholder="Qtd disponível"
-                            value={dstock.qty}
-                            onChange={e => updateDrinkStockLimit(d.id, 'qty', parseInt(e.target.value) || 0)}
-                            style={{ maxWidth: 150 }} />
-                          <span style={{
-                            fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap',
-                            background: dstock.qty <= 0 ? 'rgba(229,83,83,0.2)' : 'rgba(72,187,120,0.2)',
-                            color: dstock.qty <= 0 ? '#E53E3E' : '#48BB78',
-                          }}>
-                            {dstock.qty <= 0 ? 'Esgotado' : 'Disponível'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            ))}
-
-            {/* Formulário para nova bebida */}
-            <div style={{ background: '#222', borderRadius: 12, padding: 16, border: '1px dashed #555', marginTop: 8 }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Plus size={16} color="#D4A528" /> Adicionar Bebida
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                <input className="input-field" placeholder="Marca/Nome (ex: Coca-Cola)"
-                  value={newDrink.name} onChange={e => setNewDrink(prev => ({ ...prev, name: e.target.value }))} />
-                <input className="input-field" placeholder="Tamanho (ex: 600ml)"
-                  value={newDrink.size} onChange={e => setNewDrink(prev => ({ ...prev, size: e.target.value }))} />
-              </div>
-              <input className="input-field" placeholder="Preço" type="number" step="0.01"
-                value={newDrink.price} onChange={e => setNewDrink(prev => ({ ...prev, price: e.target.value }))}
-                style={{ marginBottom: 12 }} />
-              <button onClick={handleAddDrink} disabled={addingDrink}
-                style={{ width: '100%', padding: '12px', background: '#D4A528', color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 'bold', cursor: 'pointer', opacity: addingDrink ? 0.5 : 1 }}>
-                {addingDrink
-                  ? <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Adicionando...</span>
-                  : <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><Check size={14} /> Adicionar Bebida</span>
-                }
-              </button>
+              ))}
             </div>
           </div>
         )}
 
-        {/* CONFIG */}
-        {tab === 'settings' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-            {/* ===== LOGO DA PIZZARIA ===== */}
-            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Palette size={16} color="#D4A528" /> Logo da Pizzaria
-              </h3>
-              <p style={{ color: '#888', fontSize: 12, marginBottom: 12 }}>
-                A logo aparece ao lado esquerdo do nome "FUMÊGO" no cabeçalho.
-              </p>
-
-              {getSetting('logo_url') && (
-                <div style={{ marginBottom: 14, padding: 12, background: '#1A1A1A', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <img src={getSetting('logo_url')} alt="Logo"
-                    style={{ height: parseInt(getSetting('logo_size') || '36'), objectFit: 'contain' }} />
-                  <span style={{ color: '#D4A528', fontWeight: 'bold', fontSize: 16, letterSpacing: 3 }}>FUMÊGO</span>
-                </div>
-              )}
-
-              {/* Controle de tamanho */}
-              {getSetting('logo_url') && (
-                <div style={{ marginBottom: 14 }}>
-                  <label style={{ color: '#888', fontSize: 12, display: 'block', marginBottom: 6 }}>
-                    Tamanho da logo: <strong style={{ color: '#fff' }}>{getSetting('logo_size') || '36'}px</strong>
-                  </label>
-                  <input type="range" min="24" max="80" step="2"
-                    value={getSetting('logo_size') || '36'}
-                    onChange={e => updateSetting('logo_size', e.target.value)}
-                    style={{ width: '100%', accentColor: '#D4A528' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#666', marginTop: 2 }}>
-                    <span>Pequeno (24px)</span><span>Grande (80px)</span>
-                  </div>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <label style={{
-                  display: 'inline-block', padding: '8px 16px', background: '#D4A528', color: '#000', borderRadius: 8,
-                  fontSize: 13, fontWeight: 'bold', cursor: 'pointer', opacity: uploadingLogo ? 0.5 : 1,
-                }}>
-                  {uploadingLogo
-                    ? <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</span>
-                    : <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Upload size={13} /> Enviar Logo</span>
-                  }
-                  <input type="file" accept="image/*" style={{ display: 'none' }}
-                    onChange={e => { if (e.target.files[0]) handleLogoUpload(e.target.files[0]); }}
-                    disabled={uploadingLogo} />
-                </label>
-
-                {getSetting('logo_url') && (
-                  <button onClick={removeLogo}
-                    style={{ padding: '8px 16px', background: '#555', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <Trash2 size={13} /> Remover Logo
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Loja */}
-            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Store size={16} color="#D4A528" /> Loja
-              </h3>
-
-              {/* Toggle manual */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <input type="checkbox" checked={getSetting('store_open') === 'true'}
-                  onChange={e => updateSetting('store_open', e.target.checked ? 'true' : 'false')} />
-                <span style={{ color: '#fff', fontSize: 14 }}>Loja aberta</span>
-              </label>
-              <p style={{ color: '#888', fontSize: 12, marginBottom: 14 }}>
-                Desmarque para fechar imediatamente, independente do horário configurado.
-              </p>
-
-              <input className="input-field" placeholder="Tempo de entrega (ex: 40–60 min)" value={getSetting('delivery_time')}
-                onChange={e => updateSetting('delivery_time', e.target.value)} style={{ marginBottom: 8 }} />
-              <input className="input-field" placeholder="Taxa de entrega" type="number" step="0.01" value={getSetting('delivery_fee')}
-                onChange={e => updateSetting('delivery_fee', e.target.value)} style={{ marginBottom: 16 }} />
-
-              <div style={{ height: 1, background: '#444', marginBottom: 14 }} />
-
-              {/* Horário de Funcionamento */}
-              <h4 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 4, fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Clock size={14} color="#D4A528" /> Horário de Funcionamento
-              </h4>
-              <p style={{ color: '#888', fontSize: 12, marginBottom: 14 }}>
-                A loja fecha automaticamente fora do horário. Horário de Brasília (UTC-3).
-              </p>
-
-              {DAY_ORDER.map(day => {
-                const h = getBusinessHours()[day] || { enabled: true, open: '18:00', close: '23:00' };
-                return (
-                  <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 90, cursor: 'pointer' }}>
-                      <input type="checkbox" checked={h.enabled}
-                        onChange={e => updateDayHours(day, 'enabled', e.target.checked)} />
-                      <span style={{ fontSize: 13, fontWeight: h.enabled ? 600 : 400, color: h.enabled ? '#fff' : '#555' }}>
-                        {DAY_LABELS[day]}
-                      </span>
+        {/* ── BEBIDAS ───────────────────────────────────────────────────── */}
+        {section === 'drinks' && (
+          <div style={{ padding: '24px 32px', paddingBottom: 100 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
+              {data.drinks.map((d, idx) => (
+                <div key={d.id} style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={d.is_active} onChange={e => updateDrink(idx, 'is_active', e.target.checked)} />
+                      <span style={{ fontSize: 12, fontWeight: 600, color: d.is_active ? C.success : C.danger }}>{d.is_active ? 'Ativo' : 'Inativo'}</span>
                     </label>
-                    <input
-                      type="time" value={h.open} disabled={!h.enabled}
-                      onChange={e => updateDayHours(day, 'open', e.target.value)}
-                      style={{ flex: 1, background: '#1A1A1A', color: h.enabled ? '#fff' : '#555', border: '1px solid #555', borderRadius: 8, padding: '6px 8px', fontSize: 13, cursor: h.enabled ? 'pointer' : 'not-allowed' }} />
-                    <span style={{ color: '#888', fontSize: 12 }}>às</span>
-                    <input
-                      type="time" value={h.close} disabled={!h.enabled}
-                      onChange={e => updateDayHours(day, 'close', e.target.value)}
-                      style={{ flex: 1, background: '#1A1A1A', color: h.enabled ? '#fff' : '#555', border: '1px solid #555', borderRadius: 8, padding: '6px 8px', fontSize: 13, cursor: h.enabled ? 'pointer' : 'not-allowed' }} />
+                    <button onClick={() => handleDeleteDrink(d.id)} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: C.danger, borderRadius: 8, padding: '4px 12px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Trash2 size={13} /> Excluir
+                    </button>
                   </div>
-                );
-              })}
-            </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                    <input className="input-field" placeholder="Marca/Nome" value={d.name || ''} onChange={e => updateDrink(idx, 'name', e.target.value)} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                    <input className="input-field" placeholder="Tamanho (ex: 600ml)" value={d.size || ''} onChange={e => updateDrink(idx, 'size', e.target.value)} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                  </div>
+                  <input className="input-field" placeholder="Preço" type="number" step="0.01" value={d.price || ''} onChange={e => updateDrink(idx, 'price', e.target.value)} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
 
-            {/* Instagram */}
-            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D4A528" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-                Instagram
-              </h3>
-              <p style={{ color: '#888', fontSize: 12, marginBottom: 10 }}>
-                Link exibido abaixo do botão "Voltar ao Cardápio" após o pedido ser confirmado.
-              </p>
-              <input className="input-field" placeholder="https://instagram.com/suaconta"
-                value={getSetting('instagram_url')}
-                onChange={e => updateSetting('instagram_url', e.target.value)} />
-            </div>
+                  {(() => {
+                    const dstock = getDrinkStockLimits()[String(d.id)] || { enabled: false, qty: 0 };
+                    return (
+                      <div style={{ marginTop: 8, padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, border: '1px solid ' + C.border }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: dstock.enabled ? 8 : 0 }}>
+                          <input type="checkbox" checked={dstock.enabled} onChange={e => updateDrinkStockLimit(d.id, 'enabled', e.target.checked)} />
+                          <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>Limitar estoque</span>
+                        </label>
+                        {dstock.enabled && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <input className="input-field" type="number" min="0" placeholder="Qtd disponível" value={dstock.qty} onChange={e => updateDrinkStockLimit(d.id, 'qty', parseInt(e.target.value) || 0)} style={{ maxWidth: 140, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, whiteSpace: 'nowrap', background: dstock.qty <= 0 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: dstock.qty <= 0 ? C.danger : C.success }}>
+                              {dstock.qty <= 0 ? 'Esgotado' : 'Disponível'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              ))}
 
-            {/* Especial do Mês */}
-            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Star size={16} color="#D4A528" /> Especial do Mês
-              </h3>
-              <input className="input-field" placeholder="Nome do sabor especial" value={getSetting('special_flavor_name')}
-                onChange={e => updateSetting('special_flavor_name', e.target.value)} style={{ marginBottom: 8 }} />
-              <textarea className="input-field" placeholder="Descrição" value={getSetting('special_flavor_description')}
-                onChange={e => updateSetting('special_flavor_description', e.target.value)} rows="3" style={{ resize: 'none' }} />
-            </div>
-
-            {/* Agendamento */}
-            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
-              <h3 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Clock size={16} color="#D4A528" /> Agendamento de Pedidos
-              </h3>
-
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <input type="checkbox" checked={getSetting('scheduling_enabled') === 'true'}
-                  onChange={e => updateSetting('scheduling_enabled', e.target.checked ? 'true' : 'false')} />
-                <span style={{ color: '#fff', fontSize: 14 }}>Ativar agendamento</span>
-              </label>
-              <p style={{ color: '#888', fontSize: 12, marginBottom: 14 }}>
-                Permite que o cliente escolha data e hora na finalização do pedido.
-              </p>
-
-              {getSetting('scheduling_enabled') === 'true' && (
-                <>
-                  <label style={{ color: '#888', fontSize: 12, display: 'block', marginBottom: 4 }}>
-                    Máximo de dias antecipados para agendamento
-                  </label>
-                  <input className="input-field" type="number" min="1" max="30" placeholder="Ex: 3"
-                    value={getSetting('scheduling_max_days') || '3'}
-                    onChange={e => updateSetting('scheduling_max_days', e.target.value)}
-                    style={{ marginBottom: 16, maxWidth: 120 }} />
-
-                  <div style={{ height: 1, background: '#444', marginBottom: 14 }} />
-
-                  <h4 style={{ color: '#D4A528', fontWeight: 'bold', marginBottom: 4, fontSize: 13 }}>
-                    Horários disponíveis e capacidade máxima
-                  </h4>
-                  <p style={{ color: '#888', fontSize: 11, marginBottom: 12 }}>
-                    Cada horário pode receber no máximo N pedidos simultâneos.
-                  </p>
-
-                  {getSchedulingSlots().map((slot, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <input type="time" value={slot.time}
-                        onChange={e => {
-                          const slots = [...getSchedulingSlots()];
-                          slots[i] = { ...slots[i], time: e.target.value };
-                          updateSchedulingSlots(slots);
-                        }}
-                        style={{ flex: 1, background: '#1A1A1A', color: '#fff', border: '1px solid #555', borderRadius: 8, padding: '6px 8px', fontSize: 13 }} />
-                      <input type="number" min="1" max="99" value={slot.max_orders}
-                        onChange={e => {
-                          const slots = [...getSchedulingSlots()];
-                          slots[i] = { ...slots[i], max_orders: parseInt(e.target.value) || 1 };
-                          updateSchedulingSlots(slots);
-                        }}
-                        style={{ width: 60, background: '#1A1A1A', color: '#fff', border: '1px solid #555', borderRadius: 8, padding: '6px 8px', fontSize: 13, textAlign: 'center' }} />
-                      <span style={{ color: '#666', fontSize: 11 }}>pedidos</span>
-                      <button onClick={() => {
-                        const slots = getSchedulingSlots().filter((_, j) => j !== i);
-                        updateSchedulingSlots(slots);
-                      }}
-                        style={{ background: 'none', border: 'none', color: '#E53E3E', cursor: 'pointer', padding: 4 }}>
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-
-                  <button onClick={() => {
-                    const slots = [...getSchedulingSlots(), { time: '12:00', max_orders: 3 }];
-                    updateSchedulingSlots(slots);
-                  }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(212,165,40,0.15)', color: '#D4A528', border: '1px solid rgba(212,165,40,0.3)', borderRadius: 8, fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
-                    <Plus size={12} /> Adicionar horário
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* CardápioWeb Partner API */}
-            <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <h3 style={{ color: '#D4A528', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Plug size={16} color="#D4A528" /> Integração CardápioWeb (Partner API)
+              {/* Adicionar bebida */}
+              <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '2px dashed ' + C.border }}>
+                <h3 style={{ color: C.gold, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                  <Plus size={16} color={C.gold} /> Adicionar Bebida
                 </h3>
-                <button onClick={testCWPartner} disabled={cwPartnerLoading}
-                  style={{ padding: '6px 10px', background: '#333', color: '#D4A528', border: '1px solid #444', borderRadius: 8, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <RefreshCw size={11} style={cwPartnerLoading ? { animation: 'spin 1s linear infinite' } : {}} />
-                  {cwPartnerLoading ? '...' : 'Testar Conexão'}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <input className="input-field" placeholder="Marca/Nome (ex: Coca-Cola)" value={newDrink.name} onChange={e => setNewDrink(prev => ({ ...prev, name: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                  <input className="input-field" placeholder="Tamanho (ex: 600ml)" value={newDrink.size} onChange={e => setNewDrink(prev => ({ ...prev, size: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                </div>
+                <input className="input-field" placeholder="Preço" type="number" step="0.01" value={newDrink.price} onChange={e => setNewDrink(prev => ({ ...prev, price: e.target.value }))} style={{ marginBottom: 12, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                <button onClick={handleAddDrink} disabled={addingDrink} style={{ width: '100%', padding: '11px', background: C.gold, color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: addingDrink ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  {addingDrink ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Adicionando...</> : <><Check size={14} /> Adicionar Bebida</>}
                 </button>
               </div>
-              <p style={{ color: '#888', fontSize: 12, marginBottom: 12 }}>
-                Pedidos feitos no app são enviados automaticamente ao painel do CardápioWeb via Partner API.
-                Configure as variáveis abaixo no Vercel e clique em "Testar Conexão" para verificar.
-              </p>
-
-              <div style={{ background: '#1A1A1A', borderRadius: 8, padding: 12, marginBottom: 12, border: '1px solid #333' }}>
-                <p style={{ color: '#F6AD55', fontSize: 12, fontWeight: 'bold', marginBottom: 10 }}>
-                  Variáveis de ambiente necessárias no Vercel:
-                </p>
-                {[
-                  ['CW_BASE_URL',      'URL base da API (ex: https://app.cardapioweb.com)'],
-                  ['CW_API_KEY',       'Token do estabelecimento — X-API-KEY (portal do CardápioWeb)'],
-                  ['CW_PARTNER_KEY',   'Token do integrador — X-PARTNER-KEY (fornecido pelo CardápioWeb)'],
-                  ['CW_DEFAULT_LAT',   'Latitude do estabelecimento (ex: -23.5505)'],
-                  ['CW_DEFAULT_LNG',   'Longitude do estabelecimento (ex: -46.6333)'],
-                ].map(([k, desc]) => (
-                  <div key={k} style={{ marginBottom: 8 }}>
-                    <p style={{ color: '#D4A528', fontSize: 11, fontFamily: 'monospace', marginBottom: 2 }}>{k}</p>
-                    <p style={{ color: '#666', fontSize: 10 }}>{desc}</p>
-                  </div>
-                ))}
-              </div>
-
-              {!cwPartnerStatus && (
-                <p style={{ color: '#666', fontSize: 12, fontStyle: 'italic' }}>
-                  Clique em "Testar Conexão" para verificar o status da integração.
-                </p>
-              )}
-
-              {cwPartnerStatus && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 10, fontWeight: 'bold',
-                      background: cwPartnerStatus.enabled && !cwPartnerStatus.error ? 'rgba(72,187,120,0.15)' : 'rgba(224,64,64,0.1)',
-                      color:      cwPartnerStatus.enabled && !cwPartnerStatus.error ? '#48BB78' : '#E04040',
-                      border: `1px solid ${cwPartnerStatus.enabled && !cwPartnerStatus.error ? 'rgba(72,187,120,0.4)' : 'rgba(224,64,64,0.3)'}` }}>
-                      {cwPartnerStatus.enabled && !cwPartnerStatus.error ? '● Integração ativa' : '● Integração inativa'}
-                    </span>
-                  </div>
-
-                  {cwPartnerStatus.error && (
-                    <p style={{ color: '#E04040', fontSize: 12, marginBottom: 8, background: 'rgba(224,64,64,0.08)', padding: '8px 10px', borderRadius: 6 }}>
-                      {cwPartnerStatus.error}
-                    </p>
-                  )}
-
-                  {cwPartnerStatus.payment_methods?.length > 0 && (
-                    <div>
-                      <p style={{ color: '#aaa', fontSize: 12, fontWeight: 'bold', marginBottom: 8 }}>
-                        Métodos de pagamento disponíveis no CardápioWeb:
-                      </p>
-                      {cwPartnerStatus.payment_methods.map(m => (
-                        <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, padding: '5px 8px', background: '#111', borderRadius: 6 }}>
-                          <span style={{ color: '#D4A528', fontSize: 10, fontFamily: 'monospace', minWidth: 28 }}>#{m.id}</span>
-                          <span style={{ color: '#fff', fontSize: 12 }}>{m.name}</span>
-                          <span style={{ color: '#888', fontSize: 10, marginLeft: 'auto', fontFamily: 'monospace' }}>{m.kind}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         )}
 
-        {/* PEDIDOS (componente extraído em components/admin/OrdersTab.js) */}
-        {tab === 'orders' && (
-          <OrdersTab
-            orders={data.orders}
-            hasMoreOrders={hasMoreOrders}
-            loadingMore={loadingMore}
-            onUpdateStatus={updateOrderStatus}
-            onLoadMore={loadMoreOrders}
-          />
+        {/* ── CARDÁPIOWEB ───────────────────────────────────────────────── */}
+        {section === 'cardapioweb' && (
+          <div style={{ padding: '24px 32px', paddingBottom: 60 }}>
+            <CardapioWebTab
+              orders={cwOrders}
+              loading={cwLoading}
+              syncing={cwSyncing}
+              msg={cwMsg}
+              onRefresh={loadCWOrders}
+              onSync={syncCWOrders}
+              onOrderAction={cwOrderAction}
+            />
+          </div>
         )}
 
-        {/* ── CARDÁPIOWEB (componente extraído em components/admin/CardapioWebTab.js) */}
-        {tab === 'cardapioweb' && (
-          <CardapioWebTab
-            orders={cwOrders}
-            loading={cwLoading}
-            syncing={cwSyncing}
-            msg={cwMsg}
-            onRefresh={loadCWOrders}
-            onSync={syncCWOrders}
-            onOrderAction={cwOrderAction}
-          />
+        {/* ── CONFIGURAÇÕES ─────────────────────────────────────────────── */}
+        {section === 'settings' && (
+          <div style={{ padding: '24px 32px', paddingBottom: 100, maxWidth: 720 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Logo */}
+              <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <h3 style={{ color: C.text, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                  <Palette size={16} color={C.gold} /> Logo da Pizzaria
+                </h3>
+                <p style={{ color: C.textMuted, fontSize: 13, marginBottom: 12 }}>A logo aparece ao lado esquerdo do nome "FUMÊGO" no cabeçalho.</p>
+
+                {getSetting('logo_url') && (
+                  <div style={{ marginBottom: 14, padding: 12, background: '#111827', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <img src={getSetting('logo_url')} alt="Logo" style={{ height: parseInt(getSetting('logo_size') || '36'), objectFit: 'contain' }} />
+                    <span style={{ color: C.gold, fontWeight: 800, fontSize: 16, letterSpacing: 3 }}>FUMÊGO</span>
+                  </div>
+                )}
+
+                {getSetting('logo_url') && (
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ color: C.textMuted, fontSize: 13, display: 'block', marginBottom: 6 }}>
+                      Tamanho: <strong style={{ color: C.text }}>{getSetting('logo_size') || '36'}px</strong>
+                    </label>
+                    <input type="range" min="24" max="80" step="2" value={getSetting('logo_size') || '36'} onChange={e => updateSetting('logo_size', e.target.value)} style={{ width: '100%', accentColor: C.gold }} />
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: C.gold, color: '#000', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: uploadingLogo ? 0.5 : 1 }}>
+                    {uploadingLogo ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</> : <><Upload size={13} /> Enviar Logo</>}
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleLogoUpload(e.target.files[0]); }} disabled={uploadingLogo} />
+                  </label>
+                  {getSetting('logo_url') && (
+                    <button onClick={removeLogo} style={{ padding: '8px 16px', background: '#F3F4F6', color: C.textMuted, border: '1px solid ' + C.border, borderRadius: 8, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <Trash2 size={13} /> Remover Logo
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Loja */}
+              <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <h3 style={{ color: C.text, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                  <Store size={16} color={C.gold} /> Loja
+                </h3>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <input type="checkbox" checked={getSetting('store_open') === 'true'} onChange={e => updateSetting('store_open', e.target.checked ? 'true' : 'false')} />
+                  <span style={{ color: C.text, fontSize: 14 }}>Loja aberta</span>
+                </label>
+                <p style={{ color: C.textMuted, fontSize: 12, marginBottom: 14 }}>Desmarque para fechar imediatamente, independente do horário configurado.</p>
+                <input className="input-field" placeholder="Tempo de entrega (ex: 40–60 min)" value={getSetting('delivery_time')} onChange={e => updateSetting('delivery_time', e.target.value)} style={{ marginBottom: 8, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                <input className="input-field" placeholder="Taxa de entrega" type="number" step="0.01" value={getSetting('delivery_fee')} onChange={e => updateSetting('delivery_fee', e.target.value)} style={{ marginBottom: 16, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+
+                <div style={{ height: 1, background: C.border, marginBottom: 14 }} />
+
+                <h4 style={{ color: C.text, fontWeight: 700, marginBottom: 4, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Clock size={14} color={C.gold} /> Horário de Funcionamento
+                </h4>
+                <p style={{ color: C.textMuted, fontSize: 12, marginBottom: 14 }}>A loja fecha automaticamente fora do horário. Horário de Brasília (UTC-3).</p>
+
+                {DAY_ORDER.map(day => {
+                  const h = getBusinessHours()[day] || { enabled: true, open: '18:00', close: '23:00' };
+                  return (
+                    <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 90, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={h.enabled} onChange={e => updateDayHours(day, 'enabled', e.target.checked)} />
+                        <span style={{ fontSize: 13, fontWeight: h.enabled ? 600 : 400, color: h.enabled ? C.text : C.textLight }}>{DAY_LABELS[day]}</span>
+                      </label>
+                      <input type="time" value={h.open} disabled={!h.enabled} onChange={e => updateDayHours(day, 'open', e.target.value)} style={{ flex: 1, background: '#F9FAFB', color: h.enabled ? C.text : C.textLight, border: '1px solid ' + C.border, borderRadius: 8, padding: '6px 8px', fontSize: 13, cursor: h.enabled ? 'pointer' : 'not-allowed' }} />
+                      <span style={{ color: C.textMuted, fontSize: 12 }}>às</span>
+                      <input type="time" value={h.close} disabled={!h.enabled} onChange={e => updateDayHours(day, 'close', e.target.value)} style={{ flex: 1, background: '#F9FAFB', color: h.enabled ? C.text : C.textLight, border: '1px solid ' + C.border, borderRadius: 8, padding: '6px 8px', fontSize: 13, cursor: h.enabled ? 'pointer' : 'not-allowed' }} />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Instagram */}
+              <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <h3 style={{ color: C.text, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.gold} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                  Instagram
+                </h3>
+                <p style={{ color: C.textMuted, fontSize: 12, marginBottom: 10 }}>Link exibido após o pedido ser confirmado.</p>
+                <input className="input-field" placeholder="https://instagram.com/suaconta" value={getSetting('instagram_url')} onChange={e => updateSetting('instagram_url', e.target.value)} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+              </div>
+
+              {/* Especial do Mês */}
+              <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <h3 style={{ color: C.text, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                  <Star size={16} color={C.gold} /> Especial do Mês
+                </h3>
+                <input className="input-field" placeholder="Nome do sabor especial" value={getSetting('special_flavor_name')} onChange={e => updateSetting('special_flavor_name', e.target.value)} style={{ marginBottom: 8, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                <textarea className="input-field" placeholder="Descrição" value={getSetting('special_flavor_description')} onChange={e => updateSetting('special_flavor_description', e.target.value)} rows="3" style={{ resize: 'none', background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+              </div>
+
+              {/* Agendamento */}
+              <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <h3 style={{ color: C.text, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                  <Clock size={16} color={C.gold} /> Agendamento de Pedidos
+                </h3>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <input type="checkbox" checked={getSetting('scheduling_enabled') === 'true'} onChange={e => updateSetting('scheduling_enabled', e.target.checked ? 'true' : 'false')} />
+                  <span style={{ color: C.text, fontSize: 14 }}>Ativar agendamento</span>
+                </label>
+                <p style={{ color: C.textMuted, fontSize: 12, marginBottom: 14 }}>Permite que o cliente escolha data e hora na finalização do pedido.</p>
+
+                {getSetting('scheduling_enabled') === 'true' && (
+                  <>
+                    <label style={{ color: C.textMuted, fontSize: 12, display: 'block', marginBottom: 4 }}>Máximo de dias antecipados</label>
+                    <input className="input-field" type="number" min="1" max="30" placeholder="Ex: 3" value={getSetting('scheduling_max_days') || '3'} onChange={e => updateSetting('scheduling_max_days', e.target.value)} style={{ marginBottom: 16, maxWidth: 120, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                    <div style={{ height: 1, background: C.border, marginBottom: 14 }} />
+                    <h4 style={{ color: C.text, fontWeight: 700, marginBottom: 4, fontSize: 13 }}>Horários e capacidade</h4>
+                    <p style={{ color: C.textMuted, fontSize: 11, marginBottom: 12 }}>Cada horário pode receber no máximo N pedidos simultâneos.</p>
+                    {getSchedulingSlots().map((slot, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <input type="time" value={slot.time} onChange={e => { const slots = [...getSchedulingSlots()]; slots[i] = { ...slots[i], time: e.target.value }; updateSchedulingSlots(slots); }} style={{ flex: 1, background: '#F9FAFB', color: C.text, border: '1px solid ' + C.border, borderRadius: 8, padding: '6px 8px', fontSize: 13 }} />
+                        <input type="number" min="1" max="99" value={slot.max_orders} onChange={e => { const slots = [...getSchedulingSlots()]; slots[i] = { ...slots[i], max_orders: parseInt(e.target.value) || 1 }; updateSchedulingSlots(slots); }} style={{ width: 60, background: '#F9FAFB', color: C.text, border: '1px solid ' + C.border, borderRadius: 8, padding: '6px 8px', fontSize: 13, textAlign: 'center' }} />
+                        <span style={{ color: C.textMuted, fontSize: 11 }}>pedidos</span>
+                        <button onClick={() => { const slots = getSchedulingSlots().filter((_, j) => j !== i); updateSchedulingSlots(slots); }} style={{ background: 'none', border: 'none', color: C.danger, cursor: 'pointer', padding: 4 }}><X size={14} /></button>
+                      </div>
+                    ))}
+                    <button onClick={() => { const slots = [...getSchedulingSlots(), { time: '12:00', max_orders: 3 }]; updateSchedulingSlots(slots); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(242,168,0,0.1)', color: C.gold, border: '1px solid rgba(242,168,0,0.3)', borderRadius: 8, fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
+                      <Plus size={12} /> Adicionar horário
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* CardápioWeb Partner API */}
+              <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <h3 style={{ color: C.text, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                    <Plug size={16} color={C.gold} /> Integração CardápioWeb (Partner API)
+                  </h3>
+                  <button onClick={testCWPartner} disabled={cwPartnerLoading} style={{ padding: '6px 10px', background: '#F3F4F6', color: C.text, border: '1px solid ' + C.border, borderRadius: 8, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <RefreshCw size={11} style={cwPartnerLoading ? { animation: 'spin 1s linear infinite' } : {}} />
+                    {cwPartnerLoading ? '...' : 'Testar Conexão'}
+                  </button>
+                </div>
+                <p style={{ color: C.textMuted, fontSize: 12, marginBottom: 12 }}>Pedidos feitos no app são enviados automaticamente ao painel do CardápioWeb via Partner API.</p>
+
+                <div style={{ background: '#F9FAFB', borderRadius: 8, padding: 12, marginBottom: 12, border: '1px solid ' + C.border }}>
+                  <p style={{ color: '#D97706', fontSize: 12, fontWeight: 700, marginBottom: 10 }}>Variáveis de ambiente necessárias no Vercel:</p>
+                  {[
+                    ['CW_BASE_URL',    'URL base da API'],
+                    ['CW_API_KEY',     'Token do estabelecimento — X-API-KEY'],
+                    ['CW_PARTNER_KEY', 'Token do integrador — X-PARTNER-KEY'],
+                    ['CW_DEFAULT_LAT', 'Latitude do estabelecimento'],
+                    ['CW_DEFAULT_LNG', 'Longitude do estabelecimento'],
+                  ].map(([k, desc]) => (
+                    <div key={k} style={{ marginBottom: 8 }}>
+                      <p style={{ color: C.gold, fontSize: 11, fontFamily: 'monospace', marginBottom: 2 }}>{k}</p>
+                      <p style={{ color: C.textMuted, fontSize: 10 }}>{desc}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {!cwPartnerStatus && <p style={{ color: C.textLight, fontSize: 12, fontStyle: 'italic' }}>Clique em "Testar Conexão" para verificar o status.</p>}
+
+                {cwPartnerStatus && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 10, fontWeight: 700, background: cwPartnerStatus.enabled && !cwPartnerStatus.error ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: cwPartnerStatus.enabled && !cwPartnerStatus.error ? C.success : C.danger, border: `1px solid ${cwPartnerStatus.enabled && !cwPartnerStatus.error ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
+                        {cwPartnerStatus.enabled && !cwPartnerStatus.error ? '● Integração ativa' : '● Integração inativa'}
+                      </span>
+                    </div>
+                    {cwPartnerStatus.error && <p style={{ color: C.danger, fontSize: 12, marginBottom: 8, background: 'rgba(239,68,68,0.06)', padding: '8px 10px', borderRadius: 6 }}>{cwPartnerStatus.error}</p>}
+                    {cwPartnerStatus.payment_methods?.length > 0 && (
+                      <div>
+                        <p style={{ color: C.textMuted, fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Métodos de pagamento disponíveis:</p>
+                        {cwPartnerStatus.payment_methods.map(m => (
+                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, padding: '5px 8px', background: '#F9FAFB', borderRadius: 6, border: '1px solid ' + C.border }}>
+                            <span style={{ color: C.gold, fontSize: 10, fontFamily: 'monospace', minWidth: 28 }}>#{m.id}</span>
+                            <span style={{ color: C.text, fontSize: 12 }}>{m.name}</span>
+                            <span style={{ color: C.textLight, fontSize: 10, marginLeft: 'auto', fontFamily: 'monospace' }}>{m.kind}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+            </div>
+          </div>
         )}
-      {/* BOTÃO SALVAR FIXO */}
-      {tab !== 'orders' && tab !== 'cardapioweb' && (
-        <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, padding: '12px 16px', background: '#2D2D2D', borderTop: '2px solid #D4A528', zIndex: 40 }}>
-          {msg && <p style={{ fontSize: 13, textAlign: 'center', marginBottom: 6, color: msg.includes('✅') ? '#48BB78' : '#E53E3E' }}>{msg}</p>}
-          <button className="btn-primary" onClick={saveAll} disabled={saving}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            {saving
-              ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</>
-              : <><Save size={16} /> Salvar Tudo</>}
-          </button>
-        </div>
-      )}
+
+        {/* ── Coming Soon sections ─────────────────────────────────────── */}
+        {['clients', 'deliveries', 'marketing', 'financial', 'stock', 'reports'].includes(section) && (
+          <ComingSoon label={NAV_GROUPS.flatMap(g => g.items).find(i => i.key === section)?.label || section} />
+        )}
+
+        {/* ── Barra de Salvar (Produtos / Bebidas / Config) ────────────── */}
+        {showSaveBar && (
+          <div style={{
+            position: 'fixed', bottom: 0, left: 240, right: 0,
+            padding: '12px 32px',
+            background: C.card,
+            borderTop: '1px solid ' + C.border,
+            zIndex: 40,
+            display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16,
+            boxShadow: '0 -2px 8px rgba(0,0,0,0.06)',
+          }}>
+            {msg && (
+              <span style={{ fontSize: 13, color: msg.includes('✅') ? C.success : C.danger, fontWeight: 600 }}>
+                {msg}
+              </span>
+            )}
+            <button onClick={saveAll} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', background: C.gold, color: '#000', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
+              {saving ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><Save size={16} /> Salvar Alterações</>}
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
