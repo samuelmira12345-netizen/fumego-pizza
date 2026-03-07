@@ -610,7 +610,7 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
       {/* Filtros */}
       <div style={{ background: '#fff', borderBottom: '1px solid ' + C.border, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <div style={{ position: 'relative', width: 260 }}>
-          <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.light }} />
+          <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.light, pointerEvents: 'none' }} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
