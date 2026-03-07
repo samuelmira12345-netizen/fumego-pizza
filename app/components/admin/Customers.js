@@ -243,7 +243,7 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
           <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border }}>
             <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Produtos</h3>
             <div style={{ position: 'relative', marginBottom: 10 }}>
-              <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.light }} />
+              <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.light, pointerEvents: 'none' }} />
               <input
                 value={productSearch}
                 onChange={e => setProductSearch(e.target.value)}
