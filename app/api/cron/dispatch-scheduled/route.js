@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
-import { isCWPushEnabled, pushEventToCardapioWeb } from '../../../../lib/open-delivery';
+import { isCWPartnerEnabled, pushOrderToCW } from '../../../../lib/cardapioweb-partner';
 import { logger } from '../../../../lib/logger';
 
 /**
  * GET /api/cron/dispatch-scheduled
- * Executa a cada 5 minutos via Vercel Cron.
+ * Executa a cada 5 minutos via Vercel Cron (ou pelo auto-dispatch do admin).
  * Busca pedidos agendados cujo horário já passou e os confirma,
- * enviando o evento CREATED ao CardápioWeb para que a cozinha receba.
+ * enviando-os ao CardápioWeb via Partner API para que a cozinha receba.
  *
  * Autenticação: Bearer token via CRON_SECRET env var.
  */
@@ -24,7 +24,7 @@ export async function GET(request) {
 
     // Buscar pedidos agendados que já chegaram no horário e ainda estão pendentes
     const { data: orders, error } = await supabase.from('orders')
-      .select('id, order_number, scheduled_for, payment_status')
+      .select('*')
       .not('scheduled_for', 'is', null)
       .lte('scheduled_for', now)
       .eq('status', 'pending')
@@ -38,17 +38,36 @@ export async function GET(request) {
       // Confirma o pedido
       await supabase.from('orders').update({ status: 'confirmed' }).eq('id', order.id);
 
-      // Insere evento Open Delivery
-      await supabase.from('od_events').insert({ order_id: order.id, event_type: 'CREATED' }).catch(() => {});
+      // Busca os itens do pedido para enviar ao CW
+      const { data: orderItems } = await supabase
+        .from('order_items')
+        .select('*')
+        .eq('order_id', order.id);
 
-      // Push ao CardápioWeb
-      if (isCWPushEnabled()) {
-        pushEventToCardapioWeb(order.id, 'CREATED')
+      // Envia ao CardápioWeb via Partner API
+      if (isCWPartnerEnabled()) {
+        pushOrderToCW(order, orderItems || [])
           .then(r => {
-            if (!r.ok) logger.error('[Cron] Falha ao notificar CardápioWeb', { orderId: order.id });
-            else logger.info('[Cron] Pedido agendado disparado', { orderId: order.id, scheduled_for: order.scheduled_for });
+            if (r.ok) {
+              logger.info('[Cron] Pedido agendado enviado ao CardápioWeb', {
+                orderId:      order.id,
+                cwOrderId:    r.data?.id,
+                scheduled_for: order.scheduled_for,
+              });
+            } else {
+              logger.error('[Cron] Falha ao enviar pedido agendado ao CardápioWeb', {
+                orderId: order.id,
+                errors:  r.errors,
+                error:   r.error,
+              });
+            }
           })
-          .catch(e => logger.error('[Cron] Exceção ao notificar CardápioWeb', { orderId: order.id, error: e.message }));
+          .catch(e =>
+            logger.error('[Cron] Exceção ao enviar pedido agendado ao CardápioWeb', {
+              orderId: order.id,
+              error:   e.message,
+            })
+          );
       }
 
       dispatched++;

@@ -6,7 +6,7 @@ import {
   Flame, UtensilsCrossed, GlassWater, Settings, Package,
   Upload, Loader2, Trash2, Plus, Check, Save,
   Palette, Store, Star, Landmark, CreditCard, Banknote, Clock,
-  Plug, RefreshCw, X, Link2, Copy,
+  Plug, RefreshCw, X, Copy,
 } from 'lucide-react';
 import { DEFAULT_BUSINESS_HOURS, DAY_LABELS, DAY_ORDER } from '../../lib/store-hours';
 import OrdersTab from '../components/admin/OrdersTab';
@@ -32,9 +32,11 @@ export default function AdminPage() {
   const [cwSyncing, setCwSyncing] = useState(false);
   const [cwMsg, setCwMsg] = useState('');
 
-  // ── Open Delivery ───────────────────────────────────────────
-  const [odSetup, setOdSetup] = useState(null);
-  const [odLoading, setOdLoading] = useState(false);
+  // ── CardápioWeb Partner API ─────────────────────────────────
+  const [cwPartnerStatus, setCwPartnerStatus] = useState(null);
+  const [cwPartnerLoading, setCwPartnerLoading] = useState(false);
+
+  // ── Open Delivery (removido — substituído pela Partner API) ─────────────────
   const [uploadingId, setUploadingId] = useState(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [newDrink, setNewDrink] = useState({ name: '', size: '', price: '' });
@@ -84,18 +86,21 @@ export default function AdminPage() {
     return res;
   }, [adminToken]);
 
-  // ── Helpers Open Delivery ─────────────────────────────────────────────────
+  // ── Helpers CardápioWeb Partner API ──────────────────────────────────────
 
-  async function loadODSetup() {
-    setOdLoading(true);
+  async function testCWPartner() {
+    setCwPartnerLoading(true);
     try {
-      const res = await fetch('/api/open-delivery/setup', {
+      const res = await fetch('/api/cardapioweb-partner/test', {
         headers: { 'Authorization': `Bearer ${adminToken}` },
       });
       const d = await res.json();
-      setOdSetup(d);
-    } catch { setOdSetup(null); }
-    finally { setOdLoading(false); }
+      setCwPartnerStatus(d);
+    } catch (e) {
+      setCwPartnerStatus({ enabled: false, error: 'Erro ao conectar: ' + e.message });
+    } finally {
+      setCwPartnerLoading(false);
+    }
   }
 
   function copyToClipboard(text) {
@@ -873,70 +878,78 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* Open Delivery */}
+            {/* CardápioWeb Partner API */}
             <div style={{ background: '#2D2D2D', borderRadius: 12, padding: 16, border: '1px solid #444' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <h3 style={{ color: '#D4A528', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Link2 size={16} color="#D4A528" /> Open Delivery (CardápioWeb)
+                  <Plug size={16} color="#D4A528" /> Integração CardápioWeb (Partner API)
                 </h3>
-                <button onClick={loadODSetup} disabled={odLoading}
+                <button onClick={testCWPartner} disabled={cwPartnerLoading}
                   style={{ padding: '6px 10px', background: '#333', color: '#D4A528', border: '1px solid #444', borderRadius: 8, fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <RefreshCw size={11} style={odLoading ? { animation: 'spin 1s linear infinite' } : {}} />
-                  {odLoading ? '...' : 'Carregar'}
+                  <RefreshCw size={11} style={cwPartnerLoading ? { animation: 'spin 1s linear infinite' } : {}} />
+                  {cwPartnerLoading ? '...' : 'Testar Conexão'}
                 </button>
               </div>
               <p style={{ color: '#888', fontSize: 12, marginBottom: 12 }}>
-                Pedidos feitos no app chegam automaticamente no dashboard do CardápioWeb via Open Delivery.
-                Configure as variáveis de ambiente abaixo e forneça as credenciais ao CardápioWeb.
+                Pedidos feitos no app são enviados automaticamente ao painel do CardápioWeb via Partner API.
+                Configure as variáveis abaixo no Vercel e clique em "Testar Conexão" para verificar.
               </p>
 
-              {!odSetup && (
+              <div style={{ background: '#1A1A1A', borderRadius: 8, padding: 12, marginBottom: 12, border: '1px solid #333' }}>
+                <p style={{ color: '#F6AD55', fontSize: 12, fontWeight: 'bold', marginBottom: 10 }}>
+                  Variáveis de ambiente necessárias no Vercel:
+                </p>
+                {[
+                  ['CW_BASE_URL',      'URL base da API (ex: https://app.cardapioweb.com)'],
+                  ['CW_API_KEY',       'Token do estabelecimento — X-API-KEY (portal do CardápioWeb)'],
+                  ['CW_PARTNER_KEY',   'Token do integrador — X-PARTNER-KEY (fornecido pelo CardápioWeb)'],
+                  ['CW_DEFAULT_LAT',   'Latitude do estabelecimento (ex: -23.5505)'],
+                  ['CW_DEFAULT_LNG',   'Longitude do estabelecimento (ex: -46.6333)'],
+                ].map(([k, desc]) => (
+                  <div key={k} style={{ marginBottom: 8 }}>
+                    <p style={{ color: '#D4A528', fontSize: 11, fontFamily: 'monospace', marginBottom: 2 }}>{k}</p>
+                    <p style={{ color: '#666', fontSize: 10 }}>{desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              {!cwPartnerStatus && (
                 <p style={{ color: '#666', fontSize: 12, fontStyle: 'italic' }}>
-                  Clique em "Carregar" para ver as credenciais e endpoints.
+                  Clique em "Testar Conexão" para verificar o status da integração.
                 </p>
               )}
 
-              {odSetup && (
+              {cwPartnerStatus && (
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                     <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 10, fontWeight: 'bold',
-                      background: odSetup.enabled ? 'rgba(72,187,120,0.15)' : 'rgba(224,64,64,0.1)',
-                      color: odSetup.enabled ? '#48BB78' : '#E04040',
-                      border: `1px solid ${odSetup.enabled ? 'rgba(72,187,120,0.4)' : 'rgba(224,64,64,0.3)'}` }}>
-                      {odSetup.enabled ? '● Integração ativa' : '● Integração inativa'}
+                      background: cwPartnerStatus.enabled && !cwPartnerStatus.error ? 'rgba(72,187,120,0.15)' : 'rgba(224,64,64,0.1)',
+                      color:      cwPartnerStatus.enabled && !cwPartnerStatus.error ? '#48BB78' : '#E04040',
+                      border: `1px solid ${cwPartnerStatus.enabled && !cwPartnerStatus.error ? 'rgba(72,187,120,0.4)' : 'rgba(224,64,64,0.3)'}` }}>
+                      {cwPartnerStatus.enabled && !cwPartnerStatus.error ? '● Integração ativa' : '● Integração inativa'}
                     </span>
                   </div>
 
-                  {!odSetup.enabled && (
-                    <div style={{ background: '#1A1A1A', borderRadius: 8, padding: 12, marginBottom: 12, border: '1px solid #555' }}>
-                      <p style={{ color: '#F6AD55', fontSize: 12, fontWeight: 'bold', marginBottom: 6 }}>Configure as variáveis de ambiente:</p>
-                      {['OD_CLIENT_ID', 'OD_CLIENT_SECRET', 'OD_APP_ID', 'OD_MERCHANT_ID', 'OD_MERCHANT_NAME'].map(v => (
-                        <p key={v} style={{ color: '#888', fontSize: 11, fontFamily: 'monospace' }}>{v}</p>
+                  {cwPartnerStatus.error && (
+                    <p style={{ color: '#E04040', fontSize: 12, marginBottom: 8, background: 'rgba(224,64,64,0.08)', padding: '8px 10px', borderRadius: 6 }}>
+                      {cwPartnerStatus.error}
+                    </p>
+                  )}
+
+                  {cwPartnerStatus.payment_methods?.length > 0 && (
+                    <div>
+                      <p style={{ color: '#aaa', fontSize: 12, fontWeight: 'bold', marginBottom: 8 }}>
+                        Métodos de pagamento disponíveis no CardápioWeb:
+                      </p>
+                      {cwPartnerStatus.payment_methods.map(m => (
+                        <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, padding: '5px 8px', background: '#111', borderRadius: 6 }}>
+                          <span style={{ color: '#D4A528', fontSize: 10, fontFamily: 'monospace', minWidth: 28 }}>#{m.id}</span>
+                          <span style={{ color: '#fff', fontSize: 12 }}>{m.name}</span>
+                          <span style={{ color: '#888', fontSize: 10, marginLeft: 'auto', fontFamily: 'monospace' }}>{m.kind}</span>
+                        </div>
                       ))}
                     </div>
                   )}
-
-                  <p style={{ color: '#aaa', fontSize: 12, fontWeight: 'bold', marginBottom: 8 }}>
-                    Forneça ao CardápioWeb:
-                  </p>
-                  {[
-                    ['Base URL', odSetup.endpoints?.baseUrl],
-                    ['Token URL', odSetup.endpoints?.token],
-                    ['Client ID', odSetup.clientId],
-                    ['App ID', odSetup.appId],
-                  ].map(([label, value]) => (
-                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <span style={{ color: '#888', fontSize: 11, minWidth: 80 }}>{label}:</span>
-                      <span style={{ color: '#D4A528', fontSize: 11, fontFamily: 'monospace', flex: 1, wordBreak: 'break-all' }}>{value}</span>
-                      <button onClick={() => copyToClipboard(value)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#555', padding: 2 }}>
-                        <Copy size={12} />
-                      </button>
-                    </div>
-                  ))}
-                  <p style={{ color: '#666', fontSize: 11, marginTop: 8, fontStyle: 'italic' }}>
-                    Client Secret: use o valor definido em OD_CLIENT_SECRET (não exibido por segurança).
-                  </p>
                 </div>
               )}
             </div>
