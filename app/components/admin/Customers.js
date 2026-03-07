@@ -605,13 +605,6 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
 
         <div style={{ flex: 1 }} />
 
-        {/* Botão novo pedido rápido */}
-        <button onClick={() => { setCreatePrefill(null); setView('create'); }} style={{
-          display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 4,
-          border: 'none', background: '#111827', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-        }}>
-          <Plus size={14} /> Novo Pedido
-        </button>
       </div>
 
       {/* Filtros */}

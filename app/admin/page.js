@@ -416,6 +416,15 @@ export default function AdminPage() {
     finally { setLoading(false); }
   }
 
+  // Refresh leve: só busca pedidos (get_orders_only) — usado pelo KDS no auto-refresh
+  const loadOrders = useCallback(async () => {
+    try {
+      const res = await adminFetch('get_orders_only', {});
+      const d = await res.json();
+      if (d.orders) setData(prev => ({ ...prev, orders: d.orders }));
+    } catch {}
+  }, [adminFetch]);
+
   async function saveAll() {
     setSaving(true);
     setMsg('');
@@ -719,7 +728,7 @@ export default function AdminPage() {
       />
 
       {/* ── Conteúdo principal ───────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'auto' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: section === 'orders' ? 'hidden' : 'auto' }}>
 
         {/* Page Header */}
         {section !== 'dashboard' && <PageHeader section={section} />}
@@ -735,13 +744,18 @@ export default function AdminPage() {
 
         {/* ── PEDIDOS / KDS ─────────────────────────────────────────────── */}
         {section === 'orders' && (
-          <KDSBoard
-            orders={data.orders}
-            onUpdateStatus={updateOrderStatus}
-            onRefresh={loadData}
-            adminToken={adminToken}
-            loading={loading}
-          />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <KDSBoard
+              orders={data.orders}
+              onUpdateStatus={updateOrderStatus}
+              onRefresh={loadData}
+              onRefreshOrders={loadOrders}
+              adminToken={adminToken}
+              loading={loading}
+              products={data.products}
+              drinks={data.drinks}
+            />
+          </div>
         )}
 
         {/* ── PRODUTOS ──────────────────────────────────────────────────── */}
