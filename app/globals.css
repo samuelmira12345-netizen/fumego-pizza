@@ -114,6 +114,14 @@ body.admin-desktop {
   overflow-x: clip;
 }
 
+/* No admin, o body tem color: #fff (tema dark do cardápio), mas os inputs
+   do painel têm fundo branco — sem essa regra o texto digitado fica invisível */
+body.admin-desktop input,
+body.admin-desktop textarea,
+body.admin-desktop select {
+  color: #111827;
+}
+
 /* ===== ANIMATIONS ===== */
 @keyframes pulse    { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 @keyframes fadeIn   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
