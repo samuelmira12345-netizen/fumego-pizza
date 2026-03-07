@@ -134,6 +134,18 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === 'get_order_items') {
+      const { order_id } = data || {};
+      if (!order_id) return NextResponse.json({ error: 'order_id obrigatório' }, { status: 400 });
+      const { data: items, error } = await supabase
+        .from('order_items')
+        .select('product_name, quantity, unit_price, total_price, observations, drink_id')
+        .eq('order_id', order_id)
+        .order('created_at', { ascending: true });
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ items: items || [] });
+    }
+
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
   } catch (e) {
     logger.error('Admin error', e);

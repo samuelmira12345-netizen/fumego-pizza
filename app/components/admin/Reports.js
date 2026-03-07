@@ -543,7 +543,7 @@ export default function Reports({ adminToken }) {
           return (
             <button
               key={tab.key}
-              onClick={() => setReportType(tab.key)}
+              onClick={() => { setResult(null); setReportType(tab.key); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 7,
                 padding: '8px 16px', borderRadius: 8, border: 'none',

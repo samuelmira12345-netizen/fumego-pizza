@@ -11,10 +11,10 @@ import {
   Megaphone, Wallet, Archive, BarChart2, LogOut, ChevronRight,
 } from 'lucide-react';
 import { DEFAULT_BUSINESS_HOURS, DAY_LABELS, DAY_ORDER } from '../../lib/store-hours';
-import OrdersTab from '../components/admin/OrdersTab';
 import CardapioWebTab from '../components/admin/CardapioWebTab';
 import Dashboard from '../components/admin/Dashboard';
 import Reports from '../components/admin/Reports';
+import KDSBoard from '../components/admin/KDSBoard';
 
 const SESSION_KEY = 'admin_token';
 
@@ -705,17 +705,15 @@ export default function AdminPage() {
           />
         )}
 
-        {/* ── PEDIDOS ───────────────────────────────────────────────────── */}
+        {/* ── PEDIDOS / KDS ─────────────────────────────────────────────── */}
         {section === 'orders' && (
-          <div style={{ padding: '24px 32px', paddingBottom: 60 }}>
-            <OrdersTab
-              orders={data.orders}
-              hasMoreOrders={hasMoreOrders}
-              loadingMore={loadingMore}
-              onUpdateStatus={updateOrderStatus}
-              onLoadMore={loadMoreOrders}
-            />
-          </div>
+          <KDSBoard
+            orders={data.orders}
+            onUpdateStatus={updateOrderStatus}
+            onRefresh={loadData}
+            adminToken={adminToken}
+            loading={loading}
+          />
         )}
 
         {/* ── PRODUTOS ──────────────────────────────────────────────────── */}
