@@ -224,6 +224,7 @@ export default function CheckoutPage() {
       if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) { setCouponError('Cupom expirado'); return; }
       if (coupon.usage_limit && coupon.times_used >= coupon.usage_limit) { setCouponError('Cupom esgotado'); return; }
       setCouponApplied(coupon);
+      setUseCashbackBalance(false); // cupom e cashback não podem ser usados juntos
     } catch (e) { setCouponError('Erro ao validar'); }
   }
 
@@ -792,7 +793,11 @@ export default function CheckoutPage() {
               Saldo de Cashback
             </h2>
             <div
-              onClick={() => setUseCashbackBalance(v => !v)}
+              onClick={() => {
+                const enabling = !useCashbackBalance;
+                setUseCashbackBalance(enabling);
+                if (enabling) { setCouponApplied(null); setCouponCode(''); } // cupom e cashback não podem ser usados juntos
+              }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '14px 16px', borderRadius: 12, cursor: 'pointer',

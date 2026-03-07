@@ -159,10 +159,9 @@ export default function OrdersPage() {
 
   async function fetchOrders() {
     try {
-      const token = localStorage.getItem('fumego_token');
-      if (!token) { router.push('/login'); return; }
+      // Autenticação via cookie httpOnly (enviado automaticamente pelo browser)
       const res = await fetch('/api/orders', {
-        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
       });
       const d = await res.json();
       if (res.ok && d.orders) setOrders(d.orders);
