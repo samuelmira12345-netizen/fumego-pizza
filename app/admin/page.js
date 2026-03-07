@@ -9,12 +9,14 @@ import {
   Plug, RefreshCw, X, Copy,
   LayoutDashboard, ShoppingBag, Users, ChefHat, Truck,
   Megaphone, Wallet, Archive, BarChart2, LogOut, ChevronRight,
+  PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { DEFAULT_BUSINESS_HOURS, DAY_LABELS, DAY_ORDER } from '../../lib/store-hours';
 import CardapioWebTab from '../components/admin/CardapioWebTab';
 import Dashboard from '../components/admin/Dashboard';
 import Reports from '../components/admin/Reports';
 import KDSBoard from '../components/admin/KDSBoard';
+import Customers from '../components/admin/Customers';
 
 const SESSION_KEY = 'admin_token';
 
@@ -43,7 +45,7 @@ const NAV_GROUPS = [
     items: [
       { key: 'dashboard',   icon: LayoutDashboard, label: 'Dashboard' },
       { key: 'orders',      icon: ShoppingBag,     label: 'Pedidos' },
-      { key: 'clients',     icon: Users,           label: 'Clientes',   soon: true },
+      { key: 'clients',     icon: Users,           label: 'Clientes' },
     ],
   },
   {
@@ -72,41 +74,55 @@ const NAV_GROUPS = [
   },
 ];
 
-function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize }) {
+function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize, isOpen, onToggle }) {
+  const w = isOpen ? 240 : 64;
   return (
     <aside style={{
-      width: 240,
-      minWidth: 240,
+      width: w, minWidth: w,
       background: C.sidebar,
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      position: 'sticky',
-      top: 0,
-      overflowY: 'auto',
+      display: 'flex', flexDirection: 'column',
+      height: '100vh', position: 'sticky', top: 0,
+      overflowY: 'auto', overflowX: 'hidden',
       flexShrink: 0,
+      transition: 'width 0.2s ease, min-width 0.2s ease',
     }}>
-      {/* Brand */}
-      <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {logoUrl
-            ? <img src={logoUrl} alt="Logo" style={{ height: Math.min(logoSize, 36), objectFit: 'contain' }} />
-            : <Flame size={28} color={C.gold} />
-          }
-          <div>
-            <p style={{ fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: 2, fontFamily: 'Georgia,serif' }}>FUMÊGO</p>
-            <p style={{ fontSize: 10, color: C.gold, fontWeight: 600, letterSpacing: 1.5, marginTop: 1 }}>CRM</p>
+      {/* Brand + toggle */}
+      <div style={{ padding: isOpen ? '20px 16px 16px' : '20px 0 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: isOpen ? 'space-between' : 'center' }}>
+        {isOpen && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, overflow: 'hidden' }}>
+            {logoUrl
+              ? <img src={logoUrl} alt="Logo" style={{ height: Math.min(logoSize, 30), objectFit: 'contain', flexShrink: 0 }} />
+              : <Flame size={24} color={C.gold} style={{ flexShrink: 0 }} />
+            }
+            <div>
+              <p style={{ fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: 2, fontFamily: 'Georgia,serif', whiteSpace: 'nowrap' }}>FUMÊGO</p>
+              <p style={{ fontSize: 9, color: C.gold, fontWeight: 600, letterSpacing: 1.5, marginTop: 1 }}>CRM</p>
+            </div>
           </div>
-        </div>
+        )}
+        {!isOpen && <Flame size={22} color={C.gold} />}
+        <button
+          onClick={onToggle}
+          title={isOpen ? 'Recolher sidebar' : 'Expandir sidebar'}
+          style={{
+            background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: 6,
+            width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', flexShrink: 0, marginLeft: isOpen ? 4 : 0,
+          }}
+        >
+          {isOpen ? <PanelLeftClose size={15} color="rgba(255,255,255,0.6)" /> : <PanelLeftOpen size={15} color="rgba(255,255,255,0.6)" />}
+        </button>
       </div>
 
       {/* Navigation */}
-      <nav style={{ flex: 1, padding: '16px 12px', overflowY: 'auto' }}>
+      <nav style={{ flex: 1, padding: isOpen ? '14px 10px' : '14px 8px', overflowY: 'auto' }}>
         {NAV_GROUPS.map(group => (
-          <div key={group.label} style={{ marginBottom: 24 }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: 1.5, paddingLeft: 8, marginBottom: 6 }}>
-              {group.label}
-            </p>
+          <div key={group.label} style={{ marginBottom: isOpen ? 22 : 6 }}>
+            {isOpen && (
+              <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: 1.5, paddingLeft: 8, marginBottom: 5 }}>
+                {group.label}
+              </p>
+            )}
             {group.items.map(item => {
               const Icon = item.icon;
               const isActive = section === item.key;
@@ -114,26 +130,32 @@ function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize }) {
                 <button
                   key={item.key}
                   onClick={() => !item.soon && onNavigate(item.key)}
+                  title={!isOpen ? item.label : undefined}
                   style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '9px 10px', borderRadius: 8, border: 'none',
+                    width: '100%', display: 'flex', alignItems: 'center',
+                    gap: isOpen ? 10 : 0, justifyContent: isOpen ? 'flex-start' : 'center',
+                    padding: isOpen ? '8px 10px' : '10px 0',
+                    borderRadius: 6, border: 'none',
                     background: isActive ? C.goldDim : 'transparent',
-                    color: isActive ? C.gold : item.soon ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.7)',
+                    color: isActive ? C.gold : item.soon ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.65)',
                     fontSize: 13, fontWeight: isActive ? 600 : 400,
                     cursor: item.soon ? 'default' : 'pointer',
-                    marginBottom: 2,
-                    textAlign: 'left',
-                    transition: 'background 0.15s, color 0.15s',
+                    marginBottom: 2, textAlign: 'left',
+                    transition: 'background 0.12s, color 0.12s',
                   }}
                   onMouseEnter={e => { if (!isActive && !item.soon) e.currentTarget.style.background = C.sidebarHover; }}
                   onMouseLeave={e => { if (!isActive && !item.soon) e.currentTarget.style.background = 'transparent'; }}
                 >
                   <Icon size={16} style={{ flexShrink: 0 }} />
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.soon && (
-                    <span style={{ fontSize: 9, fontWeight: 700, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)', padding: '2px 6px', borderRadius: 10 }}>
-                      EM BREVE
-                    </span>
+                  {isOpen && (
+                    <>
+                      <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden' }}>{item.label}</span>
+                      {item.soon && (
+                        <span style={{ fontSize: 8, fontWeight: 700, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)', padding: '2px 5px', borderRadius: 8, whiteSpace: 'nowrap' }}>
+                          EM BREVE
+                        </span>
+                      )}
+                    </>
                   )}
                 </button>
               );
@@ -143,20 +165,23 @@ function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize }) {
       </nav>
 
       {/* Logout */}
-      <div style={{ padding: '12px 12px 20px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ padding: isOpen ? '10px 10px 18px' : '10px 8px 18px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
         <button
           onClick={onLogout}
+          title={!isOpen ? 'Sair' : undefined}
           style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-            padding: '9px 10px', borderRadius: 8, border: 'none',
+            width: '100%', display: 'flex', alignItems: 'center',
+            gap: isOpen ? 10 : 0, justifyContent: isOpen ? 'flex-start' : 'center',
+            padding: isOpen ? '8px 10px' : '10px 0',
+            borderRadius: 6, border: 'none',
             background: 'transparent', color: 'rgba(255,255,255,0.4)',
             fontSize: 13, cursor: 'pointer', textAlign: 'left',
           }}
           onMouseEnter={e => { e.currentTarget.style.color = '#EF4444'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
           onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; e.currentTarget.style.background = 'transparent'; }}
         >
-          <LogOut size={16} />
-          Sair
+          <LogOut size={16} style={{ flexShrink: 0 }} />
+          {isOpen && <span>Sair</span>}
         </button>
       </div>
     </aside>
@@ -206,6 +231,7 @@ export default function AdminPage() {
   const [adminToken, setAdminToken]           = useState('');
   const [authenticated, setAuthenticated]     = useState(false);
   const [section, setSection]                 = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen]         = useState(true);
   const [data, setData]                       = useState({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
   const [hasMoreOrders, setHasMoreOrders]     = useState(false);
   const [loadingMore, setLoadingMore]         = useState(false);
@@ -688,6 +714,8 @@ export default function AdminPage() {
         onLogout={handleLogout}
         logoUrl={getSetting('logo_url')}
         logoSize={parseInt(getSetting('logo_size') || '36')}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(o => !o)}
       />
 
       {/* ── Conteúdo principal ───────────────────────────────────────────── */}
@@ -1076,8 +1104,18 @@ export default function AdminPage() {
           <Reports adminToken={adminToken} />
         )}
 
+        {/* ── CLIENTES ──────────────────────────────────────────────────── */}
+        {section === 'clients' && (
+          <Customers
+            adminToken={adminToken}
+            products={data.products}
+            drinks={data.drinks}
+            onRefresh={loadData}
+          />
+        )}
+
         {/* ── Coming Soon sections ─────────────────────────────────────── */}
-        {['clients', 'deliveries', 'marketing', 'financial', 'stock'].includes(section) && (
+        {['deliveries', 'marketing', 'financial', 'stock'].includes(section) && (
           <ComingSoon label={NAV_GROUPS.flatMap(g => g.items).find(i => i.key === section)?.label || section} />
         )}
 
