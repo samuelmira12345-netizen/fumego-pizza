@@ -14,6 +14,7 @@ import { DEFAULT_BUSINESS_HOURS, DAY_LABELS, DAY_ORDER } from '../../lib/store-h
 import OrdersTab from '../components/admin/OrdersTab';
 import CardapioWebTab from '../components/admin/CardapioWebTab';
 import Dashboard from '../components/admin/Dashboard';
+import Reports from '../components/admin/Reports';
 
 const SESSION_KEY = 'admin_token';
 
@@ -60,7 +61,7 @@ const NAV_GROUPS = [
       { key: 'marketing',   icon: Megaphone,       label: 'Marketing',  soon: true },
       { key: 'financial',   icon: Wallet,          label: 'Financeiro', soon: true },
       { key: 'stock',       icon: Archive,         label: 'Estoque',    soon: true },
-      { key: 'reports',     icon: BarChart2,       label: 'Relatórios', soon: true },
+      { key: 'reports',     icon: BarChart2,       label: 'Relatórios' },
     ],
   },
   {
@@ -1072,8 +1073,13 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* ── RELATÓRIOS ────────────────────────────────────────────────── */}
+        {section === 'reports' && (
+          <Reports adminToken={adminToken} />
+        )}
+
         {/* ── Coming Soon sections ─────────────────────────────────────── */}
-        {['clients', 'deliveries', 'marketing', 'financial', 'stock', 'reports'].includes(section) && (
+        {['clients', 'deliveries', 'marketing', 'financial', 'stock'].includes(section) && (
           <ComingSoon label={NAV_GROUPS.flatMap(g => g.items).find(i => i.key === section)?.label || section} />
         )}
 
