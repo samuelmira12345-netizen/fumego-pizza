@@ -21,7 +21,8 @@ function verifyAdminToken(request) {
 export async function POST(request) {
   try {
     const ip = getClientIp(request);
-    const { allowed, retryAfterMs } = await checkRateLimit(`admin:${ip}`, 20, 15 * 60_000);
+    // Admins autenticados podem fazer mais requisições (auto-refresh do KDS)
+    const { allowed, retryAfterMs } = await checkRateLimit(`admin:${ip}`, 500, 15 * 60_000);
     if (!allowed) {
       const retryAfterSec = Math.ceil(retryAfterMs / 1000);
       return NextResponse.json(
@@ -65,6 +66,21 @@ export async function POST(request) {
         orders:     orders.data   || [],
         hasMore:    (orders.data || []).length === pageSize,
       });
+    }
+
+    if (action === 'get_orders_only') {
+      // Leve: apenas orders — usado pelo KDS no auto-refresh (não rebusca produtos/config)
+      const { since } = data || {};
+      let q = supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      // Se 'since' fornecido, retorna apenas pedidos a partir daquele momento (mais leve ainda)
+      if (since) q = q.gte('created_at', since);
+      const { data: rows, error } = await q;
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ orders: rows || [] });
     }
 
     if (action === 'get_more_orders') {

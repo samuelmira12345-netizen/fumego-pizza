@@ -5,8 +5,9 @@ import {
   Phone, MapPin, Clock, ChefHat, Truck, CheckCircle, XCircle,
   Printer, RefreshCw, Volume2, VolumeX, X, Bell, Calendar,
   CreditCard, Zap, Banknote, AlertTriangle, User, List,
-  EyeOff, Eye, ChevronDown,
+  EyeOff, Eye, ChevronDown, Plus,
 } from 'lucide-react';
+import ManualOrderDrawer from './ManualOrderDrawer';
 
 // ── Status config ──────────────────────────────────────────────────────────────
 
@@ -572,17 +573,18 @@ function QuickStat({ label, value, color, hidden }) {
 
 // ── KDS Board Principal ───────────────────────────────────────────────────────
 
-export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken, loading }) {
+export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshOrders, adminToken, loading, products, drinks }) {
   const [modal, setModal]               = useState(null);
   const [items, setItems]               = useState([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [soundOn, setSoundOn]           = useState(true);
   const [newIds, setNewIds]             = useState(new Set());
-  const [countdown, setCountdown]       = useState(10);
+  const [countdown, setCountdown]       = useState(15);
   const [filterMode, setFilterMode]     = useState('today');
   const [filterDate, setFilterDate]     = useState(todaySP());
   const [showRevenue, setShowRevenue]   = useState(true);
-  const [dragging, setDragging]         = useState(null); // order being dragged
+  const [dragging, setDragging]         = useState(null);
+  const [showDrawer, setShowDrawer]     = useState(false);
   const prevIdsRef                      = useRef(new Set());
   const onUpdateRef                     = useRef(onUpdateStatus);
   const tick                            = useSecondTick();
@@ -617,17 +619,18 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken
     prevIdsRef.current = cur;
   }, [orders, soundOn]);
 
-  // Auto-refresh a cada 10s
+  // Auto-refresh a cada 15s usando get_orders_only (leve, sem rebuscar produtos/config)
+  const refreshOrders = onRefreshOrders || onRefresh;
   useEffect(() => {
-    setCountdown(10);
+    setCountdown(15);
     const iv = setInterval(() => {
       setCountdown(c => {
-        if (c <= 1) { onRefresh(); return 10; }
+        if (c <= 1) { refreshOrders(); return 15; }
         return c - 1;
       });
     }, 1000);
     return () => clearInterval(iv);
-  }, [onRefresh]);
+  }, [refreshOrders]);
 
   // Abrir modal
   async function openModal(order) {
@@ -686,7 +689,7 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken
   const cols = COLUMNS.filter(c => c.id !== 'agendados' || hasScheduled);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', background: '#F1F3F5', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: '#F1F3F5', overflow: 'hidden' }}>
 
       {/* ── Barra superior ────────────────────────────────────────────────── */}
       <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '9px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -756,6 +759,12 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken
           {soundOn ? <Volume2 size={13} /> : <VolumeX size={13} />}
           {soundOn ? 'Som' : 'Mudo'}
         </button>
+
+        {/* Novo Pedido */}
+        <button onClick={() => setShowDrawer(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 4, border: 'none', background: '#111827', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+          <Plus size={13} /> Novo Pedido
+        </button>
       </div>
 
       {/* ── Kanban ───────────────────────────────────────────────────────── */}
@@ -782,7 +791,7 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken
         ))}
       </div>
 
-      {/* ── Modal ────────────────────────────────────────────────────────── */}
+      {/* ── Modal detalhes ───────────────────────────────────────────────── */}
       {modal && (
         <OrderModal
           order={modal}
@@ -791,6 +800,17 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, adminToken
           onClose={() => setModal(null)}
           onAction={handleAction}
           onPrint={handlePrint}
+        />
+      )}
+
+      {/* ── Drawer novo pedido manual ─────────────────────────────────────── */}
+      {showDrawer && (
+        <ManualOrderDrawer
+          adminToken={adminToken}
+          products={products || []}
+          drinks={drinks || []}
+          onClose={() => setShowDrawer(false)}
+          onSuccess={() => { setShowDrawer(false); refreshOrders(); }}
         />
       )}
 
