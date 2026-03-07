@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '../../../../lib/supabase';
+import { getSupabaseAdmin } from '../../../../lib/supabase';
 import jwt from 'jsonwebtoken';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -42,6 +42,9 @@ export async function GET(request) {
   if (!verifyAdminToken(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  // Service role bypasses RLS — necessary to read orders and order_items
+  const supabase = getSupabaseAdmin();
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type') || 'products';
