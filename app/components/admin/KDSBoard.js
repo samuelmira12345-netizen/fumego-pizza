@@ -287,7 +287,7 @@ function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStar
       onDrop={handleDrop}
       style={{
         display: 'flex', flexDirection: 'column',
-        flex: '0 0 300px', minWidth: 300,
+        flex: '1 1 260px', minWidth: 220,
         background: isDragOver ? col.cfg.bg : '#F8FAFC',
         borderRadius: 6,
         border: `${isDragOver ? 2 : 1}px solid ${isDragOver ? col.cfg.headerBg : col.cfg.border}`,
@@ -769,7 +769,7 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshO
 
       {/* ── Kanban ───────────────────────────────────────────────────────── */}
       <div
-        style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', padding: '12px 16px', display: 'flex', gap: 11, alignItems: 'stretch' }}
+        style={{ flex: 1, overflowX: 'hidden', overflowY: 'hidden', padding: '12px 16px', display: 'flex', gap: 11, alignItems: 'stretch' }}
         onDragEnd={() => setDragging(null)}
       >
         {cols.map(col => (

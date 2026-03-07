@@ -294,7 +294,7 @@ function ProductPicker({ products, drinks, onAdd, onClose }) {
   return (
     <div>
       <div style={{ position: 'relative', marginBottom: 10 }}>
-        <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.light }} />
+        <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.light, pointerEvents: 'none' }} />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -453,17 +453,18 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 2000,
-      display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end',
-    }}>
-      {/* Backdrop */}
-      <div onClick={onClose} style={{ flex: 1, background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(2px)' }} />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 2000 }}>
+      {/* Backdrop — cobre o viewport inteiro, fica abaixo do drawer */}
+      <div
+        onClick={onClose}
+        style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.45)' }}
+      />
 
-      {/* Drawer */}
+      {/* Drawer — posicionado absolutamente à direita, acima do backdrop */}
       <div style={{
+        position: 'absolute', top: 0, right: 0, bottom: 0,
         width: 520, background: '#fff', display: 'flex', flexDirection: 'column',
-        boxShadow: '-8px 0 40px rgba(0,0,0,0.18)', overflowY: 'hidden',
+        boxShadow: '-8px 0 40px rgba(0,0,0,0.18)',
       }}>
         {/* Header */}
         <div style={{ padding: '16px 20px', borderBottom: '1px solid ' + C.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
@@ -509,7 +510,7 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
                     style={{ width: '100%', padding: '10px 36px 10px 12px', borderRadius: 5, border: '1px solid ' + C.border, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                   />
                   {searching && (
-                    <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, border: '2px solid #E5E7EB', borderTopColor: C.muted, borderRadius: '50%', animation: 'kdrSpin 0.8s linear infinite' }} />
+                    <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, border: '2px solid #E5E7EB', borderTopColor: C.muted, borderRadius: '50%', animation: 'kdrSpin 0.8s linear infinite', pointerEvents: 'none' }} />
                   )}
                 </div>
               </div>
