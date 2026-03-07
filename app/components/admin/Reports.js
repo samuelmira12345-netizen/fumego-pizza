@@ -60,17 +60,31 @@ function firstOfMonth() {
 
 // ── Mini Bar Chart ─────────────────────────────────────────────────────────────
 
-function MiniBar({ data, labelKey, valueKey, color = C.gold, height = 120, formatValue }) {
+function fmtShort(v, isCurrency) {
+  if (!v) return '—';
+  if (isCurrency) {
+    if (v >= 1000) return `R$${(v / 1000).toFixed(1)}k`;
+    return `R$${v.toFixed(0)}`;
+  }
+  return String(v);
+}
+
+function MiniBar({ data, labelKey, valueKey, color = C.gold, height = 160, formatValue, isCurrency = false }) {
   const max = Math.max(...data.map(d => d[valueKey]), 1);
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height, paddingTop: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: height + 28, paddingTop: 24 }}>
       {data.map((item, i) => {
-        const pct = (item[valueKey] / max) * 100;
+        const pct  = (item[valueKey] / max) * 100;
+        const hasV = item[valueKey] > 0;
         return (
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', gap: 3 }}
-            title={`${item[labelKey]}: ${formatValue ? formatValue(item[valueKey]) : item[valueKey]}`}>
-            <div style={{ width: '100%', height: `${Math.max(pct > 0 ? pct : 0, pct > 0 ? 3 : 0)}%`, background: item[valueKey] > 0 ? color : '#E5E7EB', borderRadius: '3px 3px 0 0', minHeight: item[valueKey] > 0 ? 3 : 0 }} />
-            <span style={{ fontSize: 9, color: C.light, whiteSpace: 'nowrap', overflow: 'hidden', width: '100%', textAlign: 'center' }}>
+          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', gap: 3, position: 'relative' }}>
+            {hasV && (
+              <span style={{ position: 'absolute', bottom: `calc(${Math.max(pct, 3)}% + 16px)`, fontSize: 9, fontWeight: 600, color, whiteSpace: 'nowrap', textAlign: 'center' }}>
+                {fmtShort(item[valueKey], isCurrency)}
+              </span>
+            )}
+            <div style={{ width: '100%', height: `${Math.max(pct > 0 ? pct : 0, pct > 0 ? 3 : 0)}%`, background: hasV ? color : '#F3F4F6', borderRadius: '4px 4px 0 0', minHeight: hasV ? 3 : 0, maxHeight: height }} />
+            <span style={{ fontSize: 10, color: C.light, whiteSpace: 'nowrap', overflow: 'hidden', width: '100%', textAlign: 'center' }}>
               {item[labelKey]}
             </span>
           </div>
@@ -214,7 +228,7 @@ function ProductsReport({ result }) {
           <p style={{ fontWeight: 600, color: C.text, fontSize: 14 }}>Ranking de Produtos por Faturamento</p>
         </div>
         <div style={{ padding: '8px 20px 20px' }}>
-          <MiniBar data={data.slice(0, 12)} labelKey="product_name" valueKey="revenue" color={C.gold} height={150} formatValue={fmtBRL} />
+          <MiniBar data={data.slice(0, 12)} labelKey="product_name" valueKey="revenue" color={C.gold} height={200} formatValue={fmtBRL} isCurrency />
         </div>
         <Table
           rows={data}
@@ -253,7 +267,7 @@ function NeighborhoodsReport({ result }) {
           <p style={{ fontWeight: 600, color: C.text, fontSize: 14 }}>Pedidos por Bairro</p>
         </div>
         <div style={{ padding: '8px 20px 20px' }}>
-          <MiniBar data={data.slice(0, 15)} labelKey="neighborhood" valueKey="count" color={C.purple} height={140} />
+          <MiniBar data={data.slice(0, 15)} labelKey="neighborhood" valueKey="count" color={C.purple} height={200} />
         </div>
         <Table
           rows={data}
@@ -298,7 +312,7 @@ function HoursReport({ result }) {
           <p style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Horário de Brasília</p>
         </div>
         <div style={{ padding: '12px 20px 20px' }}>
-          <MiniBar data={chartData} labelKey="label" valueKey="count" color={C.orange} height={150} />
+          <MiniBar data={chartData} labelKey="label" valueKey="count" color={C.orange} height={200} />
         </div>
       </Card>
 
@@ -350,7 +364,7 @@ function TicketReport({ result }) {
             <p style={{ fontWeight: 600, color: C.text, fontSize: 14 }}>Ticket Médio Diário</p>
           </div>
           <div style={{ padding: '12px 20px 20px' }}>
-            <MiniBar data={days} labelKey="day" valueKey="avg_ticket" color={C.gold} height={140} formatValue={fmtBRL} />
+            <MiniBar data={days} labelKey="day" valueKey="avg_ticket" color={C.gold} height={200} formatValue={fmtBRL} isCurrency />
           </div>
           <Table
             rows={[...days].reverse()}

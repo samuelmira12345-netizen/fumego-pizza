@@ -37,26 +37,53 @@ function fmtDate(yyyymmdd) {
   return `${d}/${m}`;
 }
 
-// ── Mini Bar Chart ────────────────────────────────────────────────────────────
+// ── Bar Chart ─────────────────────────────────────────────────────────────────
 
-function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, height = 140 }) {
+function fmtShort(v, isCurrency) {
+  if (!v) return '—';
+  if (isCurrency) {
+    if (v >= 1000) return `R$${(v / 1000).toFixed(1)}k`;
+    return `R$${v.toFixed(0)}`;
+  }
+  return String(v);
+}
+
+function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, height = 220, isCurrency = false }) {
   const max = Math.max(...data.map(d => d[valueKey]), 1);
+  const hasAnyValue = data.some(d => d[valueKey] > 0);
+
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height, paddingTop: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: height + 32, paddingTop: 28 }}>
       {data.map((item, i) => {
         const pct = max > 0 ? (item[valueKey] / max) * 100 : 0;
+        const hasValue = item[valueKey] > 0;
         return (
           <div key={i}
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}
-            title={`${item[labelKey]}: ${formatValue ? formatValue(item[valueKey]) : item[valueKey]}`}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end', position: 'relative' }}
           >
+            {/* Value label above bar */}
+            {hasValue && (
+              <span style={{
+                position: 'absolute',
+                bottom: `calc(${Math.max(pct, 4)}% + 20px)`,
+                fontSize: 9, fontWeight: 600, color: color,
+                whiteSpace: 'nowrap', textAlign: 'center', lineHeight: 1,
+              }}>
+                {fmtShort(item[valueKey], isCurrency)}
+              </span>
+            )}
+            {/* Bar */}
             <div style={{
-              width: '100%', height: `${Math.max(pct, pct > 0 ? 4 : 0)}%`,
-              background: item[valueKey] > 0 ? color : '#E5E7EB',
-              borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease',
-              minHeight: item[valueKey] > 0 ? 4 : 0,
+              width: '100%',
+              height: `${Math.max(pct, hasValue ? 3 : 0)}%`,
+              background: hasValue ? color : '#F3F4F6',
+              borderRadius: '5px 5px 0 0',
+              transition: 'height 0.4s ease',
+              minHeight: hasValue ? 3 : 0,
+              maxHeight: height,
             }} />
-            <span style={{ fontSize: 9, color: '#9CA3AF', whiteSpace: 'nowrap', overflow: 'hidden', width: '100%', textAlign: 'center' }}>
+            {/* X-axis label */}
+            <span style={{ fontSize: 10, color: '#9CA3AF', whiteSpace: 'nowrap', overflow: 'hidden', width: '100%', textAlign: 'center', paddingBottom: 2 }}>
               {item[labelKey]}
             </span>
           </div>
@@ -354,47 +381,53 @@ export default function Dashboard({ orders, onRefresh, loading }) {
 
       {/* ── GRÁFICOS ──────────────────────────────────────────────────────── */}
       <SectionTitle>Gráficos</SectionTitle>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 18 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 12 }}>
 
-        {/* Vendas por hora */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '20px 24px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <BarChart2 size={15} color="#F2A800" />
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>Faturamento por hora — hoje</h3>
+        {/* Faturamento por hora — hoje */}
+        <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BarChart2 size={16} color="#F2A800" />
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Faturamento por hora — hoje</h3>
+            </div>
+            <span style={{ fontSize: 11, color: '#9CA3AF' }}>10h–23h · pedidos ativos</span>
           </div>
-          <p style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 14 }}>10h–23h · somente pedidos ativos</p>
           {hourlyData.every(d => d.total === 0)
-            ? <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 13 }}>Nenhuma venda registrada hoje</div>
-            : <BarChart data={hourlyData} labelKey="hour" valueKey="total" color="#F2A800" formatValue={fmtBRL} height={140} />
+            ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhuma venda registrada hoje</div>
+            : <BarChart data={hourlyData} labelKey="hour" valueKey="total" color="#F2A800" formatValue={fmtBRL} height={220} isCurrency />
           }
         </div>
 
-        {/* Pedidos por hora */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '20px 24px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <BarChart2 size={15} color="#6366F1" />
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>Pedidos — últimos 7 dias</h3>
+        {/* Faturamento bruto — últimos 7 dias */}
+        <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BarChart2 size={16} color="#10B981" />
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Faturamento bruto — últimos 7 dias</h3>
+            </div>
+            <span style={{ fontSize: 11, color: '#9CA3AF' }}>pedidos não cancelados</span>
           </div>
-          <p style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 14 }}>Contagem diária · pedidos não cancelados</p>
-          {weeklyData.every(d => d.count === 0)
-            ? <div style={{ height: 140, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 13 }}>Nenhum pedido nos últimos 7 dias</div>
-            : <BarChart data={weeklyData} labelKey="date" valueKey="count" color="#6366F1" height={140} />
+          {weeklyRevenue.every(d => d.total === 0)
+            ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhum faturamento nos últimos 7 dias</div>
+            : <BarChart data={weeklyRevenue} labelKey="date" valueKey="total" color="#10B981" formatValue={fmtBRL} height={220} isCurrency />
           }
         </div>
 
-      </div>
-
-      {/* Faturamento últimos 7 dias */}
-      <div style={{ background: '#fff', borderRadius: 12, padding: '20px 24px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 32 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <BarChart2 size={15} color="#10B981" />
-          <h3 style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>Faturamento bruto — últimos 7 dias</h3>
+        {/* Pedidos — últimos 7 dias */}
+        <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BarChart2 size={16} color="#6366F1" />
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Pedidos — últimos 7 dias</h3>
+            </div>
+            <span style={{ fontSize: 11, color: '#9CA3AF' }}>pedidos não cancelados</span>
+          </div>
+          {weeklyData.every(d => d.count === 0)
+            ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhum pedido nos últimos 7 dias</div>
+            : <BarChart data={weeklyData} labelKey="date" valueKey="count" color="#6366F1" height={220} />
+          }
         </div>
-        <p style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 14 }}>Soma diária · pedidos não cancelados</p>
-        {weeklyRevenue.every(d => d.total === 0)
-          ? <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 13 }}>Nenhum faturamento nos últimos 7 dias</div>
-          : <BarChart data={weeklyRevenue} labelKey="date" valueKey="total" color="#10B981" formatValue={fmtBRL} height={120} />
-        }
+
       </div>
 
       <p style={{ textAlign: 'center', fontSize: 11, color: '#D1D5DB' }}>
