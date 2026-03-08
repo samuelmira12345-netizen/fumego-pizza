@@ -32,10 +32,11 @@ function makeServiceAccountJWT(clientEmail, privateKey) {
     exp:   now + 3600,
   }));
   const signInput = `${header}.${payload}`;
+  const keyObject = crypto.createPrivateKey(privateKey);
   const sign = crypto.createSign('RSA-SHA256');
   sign.update(signInput);
   sign.end();
-  const sig = sign.sign(privateKey, 'base64url');
+  const sig = sign.sign(keyObject, 'base64url');
   return `${signInput}.${sig}`;
 }
 
