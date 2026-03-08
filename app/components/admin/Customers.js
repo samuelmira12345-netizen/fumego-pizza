@@ -6,6 +6,7 @@ import {
   Star, Award, UserCheck, UserX, ChevronRight, X, Plus, Minus,
   Printer, ArrowLeft, Package, CreditCard, Zap, Banknote,
   ChefHat, AlertCircle, Check,
+  Download, Filter, LayoutGrid, List, ChevronUp, ChevronDown,
 } from 'lucide-react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -32,13 +33,24 @@ function daysSince(isoStr) {
   return Math.floor((Date.now() - new Date(isoStr).getTime()) / 86400000);
 }
 
-function classify(c) {
+// ── Classificação RFV (Recência + Frequência + Valor) ─────────────────────────
+
+function classifyRFV(c) {
   const days = daysSince(c.last_order);
-  if (days > 45) return { label: 'Inativo', color: '#6B7280', bg: '#F3F4F6', icon: UserX };
-  if (c.orders === 1) return { label: 'Novo', color: '#2563EB', bg: '#EFF6FF', icon: User };
-  if (c.orders >= 6 || c.total_spent >= 300)
-    return { label: 'VIP', color: '#D97706', bg: '#FFFBEB', icon: Award };
-  return { label: 'Recorrente', color: '#059669', bg: '#ECFDF5', icon: UserCheck };
+  const freq = c.orders || 0;
+  const val  = c.total_spent || 0;
+
+  if (days <= 14 && freq >= 4 && val >= 120)
+    return { label: 'Campeão',   key: 'campeao',   color: '#7C3AED', bg: '#EDE9FE', icon: Award      };
+  if (days <= 30 && freq >= 3)
+    return { label: 'Leal',      key: 'leal',       color: '#059669', bg: '#ECFDF5', icon: UserCheck  };
+  if (freq <= 2 && days <= 60)
+    return { label: 'Promissor', key: 'promissor',  color: '#2563EB', bg: '#EFF6FF', icon: User       };
+  if (days > 30 && days <= 60)
+    return { label: 'Em risco',  key: 'em_risco',   color: '#D97706', bg: '#FFFBEB', icon: AlertCircle};
+  if (days > 60)
+    return { label: 'Perdido',   key: 'perdido',    color: '#EF4444', bg: '#FEF2F2', icon: UserX      };
+  return     { label: 'Leal',      key: 'leal',       color: '#059669', bg: '#ECFDF5', icon: UserCheck  };
 }
 
 const PM_LABELS = {
@@ -53,10 +65,10 @@ const C = {
   gold: '#D97706', success: '#059669', danger: '#EF4444',
 };
 
-// ── Classificação visual ───────────────────────────────────────────────────────
+// ── Badge RFV ──────────────────────────────────────────────────────────────────
 
-function ClassBadge({ customer }) {
-  const cl = classify(customer);
+function RFVBadge({ customer }) {
+  const cl = classifyRFV(customer);
   const Icon = cl.icon;
   return (
     <span style={{
@@ -68,6 +80,51 @@ function ClassBadge({ customer }) {
       {cl.label}
     </span>
   );
+}
+
+// ── Exportações ───────────────────────────────────────────────────────────────
+
+function exportCSV(customers) {
+  const BOM = '\uFEFF';
+  const headers = ['Nome', 'Telefone', 'Bairro', 'Cidade', 'Pedidos', 'Total gasto (R$)', 'Ticket médio (R$)', 'Primeiro pedido', 'Último pedido', 'Segmento RFV'];
+  const rows = customers.map(c => [
+    c.name || '', c.phone || '', c.neighborhood || '', c.city || '',
+    c.orders,
+    (c.total_spent || 0).toFixed(2).replace('.', ','),
+    (c.avg_ticket  || 0).toFixed(2).replace('.', ','),
+    c.first_order ? new Date(c.first_order).toLocaleDateString('pt-BR') : '',
+    c.last_order  ? new Date(c.last_order).toLocaleDateString('pt-BR')  : '',
+    classifyRFV(c).label,
+  ]);
+  const csv = BOM + [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `clientes_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportXLS(customers) {
+  const headers = ['Nome', 'Telefone', 'Bairro', 'Cidade', 'Pedidos', 'Total gasto', 'Ticket médio', 'Primeiro pedido', 'Último pedido', 'Segmento RFV'];
+  const rows = customers.map(c => [
+    c.name || '', c.phone || '', c.neighborhood || '', c.city || '',
+    c.orders,
+    (c.total_spent || 0).toFixed(2),
+    (c.avg_ticket  || 0).toFixed(2),
+    c.first_order ? new Date(c.first_order).toLocaleDateString('pt-BR') : '',
+    c.last_order  ? new Date(c.last_order).toLocaleDateString('pt-BR')  : '',
+    classifyRFV(c).label,
+  ]);
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"/></head><body><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `clientes_${new Date().toISOString().slice(0,10)}.xls`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // ── Formulário de Pedido Manual ───────────────────────────────────────────────
@@ -170,10 +227,7 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {/* Coluna esquerda: cliente + pagamento */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Cliente */}
           <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border }}>
             <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>Cliente</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -182,7 +236,6 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
             </div>
           </div>
 
-          {/* Endereço */}
           <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border }}>
             <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>Endereço de Entrega</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -196,7 +249,6 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
             </div>
           </div>
 
-          {/* Pagamento */}
           <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border }}>
             <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>Pagamento</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -236,10 +288,7 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
           </div>
         </div>
 
-        {/* Coluna direita: produtos */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-          {/* Buscar produtos */}
           <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border }}>
             <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Produtos</h3>
             <div style={{ position: 'relative', marginBottom: 10 }}>
@@ -259,7 +308,6 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '7px 10px', borderRadius: 4, border: '1px solid ' + (inCart ? '#BFDBFE' : C.border),
                     background: inCart ? '#EFF6FF' : '#F9FAFB', cursor: 'pointer',
-                    transition: 'background 0.1s',
                   }} onClick={() => addItem(item)}>
                     <div>
                       <p style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{item.name}</p>
@@ -275,7 +323,6 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
             </div>
           </div>
 
-          {/* Carrinho */}
           <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border, flex: 1 }}>
             <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Pedido</h3>
             {cartItems.length === 0 ? (
@@ -299,8 +346,6 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
                     </div>
                   </div>
                 ))}
-
-                {/* Totais */}
                 <div style={{ marginTop: 4, paddingTop: 10, borderTop: '1px dashed ' + C.border }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ fontSize: 12, color: C.muted }}>Subtotal</span>
@@ -323,7 +368,6 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
         </div>
       </div>
 
-      {/* Submit */}
       <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {error && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 14px', background: '#FEF2F2', borderRadius: 4, border: '1px solid #FECACA' }}>
@@ -340,7 +384,7 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
           <ChefHat size={16} />
           {saving ? 'Criando pedido...' : `Criar Pedido · ${fmtBRL(total)}`}
         </button>
-        <p style={{ fontSize: 11, color: C.light, textAlign: 'center' }}>O pedido será criado direto em <strong>Em Preparo</strong> no KDS</p>
+        <p style={{ fontSize: 11, color: C.light, textAlign: 'center' }}>O pedido será criado direto em <strong>Em Preparo</strong> no PDV</p>
       </div>
     </div>
   );
@@ -389,17 +433,15 @@ function CustomerProfile({ customer, adminToken, products, drinks, onBack, onCre
       .finally(() => setLoading(false));
   }, [customer?.phone, adminToken]);
 
-  const cl = classify(customer);
+  const cl = classifyRFV(customer);
   const ClIcon = cl.icon;
 
   return (
     <div style={{ padding: '20px 28px 60px', maxWidth: 800, margin: '0 auto' }}>
-      {/* Back */}
       <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 4, border: '1px solid #E5E7EB', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#374151', fontWeight: 600, marginBottom: 20 }}>
         <ArrowLeft size={14} /> Todos os clientes
       </button>
 
-      {/* Header do perfil */}
       <div style={{ background: C.card, borderRadius: 6, padding: 22, border: '1px solid ' + C.border, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -414,7 +456,7 @@ function CustomerProfile({ customer, adminToken, products, drinks, onBack, onCre
                     <Phone size={12} /> {fmtPhone(customer.phone)}
                   </a>
                 )}
-                <ClassBadge customer={customer} />
+                <RFVBadge customer={customer} />
               </div>
             </div>
           </div>
@@ -426,9 +468,8 @@ function CustomerProfile({ customer, adminToken, products, drinks, onBack, onCre
           </button>
         </div>
 
-        {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 18 }}>
-          <StatCard label="Total de pedidos"  value={customer.orders}           color="#2563EB" />
+          <StatCard label="Total de pedidos"  value={customer.orders}              color="#2563EB" />
           <StatCard label="Valor gasto"       value={fmtBRL(customer.total_spent)} color="#059669" />
           <StatCard label="Ticket médio"      value={fmtBRL(customer.avg_ticket)}  color="#D97706" />
           <StatCard label="Última compra"     value={fmtDate(customer.last_order)} color="#6B7280" />
@@ -442,7 +483,6 @@ function CustomerProfile({ customer, adminToken, products, drinks, onBack, onCre
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        {/* Top itens */}
         {topItems.length > 0 && (
           <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border }}>
             <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>
@@ -460,7 +500,6 @@ function CustomerProfile({ customer, adminToken, products, drinks, onBack, onCre
           </div>
         )}
 
-        {/* Histórico de pedidos */}
         <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border, gridColumn: topItems.length === 0 ? '1 / -1' : 'auto' }}>
           <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>
             Histórico de pedidos
@@ -471,7 +510,7 @@ function CustomerProfile({ customer, adminToken, products, drinks, onBack, onCre
             <p style={{ fontSize: 13, color: C.light }}>Nenhum pedido encontrado</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto' }}>
-              {orders.map((o, i) => {
+              {orders.map((o) => {
                 const pm = PM_LABELS[o.payment_method];
                 const PMIcon = pm?.icon || CreditCard;
                 return (
@@ -509,16 +548,122 @@ function StatCard({ label, value, color }) {
   );
 }
 
+// ── Tabela de Clientes ────────────────────────────────────────────────────────
+
+function CustomersTable({ customers, onSelect, sortKey, sortDir, onSort }) {
+  const cols = [
+    { key: 'name',        label: 'Nome' },
+    { key: 'phone',       label: 'Telefone' },
+    { key: 'neighborhood',label: 'Bairro' },
+    { key: 'orders',      label: 'Pedidos',      align: 'right' },
+    { key: 'total_spent', label: 'Total gasto',   align: 'right' },
+    { key: 'avg_ticket',  label: 'Ticket médio',  align: 'right' },
+    { key: 'last_order',  label: 'Último pedido' },
+    { key: 'rfv',         label: 'Segmento',      noSort: true },
+  ];
+
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr style={{ background: '#F9FAFB', borderBottom: '2px solid #E5E7EB', position: 'sticky', top: 0, zIndex: 1 }}>
+            {cols.map(col => (
+              <th key={col.key}
+                onClick={() => !col.noSort && onSort(col.key)}
+                style={{
+                  padding: '10px 14px', textAlign: col.align || 'left',
+                  fontSize: 11, fontWeight: 700, color: '#6B7280',
+                  letterSpacing: 0.5, textTransform: 'uppercase',
+                  cursor: col.noSort ? 'default' : 'pointer',
+                  userSelect: 'none', whiteSpace: 'nowrap', background: '#F9FAFB',
+                }}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {col.label}
+                  {!col.noSort && (
+                    sortKey === col.key
+                      ? (sortDir === 'asc' ? <ChevronUp size={11} color="#374151" /> : <ChevronDown size={11} color="#374151" />)
+                      : <ChevronDown size={11} color="#D1D5DB" />
+                  )}
+                </span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {customers.map((c) => {
+            const cl = classifyRFV(c);
+            const ClIcon = cl.icon;
+            return (
+              <tr key={c.phone || c.name}
+                onClick={() => onSelect(c)}
+                style={{ borderBottom: '1px solid #F3F4F6', cursor: 'pointer', background: '#fff' }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#F0F9FF'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; }}
+              >
+                <td style={{ padding: '10px 14px', fontWeight: 600, color: C.text }}>{c.name || '—'}</td>
+                <td style={{ padding: '10px 14px', color: C.muted, fontFamily: 'monospace', fontSize: 12 }}>{fmtPhone(c.phone)}</td>
+                <td style={{ padding: '10px 14px', color: C.muted }}>{c.neighborhood || '—'}</td>
+                <td style={{ padding: '10px 14px', fontWeight: 700, color: '#2563EB', textAlign: 'right' }}>{c.orders}</td>
+                <td style={{ padding: '10px 14px', fontWeight: 700, color: '#059669', textAlign: 'right' }}>{fmtBRL(c.total_spent)}</td>
+                <td style={{ padding: '10px 14px', color: C.muted, textAlign: 'right' }}>{fmtBRL(c.avg_ticket)}</td>
+                <td style={{ padding: '10px 14px', color: C.muted, whiteSpace: 'nowrap' }}>{fmtDate(c.last_order)}</td>
+                <td style={{ padding: '10px 14px' }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 3,
+                    background: cl.bg, color: cl.color,
+                  }}>
+                    <ClIcon size={11} />
+                    {cl.label}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── MiniStat ──────────────────────────────────────────────────────────────────
+
+function MiniStat({ label, value, color }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '5px 12px', background: color + '10', borderRadius: 4, border: `1px solid ${color}20` }}>
+      <p style={{ fontSize: 14, fontWeight: 800, color }}>{value}</p>
+      <p style={{ fontSize: 10, color: C.light }}>{label}</p>
+    </div>
+  );
+}
+
 // ── Customers Main ────────────────────────────────────────────────────────────
 
 export default function Customers({ adminToken, products, drinks, onRefresh }) {
-  const [customers, setCustomers] = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [search, setSearch]       = useState('');
-  const [filterClass, setFilterClass] = useState('all');
-  const [selected, setSelected]   = useState(null);  // customer object
-  const [view, setView]           = useState('list'); // 'list' | 'profile' | 'create'
+  const [customers, setCustomers]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [search, setSearch]         = useState('');
+  const [filterRfv, setFilterRfv]   = useState('all');
+  const [selected, setSelected]     = useState(null);
+  const [view, setView]             = useState('list');
   const [createPrefill, setCreatePrefill] = useState(null);
+
+  // View mode: 'cards' | 'table'
+  const [viewMode, setViewMode]     = useState('cards');
+
+  // Sort (table)
+  const [sortKey, setSortKey]       = useState('orders');
+  const [sortDir, setSortDir]       = useState('desc');
+
+  // Advanced filters
+  const [showAdvanced, setShowAdvanced]   = useState(false);
+  const [filterPhoneEnd, setFilterPhoneEnd]   = useState('');
+  const [filterMinOrders, setFilterMinOrders] = useState('');
+  const [filterMaxOrders, setFilterMaxOrders] = useState('');
+  const [filterMinTicket, setFilterMinTicket] = useState('');
+  const [filterMaxTicket, setFilterMaxTicket] = useState('');
+  const [filterLastDays, setFilterLastDays]   = useState('');
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
@@ -536,25 +681,73 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
 
+  function handleSort(key) {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('desc'); }
+  }
+
   const filtered = useMemo(() => {
     let list = customers;
+
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(c => (c.name || '').toLowerCase().includes(q) || (c.phone || '').includes(q) || (c.neighborhood || '').toLowerCase().includes(q));
+      list = list.filter(c =>
+        (c.name || '').toLowerCase().includes(q) ||
+        (c.phone || '').includes(q) ||
+        (c.neighborhood || '').toLowerCase().includes(q)
+      );
     }
-    if (filterClass !== 'all') {
-      list = list.filter(c => classify(c).label.toLowerCase() === filterClass);
+
+    if (filterRfv !== 'all') {
+      list = list.filter(c => classifyRFV(c).key === filterRfv);
     }
+
+    if (filterPhoneEnd.trim()) {
+      const end = filterPhoneEnd.replace(/\D/g, '');
+      if (end) list = list.filter(c => (c.phone || '').replace(/\D/g, '').endsWith(end));
+    }
+    if (filterMinOrders !== '') list = list.filter(c => (c.orders || 0) >= parseInt(filterMinOrders));
+    if (filterMaxOrders !== '') list = list.filter(c => (c.orders || 0) <= parseInt(filterMaxOrders));
+    if (filterMinTicket !== '') list = list.filter(c => (c.avg_ticket || 0) >= parseFloat(filterMinTicket));
+    if (filterMaxTicket !== '') list = list.filter(c => (c.avg_ticket || 0) <= parseFloat(filterMaxTicket));
+    if (filterLastDays  !== '') list = list.filter(c => daysSince(c.last_order) <= parseInt(filterLastDays));
+
     return list;
-  }, [customers, search, filterClass]);
+  }, [customers, search, filterRfv, filterPhoneEnd, filterMinOrders, filterMaxOrders, filterMinTicket, filterMaxTicket, filterLastDays]);
+
+  const sorted = useMemo(() => {
+    if (viewMode !== 'table') return filtered;
+    return [...filtered].sort((a, b) => {
+      let aVal = sortKey === 'rfv' ? classifyRFV(a).label : (a[sortKey] ?? '');
+      let bVal = sortKey === 'rfv' ? classifyRFV(b).label : (b[sortKey] ?? '');
+      if (typeof aVal === 'number' && typeof bVal === 'number')
+        return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+      return sortDir === 'asc'
+        ? String(aVal).localeCompare(String(bVal), 'pt-BR')
+        : String(bVal).localeCompare(String(aVal), 'pt-BR');
+    });
+  }, [filtered, viewMode, sortKey, sortDir]);
 
   const stats = useMemo(() => {
-    const total = customers.length;
-    const vip = customers.filter(c => classify(c).label === 'VIP').length;
-    const recorrentes = customers.filter(c => classify(c).label === 'Recorrente').length;
-    const inativos = customers.filter(c => classify(c).label === 'Inativo').length;
-    return { total, vip, recorrentes, inativos };
+    const seg = label => customers.filter(c => classifyRFV(c).label === label).length;
+    return {
+      total:      customers.length,
+      campeoes:   seg('Campeão'),
+      leais:      seg('Leal'),
+      promissores:seg('Promissor'),
+      emRisco:    seg('Em risco'),
+      perdidos:   seg('Perdido'),
+    };
   }, [customers]);
+
+  const hasAdvancedFilter = filterPhoneEnd || filterMinOrders || filterMaxOrders || filterMinTicket || filterMaxTicket || filterLastDays;
+
+  function clearAdvanced() {
+    setFilterPhoneEnd(''); setFilterMinOrders(''); setFilterMaxOrders('');
+    setFilterMinTicket(''); setFilterMaxTicket(''); setFilterLastDays('');
+  }
+
+  // ── Views ──────────────────────────────────────────────────────────────────
 
   if (view === 'profile' && selected) {
     return (
@@ -579,7 +772,7 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
           products={products}
           drinks={drinks}
           adminToken={adminToken}
-          onSuccess={(order) => { onRefresh(); setView('list'); }}
+          onSuccess={() => { onRefresh(); setView('list'); }}
           onCancel={() => setView(createPrefill ? 'profile' : 'list')}
         />
       </div>
@@ -588,54 +781,152 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: C.bg }}>
+
       {/* Header */}
-      <div style={{ background: '#fff', borderBottom: '1px solid ' + C.border, padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', flexShrink: 0 }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid ' + C.border, padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <User size={17} color="#2563EB" />
           <span style={{ fontSize: 15, fontWeight: 800, color: C.text }}>Clientes</span>
         </div>
 
-        {/* Mini stats */}
-        <div style={{ display: 'flex', gap: 8, marginLeft: 6 }}>
-          <MiniStat label="Total" value={stats.total} color="#2563EB" />
-          <MiniStat label="VIP" value={stats.vip} color="#D97706" />
-          <MiniStat label="Recorrentes" value={stats.recorrentes} color="#059669" />
-          <MiniStat label="Inativos" value={stats.inativos} color="#6B7280" />
+        {/* RFV Stats */}
+        <div style={{ display: 'flex', gap: 6, marginLeft: 6, flexWrap: 'wrap' }}>
+          <MiniStat label="Total"      value={stats.total}       color="#2563EB" />
+          <MiniStat label="Campeões"   value={stats.campeoes}    color="#7C3AED" />
+          <MiniStat label="Leais"      value={stats.leais}       color="#059669" />
+          <MiniStat label="Em risco"   value={stats.emRisco}     color="#D97706" />
+          <MiniStat label="Perdidos"   value={stats.perdidos}    color="#EF4444" />
         </div>
 
         <div style={{ flex: 1 }} />
 
+        {/* Exportar */}
+        <button onClick={() => exportCSV(filtered)} title="Exportar CSV" style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          padding: '6px 12px', borderRadius: 5, border: '1px solid #E5E7EB',
+          background: '#fff', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        }}>
+          <Download size={13} /> CSV
+        </button>
+        <button onClick={() => exportXLS(filtered)} title="Exportar Excel" style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          padding: '6px 12px', borderRadius: 5, border: '1px solid #E5E7EB',
+          background: '#fff', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        }}>
+          <Download size={13} /> Excel
+        </button>
+
+        {/* View toggle */}
+        <div style={{ display: 'flex', border: '1px solid #E5E7EB', borderRadius: 5, overflow: 'hidden' }}>
+          <button onClick={() => setViewMode('cards')} title="Cartões" style={{
+            padding: '6px 10px', border: 'none', cursor: 'pointer',
+            background: viewMode === 'cards' ? '#111827' : '#fff',
+            color: viewMode === 'cards' ? '#fff' : '#6B7280',
+            display: 'flex', alignItems: 'center',
+          }}><LayoutGrid size={14} /></button>
+          <button onClick={() => setViewMode('table')} title="Tabela" style={{
+            padding: '6px 10px', border: 'none', cursor: 'pointer',
+            background: viewMode === 'table' ? '#111827' : '#fff',
+            color: viewMode === 'table' ? '#fff' : '#6B7280',
+            display: 'flex', alignItems: 'center',
+          }}><List size={14} /></button>
+        </div>
       </div>
 
-      {/* Filtros */}
-      <div style={{ background: '#fff', borderBottom: '1px solid ' + C.border, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <div style={{ position: 'relative', width: 260 }}>
+      {/* Filtros básicos */}
+      <div style={{ background: '#fff', borderBottom: '1px solid ' + C.border, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', width: 240 }}>
           <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.light, pointerEvents: 'none' }} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nome, telefone ou bairro..."
+            placeholder="Nome, telefone ou bairro..."
             style={{ width: '100%', padding: '7px 10px 7px 28px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
           />
         </div>
-        <div style={{ display: 'flex', gap: 5 }}>
-          {[{ k: 'all', l: 'Todos' }, { k: 'vip', l: 'VIP' }, { k: 'recorrente', l: 'Recorrentes' }, { k: 'novo', l: 'Novos' }, { k: 'inativo', l: 'Inativos' }].map(f => (
-            <button key={f.k} onClick={() => setFilterClass(f.k)} style={{
+
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          {[
+            { k: 'all',       l: 'Todos' },
+            { k: 'campeao',   l: 'Campeões' },
+            { k: 'leal',      l: 'Leais' },
+            { k: 'promissor', l: 'Promissores' },
+            { k: 'em_risco',  l: 'Em risco' },
+            { k: 'perdido',   l: 'Perdidos' },
+          ].map(f => (
+            <button key={f.k} onClick={() => setFilterRfv(f.k)} style={{
               padding: '5px 12px', borderRadius: 4, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              background: filterClass === f.k ? '#111827' : '#F3F4F6',
-              color: filterClass === f.k ? '#fff' : C.muted,
+              background: filterRfv === f.k ? '#111827' : '#F3F4F6',
+              color: filterRfv === f.k ? '#fff' : C.muted,
             }}>{f.l}</button>
           ))}
         </div>
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: C.light }}>{filtered.length} cliente{filtered.length !== 1 ? 's' : ''}</span>
+
+        <button onClick={() => setShowAdvanced(v => !v)} style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          padding: '5px 12px', borderRadius: 4,
+          border: `1px solid ${hasAdvancedFilter ? '#2563EB' : C.border}`,
+          background: hasAdvancedFilter ? '#EFF6FF' : '#fff',
+          color: hasAdvancedFilter ? '#2563EB' : C.muted,
+          fontSize: 12, fontWeight: 600, cursor: 'pointer',
+        }}>
+          <Filter size={12} /> Filtros{hasAdvancedFilter ? ' ●' : ''}
+        </button>
+
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: C.light }}>
+          {filtered.length} cliente{filtered.length !== 1 ? 's' : ''}
+        </span>
       </div>
 
-      {/* Lista */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 24px' }}>
+      {/* Filtros avançados */}
+      {showAdvanced && (
+        <div style={{ background: '#F8FAFC', borderBottom: '1px solid ' + C.border, padding: '12px 24px', display: 'flex', alignItems: 'flex-end', gap: 12, flexShrink: 0, flexWrap: 'wrap' }}>
+          {[
+            { label: 'Final do telefone', value: filterPhoneEnd, set: setFilterPhoneEnd, placeholder: 'ex: 9999', width: 90, maxLength: 5 },
+            { label: 'Pedidos mín.', value: filterMinOrders, set: setFilterMinOrders, placeholder: '0', width: 70, type: 'number' },
+            { label: 'Pedidos máx.', value: filterMaxOrders, set: setFilterMaxOrders, placeholder: '∞', width: 70, type: 'number' },
+            { label: 'Ticket mín. (R$)', value: filterMinTicket, set: setFilterMinTicket, placeholder: '0', width: 80, type: 'number' },
+            { label: 'Ticket máx. (R$)', value: filterMaxTicket, set: setFilterMaxTicket, placeholder: '∞', width: 80, type: 'number' },
+            { label: 'Últ. compra ≤ X dias', value: filterLastDays, set: setFilterLastDays, placeholder: '∞', width: 80, type: 'number' },
+          ].map(f => (
+            <div key={f.label}>
+              <label style={{ fontSize: 10, fontWeight: 700, color: C.light, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{f.label}</label>
+              <input
+                type={f.type || 'text'}
+                value={f.value}
+                onChange={e => f.set(e.target.value)}
+                placeholder={f.placeholder}
+                maxLength={f.maxLength}
+                style={{ width: f.width, padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none' }}
+              />
+            </div>
+          ))}
+          {hasAdvancedFilter && (
+            <button onClick={clearAdvanced} style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '6px 12px', borderRadius: 4, border: 'none',
+              background: '#FEE2E2', color: '#B91C1C', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            }}>
+              <X size={12} /> Limpar
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Conteúdo: cards ou tabela */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: viewMode === 'table' ? 0 : '14px 24px' }}>
         {loading ? (
           <p style={{ fontSize: 14, color: C.light, textAlign: 'center', padding: '60px 0' }}>Carregando clientes...</p>
         ) : filtered.length === 0 ? (
           <p style={{ fontSize: 14, color: C.light, textAlign: 'center', padding: '60px 0' }}>Nenhum cliente encontrado</p>
+        ) : viewMode === 'table' ? (
+          <CustomersTable
+            customers={sorted}
+            onSelect={c => { setSelected(c); setView('profile'); }}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={handleSort}
+          />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 10 }}>
             {filtered.map(c => (
@@ -649,7 +940,7 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
 }
 
 function CustomerCard({ customer, onClick }) {
-  const cl = classify(customer);
+  const cl = classifyRFV(customer);
   const ClIcon = cl.icon;
   return (
     <div
@@ -669,7 +960,7 @@ function CustomerCard({ customer, onClick }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{customer.name}</p>
-          <ClassBadge customer={customer} />
+          <RFVBadge customer={customer} />
         </div>
         <p style={{ fontSize: 11, color: C.muted, marginBottom: 5 }}>
           {fmtPhone(customer.phone)}
@@ -682,15 +973,6 @@ function CustomerCard({ customer, onClick }) {
         </div>
       </div>
       <ChevronRight size={14} color={C.light} />
-    </div>
-  );
-}
-
-function MiniStat({ label, value, color }) {
-  return (
-    <div style={{ textAlign: 'center', padding: '5px 12px', background: color + '10', borderRadius: 4, border: `1px solid ${color}20` }}>
-      <p style={{ fontSize: 14, fontWeight: 800, color }}>{value}</p>
-      <p style={{ fontSize: 10, color: C.light }}>{label}</p>
     </div>
   );
 }

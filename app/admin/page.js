@@ -17,6 +17,7 @@ import Dashboard from '../components/admin/Dashboard';
 import Reports from '../components/admin/Reports';
 import KDSBoard from '../components/admin/KDSBoard';
 import Customers from '../components/admin/Customers';
+import Catalog from '../components/admin/Catalog';
 
 const SESSION_KEY = 'admin_token';
 
@@ -51,8 +52,7 @@ const NAV_GROUPS = [
   {
     label: 'OPERAÇÃO',
     items: [
-      { key: 'products',    icon: UtensilsCrossed, label: 'Produtos' },
-      { key: 'drinks',      icon: GlassWater,      label: 'Bebidas' },
+      { key: 'catalog',     icon: UtensilsCrossed, label: 'Catálogo' },
       { key: 'cardapioweb', icon: Plug,            label: 'CardápioWeb' },
       { key: 'deliveries',  icon: Truck,           label: 'Entregas',   soon: true },
     ],
@@ -208,8 +208,7 @@ function PageHeader({ section }) {
   const labels = {
     dashboard:   'Dashboard',
     orders:      'Pedidos',
-    products:    'Produtos',
-    drinks:      'Bebidas',
+    catalog:     'Catálogo',
     cardapioweb: 'CardápioWeb',
     settings:    'Configurações',
   };
@@ -719,7 +718,7 @@ export default function AdminPage() {
 
   // ── Conteúdo de cada seção ──────────────────────────────────────────────────
 
-  const showSaveBar = ['products', 'drinks', 'settings'].includes(section);
+  const showSaveBar = ['settings'].includes(section);
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: C.bg }}>
@@ -769,7 +768,14 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ── PRODUTOS ──────────────────────────────────────────────────── */}
+        {/* ── CATÁLOGO (Produtos + Bebidas + Insumos) ───────────────────── */}
+        {section === 'catalog' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+            <Catalog adminToken={adminToken} />
+          </div>
+        )}
+
+        {/* ── PRODUTOS (legado — não aparece mais no nav) ────────────────── */}
         {section === 'products' && (
           <div style={{ padding: '24px 32px', paddingBottom: 100 }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 16 }}>
