@@ -312,3 +312,8 @@ CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token
 
 -- Chave de idempotência para evitar pedidos duplicados no checkout
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS idempotency_key TEXT UNIQUE;
+
+-- Timeline de status (para tempo de produção e relatórios de SLA)
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivering_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivered_at  TIMESTAMPTZ;

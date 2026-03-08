@@ -42,14 +42,15 @@ export async function POST(request) {
     const supabase = getSupabaseAdmin();
 
     if (action === 'get_data') {
-      // Suporta paginação: cursor = created_at do último item recebido
-      const { cursor, pageSize = 50 } = data || {};
+      // Carrega os últimos 8 dias para permitir comparativo com a semana anterior no Dashboard.
+      // "Carregar mais" (get_more_orders) usa cursor para orders mais antigas.
+      const since8days = new Date(Date.now() - 8 * 24 * 3600 * 1000).toISOString();
       let ordersQuery = supabase
         .from('orders')
         .select('*')
+        .gte('created_at', since8days)
         .order('created_at', { ascending: false })
-        .limit(pageSize);
-      if (cursor) ordersQuery = ordersQuery.lt('created_at', cursor);
+        .limit(2000);
 
       const [products, drinks, coupons, settings, orders] = await Promise.all([
         supabase.from('products').select('*').order('sort_order'),
@@ -64,20 +65,20 @@ export async function POST(request) {
         coupons:    coupons.data  || [],
         settings:   settings.data || [],
         orders:     orders.data   || [],
-        hasMore:    (orders.data || []).length === pageSize,
+        hasMore:    (orders.data || []).length >= 2000,
       });
     }
 
     if (action === 'get_orders_only') {
-      // Leve: apenas orders — usado pelo KDS no auto-refresh (não rebusca produtos/config)
+      // Retorna os últimos 8 dias de orders para manter o Dashboard e o KDS sincronizados.
       const { since } = data || {};
+      const defaultSince = since || new Date(Date.now() - 8 * 24 * 3600 * 1000).toISOString();
       let q = supabase
         .from('orders')
         .select('*')
+        .gte('created_at', defaultSince)
         .order('created_at', { ascending: false })
-        .limit(200);
-      // Se 'since' fornecido, retorna apenas pedidos a partir daquele momento (mais leve ainda)
-      if (since) q = q.gte('created_at', since);
+        .limit(2000);
       const { data: rows, error } = await q;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ orders: rows || [] });
@@ -104,6 +105,13 @@ export async function POST(request) {
       const updates = {};
       if (status)         updates.status         = status;
       if (payment_status) updates.payment_status = payment_status;
+
+      // Registra timestamps da timeline ao mudar status
+      const now = new Date().toISOString();
+      if (status === 'confirmed' || status === 'preparing') updates.confirmed_at  = now;
+      if (status === 'delivering')                          updates.delivering_at = now;
+      if (status === 'delivered')                          updates.delivered_at  = now;
+
       await supabase.from('orders').update(updates).eq('id', id);
 
       // Gera cashback quando loja finaliza o pedido manualmente (dinheiro/cartão na entrega)

@@ -5,7 +5,7 @@ import {
   ShoppingBag, DollarSign, TrendingUp, ChefHat,
   Truck, CheckCircle, XCircle, Clock, BarChart2, RefreshCw,
   Percent, CreditCard, Tag, AlertTriangle, Banknote, Zap,
-  TrendingDown, ArrowUpRight, ArrowDownRight, Minus,
+  TrendingDown, ArrowUpRight, ArrowDownRight, Minus, Target,
 } from 'lucide-react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -28,6 +28,19 @@ function yesterdaySP() {
   d.setDate(d.getDate() - 1);
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
+function lastWeekSameDaySP() {
+  const d = new Date();
+  d.setDate(d.getDate() - 7);
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+function currentHourSP() {
+  return parseInt(new Date().toLocaleString('en-US', {
+    timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false,
+  }));
+}
+function weekdayShortSP(yyyymmdd) {
+  return new Date(yyyymmdd + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' });
+}
 function fmtBRL(v) {
   return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
@@ -36,8 +49,13 @@ function fmtDate(yyyymmdd) {
   const [y, m, d] = yyyymmdd.split('-');
   return `${d}/${m}`;
 }
+function fmtMinutes(mins) {
+  if (mins === null || mins === undefined) return '—';
+  if (mins < 60) return `${Math.round(mins)}min`;
+  return `${Math.floor(mins / 60)}h${Math.round(mins % 60) > 0 ? Math.round(mins % 60) + 'm' : ''}`;
+}
 
-// ── Bar Chart ─────────────────────────────────────────────────────────────────
+// ── Gráfico de barras simples ─────────────────────────────────────────────────
 
 function fmtShort(v, isCurrency) {
   if (!v) return '—';
@@ -61,7 +79,6 @@ function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, he
           <div key={i}
             style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end', position: 'relative' }}
           >
-            {/* Value label above bar */}
             {hasValue && (
               <span style={{
                 position: 'absolute',
@@ -72,7 +89,6 @@ function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, he
                 {fmtShort(item[valueKey], isCurrency)}
               </span>
             )}
-            {/* Bar */}
             <div style={{
               width: '100%',
               height: `${Math.max(pct, hasValue ? 3 : 0)}%`,
@@ -82,13 +98,104 @@ function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, he
               minHeight: hasValue ? 3 : 0,
               maxHeight: height,
             }} />
-            {/* X-axis label */}
             <span style={{ fontSize: 10, color: '#9CA3AF', whiteSpace: 'nowrap', overflow: 'hidden', width: '100%', textAlign: 'center', paddingBottom: 2 }}>
               {item[labelKey]}
             </span>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ── Gráfico duplo (barras de faturamento + linha de pedidos) ──────────────────
+
+function DualChart({ data, height = 200 }) {
+  const n = data.length;
+  if (n === 0) return null;
+
+  const maxRev = Math.max(...data.map(d => d.revenue), 1);
+  const maxCnt = Math.max(...data.map(d => d.count), 1);
+
+  // SVG viewBox fixo; as barras e a linha são calculadas em coordenadas SVG
+  const W = 700, padL = 8, padR = 8, padT = 24, padB = 26;
+  const chartW = W - padL - padR;
+  const chartH = height - padT - padB;
+  const slotW  = chartW / n;
+  const barW   = slotW * 0.55;
+
+  function barX(i)    { return padL + i * slotW + slotW * 0.225; }
+  function barHeight(rev) { return Math.max((rev / maxRev) * chartH * 0.88, rev > 0 ? 3 : 0); }
+  function lineX(i)   { return padL + i * slotW + slotW * 0.5; }
+  function lineY(cnt) { return padT + chartH - (cnt / maxCnt) * chartH * 0.80 - 8; }
+
+  const polyPoints = data.map((d, i) => `${lineX(i)},${lineY(d.count)}`).join(' ');
+
+  return (
+    <div>
+      {/* Legenda */}
+      <div style={{ display: 'flex', gap: 18, marginBottom: 8, fontSize: 11, color: '#6B7280' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 12, height: 10, background: '#F2A800', borderRadius: 2, display: 'inline-block' }} />
+          Faturamento
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 18, height: 2.5, background: '#6366F1', display: 'inline-block', borderRadius: 2 }} />
+          Pedidos
+        </span>
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${height}`} style={{ width: '100%', height: height + 8, display: 'block' }}>
+        {/* Linhas de grade horizontais */}
+        {[0.25, 0.5, 0.75, 1].map(p => {
+          const y = padT + chartH - p * chartH * 0.88;
+          return <line key={p} x1={padL} y1={y} x2={W - padR} y2={y} stroke="#F3F4F6" strokeWidth="1" />;
+        })}
+
+        {/* Barras de faturamento */}
+        {data.map((d, i) => {
+          const bh = barHeight(d.revenue);
+          const bx = barX(i);
+          const by = padT + chartH - bh;
+          return (
+            <g key={i}>
+              <rect x={bx} y={by} width={barW} height={bh} rx={3}
+                fill={d.revenue > 0 ? '#F2A800' : '#F3F4F6'} opacity={0.85} />
+              {d.revenue > 0 && bh > 18 && (
+                <text x={bx + barW / 2} y={by - 5} textAnchor="middle" fontSize="10" fill="#D97706" fontWeight="700">
+                  {fmtShort(d.revenue, true)}
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        {/* Linha de pedidos */}
+        {n > 1 && (
+          <polyline points={polyPoints} fill="none" stroke="#6366F1" strokeWidth="2.5"
+            strokeLinejoin="round" strokeLinecap="round" />
+        )}
+
+        {/* Pontos e valores da linha */}
+        {data.map((d, i) => {
+          const cx = lineX(i);
+          const cy = lineY(d.count);
+          return (
+            <g key={i}>
+              <circle cx={cx} cy={cy} r={5} fill="#6366F1" />
+              {d.count > 0 && (
+                <text x={cx} y={cy - 9} textAnchor="middle" fontSize="10" fill="#6366F1" fontWeight="700">
+                  {d.count}
+                </text>
+              )}
+              {/* X label */}
+              <text x={lineX(i)} y={height - 4} textAnchor="middle" fontSize="10" fill="#9CA3AF">
+                {d.date}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
@@ -200,6 +307,11 @@ export default function Dashboard({ orders, onRefresh, loading }) {
   }
 
   const metrics = useMemo(() => {
+    const lastWeekDate  = lastWeekSameDaySP();
+    const currentHour   = currentHourSP();
+    const openHour  = 10;
+    const closeHour = 23;
+
     // Pedidos do período selecionado
     let todayOrders;
     if (filterMode === 'today') {
@@ -209,9 +321,15 @@ export default function Dashboard({ orders, onRefresh, loading }) {
     } else {
       todayOrders = orders.filter(o => { const d = toSPDate(o.created_at); return d >= dateFrom && d <= dateTo; });
     }
-    // Comparativo: ontem (só no modo "hoje")
-    const yesterdayOrders = filterMode === 'today'
-      ? orders.filter(o => toSPDate(o.created_at) === yesterday)
+
+    // Comparativo: mesmo dia da semana anterior, mesmo horário (só no modo "hoje")
+    const lastWeekOrders = filterMode === 'today'
+      ? orders.filter(o => toSPDate(o.created_at) === lastWeekDate && toSPHour(o.created_at) <= currentHour)
+      : [];
+
+    // Todos os pedidos do mesmo dia da semana anterior (para projeção)
+    const lastWeekAllOrders = filterMode === 'today'
+      ? orders.filter(o => toSPDate(o.created_at) === lastWeekDate)
       : [];
 
     // ── Helpers de agregação ──────────────────────────────────────────────
@@ -225,10 +343,7 @@ export default function Dashboard({ orders, onRefresh, loading }) {
       const cancelPct = list.length > 0 ? (cancelled / list.length) * 100 : 0;
       const avgTicket = active.length > 0 ? revenue / active.length : 0;
 
-      // Pedidos por status
-      const byStatus = (s) => list.filter(o => o.status === s).length;
-
-      // Pedidos por forma de pagamento
+      const byStatus  = (s) => list.filter(o => o.status === s).length;
       const byPayment = {};
       for (const o of active) {
         const pm = o.payment_method || 'pix';
@@ -236,8 +351,6 @@ export default function Dashboard({ orders, onRefresh, loading }) {
         byPayment[pm].count++;
         byPayment[pm].revenue += parseFloat(o.total) || 0;
       }
-
-      // Aguardando pagamento PIX (pedido existe mas pagamento pending)
       const awaitingPix = list.filter(o =>
         o.payment_method === 'pix' &&
         o.payment_status === 'pending' &&
@@ -255,15 +368,49 @@ export default function Dashboard({ orders, onRefresh, loading }) {
     }
 
     const td = agg(todayOrders);
-    const yd = agg(yesterdayOrders);
+    const lw = agg(lastWeekOrders);       // mesma semana, mesmo horário
+    const lwAll = agg(lastWeekAllOrders); // mesma semana, dia completo
 
-    // Delta % vs ontem (returns null se ontem = 0)
-    function delta(todayV, yestV) {
-      if (yestV === 0) return null;
-      return ((todayV - yestV) / yestV) * 100;
+    // Delta % vs semana passada (mesma hora)
+    function delta(todayV, lwV) {
+      if (lwV === 0) return null;
+      return ((todayV - lwV) / lwV) * 100;
     }
 
-    // Vendas por hora (10h–23h) — somente para seleção de dia único
+    // Label do comparativo
+    const lwDayShort  = weekdayShortSP(lastWeekDate);
+    const deltaLabel  = filterMode === 'today' ? `${lwDayShort} passado` : null;
+
+    // ── Tempo médio de produção ───────────────────────────────────────────
+    const ordersWithProd = todayOrders.filter(o =>
+      o.delivering_at && o.status !== 'cancelled'
+    );
+    const avgProductionMins = ordersWithProd.length > 0
+      ? ordersWithProd.reduce((s, o) =>
+          s + (new Date(o.delivering_at) - new Date(o.created_at)) / 60000, 0
+        ) / ordersWithProd.length
+      : null;
+
+    // Produção semana passada (mesma janela de horário)
+    const lwWithProd = lastWeekOrders.filter(o => o.delivering_at && o.status !== 'cancelled');
+    const avgProductionMinsLW = lwWithProd.length > 0
+      ? lwWithProd.reduce((s, o) =>
+          s + (new Date(o.delivering_at) - new Date(o.created_at)) / 60000, 0
+        ) / lwWithProd.length
+      : null;
+
+    // ── Projeção de faturamento (só em "hoje") ────────────────────────────
+    const elapsedHours    = Math.max(0, currentHour - openHour);
+    const remainingHours  = Math.max(0, closeHour - currentHour);
+    const revenuePerHour  = elapsedHours >= 1 ? td.revenue / elapsedHours : 0;
+    const projectedRevenue = filterMode === 'today' && elapsedHours >= 1
+      ? td.revenue + revenuePerHour * remainingHours
+      : null;
+    const projectionDelta = projectedRevenue !== null && lwAll.revenue > 0
+      ? ((projectedRevenue - lwAll.revenue) / lwAll.revenue) * 100
+      : null;
+
+    // ── Vendas por hora ───────────────────────────────────────────────────
     const isSingleDay = filterMode !== 'custom' || dateFrom === dateTo;
     const hourlyData = Array.from({ length: 14 }, (_, i) => {
       const h = i + 10;
@@ -275,7 +422,7 @@ export default function Dashboard({ orders, onRefresh, loading }) {
       return { hour: `${String(h).padStart(2,'0')}h`, total };
     });
 
-    // Receita por dia — para períodos multi-dia
+    // Receita por dia (período multi-dia)
     let dailyData = null;
     if (!isSingleDay) {
       const days = [];
@@ -285,36 +432,41 @@ export default function Dashboard({ orders, onRefresh, loading }) {
         days.push(d.toLocaleDateString('en-CA'));
       }
       dailyData = days.map(date => ({
-        date:  fmtDate(date),
+        date: fmtDate(date),
         total: orders.filter(o => toSPDate(o.created_at) === date && o.status !== 'cancelled')
                      .reduce((s, o) => s + (parseFloat(o.total) || 0), 0),
       }));
     }
 
-    // Últimos 7 dias — referência = fim do período selecionado
+    // ── Últimos 7 dias — dados para o gráfico duplo ───────────────────────
     const refDate = filterMode === 'today' ? today : filterMode === 'yesterday' ? yesterday : dateTo;
     const last7 = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(refDate + 'T12:00:00');
       d.setDate(d.getDate() - (6 - i));
       return d.toLocaleDateString('en-CA');
     });
-    const weeklyData = last7.map(date => ({
-      date: fmtDate(date),
+    const dualWeeklyData = last7.map(date => ({
+      date:    fmtDate(date),
+      revenue: orders
+        .filter(o => toSPDate(o.created_at) === date && o.status !== 'cancelled')
+        .reduce((s, o) => s + (parseFloat(o.total) || 0), 0),
       count: orders.filter(o => toSPDate(o.created_at) === date && o.status !== 'cancelled').length,
     }));
 
-    // Receita por dia (últimos 7)
-    const weeklyRevenue = last7.map(date => ({
-      date: fmtDate(date),
-      total: orders
-        .filter(o => toSPDate(o.created_at) === date && o.status !== 'cancelled')
-        .reduce((s, o) => s + (parseFloat(o.total) || 0), 0),
-    }));
-
-    return { td, yd, delta, hourlyData, isSingleDay, dailyData, weeklyData, weeklyRevenue };
+    return {
+      td, lw, lwAll, delta, deltaLabel,
+      avgProductionMins, avgProductionMinsLW,
+      projectedRevenue, projectionDelta,
+      hourlyData, isSingleDay, dailyData, dualWeeklyData,
+    };
   }, [orders, today, yesterday, filterMode, dateFrom, dateTo]);
 
-  const { td, yd, delta, hourlyData, isSingleDay, dailyData, weeklyData, weeklyRevenue } = metrics;
+  const {
+    td, lw, lwAll, delta, deltaLabel,
+    avgProductionMins, avgProductionMinsLW,
+    projectedRevenue, projectionDelta,
+    hourlyData, isSingleDay, dailyData, dualWeeklyData,
+  } = metrics;
 
   const now = new Date().toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo',
@@ -385,7 +537,39 @@ export default function Dashboard({ orders, onRefresh, loading }) {
             />
           </>
         )}
+
+        {filterMode === 'today' && deltaLabel && (
+          <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 4 }}>
+            comparado com {deltaLabel} (mesmo horário)
+          </span>
+        )}
       </div>
+
+      {/* ── PROJEÇÃO DE FATURAMENTO (hoje) ────────────────────────────────── */}
+      {projectedRevenue !== null && (
+        <>
+          <SectionTitle>Projeção do dia</SectionTitle>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
+            <KpiCard icon={Target} iconColor="#6366F1" iconBg="rgba(99,102,241,0.1)"
+              label="Projeção de faturamento"
+              value={fmtBRL(projectedRevenue)}
+              sub={`Atual: ${fmtBRL(td.revenue)} · Projeção linear`}
+              delta={projectionDelta}
+              deltaLabel={lwAll.revenue > 0 ? `${deltaLabel}: ${fmtBRL(lwAll.revenue)}` : null}
+            />
+            <KpiCard icon={Clock} iconColor="#D97706" iconBg="rgba(217,119,6,0.1)"
+              label="Tempo médio de produção"
+              value={fmtMinutes(avgProductionMins)}
+              sub={avgProductionMins !== null ? `${metrics.td?.inProduction ?? 0} em preparo` : 'sem dados ainda'}
+              delta={avgProductionMins !== null && avgProductionMinsLW !== null
+                ? delta(avgProductionMins, avgProductionMinsLW) * -1  // inverso: menor é melhor
+                : null}
+              deltaLabel={avgProductionMinsLW !== null ? `${deltaLabel}: ${fmtMinutes(avgProductionMinsLW)}` : null}
+              highlight={avgProductionMins > 40 ? '#EF4444' : avgProductionMins > 25 ? '#D97706' : '#10B981'}
+            />
+          </div>
+        </>
+      )}
 
       {/* ── OPERAÇÃO DO DIA ────────────────────────────────────────────────── */}
       <SectionTitle>Operação — {periodLabel}</SectionTitle>
@@ -394,7 +578,8 @@ export default function Dashboard({ orders, onRefresh, loading }) {
         <KpiCard icon={ShoppingBag} iconColor="#6366F1" iconBg="rgba(99,102,241,0.1)"
           label={`Pedidos — ${periodLabel}`} value={td.total}
           sub={`${td.pending} pendente${td.pending !== 1 ? 's' : ''}`}
-          delta={delta(td.total, yd.total)} deltaLabel={filterMode === 'today' ? `ontem: ${yd.total}` : null}
+          delta={delta(td.total, lw.total)}
+          deltaLabel={deltaLabel ? `${deltaLabel}: ${lw.total}` : null}
         />
         <KpiCard icon={ChefHat} iconColor="#F97316" iconBg="rgba(249,115,22,0.1)"
           label="Em produção" value={td.inProduction}
@@ -408,15 +593,21 @@ export default function Dashboard({ orders, onRefresh, loading }) {
         <KpiCard icon={CheckCircle} iconColor="#10B981" iconBg="rgba(16,185,129,0.1)"
           label="Finalizados" value={td.delivered}
           highlight={td.delivered > 0 ? '#10B981' : '#111827'}
-          delta={delta(td.delivered, yd.delivered)} deltaLabel={filterMode === 'today' ? `ontem: ${yd.delivered}` : null}
+          delta={delta(td.delivered, lw.delivered)}
+          deltaLabel={deltaLabel ? `${deltaLabel}: ${lw.delivered}` : null}
         />
         <KpiCard icon={XCircle} iconColor="#EF4444" iconBg="rgba(239,68,68,0.1)"
           label="Cancelados" value={td.cancelled}
           highlight={td.cancelled > 0 ? '#EF4444' : '#111827'}
         />
-        <KpiCard icon={Clock} iconColor="#6B7280" iconBg="rgba(107,114,128,0.1)"
-          label="Tempo méd. entrega" value="—" sub="em breve"
-        />
+        {projectedRevenue === null && (
+          <KpiCard icon={Clock} iconColor="#D97706" iconBg="rgba(217,119,6,0.1)"
+            label="Tempo médio de produção"
+            value={fmtMinutes(avgProductionMins)}
+            sub={avgProductionMins !== null ? 'recebido → saiu p/ entrega' : 'sem dados ainda'}
+            highlight={avgProductionMins !== null && avgProductionMins > 40 ? '#EF4444' : avgProductionMins > 25 ? '#D97706' : '#10B981'}
+          />
+        )}
       </div>
 
       {/* ── FINANCEIRO DO DIA ─────────────────────────────────────────────── */}
@@ -426,16 +617,18 @@ export default function Dashboard({ orders, onRefresh, loading }) {
         <KpiCard icon={DollarSign} iconColor="#10B981" iconBg="rgba(16,185,129,0.1)"
           label="Faturamento bruto" value={fmtBRL(td.revenue)}
           sub="pedidos não cancelados"
-          delta={delta(td.revenue, yd.revenue)} deltaLabel={filterMode === 'today' ? `ontem: ${fmtBRL(yd.revenue)}` : null}
+          delta={delta(td.revenue, lw.revenue)}
+          deltaLabel={deltaLabel ? `${deltaLabel}: ${fmtBRL(lw.revenue)}` : null}
         />
         <KpiCard icon={TrendingUp} iconColor="#F2A800" iconBg="rgba(242,168,0,0.1)"
           label="Ticket médio" value={fmtBRL(td.avgTicket)}
           sub="por pedido ativo"
-          delta={delta(td.avgTicket, yd.avgTicket)} deltaLabel={filterMode === 'today' ? `ontem: ${fmtBRL(yd.avgTicket)}` : null}
+          delta={delta(td.avgTicket, lw.avgTicket)}
+          deltaLabel={deltaLabel ? `${deltaLabel}: ${fmtBRL(lw.avgTicket)}` : null}
         />
         <KpiCard icon={Truck} iconColor="#3B82F6" iconBg="rgba(59,130,246,0.1)"
           label="Taxa de entrega" value={fmtBRL(td.delivFee)}
-          sub="arrecadada hoje"
+          sub="arrecadada no período"
         />
         <KpiCard icon={Tag} iconColor="#EF4444" iconBg="rgba(239,68,68,0.1)"
           label="Descontos (cupons)" value={fmtBRL(td.discount)}
@@ -472,7 +665,7 @@ export default function Dashboard({ orders, onRefresh, loading }) {
       <SectionTitle>Gráficos</SectionTitle>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 12 }}>
 
-        {/* Faturamento por hora (dia único) ou por dia (período) */}
+        {/* Faturamento por hora ou por dia */}
         <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -486,47 +679,32 @@ export default function Dashboard({ orders, onRefresh, loading }) {
           {isSingleDay
             ? hourlyData.every(d => d.total === 0)
               ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhuma venda registrada</div>
-              : <BarChart data={hourlyData} labelKey="hour" valueKey="total" color="#F2A800" formatValue={fmtBRL} height={220} isCurrency />
+              : <BarChart data={hourlyData} labelKey="hour" valueKey="total" color="#F2A800" height={220} isCurrency />
             : !dailyData || dailyData.every(d => d.total === 0)
               ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhuma venda no período</div>
-              : <BarChart data={dailyData} labelKey="date" valueKey="total" color="#F2A800" formatValue={fmtBRL} height={220} isCurrency />
+              : <BarChart data={dailyData} labelKey="date" valueKey="total" color="#F2A800" height={220} isCurrency />
           }
         </div>
 
-        {/* Faturamento bruto — últimos 7 dias */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BarChart2 size={16} color="#10B981" />
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Faturamento bruto — últimos 7 dias</h3>
-            </div>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>pedidos não cancelados</span>
-          </div>
-          {weeklyRevenue.every(d => d.total === 0)
-            ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhum faturamento nos últimos 7 dias</div>
-            : <BarChart data={weeklyRevenue} labelKey="date" valueKey="total" color="#10B981" formatValue={fmtBRL} height={220} isCurrency />
-          }
-        </div>
-
-        {/* Pedidos — últimos 7 dias */}
+        {/* Gráfico unificado: faturamento + pedidos — últimos 7 dias */}
         <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BarChart2 size={16} color="#6366F1" />
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Pedidos — últimos 7 dias</h3>
+              <BarChart2 size={16} color="#F2A800" />
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Faturamento e pedidos — últimos 7 dias</h3>
             </div>
             <span style={{ fontSize: 11, color: '#9CA3AF' }}>pedidos não cancelados</span>
           </div>
-          {weeklyData.every(d => d.count === 0)
-            ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhum pedido nos últimos 7 dias</div>
-            : <BarChart data={weeklyData} labelKey="date" valueKey="count" color="#6366F1" height={220} />
+          {dualWeeklyData.every(d => d.revenue === 0 && d.count === 0)
+            ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhum dado nos últimos 7 dias</div>
+            : <DualChart data={dualWeeklyData} height={200} />
           }
         </div>
 
       </div>
 
       <p style={{ textAlign: 'center', fontSize: 11, color: '#D1D5DB' }}>
-        Métricas calculadas a partir dos pedidos carregados · Clique em "Atualizar" para sincronizar · Para análises detalhadas acesse Relatórios
+        Comparativos vs. mesmo dia da semana anterior · Clique em "Atualizar" para sincronizar · Para análises detalhadas acesse Relatórios
       </p>
     </div>
   );

@@ -416,12 +416,20 @@ export default function AdminPage() {
     finally { setLoading(false); }
   }
 
-  // Refresh leve: só busca pedidos (get_orders_only) — usado pelo KDS no auto-refresh
+  // Refresh: busca os últimos 8 dias de orders e mescla com dados já carregados.
+  // Ordens mais antigas (carregadas via "Carregar mais") são preservadas.
   const loadOrders = useCallback(async () => {
     try {
       const res = await adminFetch('get_orders_only', {});
       const d = await res.json();
-      if (d.orders) setData(prev => ({ ...prev, orders: d.orders }));
+      if (d.orders) {
+        setData(prev => {
+          const freshIds = new Set(d.orders.map(o => o.id));
+          // Preserva pedidos mais antigos que não estão no batch novo
+          const olderOrders = prev.orders.filter(o => !freshIds.has(o.id));
+          return { ...prev, orders: [...d.orders, ...olderOrders] };
+        });
+      }
     } catch {}
   }, [adminFetch]);
 
@@ -754,6 +762,9 @@ export default function AdminPage() {
               loading={loading}
               products={data.products}
               drinks={data.drinks}
+              hasMoreOrders={hasMoreOrders}
+              loadingMore={loadingMore}
+              onLoadMore={loadMoreOrders}
             />
           </div>
         )}

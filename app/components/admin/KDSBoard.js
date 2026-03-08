@@ -5,9 +5,11 @@ import {
   Phone, MapPin, Clock, ChefHat, Truck, CheckCircle, XCircle,
   Printer, RefreshCw, Volume2, VolumeX, X, Bell, Calendar,
   CreditCard, Zap, Banknote, AlertTriangle, User, List,
-  EyeOff, Eye, ChevronDown, Plus,
+  EyeOff, Eye, ChevronDown, Plus, ShoppingBag, Star,
+  ArrowRight, PackageCheck, Timer, LayoutList,
 } from 'lucide-react';
 import ManualOrderDrawer from './ManualOrderDrawer';
+import OrdersTab from './OrdersTab';
 
 // ── Status config ──────────────────────────────────────────────────────────────
 
@@ -107,11 +109,15 @@ function orderDateSP(isoStr) {
   return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-// Beep estridente via Web Audio API (onda quadrada, mais alto)
+function diffMins(fromIso, toIso) {
+  if (!fromIso || !toIso) return null;
+  return Math.round((new Date(toIso) - new Date(fromIso)) / 60000);
+}
+
+// Beep estridente via Web Audio API
 function playBeep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    // 5 tons ascendentes em onda quadrada para máxima atenção
     [[880, 0, 0.25], [1100, 0.20, 0.25], [1320, 0.40, 0.25], [1100, 0.60, 0.20], [1320, 0.80, 0.35]].forEach(([freq, t, dur]) => {
       const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -127,7 +133,6 @@ function playBeep() {
   } catch {}
 }
 
-// Timer que força re-render a cada 10s para atualizar timers dos cards
 function useSecondTick() {
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -139,10 +144,13 @@ function useSecondTick() {
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onClick, onQuickAction, isNew, onDragStart }) {
+function OrderCard({ order, onClick, onQuickAction, isNew, onDragStart, customerOrderCount }) {
   const cfg  = S[order.status] || S.pending;
   const mins = elapsedMins(order.created_at);
   const pm   = PM[order.payment_method];
+
+  const totalOrders = customerOrderCount?.[order.customer_phone || order.customer_name] ?? 1;
+  const isNewCustomer = totalOrders === 1;
 
   const quickAction = {
     scheduled:  { label: '→ Preparo',    next: 'confirmed',  bg: S.confirmed.headerBg },
@@ -203,10 +211,23 @@ function OrderCard({ order, onClick, onQuickAction, isNew, onDragStart }) {
         </span>
       </div>
 
-      {/* Cliente */}
-      <p style={{ fontSize: 13, fontWeight: 700, color: '#1F2937', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {order.customer_name}
-      </p>
+      {/* Cliente + contagem de pedidos */}
+      <div style={{ marginBottom: 2 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {order.customer_name}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+          {isNewCustomer ? (
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 3, padding: '1px 6px' }}>
+              🔵 Cliente Novo
+            </span>
+          ) : (
+            <span style={{ fontSize: 10, color: '#6B7280' }}>
+              🛍 {totalOrders} pedido{totalOrders !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      </div>
 
       {/* Bairro */}
       <p style={{ fontSize: 11, color: '#6B7280', marginBottom: 7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -249,7 +270,6 @@ function OrderCard({ order, onClick, onQuickAction, isNew, onDragStart }) {
 
 // ── Coluna Kanban ─────────────────────────────────────────────────────────────
 
-// Mapeamento: qual status é atribuído ao soltar em cada coluna
 const DROP_TARGET_STATUS = {
   novos:       'pending',
   agendados:   'scheduled',
@@ -258,7 +278,7 @@ const DROP_TARGET_STATUS = {
   finalizados: 'delivered',
 };
 
-function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStart, onDrop }) {
+function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStart, onDrop, customerOrderCount }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const cards = orders
     .filter(o => col.statuses.includes(o.status))
@@ -268,23 +288,11 @@ function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStar
   const isFinalized = col.id === 'finalizados';
   const visible = isFinalized ? cards.slice(-8) : cards;
 
-  function handleDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setIsDragOver(true);
-  }
-
-  function handleDrop(e) {
-    e.preventDefault();
-    setIsDragOver(false);
-    onDrop(DROP_TARGET_STATUS[col.id]);
-  }
-
   return (
     <div
-      onDragOver={handleDragOver}
+      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
-      onDrop={handleDrop}
+      onDrop={e => { e.preventDefault(); setIsDragOver(false); onDrop(DROP_TARGET_STATUS[col.id]); }}
       style={{
         display: 'flex', flexDirection: 'column',
         flex: '1 1 260px', minWidth: 220,
@@ -296,7 +304,6 @@ function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStar
         transition: 'border 0.12s, background 0.12s',
       }}
     >
-      {/* Header */}
       <div style={{
         background: col.cfg.headerBg,
         padding: '10px 13px',
@@ -305,9 +312,7 @@ function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStar
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <Icon size={14} color="#fff" />
-          <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: 0.8 }}>
-            {col.cfg.label}
-          </span>
+          <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: 0.8 }}>{col.cfg.label}</span>
         </div>
         <div style={{
           background: 'rgba(255,255,255,0.22)', color: '#fff',
@@ -318,7 +323,6 @@ function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStar
         </div>
       </div>
 
-      {/* Drop hint */}
       {isDragOver && (
         <div style={{ padding: '8px 9px 0' }}>
           <div style={{ border: `2px dashed ${col.cfg.headerBg}`, borderRadius: 4, padding: '8px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: col.cfg.headerBg }}>
@@ -327,7 +331,6 @@ function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStar
         </div>
       )}
 
-      {/* Cards */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '9px 9px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
         {visible.length === 0 && !isDragOver ? (
           <div style={{ textAlign: 'center', padding: '36px 0', color: col.cfg.color + '70', fontSize: 13 }}>
@@ -349,6 +352,7 @@ function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStar
                 onQuickAction={onQuickAction}
                 isNew={newIds.has(o.id)}
                 onDragStart={onDragStart}
+                customerOrderCount={customerOrderCount}
               />
             ))}
           </>
@@ -358,14 +362,237 @@ function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStar
   );
 }
 
+// ── Timeline do pedido ────────────────────────────────────────────────────────
+
+function OrderTimeline({ order }) {
+  const steps = [
+    { label: 'Pedido recebido',       time: order.created_at,    icon: Bell,         color: '#D97706' },
+    { label: 'Entrou em preparo',      time: order.confirmed_at,  icon: ChefHat,      color: '#2563EB' },
+    { label: 'Saiu para entrega',      time: order.delivering_at, icon: Truck,        color: '#7C3AED' },
+    { label: 'Pedido entregue',        time: order.delivered_at,  icon: CheckCircle,  color: '#059669' },
+  ];
+
+  const durations = [
+    { label: 'Produção',  from: order.created_at,   to: order.delivering_at },
+    { label: 'Entrega',   from: order.delivering_at, to: order.delivered_at  },
+    { label: 'Total',     from: order.created_at,   to: order.delivered_at  },
+  ].filter(d => d.from && d.to);
+
+  return (
+    <div>
+      {/* Steps */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {steps.map((step, i) => {
+          const Icon = step.icon;
+          const done = !!step.time;
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, opacity: done ? 1 : 0.35 }}>
+              <div style={{ width: 26, height: 26, borderRadius: '50%', background: done ? step.color + '15' : '#F3F4F6', border: `2px solid ${done ? step.color : '#E5E7EB'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon size={12} color={done ? step.color : '#9CA3AF'} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: 12, fontWeight: done ? 600 : 400, color: done ? '#111827' : '#9CA3AF' }}>{step.label}</span>
+              </div>
+              <span style={{ fontSize: 11, color: done ? '#6B7280' : '#D1D5DB', fontFamily: 'monospace' }}>
+                {done ? fmtTime(step.time) : '—'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Durações */}
+      {durations.length > 0 && (
+        <div style={{ marginTop: 10, padding: '8px 10px', background: '#F9FAFB', borderRadius: 5, border: '1px solid #E5E7EB', display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+          {durations.map(d => {
+            const mins = diffMins(d.from, d.to);
+            return (
+              <div key={d.label} style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
+                  {mins !== null ? (mins < 60 ? `${mins}min` : `${Math.floor(mins/60)}h${mins%60}m`) : '—'}
+                </p>
+                <p style={{ fontSize: 10, color: '#9CA3AF' }}>{d.label}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Mini CRM do cliente ───────────────────────────────────────────────────────
+
+function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!phone) { setLoading(false); return; }
+    fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ action: 'get_customer_profile', data: { phone } }),
+    })
+      .then(r => r.json())
+      .then(d => setProfile(d))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [phone, adminToken]);
+
+  const orders = profile?.orders || [];
+  const active = orders.filter(o => o.status !== 'cancelled');
+  const totalSpent = active.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
+  const avgTicket  = active.length > 0 ? totalSpent / active.length : 0;
+  const firstOrder = orders.length > 0 ? orders[orders.length - 1] : null;
+  const lastOrder  = orders.length > 0 ? orders[0] : null;
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: '#fff', borderRadius: 8, overflowY: 'auto', zIndex: 10, padding: '16px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <User size={18} color="#2563EB" />
+          </div>
+          <div>
+            <p style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>{name}</p>
+            <p style={{ fontSize: 11, color: '#6B7280' }}>{fmtPhone(phone)}</p>
+          </div>
+        </div>
+        <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', borderRadius: 4, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <X size={14} color="#6B7280" />
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '32px 0', color: '#9CA3AF', fontSize: 13 }}>Carregando perfil...</div>
+      ) : (
+        <>
+          {/* Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+            {[
+              { label: 'Total pedidos', value: orders.length, color: '#6366F1' },
+              { label: 'Gasto total', value: `R$${totalSpent.toFixed(0)}`, color: '#10B981' },
+              { label: 'Ticket médio', value: `R$${avgTicket.toFixed(0)}`, color: '#F2A800' },
+            ].map(s => (
+              <div key={s.label} style={{ background: '#F9FAFB', borderRadius: 6, padding: '10px 8px', textAlign: 'center', border: '1px solid #E5E7EB' }}>
+                <p style={{ fontSize: 16, fontWeight: 800, color: s.color }}>{s.value}</p>
+                <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Datas */}
+          {firstOrder && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+              <div style={{ background: '#F9FAFB', borderRadius: 6, padding: '9px 10px', border: '1px solid #E5E7EB' }}>
+                <p style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 2 }}>Primeira compra</p>
+                <p style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+                  {new Date(firstOrder.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                </p>
+              </div>
+              <div style={{ background: '#F9FAFB', borderRadius: 6, padding: '9px 10px', border: '1px solid #E5E7EB' }}>
+                <p style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 2 }}>Última compra</p>
+                <p style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+                  {new Date(lastOrder.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Produtos favoritos */}
+          {profile?.topItems?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 7 }}>Mais pedido</p>
+              {profile.topItems.slice(0, 3).map((item, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #F3F4F6' }}>
+                  <span style={{ fontSize: 12, color: '#374151' }}>{item.name}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#F2A800' }}>{item.qty}×</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Histórico de pedidos */}
+          <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 7 }}>Histórico</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 200, overflowY: 'auto' }}>
+            {orders.slice(0, 20).map(o => (
+              <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 8px', background: '#F9FAFB', borderRadius: 4, border: '1px solid #E5E7EB' }}>
+                <span style={{ fontSize: 11, color: '#374151' }}>#{o.order_number}</span>
+                <span style={{ fontSize: 11, color: '#9CA3AF' }}>
+                  {new Date(o.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: o.status === 'cancelled' ? '#EF4444' : '#10B981' }}>
+                  {o.status === 'cancelled' ? 'Cancelado' : `R$${Number(o.total).toFixed(0)}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Diálogo de tipo de impressão ──────────────────────────────────────────────
+
+function PrintTypeDialog({ onSelect, onClose }) {
+  const types = [
+    { key: 'cozinha', label: '👨‍🍳 Via Cozinha',    desc: 'Itens + endereço, fonte grande' },
+    { key: 'balcao',  label: '🧾 Via Balcão',      desc: 'Pedido completo com pagamento' },
+    { key: 'fiscal',  label: '📋 Cupom Fiscal',    desc: 'Inclui CPF e dados fiscais' },
+  ];
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: '#fff', borderRadius: 10, padding: '22px 24px', width: 320, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <p style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Tipo de impressão</p>
+          <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', borderRadius: 4, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <X size={13} color="#6B7280" />
+          </button>
+        </div>
+        {types.map(t => (
+          <button
+            key={t.key}
+            onClick={() => onSelect(t.key)}
+            style={{
+              width: '100%', textAlign: 'left', padding: '11px 13px', marginBottom: 6,
+              borderRadius: 7, border: '1px solid #E5E7EB', background: '#F9FAFB',
+              cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 2,
+              transition: 'background 0.12s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#EFF6FF'}
+            onMouseLeave={e => e.currentTarget.style.background = '#F9FAFB'}
+          >
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{t.label}</span>
+            <span style={{ fontSize: 11, color: '#9CA3AF' }}>{t.desc}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Modal de Detalhes ─────────────────────────────────────────────────────────
 
-function OrderModal({ order, items, itemsLoading, onClose, onAction, onPrint }) {
+function OrderModal({ order, items, itemsLoading, onClose, onAction, onPrint, adminToken, customerOrderCount }) {
+  const [showCustomerProfile, setShowCustomerProfile] = useState(false);
+  const [showPrintDialog, setShowPrintDialog]         = useState(false);
+
   if (!order) return null;
   const cfg  = S[order.status] || S.pending;
   const mins = elapsedMins(order.created_at);
   const pm   = PM[order.payment_method] || { label: order.payment_method, icon: CreditCard, color: '#6B7280' };
   const PMIcon = pm.icon;
+
+  const totalOrders  = customerOrderCount?.[order.customer_phone || order.customer_name] ?? 1;
+  const isNewCustomer = totalOrders === 1;
 
   const actionButtons = [
     order.status === 'scheduled'  && { label: '✓ Aceitar Agendado',     next: 'confirmed',  bg: S.confirmed.headerBg,  primary: true },
@@ -382,160 +609,206 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPrint }) 
   const total = parseFloat(order.total)        || 0;
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: 16 }}
-      onClick={onClose}
-    >
+    <>
       <div
-        style={{ background: '#fff', borderRadius: 8, width: 480, maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', borderTop: `4px solid ${cfg.headerBg}` }}
-        onClick={e => e.stopPropagation()}
+        style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: 16 }}
+        onClick={onClose}
       >
-        {/* Header */}
-        <div style={{ padding: '18px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 4 }}>
-              <span style={{ fontSize: 24, fontWeight: 900, color: '#111827', fontFamily: 'monospace' }}>
-                #{order.order_number || String(order.id).slice(-4).toUpperCase()}
-              </span>
-              <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 9px', borderRadius: 3, background: cfg.color + '16', color: cfg.color, border: `1px solid ${cfg.color}35`, letterSpacing: 0.4 }}>
-                {cfg.label}
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#6B7280' }}>
-              <span>🕐 {fmtDateFull(order.created_at)}</span>
-              <span style={{ color: timerColor(mins), fontWeight: 700 }}>⏱ {fmtElapsed(mins)}</span>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', borderRadius: 4, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <X size={15} color="#6B7280" />
-          </button>
-        </div>
-
-        <div style={{ padding: '14px 20px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-          {/* Cliente */}
-          <Section label="Cliente" icon={<User size={12} />}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 5 }}>{order.customer_name}</p>
-            {order.customer_phone && (
-              <a href={`tel:${order.customer_phone}`}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#2563EB', textDecoration: 'none', fontWeight: 600, background: '#EFF6FF', padding: '4px 10px', borderRadius: 4, border: '1px solid #BFDBFE' }}
-                onClick={e => e.stopPropagation()}>
-                <Phone size={12} /> {fmtPhone(order.customer_phone)}
-              </a>
-            )}
-          </Section>
-
-          {/* Endereço */}
-          <Section label="Endereço" icon={<MapPin size={12} />}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
-              {order.delivery_street}, {order.delivery_number}
-              {order.delivery_complement ? ` — ${order.delivery_complement}` : ''}
-            </p>
-            <p style={{ fontSize: 12, color: '#6B7280' }}>
-              {order.delivery_neighborhood}{order.delivery_city ? `, ${order.delivery_city}` : ''}
-              {order.delivery_zipcode ? ` · ${order.delivery_zipcode}` : ''}
-            </p>
-          </Section>
-
-          {/* Itens */}
-          <Section label="Itens do Pedido" icon={<List size={12} />}>
-            {itemsLoading ? (
-              <div style={{ display: 'flex', gap: 7, alignItems: 'center', color: '#9CA3AF', fontSize: 13 }}>
-                <div style={{ width: 13, height: 13, border: '2px solid #E5E7EB', borderTopColor: '#6B7280', borderRadius: '50%', animation: 'kdsSpin 0.8s linear infinite' }} />
-                Carregando...
-              </div>
-            ) : items.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {items.map((item, i) => (
-                  <div key={i}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
-                        {item.quantity}× {item.product_name}
-                        <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 400, marginLeft: 5 }}>({fmtBRL(item.unit_price)} un.)</span>
-                      </span>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap', marginLeft: 8 }}>
-                        {fmtBRL(item.total_price)}
-                      </span>
-                    </div>
-                    {item.observations && (
-                      <p style={{ fontSize: 11, color: '#B45309', background: '#FFFBEB', padding: '2px 7px', borderRadius: 3, marginTop: 2, border: '1px solid #FDE68A' }}>
-                        ⚠️ {item.observations}
-                      </p>
-                    )}
-                  </div>
-                ))}
-                <div style={{ marginTop: 5, paddingTop: 8, borderTop: '1px dashed #E5E7EB', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  <Row label="Subtotal" value={fmtBRL(sub)} />
-                  {disc > 0 && <Row label="Desconto" value={`-${fmtBRL(disc)}`} valueColor="#EF4444" />}
-                  {fee > 0  && <Row label="Taxa de entrega" value={fmtBRL(fee)} />}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 5, borderTop: '1px solid #E5E7EB', marginTop: 2 }}>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Total</span>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>{fmtBRL(total)}</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p style={{ fontSize: 13, color: '#9CA3AF' }}>Nenhum item encontrado</p>
-            )}
-          </Section>
-
-          {/* Obs */}
-          {order.observations && (
-            <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 5, padding: '10px 12px' }}>
-              <p style={{ fontSize: 10, fontWeight: 800, color: '#92400E', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
-                ⚠️ Observações
-              </p>
-              <p style={{ fontSize: 13, color: '#78350F' }}>{order.observations}</p>
-            </div>
+        <div
+          style={{ background: '#fff', borderRadius: 8, width: 480, maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', borderTop: `4px solid ${cfg.headerBg}`, position: 'relative' }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Painel de perfil do cliente (sobrepõe) */}
+          {showCustomerProfile && (
+            <CustomerProfilePanel
+              phone={order.customer_phone}
+              name={order.customer_name}
+              adminToken={adminToken}
+              onClose={() => setShowCustomerProfile(false)}
+            />
           )}
 
-          {/* Pagamento */}
-          <Section label="Pagamento" icon={<PMIcon size={12} />}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <PMIcon size={16} color={pm.color} />
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{pm.label}</span>
-              <span style={{
-                marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 3,
-                background: order.payment_status === 'paid' ? '#ECFDF5' : '#FFFBEB',
-                color:      order.payment_status === 'paid' ? '#059669' : '#D97706',
-                border: `1px solid ${order.payment_status === 'paid' ? '#A7F3D0' : '#FDE68A'}`,
-              }}>
-                {order.payment_status === 'paid' ? '● Pago' : '● Aguardando'}
-              </span>
+          {/* Header */}
+          <div style={{ padding: '18px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 4 }}>
+                <span style={{ fontSize: 24, fontWeight: 900, color: '#111827', fontFamily: 'monospace' }}>
+                  #{order.order_number || String(order.id).slice(-4).toUpperCase()}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 800, padding: '2px 9px', borderRadius: 3, background: cfg.color + '16', color: cfg.color, border: `1px solid ${cfg.color}35`, letterSpacing: 0.4 }}>
+                  {cfg.label}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 12, fontSize: 12, color: '#6B7280' }}>
+                <span>🕐 {fmtDateFull(order.created_at)}</span>
+                <span style={{ color: timerColor(mins), fontWeight: 700 }}>⏱ {fmtElapsed(mins)}</span>
+              </div>
             </div>
-            {order.coupon_code && (
-              <p style={{ fontSize: 12, color: '#6B7280', marginTop: 5 }}>
-                🏷️ Cupom: <strong>{order.coupon_code}</strong> (-{fmtBRL(disc)})
-              </p>
-            )}
-          </Section>
+            <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', borderRadius: 4, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <X size={15} color="#6B7280" />
+            </button>
+          </div>
 
-          {/* Botões */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 2 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {actionButtons.filter(a => a.primary).map(a => (
-                <button key={a.next} onClick={() => { onAction(order.id, 'status', a.next); onClose(); }}
-                  style={{ flex: 1, padding: '12px', borderRadius: 5, border: 'none', background: a.bg, color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
-                  {a.label}
+          <div style={{ padding: '14px 20px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* Cliente — clicável para abrir mini CRM */}
+            <Section label="Cliente" icon={<User size={12} />}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <button
+                    onClick={() => setShowCustomerProfile(true)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                    title="Ver perfil do cliente"
+                  >
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#2563EB', marginBottom: 4, textDecoration: 'underline dotted' }}>
+                      {order.customer_name}
+                    </p>
+                  </button>
+                  {isNewCustomer ? (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 4, padding: '2px 8px', display: 'inline-block', marginBottom: 5 }}>
+                      🔵 Primeiro pedido
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 11, color: '#6B7280', display: 'inline-block', marginBottom: 5 }}>
+                      🛍 {totalOrders} pedidos realizados
+                    </span>
+                  )}
+                </div>
+              </div>
+              {order.customer_phone && (
+                <a href={`tel:${order.customer_phone}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, color: '#2563EB', textDecoration: 'none', fontWeight: 600, background: '#EFF6FF', padding: '4px 10px', borderRadius: 4, border: '1px solid #BFDBFE' }}
+                  onClick={e => e.stopPropagation()}>
+                  <Phone size={12} /> {fmtPhone(order.customer_phone)}
+                </a>
+              )}
+            </Section>
+
+            {/* Endereço */}
+            <Section label="Endereço" icon={<MapPin size={12} />}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
+                {order.delivery_street}, {order.delivery_number}
+                {order.delivery_complement ? ` — ${order.delivery_complement}` : ''}
+              </p>
+              <p style={{ fontSize: 12, color: '#6B7280' }}>
+                {order.delivery_neighborhood}{order.delivery_city ? `, ${order.delivery_city}` : ''}
+                {order.delivery_zipcode ? ` · ${order.delivery_zipcode}` : ''}
+              </p>
+            </Section>
+
+            {/* Timeline */}
+            <Section label="Timeline do pedido" icon={<Timer size={12} />}>
+              <OrderTimeline order={order} />
+            </Section>
+
+            {/* Itens */}
+            <Section label="Itens do Pedido" icon={<List size={12} />}>
+              {itemsLoading ? (
+                <div style={{ display: 'flex', gap: 7, alignItems: 'center', color: '#9CA3AF', fontSize: 13 }}>
+                  <div style={{ width: 13, height: 13, border: '2px solid #E5E7EB', borderTopColor: '#6B7280', borderRadius: '50%', animation: 'kdsSpin 0.8s linear infinite' }} />
+                  Carregando...
+                </div>
+              ) : items.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {items.map((item, i) => (
+                    <div key={i}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
+                          {item.quantity}× {item.product_name}
+                          <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 400, marginLeft: 5 }}>({fmtBRL(item.unit_price)} un.)</span>
+                        </span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap', marginLeft: 8 }}>
+                          {fmtBRL(item.total_price)}
+                        </span>
+                      </div>
+                      {item.observations && (
+                        <p style={{ fontSize: 11, color: '#B45309', background: '#FFFBEB', padding: '2px 7px', borderRadius: 3, marginTop: 2, border: '1px solid #FDE68A' }}>
+                          ⚠️ {item.observations}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  <div style={{ marginTop: 5, paddingTop: 8, borderTop: '1px dashed #E5E7EB', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <Row label="Subtotal" value={fmtBRL(sub)} />
+                    {disc > 0 && <Row label="Desconto" value={`-${fmtBRL(disc)}`} valueColor="#EF4444" />}
+                    {fee > 0  && <Row label="Taxa de entrega" value={fmtBRL(fee)} />}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 5, borderTop: '1px solid #E5E7EB', marginTop: 2 }}>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Total</span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>{fmtBRL(total)}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ fontSize: 13, color: '#9CA3AF' }}>Nenhum item encontrado</p>
+              )}
+            </Section>
+
+            {/* Obs */}
+            {order.observations && (
+              <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 5, padding: '10px 12px' }}>
+                <p style={{ fontSize: 10, fontWeight: 800, color: '#92400E', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
+                  ⚠️ Observações
+                </p>
+                <p style={{ fontSize: 13, color: '#78350F' }}>{order.observations}</p>
+              </div>
+            )}
+
+            {/* Pagamento */}
+            <Section label="Pagamento" icon={<PMIcon size={12} />}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <PMIcon size={16} color={pm.color} />
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{pm.label}</span>
+                <span style={{
+                  marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 3,
+                  background: order.payment_status === 'paid' ? '#ECFDF5' : '#FFFBEB',
+                  color:      order.payment_status === 'paid' ? '#059669' : '#D97706',
+                  border: `1px solid ${order.payment_status === 'paid' ? '#A7F3D0' : '#FDE68A'}`,
+                }}>
+                  {order.payment_status === 'paid' ? '● Pago' : '● Aguardando'}
+                </span>
+              </div>
+              {order.coupon_code && (
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 5 }}>
+                  🏷️ Cupom: <strong>{order.coupon_code}</strong> (-{fmtBRL(disc)})
+                </p>
+              )}
+            </Section>
+
+            {/* Botões */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 2 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {actionButtons.filter(a => a.primary).map(a => (
+                  <button key={a.next} onClick={() => { onAction(order.id, 'status', a.next); onClose(); }}
+                    style={{ flex: 1, padding: '12px', borderRadius: 5, border: 'none', background: a.bg, color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setShowPrintDialog(true)}
+                  style={{ flex: 1, padding: '9px', borderRadius: 5, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                  <Printer size={13} /> Reimprimir
                 </button>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={onPrint}
-                style={{ flex: 1, padding: '9px', borderRadius: 5, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                <Printer size={13} /> Reimprimir
-              </button>
-              {actionButtons.filter(a => !a.primary).map(a => (
-                <button key={a.next} onClick={() => { onAction(order.id, 'status', a.next); onClose(); }}
-                  style={{ flex: 1, padding: '9px', borderRadius: 5, border: `1px solid ${a.bg}40`, background: a.bg + '10', color: a.bg, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                  {a.label}
-                </button>
-              ))}
+                {actionButtons.filter(a => !a.primary).map(a => (
+                  <button key={a.next} onClick={() => { onAction(order.id, 'status', a.next); onClose(); }}
+                    style={{ flex: 1, padding: '9px', borderRadius: 5, border: `1px solid ${a.bg}40`, background: a.bg + '10', color: a.bg, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                    {a.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Diálogo de tipo de impressão */}
+      {showPrintDialog && (
+        <PrintTypeDialog
+          onSelect={type => { setShowPrintDialog(false); onPrint(type); }}
+          onClose={() => setShowPrintDialog(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -573,7 +846,10 @@ function QuickStat({ label, value, color, hidden }) {
 
 // ── KDS Board Principal ───────────────────────────────────────────────────────
 
-export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshOrders, adminToken, loading, products, drinks }) {
+export default function KDSBoard({
+  orders, onUpdateStatus, onRefresh, onRefreshOrders, adminToken, loading,
+  products, drinks, hasMoreOrders, loadingMore, onLoadMore,
+}) {
   const [modal, setModal]               = useState(null);
   const [items, setItems]               = useState([]);
   const [itemsLoading, setItemsLoading] = useState(false);
@@ -585,49 +861,50 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshO
   const [showRevenue, setShowRevenue]   = useState(true);
   const [dragging, setDragging]         = useState(null);
   const [showDrawer, setShowDrawer]     = useState(false);
-  const seenIdsRef                      = useRef(null); // null = primeira carga ainda não ocorreu
+  const [viewMode, setViewMode]         = useState('kanban'); // 'kanban' | 'lista'
+  const seenIdsRef                      = useRef(null);
   const onUpdateRef                     = useRef(onUpdateStatus);
   const tick                            = useSecondTick();
 
-  // Keep onUpdateStatus ref fresh to avoid stale closure in auto-accept
   useEffect(() => { onUpdateRef.current = onUpdateStatus; }, [onUpdateStatus]);
 
-  // Filtro por data
+  // Mapa telefone/nome → contagem de pedidos (todos os pedidos carregados)
+  const customerOrderCount = {};
+  for (const o of orders) {
+    const key = o.customer_phone || o.customer_name;
+    if (key) customerOrderCount[key] = (customerOrderCount[key] || 0) + 1;
+  }
+
   const today = todaySP();
   const activeDate = filterMode === 'today' ? today : filterDate;
   const visible = orders.filter(o => orderDateSP(o.created_at) === activeDate);
 
-  // Stats do dia corrente (sempre hoje)
   const todayOrders  = orders.filter(o => orderDateSP(o.created_at) === today);
   const activeToday  = todayOrders.filter(o => !['cancelled','delivered'].includes(o.status)).length;
   const doneToday    = todayOrders.filter(o => o.status === 'delivered').length;
   const revenueToday = todayOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
 
-  // Detectar novos pedidos → beep + highlight + auto-aceitar pending
+  // Detectar novos pedidos → beep + highlight
   useEffect(() => {
     if (!orders.length) return;
     const cur = new Set(orders.map(o => o.id));
     if (seenIdsRef.current === null) {
-      // Primeira carga com dados reais: marcar todos como vistos, sem som
       seenIdsRef.current = new Set(cur);
       return;
     }
-    // seenIdsRef só cresce — evita falsos-positivos quando um refresh
-    // paginado retorna menos pedidos que o anterior e o próximo os traz de volta
     const added = new Set([...cur].filter(id => !seenIdsRef.current.has(id)));
     cur.forEach(id => seenIdsRef.current.add(id));
     if (added.size > 0) {
       setNewIds(added);
       if (soundOn) playBeep();
       setTimeout(() => setNewIds(new Set()), 12000);
-      // Auto-aceitar pedidos novos que não sejam agendados
       orders
         .filter(o => added.has(o.id) && o.status === 'pending')
         .forEach(o => onUpdateRef.current(o.id, 'status', 'confirmed'));
     }
   }, [orders, soundOn]);
 
-  // Auto-refresh a cada 15s usando get_orders_only (leve, sem rebuscar produtos/config)
+  // Auto-refresh a cada 15s
   const refreshOrders = onRefreshOrders || onRefresh;
   useEffect(() => {
     setCountdown(15);
@@ -640,7 +917,6 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshO
     return () => clearInterval(iv);
   }, [refreshOrders]);
 
-  // Abrir modal
   async function openModal(order) {
     setModal(order);
     setItems([]);
@@ -662,34 +938,75 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshO
     setModal(prev => prev?.id === orderId ? { ...prev, [field]: value } : prev);
   }
 
-  function handlePrint() {
+  function handlePrint(type = 'balcao') {
     if (!modal) return;
     const body = items.map(i =>
       `  ${i.quantity}x ${i.product_name.padEnd(22)} ${fmtBRL(i.total_price)}`
     ).join('\n');
-    const txt = [
-      `════════════════════════`,
-      `  PEDIDO #${modal.order_number || modal.id.slice(-4)}`,
-      `  ${fmtDateFull(modal.created_at)}`,
-      `════════════════════════`,
-      `  ${modal.customer_name}`,
-      `  ${fmtPhone(modal.customer_phone) || ''}`,
-      ``,
-      `  ${modal.delivery_street || ''}, ${modal.delivery_number || ''}${modal.delivery_complement ? ' — ' + modal.delivery_complement : ''}`,
-      `  ${modal.delivery_neighborhood || ''}${modal.delivery_city ? ', ' + modal.delivery_city : ''}`,
-      `════════════════════════`,
-      body,
-      `────────────────────────`,
-      parseFloat(modal.discount) > 0     ? `  Desconto:     -${fmtBRL(modal.discount)}` : '',
-      parseFloat(modal.delivery_fee) > 0 ? `  Taxa entrega:  ${fmtBRL(modal.delivery_fee)}` : '',
-      `  TOTAL:         ${fmtBRL(modal.total)}`,
-      `  ${PM[modal.payment_method]?.label || modal.payment_method || ''}`,
-      `════════════════════════`,
-      modal.observations ? `  OBS: ${modal.observations}` : '',
-    ].filter(l => l !== undefined).join('\n');
 
+    let txt;
+    if (type === 'cozinha') {
+      txt = [
+        `════════════════════════`,
+        `  COZINHA — #${modal.order_number || modal.id.slice(-4)}`,
+        `  ${fmtTime(modal.created_at)}`,
+        `════════════════════════`,
+        `  ${modal.delivery_street || ''}, ${modal.delivery_number || ''}${modal.delivery_complement ? ' — ' + modal.delivery_complement : ''}`,
+        `  ${modal.delivery_neighborhood || ''}`,
+        `────────────────────────`,
+        body,
+        `════════════════════════`,
+        modal.observations ? `  OBS: ${modal.observations}` : '',
+      ].filter(l => l !== undefined).join('\n');
+    } else if (type === 'fiscal') {
+      txt = [
+        `════════════════════════`,
+        `  PEDIDO #${modal.order_number || modal.id.slice(-4)}`,
+        `  ${fmtDateFull(modal.created_at)}`,
+        `════════════════════════`,
+        `  ${modal.customer_name}`,
+        modal.customer_cpf ? `  CPF: ${modal.customer_cpf}` : `  CPF: não informado`,
+        `  ${fmtPhone(modal.customer_phone) || ''}`,
+        ``,
+        `  ${modal.delivery_street || ''}, ${modal.delivery_number || ''}${modal.delivery_complement ? ' — ' + modal.delivery_complement : ''}`,
+        `  ${modal.delivery_neighborhood || ''}${modal.delivery_city ? ', ' + modal.delivery_city : ''}`,
+        `════════════════════════`,
+        body,
+        `────────────────────────`,
+        parseFloat(modal.discount) > 0     ? `  Desconto:     -${fmtBRL(modal.discount)}` : '',
+        parseFloat(modal.delivery_fee) > 0 ? `  Taxa entrega:  ${fmtBRL(modal.delivery_fee)}` : '',
+        `  TOTAL:         ${fmtBRL(modal.total)}`,
+        `  ${PM[modal.payment_method]?.label || modal.payment_method || ''}`,
+        `════════════════════════`,
+        modal.observations ? `  OBS: ${modal.observations}` : '',
+      ].filter(l => l !== undefined).join('\n');
+    } else {
+      // balcao (padrão)
+      txt = [
+        `════════════════════════`,
+        `  PEDIDO #${modal.order_number || modal.id.slice(-4)}`,
+        `  ${fmtDateFull(modal.created_at)}`,
+        `════════════════════════`,
+        `  ${modal.customer_name}`,
+        `  ${fmtPhone(modal.customer_phone) || ''}`,
+        ``,
+        `  ${modal.delivery_street || ''}, ${modal.delivery_number || ''}${modal.delivery_complement ? ' — ' + modal.delivery_complement : ''}`,
+        `  ${modal.delivery_neighborhood || ''}${modal.delivery_city ? ', ' + modal.delivery_city : ''}`,
+        `════════════════════════`,
+        body,
+        `────────────────────────`,
+        parseFloat(modal.discount) > 0     ? `  Desconto:     -${fmtBRL(modal.discount)}` : '',
+        parseFloat(modal.delivery_fee) > 0 ? `  Taxa entrega:  ${fmtBRL(modal.delivery_fee)}` : '',
+        `  TOTAL:         ${fmtBRL(modal.total)}`,
+        `  ${PM[modal.payment_method]?.label || modal.payment_method || ''}`,
+        `════════════════════════`,
+        modal.observations ? `  OBS: ${modal.observations}` : '',
+      ].filter(l => l !== undefined).join('\n');
+    }
+
+    const fontSize = type === 'cozinha' ? '16px' : '13px';
     const w = window.open('', '_blank', 'width=400,height=600');
-    w.document.write(`<html><body><pre style="font-family:monospace;font-size:13px;padding:16px;white-space:pre">${txt}</pre><script>window.onload=()=>window.print()<\/script></body></html>`);
+    w.document.write(`<html><body><pre style="font-family:monospace;font-size:${fontSize};padding:16px;white-space:pre">${txt}</pre><script>window.onload=()=>window.print()<\/script></body></html>`);
     w.document.close();
   }
 
@@ -703,8 +1020,8 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshO
       <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '9px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <ChefHat size={18} color="#D97706" />
-          <span style={{ fontSize: 15, fontWeight: 800, color: '#111827' }}>KDS</span>
+          <ShoppingBag size={18} color="#D97706" />
+          <span style={{ fontSize: 15, fontWeight: 800, color: '#111827' }}>PDV</span>
         </div>
 
         {/* Stats */}
@@ -723,30 +1040,60 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshO
 
         <div style={{ flex: 1 }} />
 
-        {/* Filtro período */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* Toggle Kanban / Lista */}
+        <div style={{ display: 'flex', borderRadius: 5, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
           <button
-            onClick={() => setFilterMode('today')}
+            onClick={() => setViewMode('kanban')}
+            title="Visualização Kanban"
             style={{
-              padding: '5px 13px', borderRadius: 4, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              background: filterMode === 'today' ? '#111827' : '#F3F4F6',
-              color: filterMode === 'today' ? '#fff' : '#6B7280',
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '5px 11px', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              background: viewMode === 'kanban' ? '#111827' : '#fff',
+              color: viewMode === 'kanban' ? '#fff' : '#6B7280',
             }}
           >
-            HOJE
+            <ChefHat size={13} /> Kanban
           </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: filterMode === 'custom' ? '#111827' : '#F3F4F6', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
-            onClick={() => setFilterMode('custom')}>
-            <Calendar size={12} color={filterMode === 'custom' ? '#fff' : '#6B7280'} />
-            <input
-              type="date"
-              value={filterDate}
-              onChange={e => { setFilterDate(e.target.value); setFilterMode('custom'); }}
-              onClick={e => e.stopPropagation()}
-              style={{ border: 'none', background: 'transparent', fontSize: 12, fontWeight: 600, color: filterMode === 'custom' ? '#fff' : '#6B7280', cursor: 'pointer', outline: 'none', width: 110 }}
-            />
-          </div>
+          <button
+            onClick={() => setViewMode('lista')}
+            title="Lista de pedidos"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '5px 11px', border: 'none', borderLeft: '1px solid #E5E7EB', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              background: viewMode === 'lista' ? '#111827' : '#fff',
+              color: viewMode === 'lista' ? '#fff' : '#6B7280',
+            }}
+          >
+            <LayoutList size={13} /> Histórico
+          </button>
         </div>
+
+        {/* Filtro período (só no Kanban) */}
+        {viewMode === 'kanban' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button
+              onClick={() => setFilterMode('today')}
+              style={{
+                padding: '5px 13px', borderRadius: 4, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                background: filterMode === 'today' ? '#111827' : '#F3F4F6',
+                color: filterMode === 'today' ? '#fff' : '#6B7280',
+              }}
+            >
+              HOJE
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: filterMode === 'custom' ? '#111827' : '#F3F4F6', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
+              onClick={() => setFilterMode('custom')}>
+              <Calendar size={12} color={filterMode === 'custom' ? '#fff' : '#6B7280'} />
+              <input
+                type="date"
+                value={filterDate}
+                onChange={e => { setFilterDate(e.target.value); setFilterMode('custom'); }}
+                onClick={e => e.stopPropagation()}
+                style={{ border: 'none', background: 'transparent', fontSize: 12, fontWeight: 600, color: filterMode === 'custom' ? '#fff' : '#6B7280', cursor: 'pointer', outline: 'none', width: 110 }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Countdown */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#9CA3AF' }}>
@@ -775,29 +1122,45 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshO
         </button>
       </div>
 
-      {/* ── Kanban ───────────────────────────────────────────────────────── */}
-      <div
-        style={{ flex: 1, overflowX: 'hidden', overflowY: 'hidden', padding: '12px 16px', display: 'flex', gap: 11, alignItems: 'stretch' }}
-        onDragEnd={() => setDragging(null)}
-      >
-        {cols.map(col => (
-          <KDSColumn
-            key={col.id}
-            col={col}
-            orders={visible}
-            onCardClick={openModal}
-            onQuickAction={handleAction}
-            newIds={newIds}
-            onDragStart={order => setDragging(order)}
-            onDrop={targetStatus => {
-              if (dragging && dragging.status !== targetStatus) {
-                handleAction(dragging.id, 'status', targetStatus);
-              }
-              setDragging(null);
-            }}
+      {/* ── Vista Kanban ──────────────────────────────────────────────────── */}
+      {viewMode === 'kanban' && (
+        <div
+          style={{ flex: 1, overflowX: 'hidden', overflowY: 'hidden', padding: '12px 16px', display: 'flex', gap: 11, alignItems: 'stretch' }}
+          onDragEnd={() => setDragging(null)}
+        >
+          {cols.map(col => (
+            <KDSColumn
+              key={col.id}
+              col={col}
+              orders={visible}
+              onCardClick={openModal}
+              onQuickAction={handleAction}
+              newIds={newIds}
+              onDragStart={order => setDragging(order)}
+              customerOrderCount={customerOrderCount}
+              onDrop={targetStatus => {
+                if (dragging && dragging.status !== targetStatus) {
+                  handleAction(dragging.id, 'status', targetStatus);
+                }
+                setDragging(null);
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Vista Lista / Histórico ──────────────────────────────────────── */}
+      {viewMode === 'lista' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', background: '#1A1A1A' }}>
+          <OrdersTab
+            orders={orders}
+            hasMoreOrders={hasMoreOrders}
+            loadingMore={loadingMore}
+            onUpdateStatus={handleAction}
+            onLoadMore={onLoadMore}
           />
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* ── Modal detalhes ───────────────────────────────────────────────── */}
       {modal && (
@@ -808,6 +1171,8 @@ export default function KDSBoard({ orders, onUpdateStatus, onRefresh, onRefreshO
           onClose={() => setModal(null)}
           onAction={handleAction}
           onPrint={handlePrint}
+          adminToken={adminToken}
+          customerOrderCount={customerOrderCount}
         />
       )}
 

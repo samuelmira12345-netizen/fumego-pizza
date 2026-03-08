@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Loader2, Landmark, CreditCard, Banknote, Clock, Search, X, Calendar } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Loader2, Landmark, CreditCard, Banknote, Clock, Search, X, Calendar, Bookmark, Plus, Trash2 } from 'lucide-react';
 
 const GOLD = '#D4A528';
+const SAVED_FILTERS_KEY = 'fumego_saved_filters';
 
 const STATUS_TABS = [
   { key: '',           label: 'Todos',       color: '#888',    bg: '#333'                     },
@@ -17,69 +18,135 @@ const STATUS_TABS = [
 ];
 
 const DATE_PRESETS = [
-  { key: 'all',   label: 'Tudo'       },
-  { key: 'today', label: 'Hoje'       },
-  { key: 'yesterday', label: 'Ontem'  },
-  { key: 'week',  label: '7 dias'     },
-  { key: 'month', label: 'Mês atual'  },
-  { key: 'custom', label: 'Período'   },
+  { key: 'all',        label: 'Tudo'             },
+  { key: 'today',      label: 'Hoje'             },
+  { key: 'yesterday',  label: 'Ontem'            },
+  { key: 'week',       label: '7 dias'           },
+  { key: 'last_week',  label: 'Sem. passada'     },
+  { key: 'month',      label: 'Mês atual'        },
+  { key: 'last_month', label: 'Mês passado'      },
+  { key: 'last30',     label: 'Últ. 30 dias'     },
+  { key: 'last60',     label: 'Últ. 60 dias'     },
+  { key: 'last90',     label: 'Últ. 90 dias'     },
+  { key: 'custom',     label: 'Período'          },
 ];
 
 function toLocalDate(isoStr) {
-  // Retorna YYYY-MM-DD no fuso de São Paulo
   return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
 function todayStr() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
-
 function yesterdayStr() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
+  const d = new Date(); d.setDate(d.getDate() - 1);
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
-
+function daysAgoStr(n) {
+  const d = new Date(); d.setDate(d.getDate() - n);
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
 function weekStartStr() {
-  const d = new Date();
-  d.setDate(d.getDate() - 6);
-  return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  return daysAgoStr(6);
 }
-
+function lastWeekStartStr() {
+  return daysAgoStr(13);
+}
+function lastWeekEndStr() {
+  return daysAgoStr(7);
+}
 function monthStartStr() {
   const now = new Date();
-  const d = new Date(now.getFullYear(), now.getMonth(), 1);
-  return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  return new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+function lastMonthStartStr() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() - 1, 1).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+function lastMonthEndStr() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 0).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
+function resolveDateRange(preset, customFrom, customTo) {
+  const t = todayStr();
+  switch (preset) {
+    case 'today':      return { fromDate: t,                  toDate: t };
+    case 'yesterday':  return { fromDate: yesterdayStr(),     toDate: yesterdayStr() };
+    case 'week':       return { fromDate: weekStartStr(),     toDate: t };
+    case 'last_week':  return { fromDate: lastWeekStartStr(), toDate: lastWeekEndStr() };
+    case 'month':      return { fromDate: monthStartStr(),    toDate: t };
+    case 'last_month': return { fromDate: lastMonthStartStr(), toDate: lastMonthEndStr() };
+    case 'last30':     return { fromDate: daysAgoStr(29),     toDate: t };
+    case 'last60':     return { fromDate: daysAgoStr(59),     toDate: t };
+    case 'last90':     return { fromDate: daysAgoStr(89),     toDate: t };
+    case 'custom':     return { fromDate: customFrom,         toDate: customTo };
+    default:           return { fromDate: '',                 toDate: '' };
+  }
+}
+
+// ── Filtros salvos ─────────────────────────────────────────────────────────────
+
+function loadSavedFilters() {
+  try {
+    return JSON.parse(localStorage.getItem(SAVED_FILTERS_KEY) || '[]');
+  } catch { return []; }
+}
+function persistSavedFilters(filters) {
+  try { localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filters)); } catch {}
 }
 
 export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdateStatus, onLoadMore }) {
-  const [search, setSearch]           = useState('');
+  const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [datePreset, setDatePreset]   = useState('all');
-  const [customFrom, setCustomFrom]   = useState('');
-  const [customTo, setCustomTo]       = useState('');
+  const [datePreset, setDatePreset]     = useState('all');
+  const [customFrom, setCustomFrom]     = useState('');
+  const [customTo, setCustomTo]         = useState('');
 
-  // Resolve intervalo de datas ativo
-  const { fromDate, toDate } = useMemo(() => {
-    if (datePreset === 'today')     return { fromDate: todayStr(),     toDate: todayStr() };
-    if (datePreset === 'yesterday') return { fromDate: yesterdayStr(), toDate: yesterdayStr() };
-    if (datePreset === 'week')      return { fromDate: weekStartStr(), toDate: todayStr() };
-    if (datePreset === 'month')     return { fromDate: monthStartStr(), toDate: todayStr() };
-    if (datePreset === 'custom')    return { fromDate: customFrom,     toDate: customTo };
-    return { fromDate: '', toDate: '' };
-  }, [datePreset, customFrom, customTo]);
+  // Filtros salvos
+  const [savedFilters, setSavedFilters]       = useState(() => loadSavedFilters());
+  const [showSaveDialog, setShowSaveDialog]   = useState(false);
+  const [newFilterName, setNewFilterName]     = useState('');
 
-  // Filtragem: data + busca (sem status — as abas cuidam disso)
+  useEffect(() => { persistSavedFilters(savedFilters); }, [savedFilters]);
+
+  function applyFilter(f) {
+    setSearch(f.search || '');
+    setStatusFilter(f.statusFilter || '');
+    setDatePreset(f.datePreset || 'all');
+    setCustomFrom(f.customFrom || '');
+    setCustomTo(f.customTo || '');
+  }
+
+  function saveCurrentFilter() {
+    if (!newFilterName.trim()) return;
+    const newFilter = {
+      id: Date.now(),
+      name: newFilterName.trim(),
+      search, statusFilter, datePreset, customFrom, customTo,
+    };
+    setSavedFilters(prev => [...prev, newFilter]);
+    setNewFilterName('');
+    setShowSaveDialog(false);
+  }
+
+  function deleteFilter(id) {
+    setSavedFilters(prev => prev.filter(f => f.id !== id));
+  }
+
+  const { fromDate, toDate } = useMemo(
+    () => resolveDateRange(datePreset, customFrom, customTo),
+    [datePreset, customFrom, customTo]
+  );
+
   const filteredByDateAndSearch = useMemo(() => {
     const q = search.trim().toLowerCase();
     return orders.filter(o => {
-      // Filtro de data
       if (fromDate || toDate) {
         const d = toLocalDate(o.created_at);
         if (fromDate && d < fromDate) return false;
         if (toDate   && d > toDate)   return false;
       }
-      // Filtro de texto
       if (!q) return true;
       return (
         String(o.order_number).includes(q) ||
@@ -91,7 +158,6 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
     });
   }, [orders, fromDate, toDate, search]);
 
-  // Contagem por status (para os badges nas abas)
   const countByStatus = useMemo(() => {
     const counts = {};
     for (const tab of STATUS_TABS) {
@@ -102,7 +168,6 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
     return counts;
   }, [filteredByDateAndSearch]);
 
-  // Lista final (com filtro de status)
   const filtered = useMemo(() => {
     if (!statusFilter) return filteredByDateAndSearch;
     return filteredByDateAndSearch.filter(o => o.status === statusFilter);
@@ -112,12 +177,34 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
   return (
     <div>
+      {/* ── Filtros salvos ── */}
+      {savedFilters.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <p style={{ fontSize: 10, fontWeight: 700, color: '#666', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>Filtros salvos</p>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {savedFilters.map(f => (
+              <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#2D2D2D', borderRadius: 20, border: '1px solid #444', overflow: 'hidden' }}>
+                <button
+                  onClick={() => applyFilter(f)}
+                  style={{ padding: '4px 10px 4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'none', border: 'none', color: GOLD }}
+                >
+                  {f.name}
+                </button>
+                <button
+                  onClick={() => deleteFilter(f.id)}
+                  style={{ padding: '4px 8px 4px 4px', background: 'none', border: 'none', cursor: 'pointer', color: '#666', display: 'flex', alignItems: 'center' }}
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Busca ── */}
       <div style={{ position: 'relative', marginBottom: 10 }}>
-        <Search size={14} style={{
-          position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-          color: '#888', pointerEvents: 'none',
-        }} />
+        <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#888', pointerEvents: 'none' }} />
         <input
           type="search"
           value={search}
@@ -141,13 +228,13 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
       {/* ── Filtro de data — presets ── */}
       <div style={{ marginBottom: datePreset === 'custom' ? 8 : 12 }}>
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4 }}>
-          <Calendar size={14} color="#888" style={{ flexShrink: 0, marginTop: 7 }} />
+        <div style={{ display: 'flex', gap: 5, overflowX: 'auto', paddingBottom: 4, flexWrap: 'wrap' }}>
+          <Calendar size={14} color="#888" style={{ flexShrink: 0, marginTop: 6 }} />
           {DATE_PRESETS.map(p => (
             <button key={p.key} onClick={() => setDatePreset(p.key)}
               style={{
                 flexShrink: 0,
-                padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                padding: '4px 11px', borderRadius: 20, fontSize: 11, fontWeight: 600,
                 cursor: 'pointer', border: 'none',
                 background: datePreset === p.key ? GOLD : '#333',
                 color: datePreset === p.key ? '#000' : '#aaa',
@@ -173,10 +260,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
       )}
 
       {/* ── Abas de status ── */}
-      <div style={{
-        display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 4,
-        marginBottom: 14, borderBottom: '1px solid #333', paddingBottom: 10,
-      }}>
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 10, marginBottom: 10, borderBottom: '1px solid #333' }}>
         {STATUS_TABS.map(tab => {
           const active = statusFilter === tab.key;
           const cnt = countByStatus[tab.key] || 0;
@@ -206,13 +290,48 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
         })}
       </div>
 
-      {/* ── Contagem de resultados ── */}
-      {filtered.length > 0 && (
-        <p style={{ color: '#666', fontSize: 12, marginBottom: 10 }}>
-          {filtered.length} pedido{filtered.length !== 1 ? 's' : ''}
-          {statusFilter ? ` · ${STATUS_TABS.find(t => t.key === statusFilter)?.label}` : ''}
-          {datePreset !== 'all' ? ` · ${DATE_PRESETS.find(p => p.key === datePreset)?.label}` : ''}
-        </p>
+      {/* ── Barra de ações / contagem ── */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        {filtered.length > 0 ? (
+          <p style={{ color: '#666', fontSize: 12 }}>
+            {filtered.length} pedido{filtered.length !== 1 ? 's' : ''}
+            {statusFilter ? ` · ${STATUS_TABS.find(t => t.key === statusFilter)?.label}` : ''}
+            {datePreset !== 'all' ? ` · ${DATE_PRESETS.find(p => p.key === datePreset)?.label}` : ''}
+          </p>
+        ) : <span />}
+
+        {hasFilter && (
+          <button
+            onClick={() => setShowSaveDialog(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 6, border: '1px solid #555', background: 'none', color: GOLD, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+          >
+            <Bookmark size={11} /> Salvar filtro
+          </button>
+        )}
+      </div>
+
+      {/* ── Diálogo salvar filtro ── */}
+      {showSaveDialog && (
+        <div style={{ background: '#2D2D2D', borderRadius: 8, padding: '12px 14px', marginBottom: 12, border: '1px solid #555' }}>
+          <p style={{ color: '#aaa', fontSize: 12, marginBottom: 8 }}>Nome do filtro:</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="text"
+              value={newFilterName}
+              onChange={e => setNewFilterName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && saveCurrentFilter()}
+              placeholder="Ex.: Clientes recorrentes 90 dias"
+              autoFocus
+              style={{ flex: 1, padding: '7px 10px', background: '#1A1A1A', border: '1px solid #555', borderRadius: 6, color: '#fff', fontSize: 12, outline: 'none' }}
+            />
+            <button onClick={saveCurrentFilter} style={{ padding: '7px 14px', borderRadius: 6, background: GOLD, border: 'none', color: '#000', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+              Salvar
+            </button>
+            <button onClick={() => setShowSaveDialog(false)} style={{ padding: '7px 10px', borderRadius: 6, background: 'none', border: '1px solid #555', color: '#888', fontSize: 12, cursor: 'pointer' }}>
+              <X size={12} />
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ── Lista vazia ── */}
