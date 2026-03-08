@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   ShoppingBag, DollarSign, TrendingUp, ChefHat,
   Truck, CheckCircle, XCircle, Clock, BarChart2, RefreshCw,
   Percent, CreditCard, Tag, AlertTriangle, Banknote, Zap,
   TrendingDown, ArrowUpRight, ArrowDownRight, Minus, Target,
+  Star,
 } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
 
@@ -330,11 +331,35 @@ function PaymentMethodCard({ method, count, revenue, total }) {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
-export default function Dashboard({ orders, onRefresh, loading }) {
+export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
   const today     = todaySP();
   const yesterday = yesterdaySP();
 
   const [dateRange, setDateRange] = useState({ from: today, to: today, fromTime: '00:00', toTime: '23:59' });
+
+  // ── Ingredients + Recipes for CMV ─────────────────────────────────────────
+  const [ingredients, setIngredients] = useState([]);
+  const [recipes, setRecipes]         = useState({});
+
+  useEffect(() => {
+    if (!adminToken) return;
+    fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ action: 'get_catalog_extra' }),
+    })
+      .then(r => r.json())
+      .then(extra => {
+        setIngredients(extra.ingredients || []);
+        const map = {};
+        for (const item of (extra.recipes || [])) {
+          if (!map[item.product_id]) map[item.product_id] = [];
+          map[item.product_id].push({ ingredient_id: item.ingredient_id, quantity: item.quantity });
+        }
+        setRecipes(map);
+      })
+      .catch(() => {});
+  }, [adminToken]);
   const dateFrom = dateRange.from;
   const dateTo   = dateRange.to;
 
@@ -511,6 +536,69 @@ export default function Dashboard({ orders, onRefresh, loading }) {
     hourlyData, isSingleDay, dailyData, dualWeeklyData,
   } = metrics;
 
+  // ── Sabores mais rentáveis (CMV) ──────────────────────────────────────────
+  const topFlavors = useMemo(() => {
+    if (!ingredients.length || !Object.keys(recipes).length) return [];
+
+    // Sales per product name in current period (from order items)
+    const salesMap = {}; // productName → { qty, revenue }
+    const periodOrders = (() => {
+      if (filterMode === 'today') return orders.filter(o => toSPDate(o.created_at) === today);
+      if (filterMode === 'yesterday') return orders.filter(o => toSPDate(o.created_at) === yesterday);
+      return orders.filter(o => { const d = toSPDate(o.created_at); return d >= dateFrom && d <= dateTo; });
+    })();
+    for (const o of periodOrders.filter(o => o.status !== 'cancelled')) {
+      const items = Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : []);
+      for (const it of items) {
+        const name = it.name || it.productName || it.product_name || '';
+        if (!name) continue;
+        if (!salesMap[name]) salesMap[name] = { qty: 0, revenue: 0 };
+        salesMap[name].qty     += (it.quantity || it.qty || 1);
+        salesMap[name].revenue += (it.price || it.unit_price || 0) * (it.quantity || it.qty || 1);
+      }
+    }
+
+    // For each product that has recipes, compute CMV
+    const result = [];
+    for (const [productIdStr, recipeItems] of Object.entries(recipes)) {
+      const cmv = recipeItems.reduce((s, ri) => {
+        const ing = ingredients.find(g => g.id === ri.ingredient_id || String(g.id) === String(ri.ingredient_id));
+        return s + (parseFloat(ri.quantity) || 0) * (parseFloat(ing?.cost_per_unit) || 0);
+      }, 0);
+      if (cmv <= 0) continue;
+
+      // Try to match recipe product to a sales entry — we need a product name for this product_id
+      // Use orders items to find a matching product_id or product_name
+      let bestName = null;
+      for (const o of periodOrders) {
+        const items = Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : []);
+        const match = items.find(it => String(it.product_id || it.productId) === productIdStr);
+        if (match) { bestName = match.name || match.productName || match.product_name; break; }
+      }
+      if (!bestName) continue;
+
+      const sale = salesMap[bestName];
+      const price = sale ? (sale.revenue / sale.qty) : 0;
+      const margin = price > 0 ? ((price - cmv) / price * 100) : null;
+      const lucroUnit = price > 0 ? (price - cmv) : null;
+
+      result.push({
+        name: bestName,
+        cmv,
+        price,
+        margin,
+        lucroUnit,
+        qtySold: sale?.qty || 0,
+        revenue: sale?.revenue || 0,
+      });
+    }
+
+    return result
+      .filter(r => r.margin !== null)
+      .sort((a, b) => b.margin - a.margin)
+      .slice(0, 8);
+  }, [ingredients, recipes, orders, filterMode, today, yesterday, dateFrom, dateTo]);
+
   const now = new Date().toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo',
     day: '2-digit', month: 'long', year: 'numeric',
@@ -518,7 +606,7 @@ export default function Dashboard({ orders, onRefresh, loading }) {
   });
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1400, margin: '0 auto' }}>
+    <div style={{ padding: '28px 32px' }}>
 
       {/* ── Cabeçalho ─────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
@@ -661,6 +749,44 @@ export default function Dashboard({ orders, onRefresh, loading }) {
             {Object.entries(td.byPayment).map(([method, { count, revenue }]) => (
               <PaymentMethodCard key={method} method={method} count={count} revenue={revenue} total={td.active} />
             ))}
+          </div>
+        </>
+      )}
+
+      {/* ── SABORES MAIS RENTÁVEIS ─────────────────────────────────────── */}
+      {topFlavors.length > 0 && (
+        <>
+          <SectionTitle>Sabores mais rentáveis — {periodLabel}</SectionTitle>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB', overflow: 'hidden', marginBottom: 28, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            {/* Header */}
+            <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 100px 100px 100px 90px', gap: 0, background: '#F9FAFB', borderBottom: '1px solid #E5E7EB', padding: '10px 18px', alignItems: 'center' }}>
+              {['#', 'Sabor', 'Margem', 'CMV', 'Lucro/unid.', 'Vendidos'].map((h, i) => (
+                <span key={i} style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: i > 1 ? 'right' : 'left' }}>{h}</span>
+              ))}
+            </div>
+            {topFlavors.map((f, idx) => {
+              const marginColor = f.margin >= 65 ? '#059669' : f.margin >= 45 ? '#D97706' : '#EF4444';
+              const marginBg    = f.margin >= 65 ? '#ECFDF5' : f.margin >= 45 ? '#FFFBEB' : '#FEF2F2';
+              return (
+                <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 100px 100px 100px 90px', gap: 0, padding: '12px 18px', borderBottom: '1px solid #F3F4F6', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: idx === 0 ? '#F2A800' : '#9CA3AF' }}>
+                    {idx === 0 ? '★' : idx + 1}
+                  </span>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{f.name}</p>
+                    {f.price > 0 && <p style={{ fontSize: 11, color: '#9CA3AF' }}>Preço médio: {fmtBRL(f.price)}</p>}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 5, background: marginBg, color: marginColor }}>
+                      {f.margin.toFixed(0)}%
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textAlign: 'right' }}>{fmtBRL(f.cmv)}</p>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#059669', textAlign: 'right' }}>{f.lucroUnit !== null ? fmtBRL(f.lucroUnit) : '—'}</p>
+                  <p style={{ fontSize: 12, color: '#374151', textAlign: 'right' }}>{f.qtySold > 0 ? f.qtySold : '—'}</p>
+                </div>
+              );
+            })}
           </div>
         </>
       )}

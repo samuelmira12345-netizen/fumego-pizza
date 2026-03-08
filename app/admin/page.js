@@ -746,6 +746,7 @@ export default function AdminPage() {
             orders={data.orders}
             onRefresh={loadData}
             loading={loading}
+            adminToken={adminToken}
           />
         )}
 

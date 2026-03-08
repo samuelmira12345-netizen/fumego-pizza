@@ -670,6 +670,9 @@ export default function Catalog({ adminToken }) {
   // Edit ingredient inline
   const [editingIng, setEditingIng] = useState(null); // ingredient id
 
+  // Price history panel: selected ingredient id
+  const [selectedIngForHistory, setSelectedIngForHistory] = useState(null);
+
   // ── Data loading ─────────────────────────────────────────────────────────────
 
   const load = useCallback(async () => {
@@ -1193,35 +1196,44 @@ export default function Catalog({ adminToken }) {
       {/* ── ABA INSUMOS ──────────────────────────────────────────────────────── */}
       {tab === 'insumos' && (
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
-          <div style={{ maxWidth: 720 }}>
-            <p style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>
-              Insumos são matérias-primas utilizadas nas fichas técnicas dos produtos para calcular custo e margem automaticamente.
-            </p>
+          <p style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>
+            Insumos são matérias-primas utilizadas nas fichas técnicas dos produtos para calcular custo e margem automaticamente.
+          </p>
 
-            {/* Lista de ingredientes */}
-            <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, overflow: 'hidden', marginBottom: 20 }}>
-              {/* Header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 120px 80px', gap: 0, background: '#F9FAFB', borderBottom: '1px solid ' + C.border, padding: '10px 16px' }}>
-                {['Insumo', 'Unidade', 'Custo/Unid.', ''].map((h, i) => (
-                  <span key={i} style={{ fontSize: 11, fontWeight: 700, color: C.light, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</span>
-                ))}
-              </div>
+          {/* Lista de ingredientes */}
+          <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, overflow: 'hidden', marginBottom: 20 }}>
+            {/* Header */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 100px', gap: 0, background: '#F9FAFB', borderBottom: '1px solid ' + C.border, padding: '10px 16px' }}>
+              {['Insumo', 'Unidade', 'Custo/Unid.', 'Variação', ''].map((h, i) => (
+                <span key={i} style={{ fontSize: 11, fontWeight: 700, color: C.light, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: i >= 2 ? 'right' : 'left' }}>{h}</span>
+              ))}
+            </div>
 
-              {ingredients.length === 0 ? (
-                <p style={{ padding: 20, fontSize: 13, color: C.light, textAlign: 'center' }}>Nenhum insumo cadastrado. Adicione abaixo.</p>
-              ) : (
-                ingredients.map(ing => {
-                  const isEditing = editingIng === ing.id;
-                  return (
-                    <div key={ing.id} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 120px 80px', gap: 0, borderBottom: '1px solid ' + C.border, padding: '10px 16px', alignItems: 'center' }}>
+            {ingredients.length === 0 ? (
+              <p style={{ padding: 20, fontSize: 13, color: C.light, textAlign: 'center' }}>Nenhum insumo cadastrado. Adicione abaixo.</p>
+            ) : (
+              ingredients.map(ing => {
+                const isEditing = editingIng === ing.id;
+                // Price variation % from first recorded history to current
+                const history = priceHistory
+                  .filter(h => h.ingredient_id === ing.id)
+                  .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at));
+                const firstPrice = history.length > 0 ? (parseFloat(history[0].old_price) || parseFloat(history[0].new_price)) : null;
+                const currentPrice = parseFloat(ing.cost_per_unit);
+                const variation = firstPrice && firstPrice > 0 ? ((currentPrice - firstPrice) / firstPrice * 100) : null;
+
+                return (
+                  <div key={ing.id}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 100px', gap: 0, borderBottom: selectedIngForHistory === ing.id ? 'none' : '1px solid ' + C.border, padding: '10px 16px', alignItems: 'center' }}>
                       {isEditing ? (
                         <>
                           <input value={ing.name} onChange={e => handleUpdateIngredient(ing.id, 'name', e.target.value)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', marginRight: 8 }} />
                           <select value={ing.unit} onChange={e => handleUpdateIngredient(ing.id, 'unit', e.target.value)} style={{ padding: '5px 6px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', marginRight: 8 }}>
                             {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                           </select>
-                          <input type="number" value={ing.cost_per_unit} min="0" step="0.0001" onChange={e => handleUpdateIngredient(ing.id, 'cost_per_unit', e.target.value)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', marginRight: 8 }} />
-                          <div style={{ display: 'flex', gap: 5 }}>
+                          <input type="number" value={ing.cost_per_unit} min="0" step="0.0001" onChange={e => handleUpdateIngredient(ing.id, 'cost_per_unit', e.target.value)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', textAlign: 'right' }} />
+                          <div />
+                          <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
                             <button onClick={() => handleSaveIngredient(ing)} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: '#111827', color: '#fff', fontSize: 12, cursor: 'pointer' }}>OK</button>
                             <button onClick={() => setEditingIng(null)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, background: '#fff', fontSize: 12, cursor: 'pointer' }}>✕</button>
                           </div>
@@ -1230,45 +1242,100 @@ export default function Catalog({ adminToken }) {
                         <>
                           <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{ing.name}</span>
                           <span style={{ fontSize: 12, color: C.muted }}>{ing.unit}</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#059669' }}>{fmtBRL(ing.cost_per_unit)}</span>
-                          <div style={{ display: 'flex', gap: 5 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', textAlign: 'right' }}>{fmtBRL(ing.cost_per_unit)}</span>
+                          <div style={{ textAlign: 'right' }}>
+                            {variation !== null ? (
+                              <span style={{
+                                fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+                                background: variation > 0 ? '#FEF2F2' : variation < 0 ? '#ECFDF5' : '#F3F4F6',
+                                color: variation > 0 ? C.danger : variation < 0 ? '#059669' : C.muted,
+                              }}>
+                                {variation > 0 ? '▲' : variation < 0 ? '▼' : '—'} {Math.abs(variation).toFixed(1)}%
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: 11, color: C.light }}>—</span>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <button
+                              onClick={() => setSelectedIngForHistory(selectedIngForHistory === ing.id ? null : ing.id)}
+                              title="Histórico de preço"
+                              style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid ' + C.border, background: selectedIngForHistory === ing.id ? '#EFF6FF' : '#fff', fontSize: 11, cursor: 'pointer', color: selectedIngForHistory === ing.id ? '#2563EB' : C.muted, display: 'flex', alignItems: 'center' }}
+                            >
+                              <BarChart2 size={13} />
+                            </button>
                             <button onClick={() => setEditingIng(ing.id)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid ' + C.border, background: '#fff', fontSize: 11, cursor: 'pointer', color: C.muted }}>Editar</button>
-                            <button onClick={() => handleDeleteIngredient(ing.id)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', fontSize: 11, cursor: 'pointer', color: C.danger }}>✕</button>
+                            <button onClick={() => handleDeleteIngredient(ing.id)} style={{ padding: '4px 6px', borderRadius: 4, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', fontSize: 11, cursor: 'pointer', color: C.danger }}>✕</button>
                           </div>
                         </>
                       )}
                     </div>
-                  );
-                })
-              )}
-            </div>
 
-            {/* Adicionar insumo */}
-            <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '2px dashed ' + C.border }}>
-              <h3 style={{ color: C.gold, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                <Plus size={16} color={C.gold} /> Novo Insumo
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
-                <div>
-                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Nome do insumo *</label>
-                  <input className="input-field" placeholder="ex: Farinha de trigo" value={newIng.name} onChange={e => setNewIng(p => ({ ...p, name: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Unidade</label>
-                  <select value={newIng.unit} onChange={e => setNewIng(p => ({ ...p, unit: e.target.value }))} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#F9FAFB', color: C.text }}>
-                    {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Custo por unid. (R$)</label>
-                  <input className="input-field" type="number" min="0" step="0.0001" placeholder="0,00" value={newIng.cost_per_unit} onChange={e => setNewIng(p => ({ ...p, cost_per_unit: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-                </div>
+                    {/* Inline price history panel */}
+                    {selectedIngForHistory === ing.id && (() => {
+                      const chartPoints = [];
+                      if (history.length > 0) {
+                        const beforeFirst = new Date(history[0].changed_at);
+                        beforeFirst.setDate(beforeFirst.getDate() - 1);
+                        chartPoints.push({ date: beforeFirst.toISOString(), price: parseFloat(history[0].old_price) || 0 });
+                        for (const h of history) chartPoints.push({ date: h.changed_at, price: parseFloat(h.new_price) });
+                      }
+                      chartPoints.push({ date: new Date().toISOString(), price: parseFloat(ing.cost_per_unit) || 0, isCurrent: true });
+                      return (
+                        <div style={{ borderBottom: '1px solid ' + C.border, background: '#F8FAFC', padding: '14px 18px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Histórico de preço — {ing.name}</p>
+                            <button onClick={() => setSelectedIngForHistory(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 16, lineHeight: 1 }}>×</button>
+                          </div>
+                          {chartPoints.length < 2 ? (
+                            <p style={{ fontSize: 12, color: C.light, padding: '8px 0' }}>Sem histórico. Altere o custo para começar a registrar.</p>
+                          ) : (
+                            <>
+                              <PriceLineChart points={chartPoints} />
+                              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 100, overflowY: 'auto' }}>
+                                {[...history].reverse().map((h, i) => (
+                                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.muted }}>
+                                    <span>{new Date(h.changed_at).toLocaleDateString('pt-BR')}</span>
+                                    <span>{fmtBRL(h.old_price)} → <strong style={{ color: parseFloat(h.new_price) > parseFloat(h.old_price) ? C.danger : '#059669' }}>{fmtBRL(h.new_price)}</strong></span>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Adicionar insumo */}
+          <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '2px dashed ' + C.border }}>
+            <h3 style={{ color: C.gold, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+              <Plus size={16} color={C.gold} /> Novo Insumo
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Nome do insumo *</label>
+                <input className="input-field" placeholder="ex: Farinha de trigo" value={newIng.name} onChange={e => setNewIng(p => ({ ...p, name: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
               </div>
-              <button onClick={handleAddIngredient} disabled={addingIng} style={{ padding: '10px 20px', background: C.gold, color: '#000', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: addingIng ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-                {addingIng ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
-                {addingIng ? 'Adicionando...' : 'Adicionar Insumo'}
-              </button>
+              <div>
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Unidade</label>
+                <select value={newIng.unit} onChange={e => setNewIng(p => ({ ...p, unit: e.target.value }))} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#F9FAFB', color: C.text }}>
+                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Custo por unid. (R$)</label>
+                <input className="input-field" type="number" min="0" step="0.0001" placeholder="0,00" value={newIng.cost_per_unit} onChange={e => setNewIng(p => ({ ...p, cost_per_unit: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+              </div>
             </div>
+            <button onClick={handleAddIngredient} disabled={addingIng} style={{ padding: '10px 20px', background: C.gold, color: '#000', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: addingIng ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {addingIng ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
+              {addingIng ? 'Adicionando...' : 'Adicionar Insumo'}
+            </button>
           </div>
         </div>
       )}
