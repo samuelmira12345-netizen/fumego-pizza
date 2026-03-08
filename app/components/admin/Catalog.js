@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   UtensilsCrossed, GlassWater, Package, Upload, Loader2, Trash2,
   Plus, Check, ChevronDown, ChevronUp, Save, RefreshCw,
-  DollarSign, TrendingDown, BookOpen, X,
+  DollarSign, TrendingDown, BookOpen, X, Eye, EyeOff, Copy,
+  BarChart2, TrendingUp,
 } from 'lucide-react';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -77,88 +78,89 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
     try { await onSave(productId, items); } finally { setSaving(false); }
   }
 
-  return (
-    <div style={{ marginTop: 12, padding: '14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E5E7EB' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: 11, fontWeight: 800, color: C.light, textTransform: 'uppercase', letterSpacing: 1 }}>
-          Ficha Técnica
-        </span>
-        {calcCost > 0 && (
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>
-              Custo calc.: {fmtBRL(calcCost)}
-            </span>
-            {margin !== null && (
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-                background: margin >= 60 ? '#ECFDF5' : margin >= 40 ? '#FFFBEB' : '#FEF2F2',
-                color: margin >= 60 ? '#059669' : margin >= 40 ? '#D97706' : '#EF4444',
-              }}>
-                Margem: {margin.toFixed(0)}%
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+  const cmv = price > 0 && calcCost > 0 ? (calcCost / price * 100) : null;
+  const lucro = price > 0 ? price - calcCost : null;
 
-      {/* Ingredientes da receita */}
-      {enriched.length === 0 ? (
-        <p style={{ fontSize: 12, color: C.light, marginBottom: 10 }}>Nenhum ingrediente na ficha. Adicione abaixo.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 10 }}>
+  return (
+    <div style={{ marginTop: 12, padding: '16px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E0E7EF' }}>
+      <p style={{ fontSize: 11, fontWeight: 800, color: C.light, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+        Ficha Técnica
+      </p>
+
+      {/* Tabela de ingredientes */}
+      {enriched.length > 0 && (
+        <div style={{ marginBottom: 12, border: '1px solid ' + C.border, borderRadius: 6, overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 30px', background: '#F3F4F6', borderBottom: '1px solid ' + C.border, padding: '6px 10px' }}>
+            {['Insumo', 'Qtd', 'Unid', 'Custo', ''].map((h, i) => (
+              <span key={i} style={{ fontSize: 10, fontWeight: 700, color: C.light, textTransform: 'uppercase' }}>{h}</span>
+            ))}
+          </div>
           {enriched.map(i => (
-            <div key={i.ingredient_id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ flex: 1, fontSize: 12, fontWeight: 600, color: C.text }}>{i.name || '—'}</span>
+            <div key={i.ingredient_id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 30px', alignItems: 'center', padding: '7px 10px', borderBottom: '1px solid ' + C.border + '60' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{i.name || '—'}</span>
               <input
-                type="number"
-                value={i.quantity}
-                min="0"
-                step="0.001"
+                type="number" value={i.quantity} min="0" step="0.001"
                 onChange={e => updateQty(i.ingredient_id, e.target.value)}
-                style={{ width: 70, padding: '4px 6px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', textAlign: 'right' }}
+                style={{ width: '100%', padding: '3px 5px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', textAlign: 'right', boxSizing: 'border-box' }}
               />
-              <span style={{ fontSize: 11, color: C.muted, minWidth: 28 }}>{i.unit}</span>
-              <span style={{ fontSize: 11, color: C.light, minWidth: 60, textAlign: 'right' }}>
+              <span style={{ fontSize: 11, color: C.muted, textAlign: 'center' }}>{i.unit}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', textAlign: 'right' }}>
                 {fmtBRL((parseFloat(i.quantity) || 0) * i.cost_per_unit)}
               </span>
-              <button onClick={() => removeItem(i.ingredient_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center' }}>
-                <X size={13} />
+              <button onClick={() => removeItem(i.ingredient_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <X size={12} />
               </button>
             </div>
           ))}
         </div>
       )}
 
+      {/* Resumo CMV / Margem / Lucro */}
+      {calcCost > 0 && (
+        <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+          <div style={{ background: '#EFF6FF', borderRadius: 6, padding: '7px 12px', flex: 1, minWidth: 90 }}>
+            <p style={{ fontSize: 10, color: '#2563EB', fontWeight: 700, marginBottom: 2 }}>CMV</p>
+            <p style={{ fontSize: 13, fontWeight: 800, color: '#1E40AF' }}>{fmtBRL(calcCost)}</p>
+            {cmv !== null && <p style={{ fontSize: 11, color: '#3B82F6' }}>{cmv.toFixed(0)}% do preço</p>}
+          </div>
+          {margin !== null && (
+            <div style={{
+              background: margin >= 60 ? '#ECFDF5' : margin >= 40 ? '#FFFBEB' : '#FEF2F2',
+              borderRadius: 6, padding: '7px 12px', flex: 1, minWidth: 90,
+            }}>
+              <p style={{ fontSize: 10, fontWeight: 700, marginBottom: 2, color: margin >= 60 ? '#059669' : margin >= 40 ? '#D97706' : '#EF4444' }}>Margem</p>
+              <p style={{ fontSize: 13, fontWeight: 800, color: margin >= 60 ? '#047857' : margin >= 40 ? '#92400E' : '#B91C1C' }}>{margin.toFixed(0)}%</p>
+            </div>
+          )}
+          {lucro !== null && (
+            <div style={{ background: '#F5F3FF', borderRadius: 6, padding: '7px 12px', flex: 1, minWidth: 90 }}>
+              <p style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, marginBottom: 2 }}>Lucro/unid</p>
+              <p style={{ fontSize: 13, fontWeight: 800, color: '#6D28D9' }}>{fmtBRL(lucro)}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {enriched.length === 0 && (
+        <p style={{ fontSize: 12, color: C.light, marginBottom: 10 }}>Nenhum ingrediente na ficha. Adicione abaixo.</p>
+      )}
+
       {/* Adicionar ingrediente */}
       {availableIngs.length > 0 && (
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
-          <select
-            value={addIng}
-            onChange={e => setAddIng(e.target.value)}
-            style={{ flex: 1, padding: '5px 8px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', background: '#fff' }}
-          >
+          <select value={addIng} onChange={e => setAddIng(e.target.value)}
+            style={{ flex: 1, padding: '5px 8px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', background: '#fff' }}>
             <option value="">Selecionar insumo...</option>
-            {availableIngs.map(g => (
-              <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>
-            ))}
+            {availableIngs.map(g => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
           </select>
-          <input
-            type="number"
-            value={addQty}
-            min="0"
-            step="0.001"
-            onChange={e => setAddQty(e.target.value)}
-            placeholder="Qtd"
-            style={{ width: 70, padding: '5px 6px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none' }}
-          />
+          <input type="number" value={addQty} min="0" step="0.001" onChange={e => setAddQty(e.target.value)} placeholder="Qtd"
+            style={{ width: 70, padding: '5px 6px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none' }} />
           <button onClick={addItem} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: '#111827', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
             <Plus size={12} /> Add
           </button>
         </div>
       )}
-      {ingredients.length === 0 && (
-        <p style={{ fontSize: 11, color: C.light, marginBottom: 10 }}>Cadastre insumos na aba "Insumos" para usar aqui.</p>
-      )}
+      {ingredients.length === 0 && <p style={{ fontSize: 11, color: C.light, marginBottom: 10 }}>Cadastre insumos na aba "Insumos" para usar aqui.</p>}
 
       <button onClick={save} disabled={saving} style={{
         display: 'flex', alignItems: 'center', gap: 5,
@@ -390,16 +392,180 @@ function DrinkCard({ drink, idx, onUpdate, onDelete, drinkStockLimits, onUpdateD
   );
 }
 
+// ── PriceLineChart (para Análise de Preço) ────────────────────────────────────
+
+function PriceLineChart({ points }) {
+  const [hovered, setHovered] = useState(null);
+  if (!points || points.length < 2) return null;
+
+  const prices = points.map(p => p.price);
+  const minP = Math.min(...prices);
+  const maxP = Math.max(...prices);
+  const range = maxP - minP || 1;
+
+  const W = 400, H = 80, padL = 8, padR = 8, padT = 16, padB = 16;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const n = points.length;
+
+  function px(i) { return padL + (i / (n - 1)) * chartW; }
+  function py(price) { return padT + chartH - ((price - minP) / range) * chartH; }
+
+  const polyPoints = points.map((p, i) => `${px(i)},${py(p.price)}`).join(' ');
+
+  function fmtBRLshort(v) {
+    if (v >= 1000) return `R$${(v / 1000).toFixed(1)}k`;
+    return `R$${(v || 0).toFixed(2).replace('.', ',')}`;
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {hovered !== null && (
+        <div style={{
+          position: 'absolute', top: 0,
+          left: `clamp(40px, ${(hovered / (n - 1)) * 100}%, calc(100% - 40px))`,
+          transform: 'translateX(-50%)',
+          background: '#111827', color: '#fff', padding: '4px 9px', borderRadius: 6,
+          fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap', zIndex: 10, pointerEvents: 'none',
+        }}>
+          {fmtBRLshort(points[hovered].price)}
+        </div>
+      )}
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H, display: 'block' }} onMouseLeave={() => setHovered(null)}>
+        {/* Grid lines */}
+        {[0, 0.5, 1].map(t => {
+          const y = padT + t * chartH;
+          return <line key={t} x1={padL} y1={y} x2={W - padR} y2={y} stroke="#F3F4F6" strokeWidth="1" />;
+        })}
+        {/* Line */}
+        <polyline points={polyPoints} fill="none" stroke="#F2A800" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {/* Area fill */}
+        <polyline points={`${padL},${padT + chartH} ${polyPoints} ${W - padR},${padT + chartH}`} fill="rgba(242,168,0,0.08)" stroke="none" />
+        {/* Points */}
+        {points.map((p, i) => (
+          <circle key={i} cx={px(i)} cy={py(p.price)} r={hovered === i ? 5 : 3.5}
+            fill={p.isCurrent ? '#6366F1' : '#F2A800'} stroke="#fff" strokeWidth="1.5"
+            opacity={hovered !== null && hovered !== i ? 0.4 : 1}
+          />
+        ))}
+        {/* Hover zones */}
+        {points.map((p, i) => (
+          <rect key={`h-${i}`} x={px(i) - (chartW / n / 2)} y={padT} width={chartW / n} height={chartH}
+            fill="transparent" style={{ cursor: 'crosshair' }} onMouseEnter={() => setHovered(i)} />
+        ))}
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: C.light, marginTop: 2 }}>
+        <span>{new Date(points[0].date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+        <span>{new Date(points[points.length - 1].date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} (atual)</span>
+      </div>
+    </div>
+  );
+}
+
+// ── ProductRow (collapsed + expandable) ──────────────────────────────────────
+
+function ProductRow({
+  product, idx, isExpanded, onToggleExpand, onDuplicate,
+  onUpdate, onUploadImage, uploadingId,
+  imagePositions, onUpdateImagePos,
+  stockLimits, onUpdateStockLimit,
+  ingredients, recipe, onSaveRecipe,
+}) {
+  const catLabel = PROD_CATEGORIES.find(c => c.key === (product.category || 'pizza'))?.label || 'Pizza';
+  const catColors = { pizza: '#F2A800', calzone: '#2563EB', combo: '#7C3AED', outros: '#6B7280' };
+  const catColor = catColors[product.category] || catColors.pizza;
+
+  return (
+    <div style={{ background: C.card, borderRadius: 8, border: isExpanded ? '1.5px solid #F2A800' : '1px solid ' + C.border, overflow: 'hidden', boxShadow: isExpanded ? '0 2px 12px rgba(242,168,0,0.12)' : '0 1px 2px rgba(0,0,0,0.04)' }}>
+      {/* Collapsed row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px' }}>
+        {/* Thumbnail */}
+        {product.image_url
+          ? <img src={product.image_url} alt="" style={{ width: 42, height: 42, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+          : <div style={{ width: 42, height: 42, borderRadius: 6, background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><UtensilsCrossed size={16} color={C.light} /></div>
+        }
+
+        {/* Name + category */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</p>
+          <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 3, background: catColor + '18', color: catColor }}>{catLabel}</span>
+        </div>
+
+        {/* Price */}
+        <span style={{ fontSize: 14, fontWeight: 800, color: C.gold, minWidth: 76, textAlign: 'right', flexShrink: 0 }}>{fmtBRL(product.price)}</span>
+
+        {/* Active toggle */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
+          <input type="checkbox" checked={!!product.is_active} onChange={e => onUpdate(idx, 'is_active', e.target.checked)} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: product.is_active ? C.success : C.light, minWidth: 40 }}>
+            {product.is_active ? 'Ativo' : 'Inativo'}
+          </span>
+        </label>
+
+        {/* Hidden toggle */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0, title: 'Ocultar do cardápio online' }}>
+          <input type="checkbox" checked={!!product.is_hidden} onChange={e => onUpdate(idx, 'is_hidden', e.target.checked)} />
+          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: product.is_hidden ? '#7C3AED' : C.light }}>
+            {product.is_hidden ? <EyeOff size={11} /> : <Eye size={11} />}
+            {product.is_hidden ? 'Oculto' : 'Visível'}
+          </span>
+        </label>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+          <button onClick={() => onDuplicate(idx)} title="Duplicar sabor" style={{
+            padding: '5px 9px', borderRadius: 4, border: '1px solid ' + C.border,
+            background: '#F9FAFB', color: C.muted, fontSize: 12, fontWeight: 600,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            <Copy size={12} /> Duplicar
+          </button>
+          <button onClick={onToggleExpand} style={{
+            padding: '5px 12px', borderRadius: 4, border: 'none',
+            background: isExpanded ? '#111827' : '#F2A80020',
+            color: isExpanded ? '#fff' : C.gold,
+            fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 5,
+          }}>
+            {isExpanded ? <><ChevronUp size={12} /> Fechar</> : <><ChevronDown size={12} /> Editar</>}
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded editing form */}
+      {isExpanded && (
+        <div style={{ borderTop: '1px solid ' + C.border, padding: 20 }}>
+          <ProductCard
+            product={product} idx={idx}
+            onUpdate={onUpdate}
+            onUploadImage={onUploadImage}
+            uploadingId={uploadingId}
+            imagePositions={imagePositions}
+            onUpdateImagePos={onUpdateImagePos}
+            stockLimits={stockLimits}
+            onUpdateStockLimit={onUpdateStockLimit}
+            ingredients={ingredients}
+            recipe={recipe}
+            onSaveRecipe={onSaveRecipe}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Catalog Main ───────────────────────────────────────────────────────────────
 
 export default function Catalog({ adminToken }) {
-  const [tab, setTab]           = useState('cardapio'); // 'cardapio' | 'insumos'
+  const [tab, setTab]           = useState('cardapio'); // 'cardapio' | 'insumos' | 'analise'
   const [catFilter, setCatFilter] = useState('all');
+  const [expandedId, setExpandedId] = useState(null); // product id currently expanded for editing
 
   const [products, setProducts]   = useState([]);
   const [drinks, setDrinks]       = useState([]);
   const [ingredients, setIngredients] = useState([]);
   const [recipes, setRecipes]     = useState({}); // { [productId]: [{ ingredient_id, quantity }] }
+  const [priceHistory, setPriceHistory] = useState([]); // for Análise tab
 
   // Settings needed for stock limits and image positions
   const [settings, setSettings]   = useState([]);
@@ -408,6 +574,11 @@ export default function Catalog({ adminToken }) {
   const [saving, setSaving]       = useState(false);
   const [msg, setMsg]             = useState('');
   const [uploadingId, setUploadingId] = useState(null);
+
+  // New product form
+  const [showNewProduct, setShowNewProduct] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: '', category: 'pizza', price: '', description: '' });
+  const [addingProduct, setAddingProduct] = useState(false);
 
   // New drink form
   const [newDrink, setNewDrink]   = useState({ name: '', size: '', price: '' });
@@ -438,6 +609,7 @@ export default function Catalog({ adminToken }) {
       setSettings(catalog.settings || []);
 
       setIngredients(extra.ingredients || []);
+      setPriceHistory(extra.priceHistory || []);
 
       // Build recipes map: { [productId]: [{ ingredient_id, quantity }] }
       const recipeMap = {};
@@ -607,6 +779,66 @@ export default function Catalog({ adminToken }) {
     } catch (e) { alert('Erro: ' + e.message); }
   }
 
+  async function handleAddProduct() {
+    if (!newProduct.name.trim() || !newProduct.price) { alert('Nome e preço são obrigatórios'); return; }
+    setAddingProduct(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'add_product', data: {
+          name: newProduct.name.trim(),
+          category: newProduct.category,
+          price: parseFloat(newProduct.price),
+          description: newProduct.description || null,
+          is_active: true, is_hidden: false,
+          sort_order: products.length + 1,
+        }}),
+      });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      if (d.product) {
+        setProducts(prev => [...prev, d.product]);
+        setExpandedId(d.product.id);
+      }
+      setNewProduct({ name: '', category: 'pizza', price: '', description: '' });
+      setShowNewProduct(false);
+    } catch (e) { alert('Erro: ' + e.message); }
+    finally { setAddingProduct(false); }
+  }
+
+  async function handleDuplicateProduct(idx) {
+    const p = products[idx];
+    setAddingProduct(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'add_product', data: {
+          name: p.name + ' (cópia)',
+          category: p.category || 'pizza',
+          price: parseFloat(p.price) || 0,
+          description: p.description || null,
+          cost_price: parseFloat(p.cost_price) || null,
+          image_url: p.image_url || null,
+          is_active: false, is_hidden: false,
+          sort_order: (p.sort_order || 0) + 1,
+        }}),
+      });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      if (d.product) {
+        setProducts(prev => [...prev, d.product]);
+        // Copy recipe if exists
+        if (recipes[p.id]?.length > 0) {
+          await handleSaveRecipe(d.product.id, recipes[p.id]);
+        }
+        setExpandedId(d.product.id);
+      }
+    } catch (e) { alert('Erro: ' + e.message); }
+    finally { setAddingProduct(false); }
+  }
+
   async function handleDeleteIngredient(id) {
     if (!confirm('Excluir este insumo? Isso removerá das fichas técnicas.')) return;
     try {
@@ -654,6 +886,7 @@ export default function Catalog({ adminToken }) {
         {[
           { key: 'cardapio', icon: UtensilsCrossed, label: 'Cardápio' },
           { key: 'insumos',  icon: Package,         label: 'Insumos' },
+          { key: 'analise',  icon: BarChart2,        label: 'Análise de Preço' },
         ].map(t => {
           const Icon = t.icon;
           return (
@@ -700,17 +933,62 @@ export default function Catalog({ adminToken }) {
             {/* Produtos */}
             {catFilter !== 'bebidas' && (
               <>
-                {catFilter === 'all' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                    <UtensilsCrossed size={16} color={C.gold} />
-                    <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Produtos ({filteredProducts.length})</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                  <UtensilsCrossed size={16} color={C.gold} />
+                  <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Produtos ({filteredProducts.length})</span>
+                  <div style={{ flex: 1 }} />
+                  <button onClick={() => setShowNewProduct(v => !v)} style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 6,
+                    border: 'none', background: showNewProduct ? '#F3F4F6' : '#111827',
+                    color: showNewProduct ? C.muted : '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  }}>
+                    <Plus size={13} /> Novo Produto
+                  </button>
+                </div>
+
+                {/* Formulário novo produto */}
+                {showNewProduct && (
+                  <div style={{ background: '#FFFBEB', borderRadius: 8, border: '1px dashed #F2A800', padding: 16, marginBottom: 16 }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: C.gold, marginBottom: 12 }}>Novo Produto</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                      <div>
+                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Nome *</label>
+                        <input value={newProduct.name} onChange={e => setNewProduct(p => ({ ...p, name: e.target.value }))} placeholder="Ex: Pizza de Frango"
+                          style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Categoria</label>
+                        <select value={newProduct.category} onChange={e => setNewProduct(p => ({ ...p, category: e.target.value }))}
+                          style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#fff', color: C.text }}>
+                          {PROD_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Preço (R$) *</label>
+                        <input type="number" step="0.01" value={newProduct.price} onChange={e => setNewProduct(p => ({ ...p, price: e.target.value }))} placeholder="0,00"
+                          style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }} />
+                      </div>
+                    </div>
+                    <input value={newProduct.description} onChange={e => setNewProduct(p => ({ ...p, description: e.target.value }))} placeholder="Descrição (opcional)"
+                      style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text, marginBottom: 10 }} />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={handleAddProduct} disabled={addingProduct} style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: addingProduct ? '#9CA3AF' : C.gold, color: '#000', fontSize: 13, fontWeight: 700, cursor: addingProduct ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {addingProduct ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />}
+                        {addingProduct ? 'Criando...' : 'Criar Produto'}
+                      </button>
+                      <button onClick={() => setShowNewProduct(false)} style={{ padding: '8px 14px', borderRadius: 6, border: '1px solid ' + C.border, background: '#fff', color: C.muted, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+                    </div>
                   </div>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 16, marginBottom: 24 }}>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
                   {filteredProducts.map((p, idx) => (
-                    <ProductCard
+                    <ProductRow
                       key={p.id}
                       product={p} idx={idx}
+                      isExpanded={expandedId === p.id}
+                      onToggleExpand={() => setExpandedId(prev => prev === p.id ? null : p.id)}
+                      onDuplicate={handleDuplicateProduct}
                       onUpdate={updateProduct}
                       onUploadImage={handleImageUpload}
                       uploadingId={uploadingId}
@@ -848,6 +1126,77 @@ export default function Catalog({ adminToken }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── ABA ANÁLISE DE PREÇO ─────────────────────────────────────────────── */}
+      {tab === 'analise' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+          <p style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 6 }}>Análise de Preço</p>
+          <p style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>
+            Variação histórica de custo dos insumos. Os preços são registrados automaticamente ao salvar um insumo com novo valor.
+          </p>
+
+          {ingredients.length === 0 ? (
+            <p style={{ fontSize: 13, color: C.light, textAlign: 'center', padding: 40 }}>Nenhum insumo cadastrado.</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: 20 }}>
+              {ingredients.map(ing => {
+                const history = priceHistory
+                  .filter(h => h.ingredient_id === ing.id)
+                  .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at));
+
+                // Build chart points: history + current price
+                const points = [
+                  ...history.map(h => ({ date: h.changed_at, price: parseFloat(h.new_price) })),
+                  { date: new Date().toISOString(), price: parseFloat(ing.cost_per_unit) || 0, isCurrent: true },
+                ];
+
+                return (
+                  <div key={ing.id} style={{ background: C.card, borderRadius: 10, border: '1px solid ' + C.border, padding: 18 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                      <div>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{ing.name}</p>
+                        <p style={{ fontSize: 11, color: C.muted }}>{ing.unit} · Atual: {fmtBRL(ing.cost_per_unit)}</p>
+                      </div>
+                      {history.length > 0 && (() => {
+                        const first = parseFloat(history[0].old_price) || parseFloat(history[0].new_price);
+                        const current = parseFloat(ing.cost_per_unit);
+                        const pct = first > 0 ? ((current - first) / first * 100) : 0;
+                        return (
+                          <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 5, background: pct > 0 ? '#FEF2F2' : '#ECFDF5', color: pct > 0 ? C.danger : C.success }}>
+                            {pct > 0 ? '▲' : '▼'} {Math.abs(pct).toFixed(1)}%
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    {points.length < 2 ? (
+                      <p style={{ fontSize: 12, color: C.light, textAlign: 'center', padding: '16px 0' }}>
+                        Sem histórico de variação. Altere o custo do insumo para começar a registrar.
+                      </p>
+                    ) : (
+                      <PriceLineChart points={points} />
+                    )}
+
+                    {history.length > 0 && (
+                      <div style={{ marginTop: 10 }}>
+                        <p style={{ fontSize: 10, color: C.light, fontWeight: 700, textTransform: 'uppercase', marginBottom: 5 }}>Histórico</p>
+                        <div style={{ maxHeight: 100, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          {[...history].reverse().map((h, i) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.muted }}>
+                              <span>{new Date(h.changed_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                              <span>{fmtBRL(h.old_price)} → <strong style={{ color: C.text }}>{fmtBRL(h.new_price)}</strong></span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

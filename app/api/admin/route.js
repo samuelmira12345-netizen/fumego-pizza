@@ -159,20 +159,39 @@ export async function POST(request) {
     }
 
     if (action === 'get_catalog_extra') {
-      // Ingredientes (insumos) e fichas técnicas
-      const [ingredients, recipes] = await Promise.all([
+      // Ingredientes (insumos), fichas técnicas e histórico de preços
+      const [ingredients, recipes, priceHistory] = await Promise.all([
         supabase.from('ingredients').select('*').order('name'),
         supabase.from('recipe_items').select('*'),
+        supabase.from('ingredient_price_history').select('*').order('changed_at', { ascending: true }).limit(1000),
       ]);
       return NextResponse.json({
-        ingredients: ingredients.data || [],
-        recipes:     recipes.data   || [],
+        ingredients:  ingredients.data  || [],
+        recipes:      recipes.data      || [],
+        priceHistory: priceHistory.data || [],
       });
+    }
+
+    if (action === 'add_product') {
+      const { data: inserted, error } = await supabase.from('products').insert(data).select().single();
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ success: true, product: inserted });
     }
 
     if (action === 'save_ingredient') {
       const { id, name, unit, cost_per_unit } = data;
       if (id) {
+        // Check if price changed → record history
+        const { data: existing } = await supabase.from('ingredients').select('cost_per_unit').eq('id', id).single();
+        const oldPrice = parseFloat(existing?.cost_per_unit);
+        const newPrice = parseFloat(cost_per_unit);
+        if (!isNaN(oldPrice) && !isNaN(newPrice) && oldPrice !== newPrice) {
+          await supabase.from('ingredient_price_history').insert({
+            ingredient_id: id,
+            old_price: oldPrice,
+            new_price: newPrice,
+          });
+        }
         await supabase.from('ingredients').update({ name, unit, cost_per_unit }).eq('id', id);
         return NextResponse.json({ success: true });
       } else {
@@ -292,6 +311,28 @@ export async function POST(request) {
       const peakHour = Object.entries(hourMap).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
       return NextResponse.json({ orders: orders || [], topItems, peakHour });
+    }
+
+    if (action === 'search_phone_suffix') {
+      const { suffix } = data || {};
+      if (!suffix || suffix.length < 4) return NextResponse.json({ customers: [] });
+
+      const { data: rows, error: sErr } = await supabase
+        .from('orders')
+        .select('customer_name, customer_phone, delivery_neighborhood, delivery_city, delivery_street, delivery_number, created_at')
+        .like('customer_phone', `%${suffix}`)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 });
+
+      // Group by phone, pick most recent entry per phone
+      const map = {};
+      for (const r of (rows || [])) {
+        const key = r.customer_phone || r.customer_name;
+        if (!map[key]) map[key] = r;
+      }
+      const customers = Object.values(map).slice(0, 8);
+      return NextResponse.json({ customers });
     }
 
     if (action === 'create_manual_order') {
