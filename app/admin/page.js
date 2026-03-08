@@ -18,6 +18,7 @@ import Reports from '../components/admin/Reports';
 import KDSBoard from '../components/admin/KDSBoard';
 import Customers from '../components/admin/Customers';
 import Catalog from '../components/admin/Catalog';
+import Analytics from '../components/admin/Analytics';
 
 const SESSION_KEY = 'admin_token';
 
@@ -60,6 +61,7 @@ const NAV_GROUPS = [
   {
     label: 'CRESCIMENTO',
     items: [
+      { key: 'analytics',   icon: BarChart2,       label: 'Analytics' },
       { key: 'marketing',   icon: Megaphone,       label: 'Marketing',  soon: true },
       { key: 'financial',   icon: Wallet,          label: 'Financeiro', soon: true },
       { key: 'stock',       icon: Archive,         label: 'Estoque',    soon: true },
@@ -1129,6 +1131,11 @@ export default function AdminPage() {
 
             </div>
           </div>
+        )}
+
+        {/* ── ANALYTICS ─────────────────────────────────────────────────── */}
+        {section === 'analytics' && (
+          <Analytics adminToken={adminToken} />
         )}
 
         {/* ── RELATÓRIOS ────────────────────────────────────────────────── */}

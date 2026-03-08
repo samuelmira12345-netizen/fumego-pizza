@@ -170,6 +170,14 @@ export default function HomePage() {
       setSelectedOption2(null);
     }
     setShowModal(true);
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('event', 'view_item', {
+        item_name: product.name,
+        item_id:   product.slug,
+        value:     product.price,
+        currency:  'BRL',
+      });
+    }
   }
 
   function toggleDrink(drink: Drink) {
@@ -201,6 +209,14 @@ export default function HomePage() {
     };
     saveCart([...cart, item]);
     setShowModal(false);
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('event', 'add_to_cart', {
+        item_name: selectedProduct.name,
+        item_id:   selectedProduct.slug,
+        value:     selectedProduct.price,
+        currency:  'BRL',
+      });
+    }
   }
 
   function getCartTotal(): number {
