@@ -8,6 +8,7 @@ export interface Product {
   description: string;
   image_url: string | null;
   is_active: boolean;
+  is_hidden: boolean;
   sort_order: number;
 }
 

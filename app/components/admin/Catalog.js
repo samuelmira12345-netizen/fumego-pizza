@@ -719,7 +719,16 @@ export default function Catalog({ adminToken }) {
   function updateStockLimit(productId, field, value) {
     const curr = getStockLimits();
     const existing = curr[String(productId)] || { enabled: false, qty: 0, low_stock_threshold: 3 };
-    setSetting('stock_limits', JSON.stringify({ ...curr, [String(productId)]: { ...existing, [field]: value } }));
+    const entry = { ...existing, [field]: value };
+    setSetting('stock_limits', JSON.stringify({ ...curr, [String(productId)]: entry }));
+
+    // Sincroniza is_active do produto com o estoque (igual ao comportamento das bebidas)
+    if (field === 'qty' || field === 'enabled') {
+      const isEnabled = field === 'enabled' ? value : existing.enabled;
+      const qty = field === 'qty' ? value : existing.qty;
+      const outOfStock = isEnabled && qty <= 0;
+      setProducts(prev => prev.map(p => String(p.id) === String(productId) ? { ...p, is_active: !outOfStock } : p));
+    }
   }
 
   function getDrinkStockLimits() {
