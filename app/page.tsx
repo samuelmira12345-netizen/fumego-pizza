@@ -81,7 +81,13 @@ export default function HomePage() {
         supabase.from('drinks').select('*').eq('is_active', true).order('name'),
         supabase.from('settings').select('*'),
       ]);
-      if (pRes.data) setProducts(pRes.data);
+      if (pRes.data) {
+        // Filtra produtos ocultos do cardápio, exceto calabresa e marguerita (capa da loja)
+        const visibleProducts = pRes.data.filter((p: Product) =>
+          !p.is_hidden || p.slug === 'calabresa' || p.slug === 'marguerita'
+        );
+        setProducts(visibleProducts);
+      }
       if (sRes.data) {
         const s: Settings = {};
         sRes.data.forEach((i: { key: string; value: string }) => { s[i.key] = i.value; });
