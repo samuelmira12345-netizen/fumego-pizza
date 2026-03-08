@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter, Playfair_Display, Cinzel } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 import ZoomBlocker from './components/ZoomBlocker';
 
@@ -35,6 +36,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       style={{ touchAction: 'pan-x pan-y' }}
     >
       <head>
+        {/* Google Analytics 4 */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-M77EHCL2XP"
+          strategy="afterInteractive"
+        />
+        <Script id="ga4-init" strategy="afterInteractive">{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-M77EHCL2XP');
+        `}</Script>
         {/*
           Camada 1 — meta viewport:
           • maximum-scale=1.0  → limita o zoom máximo a 1× (honrado pela maioria dos browsers)
