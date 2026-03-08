@@ -341,53 +341,113 @@ function ProductCard({
   );
 }
 
-// ── DrinkCard ──────────────────────────────────────────────────────────────────
+// ── DrinkRow (collapsed + expandable) ─────────────────────────────────────────
 
-function DrinkCard({ drink, idx, onUpdate, onDelete, drinkStockLimits, onUpdateDrinkStockLimit }) {
+function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdate, onDelete, drinkStockLimits, onUpdateDrinkStockLimit }) {
   const dstock = drinkStockLimits[String(drink.id)] || { enabled: false, qty: 0 };
 
   return (
-    <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+    <div style={{ background: C.card, borderRadius: 8, border: isExpanded ? '1.5px solid #6366F1' : '1px solid ' + C.border, overflow: 'hidden', boxShadow: isExpanded ? '0 2px 12px rgba(99,102,241,0.1)' : '0 1px 2px rgba(0,0,0,0.04)' }}>
+      {/* Collapsed row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px' }}>
+        {/* Icon placeholder */}
+        <div style={{ width: 42, height: 42, borderRadius: 6, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <GlassWater size={18} color="#6366F1" />
+        </div>
+
+        {/* Name + size */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{drink.name}</p>
+          {drink.size && <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 3, background: '#EFF6FF', color: '#6366F1' }}>{drink.size}</span>}
+        </div>
+
+        {/* Price */}
+        <span style={{ fontSize: 14, fontWeight: 800, color: C.gold, minWidth: 76, textAlign: 'right', flexShrink: 0 }}>{fmtBRL(drink.price)}</span>
+
+        {/* Active toggle */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
           <input type="checkbox" checked={!!drink.is_active} onChange={e => onUpdate(idx, 'is_active', e.target.checked)} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: drink.is_active ? C.success : C.danger }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: drink.is_active ? C.success : C.light, minWidth: 40 }}>
             {drink.is_active ? 'Ativo' : 'Inativo'}
           </span>
         </label>
-        <button onClick={() => onDelete(drink.id)} style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: C.danger, borderRadius: 8, padding: '4px 12px', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Trash2 size={13} /> Excluir
-        </button>
-      </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-        <input className="input-field" placeholder="Marca/Nome" value={drink.name || ''}
-          onChange={e => onUpdate(idx, 'name', e.target.value)}
-          style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-        <input className="input-field" placeholder="Tamanho (ex: 600ml)" value={drink.size || ''}
-          onChange={e => onUpdate(idx, 'size', e.target.value)}
-          style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-      </div>
-      <input className="input-field" placeholder="Preço" type="number" step="0.01" value={drink.price || ''}
-        onChange={e => onUpdate(idx, 'price', e.target.value)}
-        style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-
-      <div style={{ marginTop: 8, padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, border: '1px solid ' + C.border }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: dstock.enabled ? 8 : 0 }}>
-          <input type="checkbox" checked={!!dstock.enabled} onChange={e => onUpdateDrinkStockLimit(drink.id, 'enabled', e.target.checked)} />
-          <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>Limitar estoque</span>
+        {/* Hidden toggle */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
+          <input type="checkbox" checked={!!drink.is_hidden} onChange={e => onUpdate(idx, 'is_hidden', e.target.checked)} />
+          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: drink.is_hidden ? '#7C3AED' : C.light }}>
+            {drink.is_hidden ? <EyeOff size={11} /> : <Eye size={11} />}
+            {drink.is_hidden ? 'Oculto' : 'Visível'}
+          </span>
         </label>
-        {dstock.enabled && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input className="input-field" type="number" min="0" placeholder="Qtd" value={dstock.qty}
-              onChange={e => onUpdateDrinkStockLimit(drink.id, 'qty', parseInt(e.target.value) || 0)}
-              style={{ maxWidth: 120, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: dstock.qty <= 0 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: dstock.qty <= 0 ? C.danger : C.success }}>
-              {dstock.qty <= 0 ? 'Esgotado' : 'Disponível'}
-            </span>
-          </div>
-        )}
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+          <button onClick={() => onDuplicate(idx)} title="Duplicar bebida" style={{
+            padding: '5px 9px', borderRadius: 4, border: '1px solid ' + C.border,
+            background: '#F9FAFB', color: C.muted, fontSize: 12, fontWeight: 600,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            <Copy size={12} /> Duplicar
+          </button>
+          <button onClick={onToggleExpand} style={{
+            padding: '5px 12px', borderRadius: 4, border: 'none',
+            background: isExpanded ? '#111827' : '#EFF6FF',
+            color: isExpanded ? '#fff' : '#6366F1',
+            fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 5,
+          }}>
+            {isExpanded ? <><ChevronUp size={12} /> Fechar</> : <><ChevronDown size={12} /> Editar</>}
+          </button>
+        </div>
       </div>
+
+      {/* Expanded editing form */}
+      {isExpanded && (
+        <div style={{ borderTop: '1px solid ' + C.border, padding: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+            <div>
+              <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Nome/Marca *</label>
+              <input className="input-field" placeholder="Marca/Nome" value={drink.name || ''}
+                onChange={e => onUpdate(idx, 'name', e.target.value)}
+                style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tamanho</label>
+              <input className="input-field" placeholder="ex: 600ml" value={drink.size || ''}
+                onChange={e => onUpdate(idx, 'size', e.target.value)}
+                style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+            </div>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Preço (R$) *</label>
+            <input className="input-field" placeholder="Preço" type="number" step="0.01" value={drink.price || ''}
+              onChange={e => onUpdate(idx, 'price', e.target.value)}
+              style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+          </div>
+
+          <div style={{ padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, border: '1px solid ' + C.border }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: dstock.enabled ? 8 : 0 }}>
+              <input type="checkbox" checked={!!dstock.enabled} onChange={e => onUpdateDrinkStockLimit(drink.id, 'enabled', e.target.checked)} />
+              <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>Limitar estoque</span>
+            </label>
+            {dstock.enabled && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input className="input-field" type="number" min="0" placeholder="Qtd" value={dstock.qty}
+                  onChange={e => onUpdateDrinkStockLimit(drink.id, 'qty', parseInt(e.target.value) || 0)}
+                  style={{ maxWidth: 120, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: dstock.qty <= 0 ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: dstock.qty <= 0 ? C.danger : C.success }}>
+                  {dstock.qty <= 0 ? 'Esgotado' : 'Disponível'}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <button onClick={() => onDelete(drink.id)} style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', color: C.danger, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            <Trash2 size={12} /> Excluir Bebida
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -581,8 +641,10 @@ export default function Catalog({ adminToken }) {
   const [addingProduct, setAddingProduct] = useState(false);
 
   // New drink form
+  const [showNewDrink, setShowNewDrink] = useState(false);
   const [newDrink, setNewDrink]   = useState({ name: '', size: '', price: '' });
   const [addingDrink, setAddingDrink] = useState(false);
+  const [expandedDrinkId, setExpandedDrinkId] = useState(null);
 
   // New ingredient form
   const [newIng, setNewIng]       = useState({ name: '', unit: 'unid', cost_per_unit: '' });
@@ -735,8 +797,12 @@ export default function Catalog({ adminToken }) {
       const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'add_drink', data: { name: newDrink.name, size: newDrink.size, price: parseFloat(newDrink.price), is_active: true } }) });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
-      setDrinks(prev => [...prev, d.drink]);
+      if (d.drink) {
+        setDrinks(prev => [...prev, d.drink]);
+        setExpandedDrinkId(d.drink.id);
+      }
       setNewDrink({ name: '', size: '', price: '' });
+      setShowNewDrink(false);
     } catch (e) { alert('Erro: ' + e.message); }
     finally { setAddingDrink(false); }
   }
@@ -775,7 +841,32 @@ export default function Catalog({ adminToken }) {
       const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'save_ingredient', data: ingredient }) });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
+      // Update ingredient cost in state
+      if (ingredient.id) {
+        setIngredients(prev => prev.map(i => i.id === ingredient.id ? { ...i, name: ingredient.name, unit: ingredient.unit, cost_per_unit: ingredient.cost_per_unit } : i));
+      }
+      // Real-time chart update: add new history entry if price changed
+      if (d.priceHistoryEntry) {
+        setPriceHistory(prev => [...prev, d.priceHistoryEntry]);
+      }
       setEditingIng(null);
+    } catch (e) { alert('Erro: ' + e.message); }
+  }
+
+  async function handleDuplicateDrink(idx) {
+    const drink = drinks[idx];
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'duplicate_drink', data: { id: drink.id } }),
+      });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      if (d.drink) {
+        setDrinks(prev => [...prev, d.drink]);
+        setExpandedDrinkId(d.drink.id);
+      }
     } catch (e) { alert('Erro: ' + e.message); }
   }
 
@@ -1008,37 +1099,64 @@ export default function Catalog({ adminToken }) {
             {/* Bebidas */}
             {showDrinks && (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                   <GlassWater size={16} color={C.gold} />
                   <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Bebidas ({drinks.length})</span>
+                  <div style={{ flex: 1 }} />
+                  <button onClick={() => setShowNewDrink(v => !v)} style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 6,
+                    border: 'none', background: showNewDrink ? '#F3F4F6' : '#111827',
+                    color: showNewDrink ? C.muted : '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  }}>
+                    <Plus size={13} /> Nova Bebida
+                  </button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
+
+                {/* Formulário nova bebida */}
+                {showNewDrink && (
+                  <div style={{ background: '#EFF6FF', borderRadius: 8, border: '1px dashed #6366F1', padding: 16, marginBottom: 16 }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: '#6366F1', marginBottom: 12 }}>Nova Bebida</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                      <div>
+                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Nome/Marca *</label>
+                        <input value={newDrink.name} onChange={e => setNewDrink(p => ({ ...p, name: e.target.value }))} placeholder="Ex: Coca-Cola"
+                          style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tamanho</label>
+                        <input value={newDrink.size} onChange={e => setNewDrink(p => ({ ...p, size: e.target.value }))} placeholder="Ex: 600ml"
+                          style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Preço (R$) *</label>
+                        <input type="number" step="0.01" value={newDrink.price} onChange={e => setNewDrink(p => ({ ...p, price: e.target.value }))} placeholder="0,00"
+                          style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }} />
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={handleAddDrink} disabled={addingDrink} style={{ padding: '8px 18px', borderRadius: 6, border: 'none', background: addingDrink ? '#9CA3AF' : '#6366F1', color: '#fff', fontSize: 13, fontWeight: 700, cursor: addingDrink ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {addingDrink ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={13} />}
+                        {addingDrink ? 'Criando...' : 'Criar Bebida'}
+                      </button>
+                      <button onClick={() => setShowNewDrink(false)} style={{ padding: '8px 14px', borderRadius: 6, border: '1px solid ' + C.border, background: '#fff', color: C.muted, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {drinks.map((d, idx) => (
-                    <DrinkCard
+                    <DrinkRow
                       key={d.id}
                       drink={d} idx={idx}
+                      isExpanded={expandedDrinkId === d.id}
+                      onToggleExpand={() => setExpandedDrinkId(prev => prev === d.id ? null : d.id)}
+                      onDuplicate={handleDuplicateDrink}
                       onUpdate={updateDrink}
                       onDelete={handleDeleteDrink}
                       drinkStockLimits={drinkStockLimits}
                       onUpdateDrinkStockLimit={updateDrinkStockLimit}
                     />
                   ))}
-
-                  {/* Adicionar bebida */}
-                  <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '2px dashed ' + C.border }}>
-                    <h3 style={{ color: C.gold, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                      <Plus size={16} color={C.gold} /> Adicionar Bebida
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                      <input className="input-field" placeholder="Nome (ex: Coca-Cola)" value={newDrink.name} onChange={e => setNewDrink(p => ({ ...p, name: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-                      <input className="input-field" placeholder="Tamanho (ex: 600ml)" value={newDrink.size} onChange={e => setNewDrink(p => ({ ...p, size: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-                    </div>
-                    <input className="input-field" placeholder="Preço" type="number" step="0.01" value={newDrink.price} onChange={e => setNewDrink(p => ({ ...p, price: e.target.value }))} style={{ marginBottom: 12, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-                    <button onClick={handleAddDrink} disabled={addingDrink} style={{ width: '100%', padding: '10px', background: C.gold, color: '#000', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: addingDrink ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                      {addingDrink ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
-                      {addingDrink ? 'Adicionando...' : 'Adicionar Bebida'}
-                    </button>
-                  </div>
                 </div>
               </>
             )}
@@ -1146,11 +1264,19 @@ export default function Catalog({ adminToken }) {
                   .filter(h => h.ingredient_id === ing.id)
                   .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at));
 
-                // Build chart points: history + current price
-                const points = [
-                  ...history.map(h => ({ date: h.changed_at, price: parseFloat(h.new_price) })),
-                  { date: new Date().toISOString(), price: parseFloat(ing.cost_per_unit) || 0, isCurrent: true },
-                ];
+                // Build chart points: initial old_price → each change → current
+                const chartPoints = [];
+                if (history.length > 0) {
+                  // Starting price: old_price of the first recorded change (one day before)
+                  const beforeFirst = new Date(history[0].changed_at);
+                  beforeFirst.setDate(beforeFirst.getDate() - 1);
+                  chartPoints.push({ date: beforeFirst.toISOString(), price: parseFloat(history[0].old_price) || 0 });
+                  for (const h of history) {
+                    chartPoints.push({ date: h.changed_at, price: parseFloat(h.new_price) });
+                  }
+                }
+                chartPoints.push({ date: new Date().toISOString(), price: parseFloat(ing.cost_per_unit) || 0, isCurrent: true });
+                const points = chartPoints;
 
                 return (
                   <div key={ing.id} style={{ background: C.card, borderRadius: 10, border: '1px solid ' + C.border, padding: 18 }}>

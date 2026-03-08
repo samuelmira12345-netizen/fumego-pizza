@@ -869,8 +869,6 @@ export default function KDSBoard({
   const [soundOn, setSoundOn]           = useState(true);
   const [newIds, setNewIds]             = useState(new Set());
   const [countdown, setCountdown]       = useState(15);
-  const [filterMode, setFilterMode]     = useState('today');
-  const [filterDate, setFilterDate]     = useState(todaySP());
   const [showRevenue, setShowRevenue]   = useState(true);
   const [dragging, setDragging]         = useState(null);
   const [showDrawer, setShowDrawer]     = useState(false);
@@ -881,6 +879,15 @@ export default function KDSBoard({
 
   useEffect(() => { onUpdateRef.current = onUpdateStatus; }, [onUpdateStatus]);
 
+  // Auto-close orders open for more than 24h
+  useEffect(() => {
+    if (!orders.length) return;
+    const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    orders
+      .filter(o => !['cancelled', 'delivered'].includes(o.status) && o.created_at < cutoff)
+      .forEach(o => onUpdateRef.current(o.id, 'status', 'delivered'));
+  }, [orders]);
+
   // Mapa telefone/nome → contagem de pedidos (todos os pedidos carregados)
   const customerOrderCount = {};
   for (const o of orders) {
@@ -889,16 +896,13 @@ export default function KDSBoard({
   }
 
   const today = todaySP();
-  const activeDate = filterMode === 'today' ? today : filterDate;
+  const cutoff24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 
+  // Show: today's orders + orders still open from last 24h (cross-midnight)
   const visible = orders.filter(o => {
-    const d = orderDateSP(o.created_at);
-    if (filterMode === 'today')     return d === today;
-    if (filterMode === 'yesterday') return d === daysAgoSP(1);
-    if (filterMode === 'week')      return d >= weekStartSP() && d <= today;
-    if (filterMode === 'last15')    return d >= daysAgoSP(15) && d <= today;
-    if (filterMode === 'last30')    return d >= daysAgoSP(30) && d <= today;
-    return d === filterDate; // custom
+    const isToday = orderDateSP(o.created_at) === today;
+    const isOpenRecent = !['cancelled', 'delivered'].includes(o.status) && o.created_at >= cutoff24h;
+    return isToday || isOpenRecent;
   });
 
   const todayOrders  = orders.filter(o => orderDateSP(o.created_at) === today);
@@ -1090,39 +1094,14 @@ export default function KDSBoard({
           </button>
         </div>
 
-        {/* Filtro período (só no Kanban) */}
+        {/* Indicador de data atual */}
         {viewMode === 'kanban' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-            {[
-              { key: 'today',     label: 'Hoje' },
-              { key: 'yesterday', label: 'Ontem' },
-              { key: 'week',      label: 'Esta semana' },
-              { key: 'last15',    label: 'Últimos 15 dias' },
-              { key: 'last30',    label: 'Últimos 30 dias' },
-            ].map(preset => (
-              <button key={preset.key}
-                onClick={() => setFilterMode(preset.key)}
-                style={{
-                  padding: '5px 11px', borderRadius: 4, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  background: filterMode === preset.key ? '#111827' : '#F3F4F6',
-                  color: filterMode === preset.key ? '#fff' : '#6B7280',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {preset.label}
-              </button>
-            ))}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: filterMode === 'custom' ? '#111827' : '#F3F4F6', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
-              onClick={() => setFilterMode('custom')}>
-              <Calendar size={12} color={filterMode === 'custom' ? '#fff' : '#6B7280'} />
-              <input
-                type="date"
-                value={filterDate}
-                onChange={e => { setFilterDate(e.target.value); setFilterMode('custom'); }}
-                onClick={e => e.stopPropagation()}
-                style={{ border: 'none', background: 'transparent', fontSize: 12, fontWeight: 600, color: filterMode === 'custom' ? '#fff' : '#6B7280', cursor: 'pointer', outline: 'none', width: 110 }}
-              />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: '#F3F4F6', borderRadius: 4 }}>
+            <Calendar size={12} color="#6B7280" />
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+              {new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </span>
+            <span style={{ fontSize: 10, color: '#9CA3AF' }}>· pedidos de hoje + abertos &lt;24h</span>
           </div>
         )}
 

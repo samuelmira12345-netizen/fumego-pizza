@@ -153,6 +153,16 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === 'duplicate_drink') {
+      const { id } = data;
+      const { data: src } = await supabase.from('drinks').select('*').eq('id', id).single();
+      if (!src) return NextResponse.json({ error: 'Bebida não encontrada' }, { status: 404 });
+      const { id: _id, created_at, ...rest } = src;
+      const { data: inserted, error } = await supabase.from('drinks').insert({ ...rest, name: src.name + ' (cópia)', is_active: false }).select().single();
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ success: true, drink: inserted });
+    }
+
     if (action === 'remove_logo') {
       await supabase.from('settings').upsert({ key: 'logo_url', value: '' }, { onConflict: 'key' });
       return NextResponse.json({ success: true });
@@ -185,15 +195,17 @@ export async function POST(request) {
         const { data: existing } = await supabase.from('ingredients').select('cost_per_unit').eq('id', id).single();
         const oldPrice = parseFloat(existing?.cost_per_unit);
         const newPrice = parseFloat(cost_per_unit);
+        let priceHistoryEntry = null;
         if (!isNaN(oldPrice) && !isNaN(newPrice) && oldPrice !== newPrice) {
-          await supabase.from('ingredient_price_history').insert({
+          const { data: histEntry } = await supabase.from('ingredient_price_history').insert({
             ingredient_id: id,
             old_price: oldPrice,
             new_price: newPrice,
-          });
+          }).select().single();
+          priceHistoryEntry = histEntry;
         }
         await supabase.from('ingredients').update({ name, unit, cost_per_unit }).eq('id', id);
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true, priceHistoryEntry });
       } else {
         const { data: inserted, error } = await supabase.from('ingredients').insert({ name, unit, cost_per_unit }).select().single();
         if (error) return NextResponse.json({ error: error.message }, { status: 400 });
