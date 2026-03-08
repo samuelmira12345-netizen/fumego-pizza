@@ -381,7 +381,6 @@ export async function POST(request) {
           payment_status: payment_status || 'pending',
           status: 'confirmed',
           observations: observations || null,
-          source: 'manual',
         })
         .select()
         .single();
