@@ -105,6 +105,19 @@ function todaySP() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
+function daysAgoSP(n) {
+  const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  d.setDate(d.getDate() - n);
+  return d.toLocaleDateString('en-CA');
+}
+
+function weekStartSP() {
+  const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const day = d.getDay(); // 0=Sun
+  d.setDate(d.getDate() - day);
+  return d.toLocaleDateString('en-CA');
+}
+
 function orderDateSP(isoStr) {
   return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
@@ -877,7 +890,16 @@ export default function KDSBoard({
 
   const today = todaySP();
   const activeDate = filterMode === 'today' ? today : filterDate;
-  const visible = orders.filter(o => orderDateSP(o.created_at) === activeDate);
+
+  const visible = orders.filter(o => {
+    const d = orderDateSP(o.created_at);
+    if (filterMode === 'today')     return d === today;
+    if (filterMode === 'yesterday') return d === daysAgoSP(1);
+    if (filterMode === 'week')      return d >= weekStartSP() && d <= today;
+    if (filterMode === 'last15')    return d >= daysAgoSP(15) && d <= today;
+    if (filterMode === 'last30')    return d >= daysAgoSP(30) && d <= today;
+    return d === filterDate; // custom
+  });
 
   const todayOrders  = orders.filter(o => orderDateSP(o.created_at) === today);
   const activeToday  = todayOrders.filter(o => !['cancelled','delivered'].includes(o.status)).length;
@@ -1070,17 +1092,26 @@ export default function KDSBoard({
 
         {/* Filtro período (só no Kanban) */}
         {viewMode === 'kanban' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button
-              onClick={() => setFilterMode('today')}
-              style={{
-                padding: '5px 13px', borderRadius: 4, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                background: filterMode === 'today' ? '#111827' : '#F3F4F6',
-                color: filterMode === 'today' ? '#fff' : '#6B7280',
-              }}
-            >
-              HOJE
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+            {[
+              { key: 'today',     label: 'Hoje' },
+              { key: 'yesterday', label: 'Ontem' },
+              { key: 'week',      label: 'Esta semana' },
+              { key: 'last15',    label: 'Últimos 15 dias' },
+              { key: 'last30',    label: 'Últimos 30 dias' },
+            ].map(preset => (
+              <button key={preset.key}
+                onClick={() => setFilterMode(preset.key)}
+                style={{
+                  padding: '5px 11px', borderRadius: 4, border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  background: filterMode === preset.key ? '#111827' : '#F3F4F6',
+                  color: filterMode === preset.key ? '#fff' : '#6B7280',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: filterMode === 'custom' ? '#111827' : '#F3F4F6', borderRadius: 4, padding: '4px 8px', cursor: 'pointer' }}
               onClick={() => setFilterMode('custom')}>
               <Calendar size={12} color={filterMode === 'custom' ? '#fff' : '#6B7280'} />

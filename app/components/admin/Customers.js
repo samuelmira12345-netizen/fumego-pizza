@@ -5,7 +5,7 @@ import {
   Search, User, Phone, MapPin, ShoppingBag, TrendingUp, Clock,
   Star, Award, UserCheck, UserX, ChevronRight, X, Plus, Minus,
   Printer, ArrowLeft, Package, CreditCard, Zap, Banknote,
-  ChefHat, AlertCircle, Check,
+  ChefHat, AlertCircle, Check, GlassWater, ArrowRight,
   Download, Filter, LayoutGrid, List, ChevronUp, ChevronDown,
 } from 'lucide-react';
 
@@ -127,6 +127,226 @@ function exportXLS(customers) {
   URL.revokeObjectURL(url);
 }
 
+// ── Opções de personalização (mesmas do site) ─────────────────────────────────
+
+const PRODUCT_OPTIONS = {
+  calabresa:  [
+    { label: 'Sem cebola', extra_price: 0 },
+    { label: 'Com cebola', extra_price: 2 },
+  ],
+  marguerita: [
+    { label: 'Sem alho',        extra_price: 0 },
+    { label: 'Com alho',        extra_price: 0 },
+    { label: 'Alho caprichado', extra_price: 2 },
+  ],
+};
+const COMBO_SLUGS = ['combo-classico'];
+
+function OptionRow({ opt, selected, onSelect }) {
+  return (
+    <div onClick={() => onSelect(opt)} style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '10px 13px', borderRadius: 6, cursor: 'pointer',
+      border: selected ? `2px solid ${C.gold}` : `1px solid ${C.border}`,
+      background: selected ? '#FFFBEB' : '#F9FAFB',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+          border: selected ? `5px solid ${C.gold}` : `2px solid ${C.border}`,
+          background: selected ? '#fff' : 'transparent',
+        }} />
+        <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{opt.label}</span>
+      </div>
+      <span style={{ fontSize: 12, fontWeight: 700, color: opt.extra_price > 0 ? C.gold : C.light }}>
+        {opt.extra_price > 0 ? `+${fmtBRL(opt.extra_price)}` : 'Incluso'}
+      </span>
+    </div>
+  );
+}
+
+function ProductPicker({ products, drinks, onAdd, onClose }) {
+  const [step, setStep]         = useState('products');
+  const [selected, setSelected] = useState(null);
+  const [option, setOption]     = useState(null);
+  const [option2, setOption2]   = useState(null);
+  const [selDrinks, setSelDrinks] = useState([]);
+  const [obs, setObs]           = useState('');
+  const [search, setSearch]     = useState('');
+
+  const active = (products || []).filter(p => p.is_active);
+  const filtered = search.trim()
+    ? active.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    : active;
+
+  const isCombo    = selected && COMBO_SLUGS.includes(selected.slug);
+  const singleOpts = selected ? PRODUCT_OPTIONS[selected.slug] : null;
+  const needsOption = isCombo || !!singleOpts;
+  const extraPrice  = (option?.extra_price || 0) + (option2?.extra_price || 0);
+  const canAdd      = !needsOption || (option && (!isCombo || option2));
+
+  function pickProduct(p) {
+    setSelected(p); setOption(null); setOption2(null);
+    setSelDrinks([]); setObs(''); setStep('configure');
+  }
+
+  function toggleDrink(drink) {
+    setSelDrinks(prev => {
+      const has = prev.find(d => d.id === drink.id);
+      if (has) return prev.filter(d => d.id !== drink.id);
+      return [...prev, { ...drink, qty: 1 }];
+    });
+  }
+
+  function changeDrinkQty(id, delta) {
+    setSelDrinks(prev => prev.map(d => d.id === id ? { ...d, qty: d.qty + delta } : d).filter(d => d.qty > 0));
+  }
+
+  function doAdd() {
+    if (!selected) return;
+    const obsLabel = [option?.label, option2?.label, obs.trim()].filter(Boolean).join(' | ') || null;
+    onAdd({
+      product_name: selected.name,
+      quantity: 1,
+      unit_price: parseFloat(selected.price) + extraPrice,
+      total_price: parseFloat(selected.price) + extraPrice,
+      observations: obsLabel,
+    });
+    selDrinks.forEach(d => onAdd({
+      product_name: `${d.name}${d.size ? ` (${d.size})` : ''}`,
+      quantity: d.qty,
+      unit_price: parseFloat(d.price),
+      total_price: parseFloat(d.price) * d.qty,
+      observations: null,
+    }));
+    setStep('products'); setSelected(null); setSearch('');
+  }
+
+  if (step === 'configure' && selected) {
+    return (
+      <div>
+        <button onClick={() => setStep('products')} style={{ display: 'flex', alignItems: 'center', gap: 6, color: C.muted, fontSize: 12, border: 'none', background: 'none', cursor: 'pointer', padding: '0 0 12px', fontWeight: 600 }}>
+          ← Voltar para produtos
+        </button>
+        <div style={{ background: '#F9FAFB', borderRadius: 6, padding: '12px 14px', border: '1px solid ' + C.border, marginBottom: 14 }}>
+          <p style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 2 }}>{selected.name}</p>
+          <p style={{ fontSize: 13, color: C.gold, fontWeight: 700 }}>{fmtBRL(selected.price)}</p>
+          {selected.description && <p style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{selected.description}</p>}
+        </div>
+
+        {isCombo && (
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>🍕 Pizza Calabresa</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {PRODUCT_OPTIONS.calabresa.map(opt => (
+                <OptionRow key={opt.label} opt={opt} selected={option?.label === opt.label} onSelect={setOption} />
+              ))}
+            </div>
+          </div>
+        )}
+        {isCombo && (
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>🍕 Pizza Marguerita</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {PRODUCT_OPTIONS.marguerita.map(opt => (
+                <OptionRow key={opt.label} opt={opt} selected={option2?.label === opt.label} onSelect={setOption2} />
+              ))}
+            </div>
+          </div>
+        )}
+        {!isCombo && singleOpts && (
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Opções</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {singleOpts.map(opt => (
+                <OptionRow key={opt.label} opt={opt} selected={option?.label === opt.label} onSelect={setOption} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(drinks || []).filter(d => d.is_active).length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
+              <GlassWater size={11} style={{ display: 'inline', marginRight: 5 }} />Bebidas (opcional)
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {(drinks || []).filter(d => d.is_active).map(drink => {
+                const sel = selDrinks.find(d => d.id === drink.id);
+                return (
+                  <div key={drink.id} onClick={() => toggleDrink(drink)} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '9px 13px', borderRadius: 6, cursor: 'pointer',
+                    border: sel ? `2px solid #10B981` : `1px solid ${C.border}`,
+                    background: sel ? '#ECFDF5' : '#F9FAFB',
+                  }}>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{drink.name}</p>
+                      <p style={{ fontSize: 11, color: C.muted }}>{drink.size} · {fmtBRL(drink.price)}</p>
+                    </div>
+                    {sel ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => changeDrinkQty(drink.id, -1)} style={{ width: 26, height: 26, borderRadius: 4, border: '1px solid ' + C.border, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={11} /></button>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: '#10B981', minWidth: 16, textAlign: 'center' }}>{sel.qty}</span>
+                        <button onClick={() => changeDrinkQty(drink.id, 1)} style={{ width: 26, height: 26, borderRadius: 4, border: 'none', background: '#10B981', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={11} color="#fff" /></button>
+                      </div>
+                    ) : <Plus size={14} color={C.light} />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginBottom: 12 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: C.light, textTransform: 'uppercase', marginBottom: 6 }}>Observação</p>
+          <textarea value={obs} onChange={e => setObs(e.target.value)} placeholder="Ex: Bem passado, sem cebola..." style={{ width: '100%', padding: '8px 10px', borderRadius: 5, border: '1px solid ' + C.border, fontSize: 12, resize: 'vertical', minHeight: 52, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', background: '#F9FAFB' }} />
+        </div>
+
+        <button onClick={doAdd} disabled={!canAdd} style={{
+          width: '100%', padding: '11px', borderRadius: 5, border: 'none',
+          background: canAdd ? C.gold : '#E5E7EB', color: canAdd ? '#fff' : C.light,
+          fontSize: 13, fontWeight: 800, cursor: canAdd ? 'pointer' : 'not-allowed',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+        }}>
+          <Plus size={14} /> Adicionar · {fmtBRL(parseFloat(selected.price) + extraPrice + selDrinks.reduce((s, d) => s + d.price * d.qty, 0))}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ position: 'relative', marginBottom: 10 }}>
+        <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.light, pointerEvents: 'none' }} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar produto..."
+          style={{ width: '100%', padding: '7px 10px 7px 28px', borderRadius: 5, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#F9FAFB' }} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+        {filtered.map(p => (
+          <div key={p.id} onClick={() => pickProduct(p)} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '10px 13px', borderRadius: 5, border: '1px solid ' + C.border,
+            background: '#F9FAFB', cursor: 'pointer',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = '#F3F4F6'}
+          onMouseLeave={e => e.currentTarget.style.background = '#F9FAFB'}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{p.name}</p>
+              {p.description && <p style={{ fontSize: 11, color: C.muted }}>{p.description}</p>}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.gold }}>{fmtBRL(p.price)}</span>
+              <ArrowRight size={13} color={C.light} />
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && <p style={{ fontSize: 13, color: C.light, textAlign: 'center', padding: '20px 0' }}>Nenhum produto encontrado</p>}
+      </div>
+    </div>
+  );
+}
+
 // ── Formulário de Pedido Manual ───────────────────────────────────────────────
 
 function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSuccess, onCancel }) {
@@ -137,47 +357,29 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
     neighborhood: prefillCustomer?.neighborhood || '',
     city: prefillCustomer?.city || '',
   });
-  const [cartItems, setCartItems] = useState([]);
+  const [cartItems, setCartItems]     = useState([]);
+  const [showPicker, setShowPicker]   = useState(false);
   const [deliveryFee, setDeliveryFee] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentStatus, setPaymentStatus] = useState('pending');
-  const [obs, setObs] = useState('');
+  const [obs, setObs]     = useState('');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [productSearch, setProductSearch] = useState('');
-
-  const allItems = [
-    ...products.map(p => ({ id: p.id, name: p.name, price: parseFloat(p.price) || 0, type: 'product' })),
-    ...drinks.map(d => ({ id: d.id, name: d.name + (d.size ? ` (${d.size})` : ''), price: parseFloat(d.price) || 0, type: 'drink' })),
-  ].filter(i => i.price > 0);
-
-  const filtered = productSearch
-    ? allItems.filter(i => i.name.toLowerCase().includes(productSearch.toLowerCase()))
-    : allItems;
+  const [error, setError]   = useState('');
 
   function addItem(item) {
-    setCartItems(prev => {
-      const existing = prev.find(c => c.id === item.id && c.type === item.type);
-      if (existing) return prev.map(c => c.id === item.id && c.type === item.type ? { ...c, qty: c.qty + 1 } : c);
-      return [...prev, { ...item, qty: 1, obs: '' }];
-    });
+    setCartItems(prev => [...prev, { ...item, _id: Date.now() + Math.random() }]);
+    setShowPicker(false);
   }
 
-  function changeQty(idx, delta) {
-    setCartItems(prev => {
-      const updated = [...prev];
-      updated[idx] = { ...updated[idx], qty: updated[idx].qty + delta };
-      return updated.filter(c => c.qty > 0);
-    });
-  }
+  function removeItem(id) { setCartItems(prev => prev.filter(i => i._id !== id)); }
 
-  const subtotal = cartItems.reduce((s, i) => s + i.price * i.qty, 0);
-  const fee = parseFloat(deliveryFee) || 0;
+  const subtotal = cartItems.reduce((s, i) => s + i.unit_price * i.quantity, 0);
+  const fee   = parseFloat(deliveryFee) || 0;
   const total = subtotal + fee;
 
   async function submit() {
     if (!customer.name.trim()) { setError('Nome do cliente é obrigatório'); return; }
-    if (cartItems.length === 0) { setError('Adicione pelo menos um item'); return; }
+    if (cartItems.length === 0) { setError('Adicione pelo menos um produto'); return; }
     setError(''); setSaving(true);
     try {
       const res = await fetch('/api/admin', {
@@ -198,11 +400,11 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
             payment_status: paymentStatus,
             observations: obs || null,
             items: cartItems.map(i => ({
-              product_name: i.name,
-              quantity: i.qty,
-              unit_price: i.price,
-              total_price: i.price * i.qty,
-              observations: i.obs || null,
+              product_name: i.product_name,
+              quantity: i.quantity,
+              unit_price: i.unit_price,
+              total_price: i.unit_price * i.quantity,
+              observations: i.observations || null,
             })),
           },
         }),
@@ -210,15 +412,12 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
       const d = await res.json();
       if (!d.success) { setError(d.error || 'Erro ao criar pedido'); return; }
       onSuccess(d.order);
-    } catch (e) {
-      setError('Erro de conexão');
-    } finally {
-      setSaving(false);
-    }
+    } catch { setError('Erro de conexão'); }
+    finally { setSaving(false); }
   }
 
   return (
-    <div style={{ padding: '20px 28px 60px', maxWidth: 720, margin: '0 auto' }}>
+    <div style={{ padding: '20px 28px 60px', maxWidth: 760, margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
         <button onClick={onCancel} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 4, border: '1px solid #E5E7EB', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#374151', fontWeight: 600 }}>
           <ArrowLeft size={14} /> Voltar
@@ -227,6 +426,7 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        {/* Coluna esquerda: info + pagamento */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border }}>
             <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>Cliente</h3>
@@ -237,7 +437,7 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
           </div>
 
           <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border }}>
-            <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>Endereço de Entrega</h3>
+            <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>Endereço</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
                 <FormField label="Rua" value={customer.street} onChange={v => setCustomer(p => ({...p, street: v}))} placeholder="Rua/Av" />
@@ -283,67 +483,63 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
                 </div>
               </div>
               <FormField label="Taxa de entrega (R$)" value={deliveryFee} onChange={setDeliveryFee} placeholder="0,00" type="number" />
-              <FormField label="Observações" value={obs} onChange={setObs} placeholder="Sem cebola, campainha..." multiline />
+              <FormField label="Obs. geral" value={obs} onChange={setObs} placeholder="Campainha, sem troco..." multiline />
             </div>
           </div>
         </div>
 
+        {/* Coluna direita: picker + carrinho */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Picker de produtos */}
           <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border }}>
-            <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Produtos</h3>
-            <div style={{ position: 'relative', marginBottom: 10 }}>
-              <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.light, pointerEvents: 'none' }} />
-              <input
-                value={productSearch}
-                onChange={e => setProductSearch(e.target.value)}
-                placeholder="Buscar produto..."
-                style={{ width: '100%', padding: '7px 10px 7px 28px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#F9FAFB' }}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase' }}>
+                {showPicker ? 'Escolher produto' : 'Produtos'}
+              </h3>
+              {!showPicker && (
+                <button onClick={() => setShowPicker(true)} style={{
+                  display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 4,
+                  border: 'none', background: '#111827', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                }}>
+                  <Plus size={12} /> Adicionar produto
+                </button>
+              )}
+            </div>
+            {showPicker ? (
+              <ProductPicker
+                products={products}
+                drinks={drinks}
+                onAdd={addItem}
+                onClose={() => setShowPicker(false)}
               />
-            </div>
-            <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {filtered.map(item => {
-                const inCart = cartItems.find(c => c.id === item.id && c.type === item.type);
-                return (
-                  <div key={item.type + item.id} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '7px 10px', borderRadius: 4, border: '1px solid ' + (inCart ? '#BFDBFE' : C.border),
-                    background: inCart ? '#EFF6FF' : '#F9FAFB', cursor: 'pointer',
-                  }} onClick={() => addItem(item)}>
-                    <div>
-                      <p style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{item.name}</p>
-                      <p style={{ fontSize: 11, color: C.muted }}>{fmtBRL(item.price)}</p>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      {inCart && <span style={{ fontSize: 11, fontWeight: 800, color: '#2563EB' }}>{inCart.qty}×</span>}
-                      <Plus size={14} color={inCart ? '#2563EB' : C.light} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            ) : (
+              cartItems.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 0', color: C.light }}>
+                  <ShoppingBag size={28} style={{ marginBottom: 8, opacity: 0.4 }} />
+                  <p style={{ fontSize: 13 }}>Nenhum item adicionado</p>
+                  <p style={{ fontSize: 11, marginTop: 4 }}>Clique em "Adicionar produto" para começar</p>
+                </div>
+              ) : null
+            )}
           </div>
 
-          <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border, flex: 1 }}>
-            <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>Pedido</h3>
-            {cartItems.length === 0 ? (
-              <p style={{ fontSize: 13, color: C.light, textAlign: 'center', padding: '20px 0' }}>Nenhum item adicionado</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {cartItems.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', background: '#F9FAFB', borderRadius: 4, border: '1px solid ' + C.border }}>
+          {/* Carrinho */}
+          {cartItems.length > 0 && !showPicker && (
+            <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border }}>
+              <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12 }}>
+                Pedido ({cartItems.length} item{cartItems.length !== 1 ? 's' : ''})
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {cartItems.map(item => (
+                  <div key={item._id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 10px', background: '#F9FAFB', borderRadius: 5, border: '1px solid ' + C.border }}>
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{item.name}</p>
-                      <p style={{ fontSize: 11, color: C.muted }}>{fmtBRL(item.price)} × {item.qty} = <strong>{fmtBRL(item.price * item.qty)}</strong></p>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{item.quantity > 1 ? `${item.quantity}× ` : ''}{item.product_name}</p>
+                      {item.observations && <p style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{item.observations}</p>}
+                      <p style={{ fontSize: 12, fontWeight: 700, color: C.gold, marginTop: 2 }}>{fmtBRL(item.unit_price * item.quantity)}</p>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <button onClick={() => changeQty(idx, -1)} style={{ width: 24, height: 24, borderRadius: 3, border: '1px solid ' + C.border, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Minus size={11} />
-                      </button>
-                      <span style={{ fontSize: 13, fontWeight: 700, minWidth: 18, textAlign: 'center' }}>{item.qty}</span>
-                      <button onClick={() => changeQty(idx, 1)} style={{ width: 24, height: 24, borderRadius: 3, border: '1px solid ' + C.border, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Plus size={11} />
-                      </button>
-                    </div>
+                    <button onClick={() => removeItem(item._id)} style={{ width: 22, height: 22, borderRadius: 3, border: '1px solid #FECACA', background: '#FEF2F2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <X size={10} color="#EF4444" />
+                    </button>
                   </div>
                 ))}
                 <div style={{ marginTop: 4, paddingTop: 10, borderTop: '1px dashed ' + C.border }}>
@@ -363,8 +559,8 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 

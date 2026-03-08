@@ -140,14 +140,14 @@ function DualChart({ data, height = 200 }) {
   const chartW = W - padL - padR;
   const chartH = height - padT - padB;
   const slotW  = chartW / n;
-  const barW   = slotW * 0.55;
+  const barW   = slotW * 0.35;
+  const gap    = slotW * 0.05;
 
-  function barX(i)    { return padL + i * slotW + slotW * 0.225; }
-  function barHeight(rev) { return Math.max((rev / maxRev) * chartH * 0.88, rev > 0 ? 3 : 0); }
-  function lineX(i)   { return padL + i * slotW + slotW * 0.5; }
-  function lineY(cnt) { return padT + chartH - (cnt / maxCnt) * chartH * 0.80 - 8; }
-
-  const polyPoints = data.map((d, i) => `${lineX(i)},${lineY(d.count)}`).join(' ');
+  function revBarX(i) { return padL + i * slotW + (slotW - 2 * barW - gap) / 2; }
+  function cntBarX(i) { return revBarX(i) + barW + gap; }
+  function revBarH(v) { return Math.max((v / maxRev) * chartH * 0.88, v > 0 ? 3 : 0); }
+  function cntBarH(v) { return Math.max((v / maxCnt) * chartH * 0.88, v > 0 ? 3 : 0); }
+  function labelX(i)  { return padL + i * slotW + slotW * 0.5; }
 
   return (
     <div style={{ position: 'relative' }}>
@@ -158,7 +158,7 @@ function DualChart({ data, height = 200 }) {
           Faturamento
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ width: 18, height: 2.5, background: '#6366F1', display: 'inline-block', borderRadius: 2 }} />
+          <span style={{ width: 12, height: 10, background: '#6366F1', borderRadius: 2, display: 'inline-block' }} />
           Pedidos
         </span>
       </div>
@@ -178,7 +178,7 @@ function DualChart({ data, height = 200 }) {
         }}>
           <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 4 }}>{data[hovered].date}</div>
           <div style={{ color: '#F2A800', marginBottom: 2 }}>{fmtBRL(data[hovered].revenue)}</div>
-          <div style={{ color: '#6366F1' }}>{data[hovered].count} pedido{data[hovered].count !== 1 ? 's' : ''}</div>
+          <div style={{ color: '#A5B4FC' }}>{data[hovered].count} pedido{data[hovered].count !== 1 ? 's' : ''}</div>
         </div>
       )}
 
@@ -193,38 +193,35 @@ function DualChart({ data, height = 200 }) {
           return <line key={p} x1={padL} y1={y} x2={W - padR} y2={y} stroke="#F3F4F6" strokeWidth="1" />;
         })}
 
-        {/* Barras de faturamento */}
+        {/* Barras de faturamento (dourado) */}
         {data.map((d, i) => {
-          const bh = barHeight(d.revenue);
-          const bx = barX(i);
-          const by = padT + chartH - bh;
+          const bh = revBarH(d.revenue);
           return (
-            <rect key={i} x={bx} y={by} width={barW} height={bh} rx={3}
+            <rect key={`rev-${i}`}
+              x={revBarX(i)} y={padT + chartH - bh}
+              width={barW} height={bh} rx={3}
               fill={d.revenue > 0 ? '#F2A800' : '#F3F4F6'}
-              opacity={hovered !== null && hovered !== i ? 0.3 : 0.85}
+              opacity={hovered !== null && hovered !== i ? 0.3 : 0.9}
             />
           );
         })}
 
-        {/* Linha de pedidos */}
-        {n > 1 && (
-          <polyline points={polyPoints} fill="none" stroke="#6366F1" strokeWidth="2.5"
-            strokeLinejoin="round" strokeLinecap="round" />
-        )}
-
-        {/* Pontos */}
-        {data.map((d, i) => (
-          <circle key={i}
-            cx={lineX(i)} cy={lineY(d.count)}
-            r={hovered === i ? 7 : 5}
-            fill="#6366F1"
-            opacity={hovered !== null && hovered !== i ? 0.3 : 1}
-          />
-        ))}
+        {/* Barras de pedidos (índigo) */}
+        {data.map((d, i) => {
+          const bh = cntBarH(d.count);
+          return (
+            <rect key={`cnt-${i}`}
+              x={cntBarX(i)} y={padT + chartH - bh}
+              width={barW} height={bh} rx={3}
+              fill={d.count > 0 ? '#6366F1' : '#F3F4F6'}
+              opacity={hovered !== null && hovered !== i ? 0.3 : 0.9}
+            />
+          );
+        })}
 
         {/* X labels */}
         {data.map((d, i) => (
-          <text key={i} x={lineX(i)} y={height - 4} textAnchor="middle" fontSize="10"
+          <text key={i} x={labelX(i)} y={height - 4} textAnchor="middle" fontSize="10"
             fill={hovered === i ? '#374151' : '#9CA3AF'}
             fontWeight={hovered === i ? '700' : '400'}>
             {d.date}

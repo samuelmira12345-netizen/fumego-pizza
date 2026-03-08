@@ -352,16 +352,49 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
   const [showPicker, setShowPicker] = useState(false);
 
   const searchDebounce = useRef(null);
+  const [suffixResults, setSuffixResults] = useState([]); // when searching by 4 digits
 
   function handlePhoneChange(v) {
     setPhone(v);
     setCustomer(null);
     setIsNew(false);
+    setSuffixResults([]);
     clearTimeout(searchDebounce.current);
     const digits = v.replace(/\D/g, '');
-    if (digits.length >= 10) {
+    if (digits.length === 4) {
+      searchDebounce.current = setTimeout(() => searchBySuffix(digits), 500);
+    } else if (digits.length >= 10) {
       searchDebounce.current = setTimeout(() => searchCustomer(digits), 400);
     }
+  }
+
+  async function searchBySuffix(suffix) {
+    setSearching(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'search_phone_suffix', data: { suffix } }),
+      });
+      const d = await res.json();
+      setSuffixResults(d.customers || []);
+    } catch {}
+    finally { setSearching(false); }
+  }
+
+  function selectSuffixCustomer(c) {
+    setSuffixResults([]);
+    setPhone(c.customer_phone || '');
+    setForm(prev => ({
+      ...prev,
+      name: c.customer_name || prev.name,
+      phone: c.customer_phone || prev.phone,
+      neighborhood: c.delivery_neighborhood || prev.neighborhood,
+      city: c.delivery_city || prev.city,
+      street: c.delivery_street || prev.street,
+      number: c.delivery_number || prev.number,
+    }));
+    setCustomer({ phone: c.customer_phone, name: c.customer_name });
   }
 
   async function searchCustomer(digits) {
@@ -374,7 +407,6 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
       });
       const d = await res.json();
       if ((d.orders || []).length > 0) {
-        // Get latest order to fill address
         const latest = d.orders[0];
         setCustomer({ phone: digits, orders: d.orders, latest });
         setForm(prev => ({
@@ -502,17 +534,45 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
                   <Phone size={12} style={{ display: 'inline', marginRight: 5 }} />
                   Buscar cliente por telefone
                 </label>
+                <p style={{ fontSize: 11, color: C.light, marginBottom: 6 }}>
+                  Digite o número completo ou os 4 últimos dígitos
+                </p>
                 <div style={{ position: 'relative' }}>
                   <input
                     value={phone}
                     onChange={e => handlePhoneChange(e.target.value)}
-                    placeholder="(11) 99999-9999"
+                    placeholder="(11) 99999-9999 ou últimos 4 dígitos"
                     style={{ width: '100%', padding: '10px 36px 10px 12px', borderRadius: 5, border: '1px solid ' + C.border, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                   />
                   {searching && (
                     <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, border: '2px solid #E5E7EB', borderTopColor: C.muted, borderRadius: '50%', animation: 'kdrSpin 0.8s linear infinite', pointerEvents: 'none' }} />
                   )}
                 </div>
+
+                {/* Resultados busca por 4 dígitos */}
+                {suffixResults.length > 0 && (
+                  <div style={{ border: '1px solid ' + C.border, borderRadius: 6, overflow: 'hidden', marginTop: 6 }}>
+                    <p style={{ fontSize: 11, color: C.light, padding: '6px 12px', background: '#F9FAFB', borderBottom: '1px solid ' + C.border, fontWeight: 600 }}>
+                      Selecione o cliente
+                    </p>
+                    {suffixResults.map((c, i) => (
+                      <div key={i} onClick={() => selectSuffixCustomer(c)} style={{
+                        padding: '10px 12px', cursor: 'pointer',
+                        borderBottom: i < suffixResults.length - 1 ? '1px solid ' + C.border : 'none',
+                        background: '#fff',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#F9FAFB'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                        <User size={14} color={C.muted} />
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{c.customer_name}</p>
+                          <p style={{ fontSize: 11, color: C.light }}>{fmtPhone(c.customer_phone)}{c.delivery_neighborhood ? ` · ${c.delivery_neighborhood}` : ''}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Cliente encontrado */}
