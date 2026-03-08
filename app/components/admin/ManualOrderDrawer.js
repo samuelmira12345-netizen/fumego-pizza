@@ -583,17 +583,24 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
                       <User size={16} color="#059669" />
                     </div>
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 14, fontWeight: 800, color: '#065F46', marginBottom: 2 }}>{customer.latest?.customer_name}</p>
+                      <p style={{ fontSize: 14, fontWeight: 800, color: '#065F46', marginBottom: 2 }}>
+                        {customer.name || customer.latest?.customer_name}
+                      </p>
                       <p style={{ fontSize: 12, color: '#047857' }}>{fmtPhone(customer.phone)}</p>
-                      {customer.latest?.delivery_neighborhood && (
+                      {(customer.latest?.delivery_neighborhood || form.neighborhood) && (
                         <p style={{ fontSize: 12, color: '#047857' }}>
                           <MapPin size={11} style={{ display: 'inline', marginRight: 3 }} />
-                          {customer.latest.delivery_street}, {customer.latest.delivery_number} — {customer.latest.delivery_neighborhood}
+                          {customer.latest?.delivery_street || form.street}{customer.latest?.delivery_number ? `, ${customer.latest.delivery_number}` : ''}{(customer.latest?.delivery_neighborhood || form.neighborhood) ? ` — ${customer.latest?.delivery_neighborhood || form.neighborhood}` : ''}
                         </p>
                       )}
-                      <p style={{ fontSize: 11, color: '#059669', marginTop: 4 }}>
-                        {customer.orders.length} pedido{customer.orders.length !== 1 ? 's' : ''} anteriores · endereço pré-preenchido
-                      </p>
+                      {(customer.orders?.length > 0) && (
+                        <p style={{ fontSize: 11, color: '#059669', marginTop: 4 }}>
+                          {customer.orders.length} pedido{customer.orders.length !== 1 ? 's' : ''} anteriores · endereço pré-preenchido
+                        </p>
+                      )}
+                      {!customer.orders && (
+                        <p style={{ fontSize: 11, color: '#059669', marginTop: 4 }}>Cliente encontrado · endereço pré-preenchido</p>
+                      )}
                     </div>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', flexShrink: 0, marginTop: 4 }} />
                   </div>
