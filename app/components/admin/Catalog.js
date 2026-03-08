@@ -184,158 +184,175 @@ function ProductCard({
   ingredients, recipe, onSaveRecipe,
 }) {
   const [fichaOpen, setFichaOpen] = useState(false);
-  const pos = imagePositions[String(product.id)] || { x: 50, y: 50 };
-  const stock = stockLimits[String(product.id)] || { enabled: false, qty: 0, low_stock_threshold: 3 };
+  const pos   = imagePositions[String(product.id)] || { x: 50, y: 50 };
+  const stock = stockLimits[String(product.id)]    || { enabled: false, qty: 0, low_stock_threshold: 3 };
+  const margin = parseFloat(product.price) > 0 && parseFloat(product.cost_price) > 0
+    ? Math.round((product.price - product.cost_price) / product.price * 100)
+    : null;
+
+  const inputStyle = {
+    width: '100%', padding: '6px 9px', borderRadius: 5,
+    border: '1px solid ' + C.border, fontSize: 12, outline: 'none',
+    background: '#fff', color: C.text, boxSizing: 'border-box', fontFamily: 'inherit',
+  };
+  const labelStyle = { fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.3 };
 
   return (
-    <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <h3 style={{ color: C.text, fontWeight: 700, fontSize: 15 }}>{product.name}</h3>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-          <input type="checkbox" checked={!!product.is_active} onChange={e => onUpdate(idx, 'is_active', e.target.checked)} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: product.is_active ? C.success : C.danger }}>
-            {product.is_active ? 'Ativo' : 'Inativo'}
-          </span>
-        </label>
-      </div>
+    <div style={{ background: '#FAFAFA', borderRadius: 8, padding: 14, border: '1px solid ' + C.border }}>
 
-      {/* Imagem + posição */}
-      {product.image_url && (
-        <div style={{ marginBottom: 12 }}>
-          <p style={{ fontSize: 11, color: C.light, marginBottom: 5, fontWeight: 600 }}>
-            Posição da foto — Clique para ajustar ({pos.x}% H, {pos.y}% V)
-          </p>
-          <div
-            style={{ position: 'relative', width: '100%', height: 120, cursor: 'crosshair', borderRadius: 8, overflow: 'hidden', border: '2px solid ' + C.border, userSelect: 'none' }}
-            onClick={(e) => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-              const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
-              onUpdateImagePos(product.id, Math.max(0, Math.min(100, x)), Math.max(0, Math.min(100, y)));
-            }}
-          >
-            <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos.x}% ${pos.y}%`, pointerEvents: 'none', display: 'block' }} />
-            <div style={{ position: 'absolute', left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%,-50%)', width: 12, height: 12, borderRadius: '50%', background: 'rgba(242,168,0,0.9)', border: '2px solid #fff', boxShadow: '0 0 5px rgba(0,0,0,0.4)', pointerEvents: 'none' }} />
+      {/* ── Row 1: foto + campos básicos ── */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+
+        {/* Foto */}
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ width: 80, height: 80, borderRadius: 7, overflow: 'hidden', border: '1px solid ' + C.border, background: '#F3F4F6', position: 'relative', marginBottom: 5 }}>
+            {product.image_url
+              ? <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos.x}% ${pos.y}%`, display: 'block' }} />
+              : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><UtensilsCrossed size={24} color={C.light} /></div>
+            }
           </div>
-        </div>
-      )}
-
-      {/* Upload foto */}
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 13px', background: '#F3F4F6', color: C.text, borderRadius: 8, fontSize: 13, cursor: 'pointer', border: '1px solid ' + C.border, opacity: uploadingId === product.id ? 0.5 : 1 }}>
-          {uploadingId === product.id
-            ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
-            : <><Upload size={13} /> Foto</>
-          }
-          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) onUploadImage(idx, e.target.files[0]); }} disabled={uploadingId === product.id} />
-        </label>
-      </div>
-
-      {/* Campos */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {/* Categoria */}
-        <div>
-          <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Categoria</label>
-          <select
-            value={product.category || 'pizza'}
-            onChange={e => onUpdate(idx, 'category', e.target.value)}
-            style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#F9FAFB', color: C.text }}
-          >
-            {PROD_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-          </select>
-        </div>
-
-        {/* Descrição */}
-        <input
-          className="input-field"
-          placeholder="Descrição"
-          value={product.description || ''}
-          onChange={e => onUpdate(idx, 'description', e.target.value)}
-          style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }}
-        />
-
-        {/* Preços + ordem */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-          <div>
-            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Preço venda</label>
-            <input className="input-field" placeholder="R$ 0,00" type="number" step="0.01" value={product.price || ''}
-              onChange={e => onUpdate(idx, 'price', e.target.value)}
-              style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-          </div>
-          <div>
-            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Custo</label>
-            <input className="input-field" placeholder="R$ 0,00" type="number" step="0.01" value={product.cost_price || ''}
-              onChange={e => onUpdate(idx, 'cost_price', e.target.value)}
-              style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-          </div>
-          <div>
-            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Ordem</label>
-            <input className="input-field" placeholder="0" type="number" value={product.sort_order || ''}
-              onChange={e => onUpdate(idx, 'sort_order', parseInt(e.target.value) || 0)}
-              style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-          </div>
-        </div>
-
-        {/* Margem indicativa */}
-        {parseFloat(product.price) > 0 && parseFloat(product.cost_price) > 0 && (() => {
-          const m = ((product.price - product.cost_price) / product.price * 100).toFixed(0);
-          return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 6, background: m >= 60 ? '#ECFDF5' : m >= 40 ? '#FFFBEB' : '#FEF2F2', border: `1px solid ${m >= 60 ? '#A7F3D0' : m >= 40 ? '#FDE68A' : '#FECACA'}` }}>
-              <TrendingDown size={13} color={m >= 60 ? '#059669' : m >= 40 ? '#D97706' : '#EF4444'} />
-              <span style={{ fontSize: 12, fontWeight: 700, color: m >= 60 ? '#059669' : m >= 40 ? '#D97706' : '#EF4444' }}>
-                Margem: {m}% · Lucro bruto: {fmtBRL(product.price - product.cost_price)}
-              </span>
-            </div>
-          );
-        })()}
-
-        {/* Estoque */}
-        <div style={{ padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, border: '1px solid ' + C.border }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: stock.enabled ? 8 : 0 }}>
-            <input type="checkbox" checked={!!stock.enabled} onChange={e => onUpdateStockLimit(product.id, 'enabled', e.target.checked)} />
-            <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>Limitar estoque</span>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', background: '#F3F4F6', color: C.muted, borderRadius: 5, fontSize: 11, cursor: 'pointer', border: '1px solid ' + C.border, opacity: uploadingId === product.id ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+            {uploadingId === product.id
+              ? <><Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
+              : <><Upload size={11} /> Trocar foto</>
+            }
+            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) onUploadImage(idx, e.target.files[0]); }} disabled={uploadingId === product.id} />
           </label>
-          {stock.enabled && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input className="input-field" type="number" min="0" placeholder="Qtd" value={stock.qty}
-                  onChange={e => onUpdateStockLimit(product.id, 'qty', parseInt(e.target.value) || 0)}
-                  style={{ maxWidth: 110, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: stock.qty <= 0 ? 'rgba(239,68,68,0.1)' : stock.qty <= (stock.low_stock_threshold ?? 3) ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)', color: stock.qty <= 0 ? C.danger : stock.qty <= (stock.low_stock_threshold ?? 3) ? '#D97706' : C.success }}>
-                  {stock.qty <= 0 ? 'Esgotado' : stock.qty <= (stock.low_stock_threshold ?? 3) ? 'Poucas unid.' : 'Disponível'}
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <input className="input-field" type="number" min="1" max="50" placeholder="Aviso poucas (ex: 3)" value={stock.low_stock_threshold ?? 3}
-                  onChange={e => onUpdateStockLimit(product.id, 'low_stock_threshold', parseInt(e.target.value) || 3)}
-                  style={{ maxWidth: 110, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-                <span style={{ fontSize: 10, color: C.light }}>= qtd para "Poucas unidades"</span>
-              </div>
+        </div>
+
+        {/* Campos principais */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {/* Categoria + Ordem na mesma linha */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px', gap: 7 }}>
+            <div>
+              <label style={labelStyle}>Categoria</label>
+              <select value={product.category || 'pizza'} onChange={e => onUpdate(idx, 'category', e.target.value)}
+                style={{ ...inputStyle }}>
+                {PROD_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Ordem</label>
+              <input type="number" value={product.sort_order || ''} placeholder="0"
+                onChange={e => onUpdate(idx, 'sort_order', parseInt(e.target.value) || 0)}
+                style={inputStyle} />
+            </div>
+          </div>
+
+          {/* Preço + Custo */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+            <div>
+              <label style={labelStyle}>Preço (R$)</label>
+              <input type="number" step="0.01" placeholder="0,00" value={product.price || ''}
+                onChange={e => onUpdate(idx, 'price', e.target.value)}
+                style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Custo (R$)</label>
+              <input type="number" step="0.01" placeholder="0,00" value={product.cost_price || ''}
+                onChange={e => onUpdate(idx, 'cost_price', e.target.value)}
+                style={inputStyle} />
+            </div>
+          </div>
+
+          {/* Margem */}
+          {margin !== null && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700,
+              background: margin >= 60 ? '#ECFDF5' : margin >= 40 ? '#FFFBEB' : '#FEF2F2',
+              color: margin >= 60 ? '#059669' : margin >= 40 ? '#D97706' : '#EF4444',
+            }}>
+              <TrendingDown size={11} />
+              Margem: {margin}% · Lucro: {fmtBRL(product.price - product.cost_price)}
             </div>
           )}
         </div>
       </div>
 
-      {/* Ficha Técnica toggle */}
+      {/* ── Descrição ── */}
+      <div style={{ marginBottom: 8 }}>
+        <label style={labelStyle}>Descrição</label>
+        <input placeholder="Descrição do produto" value={product.description || ''}
+          onChange={e => onUpdate(idx, 'description', e.target.value)}
+          style={inputStyle} />
+      </div>
+
+      {/* ── Posição da foto (sliders) ── */}
+      {product.image_url && (
+        <div style={{ marginBottom: 8, padding: '10px 12px', background: '#fff', borderRadius: 6, border: '1px solid ' + C.border }}>
+          <p style={{ fontSize: 10, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 8 }}>
+            Encaixe da foto
+          </p>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            {/* Preview */}
+            <div style={{ width: 64, height: 64, borderRadius: 6, overflow: 'hidden', border: '1px solid ' + C.border, flexShrink: 0 }}>
+              <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos.x}% ${pos.y}%`, display: 'block' }} />
+            </div>
+            {/* Sliders */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 10, color: C.muted, fontWeight: 600, width: 24 }}>H</span>
+                <input type="range" min="0" max="100" value={pos.x}
+                  onChange={e => onUpdateImagePos(product.id, parseInt(e.target.value), pos.y)}
+                  style={{ flex: 1, accentColor: C.gold }} />
+                <span style={{ fontSize: 10, color: C.muted, width: 30, textAlign: 'right' }}>{pos.x}%</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 10, color: C.muted, fontWeight: 600, width: 24 }}>V</span>
+                <input type="range" min="0" max="100" value={pos.y}
+                  onChange={e => onUpdateImagePos(product.id, pos.x, parseInt(e.target.value))}
+                  style={{ flex: 1, accentColor: C.gold }} />
+                <span style={{ fontSize: 10, color: C.muted, width: 30, textAlign: 'right' }}>{pos.y}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Estoque ── */}
+      <div style={{ marginBottom: 8, padding: '10px 12px', background: '#fff', borderRadius: 6, border: '1px solid ' + C.border }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <input type="checkbox" checked={!!stock.enabled} onChange={e => onUpdateStockLimit(product.id, 'enabled', e.target.checked)} />
+            <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>Limitar estoque</span>
+          </label>
+          {stock.enabled && (
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+              background: stock.qty <= 0 ? 'rgba(239,68,68,0.1)' : stock.qty <= (stock.low_stock_threshold ?? 3) ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
+              color: stock.qty <= 0 ? C.danger : stock.qty <= (stock.low_stock_threshold ?? 3) ? '#D97706' : C.success }}>
+              {stock.qty <= 0 ? 'Esgotado' : stock.qty <= (stock.low_stock_threshold ?? 3) ? 'Poucas unid.' : 'Disponível'}
+            </span>
+          )}
+        </div>
+        {stock.enabled && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+            <div>
+              <label style={labelStyle}>Qtd disponível</label>
+              <input type="number" min="0" placeholder="0" value={stock.qty}
+                onChange={e => onUpdateStockLimit(product.id, 'qty', parseInt(e.target.value) || 0)}
+                style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Aviso "poucas unid."</label>
+              <input type="number" min="1" max="50" placeholder="3" value={stock.low_stock_threshold ?? 3}
+                onChange={e => onUpdateStockLimit(product.id, 'low_stock_threshold', parseInt(e.target.value) || 3)}
+                style={inputStyle} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Ficha Técnica ── */}
       <button
         onClick={() => setFichaOpen(v => !v)}
-        style={{ width: '100%', marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: 6, border: '1px dashed #C4B5FD', background: fichaOpen ? '#F5F3FF' : '#FAFAFA', cursor: 'pointer', color: '#7C3AED', fontWeight: 600, fontSize: 12 }}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 5, border: '1px dashed #C4B5FD', background: fichaOpen ? '#F5F3FF' : '#FAFAFA', cursor: 'pointer', color: '#7C3AED', fontWeight: 600, fontSize: 11 }}
       >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <BookOpen size={13} /> Ficha Técnica (Custo por Ingredientes)
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <BookOpen size={12} /> Ficha Técnica
         </span>
-        {fichaOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+        {fichaOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
       </button>
-
       {fichaOpen && (
-        <FichaTecnica
-          productId={product.id}
-          productPrice={product.price}
-          ingredients={ingredients}
-          recipe={recipe}
-          onSave={onSaveRecipe}
-        />
+        <FichaTecnica productId={product.id} productPrice={product.price} ingredients={ingredients} recipe={recipe} onSave={onSaveRecipe} />
       )}
     </div>
   );
