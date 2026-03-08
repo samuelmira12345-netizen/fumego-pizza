@@ -36,7 +36,11 @@ function makeServiceAccountJWT(clientEmail, privateKey) {
   const sign = crypto.createSign('RSA-SHA256');
   sign.update(signInput);
   sign.end();
-  const sig = sign.sign(keyObject, 'base64url');
+  const sigBuf = sign.sign(keyObject);
+  const sig = sigBuf.toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
   return `${signInput}.${sig}`;
 }
 
@@ -116,7 +120,12 @@ export async function GET(request) {
     return NextResponse.json({ notConfigured: true });
   }
 
-  const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
+  const privateKey = privateKeyRaw
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim();
 
   const { searchParams } = new URL(request.url);
   const startDate = searchParams.get('startDate') || '7daysAgo';
