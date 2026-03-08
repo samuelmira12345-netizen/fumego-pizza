@@ -67,43 +67,61 @@ function fmtShort(v, isCurrency) {
 }
 
 function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, height = 220, isCurrency = false }) {
+  const [hovered, setHovered] = useState(null);
   const max = Math.max(...data.map(d => d[valueKey]), 1);
-  const hasAnyValue = data.some(d => d[valueKey] > 0);
+  const n = data.length;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: height + 32, paddingTop: 28 }}>
-      {data.map((item, i) => {
-        const pct = max > 0 ? (item[valueKey] / max) * 100 : 0;
-        const hasValue = item[valueKey] > 0;
-        return (
-          <div key={i}
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end', position: 'relative' }}
-          >
-            {hasValue && (
-              <span style={{
-                position: 'absolute',
-                bottom: `calc(${Math.max(pct, 4)}% + 20px)`,
-                fontSize: 9, fontWeight: 600, color: color,
-                whiteSpace: 'nowrap', textAlign: 'center', lineHeight: 1,
-              }}>
-                {fmtShort(item[valueKey], isCurrency)}
-              </span>
-            )}
-            <div style={{
-              width: '100%',
-              height: `${Math.max(pct, hasValue ? 3 : 0)}%`,
-              background: hasValue ? color : '#F3F4F6',
-              borderRadius: '5px 5px 0 0',
-              transition: 'height 0.4s ease',
-              minHeight: hasValue ? 3 : 0,
-              maxHeight: height,
-            }} />
-            <span style={{ fontSize: 10, color: '#9CA3AF', whiteSpace: 'nowrap', overflow: 'hidden', width: '100%', textAlign: 'center', paddingBottom: 2 }}>
-              {item[labelKey]}
-            </span>
+    <div style={{ position: 'relative' }}>
+      {hovered !== null && (
+        <div style={{
+          position: 'absolute',
+          bottom: `${height + 38}px`,
+          left: `clamp(60px, ${((hovered + 0.5) / n) * 100}%, calc(100% - 60px))`,
+          transform: 'translateX(-50%)',
+          background: '#111827', color: '#fff',
+          padding: '7px 12px', borderRadius: 7,
+          fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+          zIndex: 20, pointerEvents: 'none',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+        }}>
+          <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 2 }}>{data[hovered][labelKey]}</div>
+          <div style={{ color }}>
+            {isCurrency ? fmtBRL(data[hovered][valueKey]) : data[hovered][valueKey]}
           </div>
-        );
-      })}
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: height + 32, paddingTop: 28 }}>
+        {data.map((item, i) => {
+          const pct = max > 0 ? (item[valueKey] / max) * 100 : 0;
+          const hasValue = item[valueKey] > 0;
+          return (
+            <div key={i}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end', position: 'relative', cursor: hasValue ? 'crosshair' : 'default' }}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              <div style={{
+                width: '100%',
+                height: `${Math.max(pct, hasValue ? 3 : 0)}%`,
+                background: hasValue ? color : '#F3F4F6',
+                borderRadius: '5px 5px 0 0',
+                transition: 'height 0.4s ease, opacity 0.15s',
+                minHeight: hasValue ? 3 : 0,
+                maxHeight: height,
+                opacity: hovered !== null && hovered !== i ? 0.4 : 1,
+              }} />
+              <span style={{
+                fontSize: 10, color: hovered === i ? '#374151' : '#9CA3AF',
+                fontWeight: hovered === i ? 700 : 400,
+                whiteSpace: 'nowrap', overflow: 'hidden', width: '100%', textAlign: 'center', paddingBottom: 2,
+              }}>
+                {item[labelKey]}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -111,13 +129,13 @@ function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, he
 // ── Gráfico duplo (barras de faturamento + linha de pedidos) ──────────────────
 
 function DualChart({ data, height = 200 }) {
+  const [hovered, setHovered] = useState(null);
   const n = data.length;
   if (n === 0) return null;
 
   const maxRev = Math.max(...data.map(d => d.revenue), 1);
   const maxCnt = Math.max(...data.map(d => d.count), 1);
 
-  // SVG viewBox fixo; as barras e a linha são calculadas em coordenadas SVG
   const W = 700, padL = 8, padR = 8, padT = 24, padB = 26;
   const chartW = W - padL - padR;
   const chartH = height - padT - padB;
@@ -132,7 +150,7 @@ function DualChart({ data, height = 200 }) {
   const polyPoints = data.map((d, i) => `${lineX(i)},${lineY(d.count)}`).join(' ');
 
   return (
-    <div>
+    <div style={{ position: 'relative' }}>
       {/* Legenda */}
       <div style={{ display: 'flex', gap: 18, marginBottom: 8, fontSize: 11, color: '#6B7280' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -145,8 +163,31 @@ function DualChart({ data, height = 200 }) {
         </span>
       </div>
 
-      <svg viewBox={`0 0 ${W} ${height}`} style={{ width: '100%', height: height + 8, display: 'block' }}>
-        {/* Linhas de grade horizontais */}
+      {/* Tooltip */}
+      {hovered !== null && (
+        <div style={{
+          position: 'absolute',
+          top: 32,
+          left: `clamp(80px, ${((hovered + 0.5) / n) * 100}%, calc(100% - 80px))`,
+          transform: 'translateX(-50%)',
+          background: '#111827', color: '#fff',
+          padding: '8px 13px', borderRadius: 7,
+          fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+          zIndex: 20, pointerEvents: 'none',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+        }}>
+          <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 4 }}>{data[hovered].date}</div>
+          <div style={{ color: '#F2A800', marginBottom: 2 }}>{fmtBRL(data[hovered].revenue)}</div>
+          <div style={{ color: '#6366F1' }}>{data[hovered].count} pedido{data[hovered].count !== 1 ? 's' : ''}</div>
+        </div>
+      )}
+
+      <svg
+        viewBox={`0 0 ${W} ${height}`}
+        style={{ width: '100%', height: height + 8, display: 'block' }}
+        onMouseLeave={() => setHovered(null)}
+      >
+        {/* Linhas de grade */}
         {[0.25, 0.5, 0.75, 1].map(p => {
           const y = padT + chartH - p * chartH * 0.88;
           return <line key={p} x1={padL} y1={y} x2={W - padR} y2={y} stroke="#F3F4F6" strokeWidth="1" />;
@@ -158,15 +199,10 @@ function DualChart({ data, height = 200 }) {
           const bx = barX(i);
           const by = padT + chartH - bh;
           return (
-            <g key={i}>
-              <rect x={bx} y={by} width={barW} height={bh} rx={3}
-                fill={d.revenue > 0 ? '#F2A800' : '#F3F4F6'} opacity={0.85} />
-              {d.revenue > 0 && bh > 18 && (
-                <text x={bx + barW / 2} y={by - 5} textAnchor="middle" fontSize="10" fill="#D97706" fontWeight="700">
-                  {fmtShort(d.revenue, true)}
-                </text>
-              )}
-            </g>
+            <rect key={i} x={bx} y={by} width={barW} height={bh} rx={3}
+              fill={d.revenue > 0 ? '#F2A800' : '#F3F4F6'}
+              opacity={hovered !== null && hovered !== i ? 0.3 : 0.85}
+            />
           );
         })}
 
@@ -176,25 +212,35 @@ function DualChart({ data, height = 200 }) {
             strokeLinejoin="round" strokeLinecap="round" />
         )}
 
-        {/* Pontos e valores da linha */}
-        {data.map((d, i) => {
-          const cx = lineX(i);
-          const cy = lineY(d.count);
-          return (
-            <g key={i}>
-              <circle cx={cx} cy={cy} r={5} fill="#6366F1" />
-              {d.count > 0 && (
-                <text x={cx} y={cy - 9} textAnchor="middle" fontSize="10" fill="#6366F1" fontWeight="700">
-                  {d.count}
-                </text>
-              )}
-              {/* X label */}
-              <text x={lineX(i)} y={height - 4} textAnchor="middle" fontSize="10" fill="#9CA3AF">
-                {d.date}
-              </text>
-            </g>
-          );
-        })}
+        {/* Pontos */}
+        {data.map((d, i) => (
+          <circle key={i}
+            cx={lineX(i)} cy={lineY(d.count)}
+            r={hovered === i ? 7 : 5}
+            fill="#6366F1"
+            opacity={hovered !== null && hovered !== i ? 0.3 : 1}
+          />
+        ))}
+
+        {/* X labels */}
+        {data.map((d, i) => (
+          <text key={i} x={lineX(i)} y={height - 4} textAnchor="middle" fontSize="10"
+            fill={hovered === i ? '#374151' : '#9CA3AF'}
+            fontWeight={hovered === i ? '700' : '400'}>
+            {d.date}
+          </text>
+        ))}
+
+        {/* Zonas de hover transparentes (sobre tudo) */}
+        {data.map((d, i) => (
+          <rect key={`hz-${i}`}
+            x={padL + i * slotW} y={padT}
+            width={slotW} height={chartH}
+            fill="transparent"
+            style={{ cursor: 'crosshair' }}
+            onMouseEnter={() => setHovered(i)}
+          />
+        ))}
       </svg>
     </div>
   );

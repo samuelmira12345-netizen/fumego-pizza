@@ -158,6 +158,52 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === 'get_catalog_extra') {
+      // Ingredientes (insumos) e fichas técnicas
+      const [ingredients, recipes] = await Promise.all([
+        supabase.from('ingredients').select('*').order('name'),
+        supabase.from('recipe_items').select('*'),
+      ]);
+      return NextResponse.json({
+        ingredients: ingredients.data || [],
+        recipes:     recipes.data   || [],
+      });
+    }
+
+    if (action === 'save_ingredient') {
+      const { id, name, unit, cost_per_unit } = data;
+      if (id) {
+        await supabase.from('ingredients').update({ name, unit, cost_per_unit }).eq('id', id);
+        return NextResponse.json({ success: true });
+      } else {
+        const { data: inserted, error } = await supabase.from('ingredients').insert({ name, unit, cost_per_unit }).select().single();
+        if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+        return NextResponse.json({ success: true, ingredient: inserted });
+      }
+    }
+
+    if (action === 'delete_ingredient') {
+      const { error } = await supabase.from('ingredients').delete().eq('id', data.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'save_recipe') {
+      const { product_id, items } = data;
+      // Substitui todos os itens da ficha técnica do produto
+      await supabase.from('recipe_items').delete().eq('product_id', product_id);
+      if (items && items.length > 0) {
+        const rows = items.map(i => ({
+          product_id,
+          ingredient_id: i.ingredient_id,
+          quantity: parseFloat(i.quantity) || 0,
+        }));
+        const { error } = await supabase.from('recipe_items').insert(rows);
+        if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      return NextResponse.json({ success: true });
+    }
+
     if (action === 'get_order_items') {
       const { order_id } = data || {};
       if (!order_id) return NextResponse.json({ error: 'order_id obrigatório' }, { status: 400 });
