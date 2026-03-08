@@ -36,17 +36,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       style={{ touchAction: 'pan-x pan-y' }}
     >
       <head>
-        {/* Google Analytics 4 */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-M77EHCL2XP"
-          strategy="afterInteractive"
-        />
-        <Script id="ga4-init" strategy="afterInteractive">{`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('js', new Date());
-          gtag('config', 'G-M77EHCL2XP');
-        `}</Script>
         {/*
           Camada 1 — meta viewport:
           • maximum-scale=1.0  → limita o zoom máximo a 1× (honrado pela maioria dos browsers)
@@ -68,6 +57,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}</style>
       </head>
       <body style={{ touchAction: 'pan-x pan-y' }}>
+        {/* Google Analytics 4 — deve ficar no body, não no head (restrição do next/script) */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-M77EHCL2XP"
+          strategy="afterInteractive"
+        />
+        <Script id="ga4-init" strategy="afterInteractive">{`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-M77EHCL2XP');
+        `}</Script>
         {/* Camada 3 — JS: bloqueia gesturestart/change (iOS), multi-touch e double-tap */}
         <ZoomBlocker />
         {children}
