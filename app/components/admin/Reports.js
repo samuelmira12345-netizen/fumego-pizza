@@ -458,7 +458,7 @@ export default function Reports({ adminToken }) {
   const { from, to } = getRange();
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: '28px 32px' }}>
 
       {/* ── Cabeçalho ───────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
