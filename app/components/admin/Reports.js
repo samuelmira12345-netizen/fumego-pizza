@@ -5,6 +5,7 @@ import {
   BarChart2, Package, MapPin, Clock, TrendingUp, Users,
   RefreshCw, ChevronDown, Calendar, AlertCircle,
 } from 'lucide-react';
+import DateRangePicker from './DateRangePicker';
 
 // ── Paleta ────────────────────────────────────────────────────────────────────
 
@@ -157,45 +158,7 @@ function Table({ columns, rows, getKey }) {
   );
 }
 
-// ── Period Selector ────────────────────────────────────────────────────────────
-
-const PERIODS = [
-  { key: 'today',  label: 'Hoje',       from: () => todaySP(),      to: () => todaySP() },
-  { key: '7d',     label: '7 dias',     from: () => daysAgo(6),     to: () => todaySP() },
-  { key: '30d',    label: '30 dias',    from: () => daysAgo(29),    to: () => todaySP() },
-  { key: 'month',  label: 'Este mês',   from: () => firstOfMonth(), to: () => todaySP() },
-  { key: 'custom', label: 'Personalizado' },
-];
-
-function PeriodSelector({ period, setPeriod, customFrom, setCustomFrom, customTo, setCustomTo }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      {PERIODS.map(p => (
-        <button
-          key={p.key}
-          onClick={() => setPeriod(p.key)}
-          style={{
-            padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 500, cursor: 'pointer',
-            background: period === p.key ? C.gold : C.card,
-            color:      period === p.key ? '#000'  : C.muted,
-            border:     period === p.key ? `1px solid ${C.gold}` : '1px solid ' + C.border,
-          }}
-        >
-          {p.label}
-        </button>
-      ))}
-      {period === 'custom' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
-          <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
-            style={{ border: '1px solid ' + C.border, borderRadius: 8, padding: '5px 10px', fontSize: 13, color: C.text, background: C.card }} />
-          <span style={{ color: C.muted, fontSize: 13 }}>até</span>
-          <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
-            style={{ border: '1px solid ' + C.border, borderRadius: 8, padding: '5px 10px', fontSize: 13, color: C.text, background: C.card }} />
-        </div>
-      )}
-    </div>
-  );
-}
+// PeriodSelector substituído por DateRangePicker (ver importação acima)
 
 // ── Report tabs ────────────────────────────────────────────────────────────────
 
@@ -452,29 +415,22 @@ function LTVReport({ result }) {
 // ── Main Reports Component ─────────────────────────────────────────────────────
 
 export default function Reports({ adminToken }) {
-  const [period, setPeriod]       = useState('30d');
-  const [customFrom, setCustomFrom] = useState(daysAgo(29));
-  const [customTo, setCustomTo]   = useState(todaySP());
+  const [dateRange, setDateRange] = useState({ from: daysAgo(29), to: todaySP(), fromTime: '00:00', toTime: '23:59' });
   const [reportType, setReportType] = useState('products');
   const [result, setResult]       = useState(null);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
 
-  // Resolve the actual from/to dates
   function getRange() {
-    if (period === 'custom') return { from: customFrom, to: customTo };
-    const p = PERIODS.find(x => x.key === period);
-    return p ? { from: p.from(), to: p.to() } : { from: daysAgo(29), to: todaySP() };
+    return { from: dateRange.from, to: dateRange.to };
   }
 
-  const fetchReport = useCallback(async (type, prd, cf, ct) => {
+  const fetchReport = useCallback(async (type, from, to) => {
     setLoading(true);
     setError('');
     setResult(null);
     try {
-      const range = prd === 'custom'
-        ? { from: cf, to: ct }
-        : (() => { const p = PERIODS.find(x => x.key === prd); return p ? { from: p.from(), to: p.to() } : { from: daysAgo(29), to: todaySP() }; })();
+      const range = { from, to };
 
       // LTV doesn't use date range (all-time)
       const params = type === 'ltv'
@@ -496,8 +452,8 @@ export default function Reports({ adminToken }) {
 
   // Auto-fetch when type or period changes
   useEffect(() => {
-    fetchReport(reportType, period, customFrom, customTo);
-  }, [reportType, period, customFrom, customTo, fetchReport]);
+    fetchReport(reportType, dateRange.from, dateRange.to);
+  }, [reportType, dateRange.from, dateRange.to, fetchReport]);
 
   const { from, to } = getRange();
 
@@ -514,26 +470,23 @@ export default function Reports({ adminToken }) {
             </p>
           )}
         </div>
-        <button
-          onClick={() => fetchReport(reportType, period, customFrom, customTo)}
-          disabled={loading}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 8, background: '#fff', border: '1px solid ' + C.border, fontSize: 13, fontWeight: 500, color: C.text, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}
-        >
-          <RefreshCw size={14} style={loading ? { animation: 'spin 1s linear infinite' } : {}} />
-          {loading ? 'Carregando...' : 'Atualizar'}
-        </button>
-      </div>
-
-      {/* ── Seletor de período ──────────────────────────────────────────────── */}
-      {reportType !== 'ltv' && (
-        <div style={{ marginBottom: 20 }}>
-          <PeriodSelector
-            period={period} setPeriod={setPeriod}
-            customFrom={customFrom} setCustomFrom={setCustomFrom}
-            customTo={customTo} setCustomTo={setCustomTo}
-          />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {reportType !== 'ltv' && (
+            <DateRangePicker
+              value={dateRange}
+              onChange={r => setDateRange(r)}
+            />
+          )}
+          <button
+            onClick={() => fetchReport(reportType, dateRange.from, dateRange.to)}
+            disabled={loading}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 8, background: '#fff', border: '1px solid ' + C.border, fontSize: 13, fontWeight: 500, color: C.text, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1 }}
+          >
+            <RefreshCw size={14} style={loading ? { animation: 'spin 1s linear infinite' } : {}} />
+            {loading ? 'Carregando...' : 'Atualizar'}
+          </button>
         </div>
-      )}
+      </div>
 
       {/* ── Tabs dos relatórios ─────────────────────────────────────────────── */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: C.card, borderRadius: 10, padding: 4, border: '1px solid ' + C.border, width: 'fit-content' }}>

@@ -7,6 +7,7 @@ import {
   Percent, CreditCard, Tag, AlertTriangle, Banknote, Zap,
   TrendingDown, ArrowUpRight, ArrowDownRight, Minus, Target,
 } from 'lucide-react';
+import DateRangePicker from './DateRangePicker';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -333,21 +334,20 @@ export default function Dashboard({ orders, onRefresh, loading }) {
   const today     = todaySP();
   const yesterday = yesterdaySP();
 
-  const [filterMode, setFilterMode] = useState('today');
-  const [dateFrom, setDateFrom]     = useState(today);
-  const [dateTo, setDateTo]         = useState(today);
+  const [dateRange, setDateRange] = useState({ from: today, to: today, fromTime: '00:00', toTime: '23:59' });
+  const dateFrom = dateRange.from;
+  const dateTo   = dateRange.to;
+
+  // Derived "mode" for comparativo lógico
+  const filterMode = dateFrom === today && dateTo === today ? 'today'
+    : dateFrom === yesterday && dateTo === yesterday ? 'yesterday'
+    : 'custom';
 
   const periodLabel =
     filterMode === 'today'     ? 'hoje'  :
     filterMode === 'yesterday' ? 'ontem' :
     dateFrom === dateTo        ? fmtDate(dateFrom) :
     `${fmtDate(dateFrom)} – ${fmtDate(dateTo)}`;
-
-  function selectMode(mode) {
-    setFilterMode(mode);
-    if (mode === 'today')     { setDateFrom(today);     setDateTo(today);     }
-    if (mode === 'yesterday') { setDateFrom(yesterday); setDateTo(yesterday); }
-  }
 
   const metrics = useMemo(() => {
     const lastWeekDate  = lastWeekSameDaySP();
@@ -540,49 +540,10 @@ export default function Dashboard({ orders, onRefresh, loading }) {
       </div>
 
       {/* ── Filtro de período ───────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
-        {[
-          { k: 'today',     l: 'Hoje'    },
-          { k: 'yesterday', l: 'Ontem'   },
-          { k: 'custom',    l: 'Período' },
-        ].map(({ k, l }) => (
-          <button
-            key={k}
-            onClick={() => selectMode(k)}
-            style={{
-              padding: '6px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-              cursor: 'pointer', border: '1px solid #E5E7EB',
-              background: filterMode === k ? '#111827' : '#fff',
-              color:      filterMode === k ? '#fff'    : '#6B7280',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-              transition: 'background 0.15s',
-            }}
-          >{l}</button>
-        ))}
-
-        {filterMode === 'custom' && (
-          <>
-            <input
-              type="date"
-              value={dateFrom}
-              max={dateTo}
-              onChange={e => setDateFrom(e.target.value)}
-              style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', cursor: 'pointer', color: '#374151' }}
-            />
-            <span style={{ fontSize: 12, color: '#9CA3AF' }}>até</span>
-            <input
-              type="date"
-              value={dateTo}
-              min={dateFrom}
-              max={today}
-              onChange={e => setDateTo(e.target.value)}
-              style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', cursor: 'pointer', color: '#374151' }}
-            />
-          </>
-        )}
-
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
         {filterMode === 'today' && deltaLabel && (
-          <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 4 }}>
+          <span style={{ fontSize: 11, color: '#9CA3AF' }}>
             comparado com {deltaLabel} (mesmo horário)
           </span>
         )}

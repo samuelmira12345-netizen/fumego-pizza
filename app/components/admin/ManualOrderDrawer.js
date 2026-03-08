@@ -90,7 +90,8 @@ function ProductPicker({ products, drinks, onAdd, onClose }) {
   const [obs, setObs]         = useState('');
   const [search, setSearch]   = useState('');
 
-  const active = products.filter(p => p.is_active);
+  // Admin pode selecionar qualquer produto não-oculto (independente de estoque)
+  const active = products.filter(p => !p.is_hidden);
   const filteredProducts = search.trim()
     ? active.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
     : active;
@@ -431,8 +432,8 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
   }
 
   function addItem(item) {
+    // Adiciona ao carrinho mas mantém o picker aberto para o cliente poder pedir mais itens
     setCartItems(prev => [...prev, { ...item, _id: Date.now() + Math.random() }]);
-    setShowPicker(false);
   }
 
   function removeItem(id) {
