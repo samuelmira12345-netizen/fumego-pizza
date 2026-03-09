@@ -12,7 +12,7 @@ import StoreHeader from './components/home/StoreHeader';
 import ProductModal from './components/home/ProductModal';
 import FloatingCart from './components/home/FloatingCart';
 import CartDrawer from './components/home/CartDrawer';
-import type { UpsellConfig } from './components/home/CartDrawer';
+import type { UpsellConfig, UpsellItem } from './components/home/CartDrawer';
 import type { Product, Drink, DrinkSelection, CartItem, CartItemOption, AppSettings, AppUser, StockLimit, ImagePosition } from './components/home/types';
 import {
   GOLD, GOLD_LIGHT, BG, CARD, BORDER, MUTED, FAINT,
@@ -52,7 +52,7 @@ export default function HomePage() {
   const [stockLimits, setStockLimits]         = useState<Record<string, StockLimit>>({});
   const [imagePositions, setImagePositions]   = useState<Record<string, ImagePosition>>({});
   const [cashbackBalance, setCashbackBalance] = useState(0);
-  const [upsellConfig, setUpsellConfig]       = useState<UpsellConfig | null>(null);
+  const [upsellConfigs, setUpsellConfigs]     = useState<UpsellConfig[]>([]);
 
   useEffect(() => {
     router.prefetch('/checkout');
@@ -128,7 +128,14 @@ export default function HomePage() {
 
         // Upsell config
         if (s.upsell_config) {
-          try { setUpsellConfig(JSON.parse(s.upsell_config)); } catch {}
+          try {
+            const parsed = JSON.parse(s.upsell_config);
+            if (Array.isArray(parsed)) {
+              setUpsellConfigs(parsed);
+            } else {
+              setUpsellConfigs([parsed]); // backward compat: single object
+            }
+          } catch {}
         }
 
         // Compute effective store open status using business hours (Brasília timezone)
@@ -648,12 +655,15 @@ export default function HomePage() {
           onGoToCheckout={goToCheckout}
           onRemoveItem={removeCartItemFromDrawer}
           onAddUpsell={addUpsellToCart}
-          upsellConfig={upsellConfig}
-          upsellProduct={
-            upsellConfig?.product_id != null
-              ? products.find(p => p.id === upsellConfig!.product_id!) ?? null
-              : null
-          }
+          upsellItems={upsellConfigs
+            .filter(cfg => cfg.enabled && cfg.product_id != null)
+            .reduce<UpsellItem[]>((acc, cfg) => {
+              const product = products.find(p => p.id === cfg.product_id!) ?? null;
+              if (product && product.is_active && !cart.some(i => i.product.id === product.id)) {
+                acc.push({ config: cfg, product });
+              }
+              return acc;
+            }, [])}
         />
       )}
 
