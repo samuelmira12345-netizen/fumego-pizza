@@ -172,10 +172,14 @@ export default function HomePage() {
     setShowModal(true);
     if (typeof window !== 'undefined' && (window as any).gtag) {
       (window as any).gtag('event', 'view_item', {
-        item_name: product.name,
-        item_id:   product.slug,
-        value:     product.price,
-        currency:  'BRL',
+        currency: 'BRL',
+        value:    product.price,
+        items: [{
+          item_name: product.name,
+          item_id:   product.slug,
+          price:     product.price,
+          currency:  'BRL',
+        }],
       });
     }
   }
@@ -211,10 +215,14 @@ export default function HomePage() {
     setShowModal(false);
     if (typeof window !== 'undefined' && (window as any).gtag) {
       (window as any).gtag('event', 'add_to_cart', {
-        item_name: selectedProduct.name,
-        item_id:   selectedProduct.slug,
-        value:     selectedProduct.price,
-        currency:  'BRL',
+        currency: 'BRL',
+        value:    selectedProduct.price,
+        items: [{
+          item_name: selectedProduct.name,
+          item_id:   selectedProduct.slug,
+          price:     selectedProduct.price,
+          currency:  'BRL',
+        }],
       });
     }
   }
