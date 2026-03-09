@@ -193,9 +193,9 @@ function VisitorCard({ title, desc, value, pctOfTotal, prevValue }) {
 // ── Multi-line visit chart ─────────────────────────────────────────────────────
 
 const CHART_COLORS = {
-  sessions:       '#6366F1',
-  newUsers:       '#F59E0B',
-  returningUsers: '#A855F7',
+  sessions:       '#F2A800',
+  newUsers:       '#FFD060',
+  returningUsers: '#B87800',
 };
 
 function VisitLineChart({ data }) {
@@ -208,29 +208,52 @@ function VisitLineChart({ data }) {
     );
   }
 
-  const W = 800, H = 200, padL = 40, padR = 16, padT = 16, padB = 32;
+  const W = 800, H = 210, padL = 44, padR = 16, padT = 20, padB = 34;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
   const n = data.length;
 
   const allVals = data.flatMap(d => [d.sessions, d.newUsers, d.returningUsers]);
   const maxV = Math.max(...allVals, 1);
-  const yTicks = [0, Math.round(maxV * 0.25), Math.round(maxV * 0.5), Math.round(maxV * 0.75), maxV];
+  const yTicks = [0, Math.round(maxV * 0.33), Math.round(maxV * 0.66), maxV];
 
   function px(i) { return padL + (i / (n - 1)) * chartW; }
   function py(v) { return padT + chartH - (v / maxV) * chartH; }
 
-  function makePolyline(key) {
-    return data.map((d, i) => `${px(i)},${py(d[key])}`).join(' ');
+  // Smooth cubic-bezier path (Catmull-Rom style tension)
+  function smoothPath(key) {
+    const pts = data.map((d, i) => [px(i), py(d[key])]);
+    if (pts.length === 0) return '';
+    let d = `M ${pts[0][0]},${pts[0][1]}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      const t = 0.25;
+      const cp1x = p1[0] + (p2[0] - p0[0]) * t;
+      const cp1y = p1[1] + (p2[1] - p0[1]) * t;
+      const cp2x = p2[0] - (p3[0] - p1[0]) * t;
+      const cp2y = p2[1] - (p3[1] - p1[1]) * t;
+      d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2[0]},${p2[1]}`;
+    }
+    return d;
+  }
+
+  // Area fill path (same curve + close at bottom)
+  function areaPath(key) {
+    const line = smoothPath(key);
+    const lastX = px(n - 1);
+    const baseY = padT + chartH;
+    return `${line} L ${lastX},${baseY} L ${padL},${baseY} Z`;
   }
 
   const series = [
-    { key: 'sessions',       label: 'Total de visitas',           color: CHART_COLORS.sessions },
-    { key: 'newUsers',       label: 'Visitas de clientes novos',  color: CHART_COLORS.newUsers },
-    { key: 'returningUsers', label: 'Visitas de clientes recorrentes', color: CHART_COLORS.returningUsers },
+    { key: 'sessions',       label: 'Total de visitas',                color: CHART_COLORS.sessions,       gradId: 'gSessions'  },
+    { key: 'newUsers',       label: 'Visitas de clientes novos',       color: CHART_COLORS.newUsers,       gradId: 'gNewUsers'  },
+    { key: 'returningUsers', label: 'Visitas de clientes recorrentes', color: CHART_COLORS.returningUsers, gradId: 'gReturning' },
   ];
 
-  // Totals
   const totals = {
     sessions:       data.reduce((s, d) => s + d.sessions, 0),
     newUsers:       data.reduce((s, d) => s + d.newUsers, 0),
@@ -239,83 +262,132 @@ function VisitLineChart({ data }) {
 
   return (
     <div>
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: 28, marginBottom: 16, flexWrap: 'wrap' }}>
+      {/* Legend / totals */}
+      <div style={{ display: 'flex', gap: 28, marginBottom: 18, flexWrap: 'wrap' }}>
         {series.map(s => (
           <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <p style={{ fontSize: 22, fontWeight: 800, color: C.text }}>{totals[s.key].toLocaleString('pt-BR')}</p>
             {s.key !== 'sessions' && (
-              <p style={{ fontSize: 13, color: C.muted }}>
+              <p style={{ fontSize: 12, color: C.muted }}>
                 ({totals.sessions > 0 ? ((totals[s.key] / totals.sessions) * 100).toFixed(1) : 0}%)
               </p>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: s.color }} />
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: s.color }} />
               <span style={{ fontSize: 11, color: C.muted }}>{s.label}</span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* SVG Chart */}
+      {/* Chart */}
       <div style={{ position: 'relative' }}>
         {/* Tooltip */}
         {hovered !== null && data[hovered] && (
           <div style={{
             position: 'absolute',
-            top: 0,
-            left: `clamp(60px, ${(hovered / (n - 1)) * 100}%, calc(100% - 120px))`,
+            top: 4,
+            left: `clamp(80px, ${padL + (hovered / (n - 1)) * chartW}px, calc(100% - 130px))`,
             transform: 'translateX(-50%)',
-            background: '#1F2937', color: '#fff',
-            padding: '8px 12px', borderRadius: 8, fontSize: 11, zIndex: 10,
-            pointerEvents: 'none', whiteSpace: 'nowrap',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            background: '#1C1917',
+            color: '#fff',
+            padding: '10px 14px',
+            borderRadius: 10,
+            fontSize: 12,
+            zIndex: 10,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 6px 24px rgba(0,0,0,0.35)',
+            border: '1px solid rgba(242,168,0,0.25)',
           }}>
-            <p style={{ fontWeight: 700, marginBottom: 4 }}>{fmtGADate(data[hovered].date)}</p>
+            <p style={{ fontWeight: 700, marginBottom: 6, color: '#F2A800', fontSize: 11, letterSpacing: 0.4 }}>
+              {fmtGADate(data[hovered].date)}
+            </p>
             {series.map(s => (
-              <p key={s.key} style={{ color: s.color, marginBottom: 1 }}>
-                {s.label.split(' ').slice(0, 2).join(' ')}: {data[hovered][s.key]}
-              </p>
+              <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                <span style={{ color: '#D1D5DB', fontSize: 11 }}>
+                  {s.label.split(' ').slice(-1)[0]}:
+                </span>
+                <span style={{ color: '#fff', fontWeight: 700, fontSize: 11 }}>
+                  {data[hovered][s.key].toLocaleString('pt-BR')}
+                </span>
+              </div>
             ))}
           </div>
         )}
 
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 220, display: 'block' }}
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 230, display: 'block' }}
           onMouseLeave={() => setHovered(null)}>
 
-          {/* Y grid + labels */}
-          {yTicks.map(v => {
+          <defs>
+            {series.map(s => (
+              <linearGradient key={s.gradId} id={s.gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={s.color} stopOpacity="0.22" />
+                <stop offset="100%" stopColor={s.color} stopOpacity="0.00" />
+              </linearGradient>
+            ))}
+          </defs>
+
+          {/* Y grid */}
+          {yTicks.map((v, ti) => {
             const y = padT + chartH - (v / maxV) * chartH;
             return (
-              <g key={v}>
-                <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#F3F4F6" strokeWidth={1} />
-                <text x={padL - 4} y={y + 4} textAnchor="end" fontSize={9} fill={C.light}>{v}</text>
+              <g key={ti}>
+                <line x1={padL} y1={y} x2={W - padR} y2={y}
+                  stroke={ti === 0 ? '#E5E7EB' : '#F3F4F6'}
+                  strokeWidth={ti === 0 ? 1.5 : 1}
+                  strokeDasharray={ti === 0 ? 'none' : '4 3'}
+                />
+                <text x={padL - 6} y={y + 4} textAnchor="end" fontSize={9} fill={C.light}>{v}</text>
               </g>
             );
           })}
 
-          {/* Lines */}
+          {/* Hover vertical line */}
+          {hovered !== null && (
+            <line
+              x1={px(hovered)} y1={padT}
+              x2={px(hovered)} y2={padT + chartH}
+              stroke="rgba(242,168,0,0.35)" strokeWidth={1.5} strokeDasharray="4 3"
+            />
+          )}
+
+          {/* Area fills (behind lines) */}
           {series.map(s => (
-            <g key={s.key}>
-              <polyline
-                points={makePolyline(s.key)}
-                fill="none" stroke={s.color} strokeWidth={2}
-                strokeLinejoin="round" strokeLinecap="round"
-              />
-              {/* Points */}
-              {data.map((d, i) => (
-                <circle key={i} cx={px(i)} cy={py(d[s.key])} r={hovered === i ? 5 : 3}
-                  fill={s.color} stroke="#fff" strokeWidth={1.5}
-                  opacity={hovered !== null && hovered !== i ? 0.3 : 1}
-                />
-              ))}
-            </g>
+            <path key={s.key + '_area'}
+              d={areaPath(s.key)}
+              fill={`url(#${s.gradId})`}
+            />
+          ))}
+
+          {/* Smooth lines */}
+          {series.map(s => (
+            <path key={s.key + '_line'}
+              d={smoothPath(s.key)}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={2.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+
+          {/* Dots — only on hover */}
+          {hovered !== null && series.map(s => (
+            <circle key={s.key + '_dot'}
+              cx={px(hovered)} cy={py(data[hovered][s.key])}
+              r={5}
+              fill={s.color}
+              stroke="#fff"
+              strokeWidth={2}
+            />
           ))}
 
           {/* X labels */}
           {data.map((d, i) => {
-            const showLabel = n <= 10 || i % Math.ceil(n / 10) === 0 || i === n - 1;
-            if (!showLabel) return null;
+            const show = n <= 10 || i % Math.ceil(n / 10) === 0 || i === n - 1;
+            if (!show) return null;
             return (
               <text key={i} x={px(i)} y={H - 4} textAnchor="middle" fontSize={9} fill={C.light}>
                 {fmtGADate(d.date)}
@@ -323,12 +395,21 @@ function VisitLineChart({ data }) {
             );
           })}
 
-          {/* Hover zones */}
-          {data.map((d, i) => (
+          {/* Invisible hover zones */}
+          {data.map((_, i) => (
             <rect key={i}
-              x={px(i) - chartW / n / 2} y={padT}
-              width={chartW / n} height={chartH}
-              fill="transparent" style={{ cursor: 'crosshair' }}
+              x={i === 0 ? padL : (px(i - 1) + px(i)) / 2}
+              y={padT}
+              width={
+                i === 0
+                  ? (px(0) + px(1)) / 2 - padL
+                  : i === n - 1
+                    ? px(n - 1) - (px(n - 2) + px(n - 1)) / 2
+                    : (px(i + 1) - px(i - 1)) / 2
+              }
+              height={chartH}
+              fill="transparent"
+              style={{ cursor: 'crosshair' }}
               onMouseEnter={() => setHovered(i)}
             />
           ))}
