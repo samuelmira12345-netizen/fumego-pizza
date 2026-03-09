@@ -182,7 +182,7 @@ export default function DateRangePicker({ value, onChange }) {
     if (!open && ref.current) {
       const rect = ref.current.getBoundingClientRect();
       const viewW = window.innerWidth;
-      const dropW = 730;
+      const dropW = 820;
       let left = rect.right - dropW;
       if (left < 8) left = 8;
       if (left + dropW > viewW - 8) left = viewW - dropW - 8;
@@ -271,7 +271,7 @@ export default function DateRangePicker({ value, onChange }) {
           zIndex: 99999,
           background: '#fff', borderRadius: 10,
           boxShadow: '0 8px 40px rgba(0,0,0,0.22)', border: '1px solid #E5E7EB',
-          display: 'flex', width: 730,
+          display: 'flex', width: 820,
         }}>
           {/* Left: presets */}
           <div style={{ borderRight: '1px solid #E5E7EB', padding: '12px 0', width: 182, flexShrink: 0, overflowY: 'auto', maxHeight: 460 }}>

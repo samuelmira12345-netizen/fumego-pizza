@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+import DateRangePicker from './DateRangePicker';
 
 const C = {
   gold: '#F2A800', bg: '#F4F5F7', card: '#ffffff', border: '#E5E7EB',
@@ -48,52 +49,41 @@ function DonutChart({ data, palette }) {
   });
 
   const hov = hovered !== null ? slices[hovered] : null;
-  // Stack legend below when there are many items to avoid cramped side layout
-  const stackBelow = slices.length > 4;
-
   return (
-    <div style={{ display: 'flex', flexDirection: stackBelow ? 'column' : 'row', alignItems: stackBelow ? 'flex-start' : 'center', gap: stackBelow ? 16 : 24 }}>
-      <div style={{ display: 'flex', justifyContent: stackBelow ? 'center' : 'flex-start', width: '100%' }}>
-        <svg viewBox="0 0 180 180" style={{ width: 180, height: 180, flexShrink: 0 }}>
-          {slices.map((s, i) => (
-            <path key={i} d={s.path} fill={s.color}
-              opacity={hovered !== null && hovered !== i ? 0.4 : 1}
-              style={{ cursor: 'pointer', transition: 'opacity 0.15s' }}
-              onMouseEnter={() => setHovered(i)}
-              onMouseLeave={() => setHovered(null)}
-            />
-          ))}
-          {hov ? (
-            <>
-              <text x={cx} y={cy - 8}  textAnchor="middle" fontSize={9}  fill={C.muted}>{hov.name?.slice(0, 16)}</text>
-              <text x={cx} y={cy + 6}  textAnchor="middle" fontSize={13} fontWeight="700" fill={C.text}>{(hov.pct * 100).toFixed(1)}%</text>
-              <text x={cx} y={cy + 20} textAnchor="middle" fontSize={9}  fill={C.muted}>{fmtShort(hov.value)}</text>
-            </>
-          ) : (
-            <>
-              <text x={cx} y={cy - 6} textAnchor="middle" fontSize={9}  fill={C.light}>TOTAL</text>
-              <text x={cx} y={cy + 8} textAnchor="middle" fontSize={13} fontWeight="700" fill={C.text}>{fmtShort(total)}</text>
-            </>
-          )}
-        </svg>
-      </div>
-      {/* Legend — 2-column grid when stacked below, single column when side */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: stackBelow ? '1fr 1fr' : '1fr',
-        gap: stackBelow ? '6px 16px' : 8,
-        width: stackBelow ? '100%' : undefined,
-        flex: stackBelow ? undefined : 1,
-      }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+      <svg viewBox="0 0 180 180" style={{ width: 160, height: 160, flexShrink: 0 }}>
+        {slices.map((s, i) => (
+          <path key={i} d={s.path} fill={s.color}
+            opacity={hovered !== null && hovered !== i ? 0.4 : 1}
+            style={{ cursor: 'pointer', transition: 'opacity 0.15s' }}
+            onMouseEnter={() => setHovered(i)}
+            onMouseLeave={() => setHovered(null)}
+          />
+        ))}
+        {hov ? (
+          <>
+            <text x={cx} y={cy - 8}  textAnchor="middle" fontSize={9}  fill={C.muted}>{hov.name?.slice(0, 16)}</text>
+            <text x={cx} y={cy + 6}  textAnchor="middle" fontSize={13} fontWeight="700" fill={C.text}>{(hov.pct * 100).toFixed(1)}%</text>
+            <text x={cx} y={cy + 20} textAnchor="middle" fontSize={9}  fill={C.muted}>{fmtShort(hov.value)}</text>
+          </>
+        ) : (
+          <>
+            <text x={cx} y={cy - 6} textAnchor="middle" fontSize={9}  fill={C.light}>TOTAL</text>
+            <text x={cx} y={cy + 8} textAnchor="middle" fontSize={13} fontWeight="700" fill={C.text}>{fmtShort(total)}</text>
+          </>
+        )}
+      </svg>
+      {/* Legend — single column, scrollable if many items */}
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
         {slices.map((s, i) => (
           <div key={i}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'default', minWidth: 0 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'default', minWidth: 0, padding: '2px 0' }}
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
             <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
             <span style={{ fontSize: 12, color: C.muted, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
               {s.name}
             </span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: 'nowrap', flexShrink: 0 }}>{(s.pct * 100).toFixed(0)}%</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: 'nowrap', flexShrink: 0, marginLeft: 8 }}>{(s.pct * 100).toFixed(0)}%</span>
           </div>
         ))}
       </div>
@@ -194,23 +184,20 @@ function PeriodPicker({ period, onPrev, onNext }) {
   );
 }
 
+function firstOfMonthSP() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+}
+function todaySP2() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
 // ── Análise de Pagamentos ─────────────────────────────────────────────────────
 export function AnalisePagamentosTab({ adminToken, refreshTick }) {
   const [subTab, setSubTab] = useState('categorias');
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(false);
-  const [period, setPeriod]   = useState(() => {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() + 1 };
-  });
-
-  const dateRange = (() => {
-    const { year, month } = period;
-    return {
-      from: `${year}-${String(month).padStart(2,'0')}-01`,
-      to:   `${year}-${String(month).padStart(2,'0')}-${new Date(year, month, 0).getDate()}`,
-    };
-  })();
+  const [dateRange, setDateRange] = useState({ from: firstOfMonthSP(), to: todaySP2(), fromTime: '00:00', toTime: '23:59' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -226,13 +213,6 @@ export function AnalisePagamentosTab({ adminToken, refreshTick }) {
   }, [adminToken, dateRange.from, dateRange.to]);
 
   useEffect(() => { load(); }, [load, refreshTick]);
-
-  const prevMonth = () => setPeriod(p => p.month === 1 ? { year: p.year - 1, month: 12 } : { ...p, month: p.month - 1 });
-  const nextMonth = () => {
-    const now = new Date();
-    if (period.year === now.getFullYear() && period.month === now.getMonth() + 1) return;
-    setPeriod(p => p.month === 12 ? { year: p.year + 1, month: 1 } : { ...p, month: p.month + 1 });
-  };
 
   const SUBTABS = [
     { key: 'categorias', label: 'Categorias' },
@@ -253,7 +233,7 @@ export function AnalisePagamentosTab({ adminToken, refreshTick }) {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <PeriodPicker period={period} onPrev={prevMonth} onNext={nextMonth} />
+          <DateRangePicker value={dateRange} onChange={v => setDateRange(v)} />
           <button onClick={load} style={{ padding: '8px 12px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', display: 'flex', color: C.muted }}>
             <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
           </button>
@@ -275,7 +255,7 @@ export function AnalisePagamentosTab({ adminToken, refreshTick }) {
       )}
 
       {subTab === 'categorias' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 380px) 1fr', gap: 16, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, alignItems: 'start' }}>
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Distribuição por Categoria</div>
             <DonutChart data={data?.byCategory} palette={PALETTE.map((_, i) => PALETTE[i])} />
@@ -304,18 +284,7 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }) {
   const [subTab, setSubTab] = useState('forma_pagamento');
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(false);
-  const [period, setPeriod]   = useState(() => {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() + 1 };
-  });
-
-  const dateRange = (() => {
-    const { year, month } = period;
-    return {
-      from: `${year}-${String(month).padStart(2,'0')}-01`,
-      to:   `${year}-${String(month).padStart(2,'0')}-${new Date(year, month, 0).getDate()}`,
-    };
-  })();
+  const [dateRange, setDateRange] = useState({ from: firstOfMonthSP(), to: todaySP2(), fromTime: '00:00', toTime: '23:59' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -331,13 +300,6 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }) {
   }, [adminToken, dateRange.from, dateRange.to]);
 
   useEffect(() => { load(); }, [load, refreshTick]);
-
-  const prevMonth = () => setPeriod(p => p.month === 1 ? { year: p.year - 1, month: 12 } : { ...p, month: p.month - 1 });
-  const nextMonth = () => {
-    const now = new Date();
-    if (period.year === now.getFullYear() && period.month === now.getMonth() + 1) return;
-    setPeriod(p => p.month === 12 ? { year: p.year + 1, month: 1 } : { ...p, month: p.month + 1 });
-  };
 
   const SUBTABS = [
     { key: 'forma_pagamento', label: 'Forma de Pagamento' },
@@ -361,7 +323,7 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }) {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <PeriodPicker period={period} onPrev={prevMonth} onNext={nextMonth} />
+          <DateRangePicker value={dateRange} onChange={v => setDateRange(v)} />
           <button onClick={load} style={{ padding: '8px 12px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', display: 'flex', color: C.muted }}>
             <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
           </button>
