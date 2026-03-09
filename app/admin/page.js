@@ -19,6 +19,7 @@ import KDSBoard from '../components/admin/KDSBoard';
 import Customers from '../components/admin/Customers';
 import Catalog from '../components/admin/Catalog';
 import Analytics from '../components/admin/Analytics';
+import Financial from '../components/admin/Financial';
 
 const SESSION_KEY = 'admin_token';
 
@@ -82,7 +83,7 @@ const NAV_GROUPS = [
     items: [
       { key: 'analytics',   icon: BarChart2,       label: 'Analytics' },
       { key: 'marketing',   icon: Megaphone,       label: 'Marketing',  soon: true },
-      { key: 'financial',   icon: Wallet,          label: 'Financeiro', soon: true },
+      { key: 'financial',   icon: Wallet,          label: 'Financeiro' },
       { key: 'stock',       icon: Archive,         label: 'Estoque',    soon: true },
       { key: 'reports',     icon: BarChart2,       label: 'Relatórios' },
     ],
@@ -1193,6 +1194,11 @@ export default function AdminPage() {
           <Analytics adminToken={adminToken} />
         )}
 
+        {/* ── FINANCEIRO ─────────────────────────────────────────────────── */}
+        {section === 'financial' && (
+          <Financial adminToken={adminToken} orders={data.orders} />
+        )}
+
         {/* ── RELATÓRIOS ────────────────────────────────────────────────── */}
         {section === 'reports' && (
           <Reports adminToken={adminToken} />
@@ -1209,7 +1215,7 @@ export default function AdminPage() {
         )}
 
         {/* ── Coming Soon sections ─────────────────────────────────────── */}
-        {['deliveries', 'marketing', 'financial', 'stock'].includes(section) && (
+        {['deliveries', 'marketing', 'stock'].includes(section) && (
           <ComingSoon label={NAV_GROUPS.flatMap(g => g.items).find(i => i.key === section)?.label || section} />
         )}
 
