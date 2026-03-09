@@ -175,6 +175,96 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
   );
 }
 
+// ── CompoundRecipePanel ───────────────────────────────────────────────────────
+
+function CompoundRecipePanel({ ingredient, ingredients, compoundItems, onSave, onClose, saving }) {
+  const ingCompoundItems = compoundItems.filter(c => c.compound_id === ingredient.id);
+  const [localItems, setLocalItems] = useState(ingCompoundItems.map(c => ({ ingredient_id: c.ingredient_id, quantity: c.quantity })));
+  const [addSubIng, setAddSubIng] = useState('');
+  const [addSubQty, setAddSubQty] = useState('');
+
+  useEffect(() => {
+    setLocalItems(compoundItems.filter(c => c.compound_id === ingredient.id).map(c => ({ ingredient_id: c.ingredient_id, quantity: c.quantity })));
+  }, [ingredient.id, compoundItems]);
+
+  const wv = parseFloat(ingredient.weight_volume) || 1;
+  const availSubs = ingredients.filter(g => g.id !== ingredient.id && !localItems.find(i => i.ingredient_id === g.id));
+
+  const enrichedLocal = localItems.map(i => {
+    const sub = ingredients.find(g => g.id === i.ingredient_id);
+    return { ...i, name: sub?.name, unit: sub?.unit, cost_per_unit: parseFloat(sub?.cost_per_unit) || 0 };
+  });
+  const localTotalCost = enrichedLocal.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
+  const localComputedCost = wv > 0 ? localTotalCost / wv : 0;
+
+  function addSubItem() {
+    if (!addSubIng || !addSubQty) return;
+    setLocalItems(prev => [...prev, { ingredient_id: addSubIng, quantity: parseFloat(addSubQty) }]);
+    setAddSubIng(''); setAddSubQty('');
+  }
+
+  return (
+    <div style={{ borderBottom: '1px solid ' + C.border, background: '#F5F3FF', padding: '14px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#7C3AED', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Layers size={13} /> Receita do Composto — {ingredient.name}
+          {wv !== 1 && <span style={{ fontSize: 10, color: C.muted, fontWeight: 500 }}>(Rendimento: {wv} {ingredient.unit})</span>}
+        </p>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 16, lineHeight: 1 }}>×</button>
+      </div>
+      {enrichedLocal.length > 0 && (
+        <div style={{ marginBottom: 10, border: '1px solid #DDD6FE', borderRadius: 6, overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 30px', background: '#EDE9FE', borderBottom: '1px solid #DDD6FE', padding: '5px 10px' }}>
+            {['Insumo', 'Qtd', 'Unid', 'Custo', ''].map((h, i) => <span key={i} style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase' }}>{h}</span>)}
+          </div>
+          {enrichedLocal.map((item, idx) => (
+            <div key={item.ingredient_id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 30px', alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid #EDE9FE' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{item.name || '—'}</span>
+              <input type="number" value={item.quantity} min="0" step="0.001"
+                onChange={e => setLocalItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: e.target.value } : it))}
+                style={{ width: '100%', padding: '3px 5px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', textAlign: 'right', boxSizing: 'border-box' }} />
+              <span style={{ fontSize: 11, color: C.muted, textAlign: 'center' }}>{item.unit}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', textAlign: 'right' }}>{fmtBRL((parseFloat(item.quantity) || 0) * item.cost_per_unit)}</span>
+              <button onClick={() => setLocalItems(prev => prev.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={12} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      {localTotalCost > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <div style={{ background: '#EDE9FE', borderRadius: 6, padding: '6px 12px', flex: 1 }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 2 }}>CUSTO TOTAL INGREDIENTES</p>
+            <p style={{ fontSize: 13, fontWeight: 800, color: '#6D28D9' }}>{fmtBRL(localTotalCost)}</p>
+          </div>
+          <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '6px 12px', flex: 1 }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: C.success, marginBottom: 2 }}>CUSTO/UNID CALCULADO</p>
+            <p style={{ fontSize: 13, fontWeight: 800, color: '#047857' }}>{fmtBRL(localComputedCost)}</p>
+          </div>
+        </div>
+      )}
+      {enrichedLocal.length === 0 && <p style={{ fontSize: 12, color: C.light, marginBottom: 10 }}>Nenhum ingrediente na receita. Adicione abaixo.</p>}
+      {availSubs.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center' }}>
+          <select value={addSubIng} onChange={e => setAddSubIng(e.target.value)} style={{ flex: 1, padding: '5px 8px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', background: '#fff' }}>
+            <option value="">Selecionar insumo...</option>
+            {availSubs.filter(g => !localItems.find(i => i.ingredient_id === g.id)).map(g => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
+          </select>
+          <input type="number" value={addSubQty} min="0" step="0.001" onChange={e => setAddSubQty(e.target.value)} placeholder="Qtd" style={{ width: 70, padding: '5px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none' }} />
+          <button onClick={addSubItem} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: '#7C3AED', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={12} /> Add</button>
+        </div>
+      )}
+      <button
+        onClick={() => onSave(ingredient.id, localItems)}
+        disabled={saving}
+        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 5, border: 'none', background: saving ? '#9CA3AF' : '#7C3AED', color: '#fff', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}
+      >
+        {saving ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={12} />}
+        {saving ? 'Salvando...' : 'Salvar Receita'}
+      </button>
+    </div>
+  );
+}
+
 // ── ProductCard ───────────────────────────────────────────────────────────────
 
 function ProductCard({
@@ -1063,9 +1153,9 @@ export default function Catalog({ adminToken }) {
       const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'save_ingredient', data: ingredient }) });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
-      // Update ingredient cost in state
+      // Update ingredient in state
       if (ingredient.id) {
-        setIngredients(prev => prev.map(i => i.id === ingredient.id ? { ...i, name: ingredient.name, unit: ingredient.unit, cost_per_unit: ingredient.cost_per_unit } : i));
+        setIngredients(prev => prev.map(i => i.id === ingredient.id ? { ...i, ...ingredient } : i));
       }
       // Real-time chart update: add new history entry if price changed
       if (d.priceHistoryEntry) {
@@ -1073,6 +1163,47 @@ export default function Catalog({ adminToken }) {
       }
       setEditingIng(null);
     } catch (e) { alert('Erro: ' + e.message); }
+  }
+
+  async function handleSaveCompoundRecipe(compound_id, items) {
+    setSavingCompoundRecipe(true);
+    try {
+      const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'save_compound_recipe', data: { compound_id, items } }) });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      // Update local compoundItems state
+      setCompoundItems(prev => {
+        const filtered = prev.filter(c => c.compound_id !== compound_id);
+        const newRows = items.map(i => ({ compound_id, ingredient_id: i.ingredient_id, quantity: i.quantity }));
+        return [...filtered, ...newRows];
+      });
+      setMsg('✅ Receita composta salva!');
+      setTimeout(() => setMsg(''), 3000);
+    } catch (e) { alert('Erro: ' + e.message); }
+    finally { setSavingCompoundRecipe(false); }
+  }
+
+  async function handleStockMovement(ingredient_id) {
+    if (!stockMovement.quantity) { alert('Quantidade é obrigatória'); return; }
+    setSavingStockMovement(true);
+    try {
+      const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'stock_movement', data: {
+        ingredient_id,
+        movement_type: stockMovement.type,
+        quantity: parseFloat(stockMovement.quantity),
+        reason: stockMovement.reason,
+        notes: stockMovement.notes,
+      } }) });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      // Update local ingredient stock
+      setIngredients(prev => prev.map(i => i.id === ingredient_id ? { ...i, current_stock: d.new_stock } : i));
+      setStockMovement({ type: 'in', quantity: '', reason: '', notes: '' });
+      setStockPanelIngId(null);
+      setMsg('✅ Estoque atualizado!');
+      setTimeout(() => setMsg(''), 3000);
+    } catch (e) { alert('Erro: ' + e.message); }
+    finally { setSavingStockMovement(false); }
   }
 
   async function handleDuplicateDrink(idx) {
@@ -1626,7 +1757,7 @@ export default function Catalog({ adminToken }) {
           {/* Lista de ingredientes */}
           <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, overflow: 'hidden', marginBottom: 20 }}>
             {/* Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 140px', gap: 0, background: '#F9FAFB', borderBottom: '1px solid ' + C.border, padding: '10px 16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 180px', gap: 0, background: '#F9FAFB', borderBottom: '1px solid ' + C.border, padding: '10px 16px' }}>
               {['Insumo', 'Unidade', 'Custo/Unid.', 'Variação', ''].map((h, i) => (
                 <span key={i} style={{ fontSize: 11, fontWeight: 700, color: C.light, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: i >= 2 ? 'right' : 'left' }}>{h}</span>
               ))}
@@ -1637,6 +1768,8 @@ export default function Catalog({ adminToken }) {
             ) : (
               ingredients.map(ing => {
                 const isEditing = editingIng === ing.id;
+                const isStockOpen = stockPanelIngId === ing.id;
+                const isCompoundOpen = compoundPanelIngId === ing.id;
                 // Price variation % from first recorded history to current
                 const history = priceHistory
                   .filter(h => h.ingredient_id === ing.id)
@@ -1645,25 +1778,103 @@ export default function Catalog({ adminToken }) {
                 const currentPrice = parseFloat(ing.cost_per_unit);
                 const variation = firstPrice && firstPrice > 0 ? ((currentPrice - firstPrice) / firstPrice * 100) : null;
 
+                // Stock status
+                const curStock = parseFloat(ing.current_stock) || 0;
+                const minStock = parseFloat(ing.min_stock) || 0;
+                const maxStock = parseFloat(ing.max_stock) || 0;
+                const stockConfigured = minStock > 0 || maxStock > 0;
+                const stockColor = !stockConfigured ? C.light : curStock <= minStock ? C.danger : C.success;
+
+                // Compound items for this ingredient
+                const ingCompoundItems = compoundItems.filter(c => c.compound_id === ing.id);
+
+                // Is compound type
+                const isCompound = ing.ingredient_type === 'compound';
+
+                // Correction factor display
+                const cf = parseFloat(ing.correction_factor) || 1.0;
+
+                const hasAnyPanelOpen = isStockOpen || isCompoundOpen || selectedIngForHistory === ing.id;
+
                 return (
                   <div key={ing.id}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 140px', gap: 0, borderBottom: selectedIngForHistory === ing.id ? 'none' : '1px solid ' + C.border, padding: '10px 16px', alignItems: 'center' }}>
+                    {/* Main row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 180px', gap: 0, borderBottom: (hasAnyPanelOpen || isEditing) ? 'none' : '1px solid ' + C.border, padding: '10px 16px', alignItems: 'center' }}>
                       {isEditing ? (
-                        <>
-                          <input value={ing.name} onChange={e => handleUpdateIngredient(ing.id, 'name', e.target.value)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', marginRight: 8 }} />
-                          <select value={ing.unit} onChange={e => handleUpdateIngredient(ing.id, 'unit', e.target.value)} style={{ padding: '5px 6px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', marginRight: 8 }}>
-                            {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                          </select>
-                          <input type="number" value={ing.cost_per_unit} min="0" step="0.0001" onChange={e => handleUpdateIngredient(ing.id, 'cost_per_unit', e.target.value)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', textAlign: 'right' }} />
-                          <div />
-                          <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end' }}>
-                            <button onClick={() => handleSaveIngredient(ing)} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: '#111827', color: '#fff', fontSize: 12, cursor: 'pointer' }}>OK</button>
-                            <button onClick={() => setEditingIng(null)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, background: '#fff', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                        /* ── EDIT MODE ── */
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          {/* Row 1: Name, Unit, Cost */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '2fr 90px 130px', gap: 8, marginBottom: 8 }}>
+                            <input value={ing.name} onChange={e => handleUpdateIngredient(ing.id, 'name', e.target.value)} placeholder="Nome" style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 13, outline: 'none' }} />
+                            <select value={ing.unit} onChange={e => handleUpdateIngredient(ing.id, 'unit', e.target.value)} style={{ padding: '5px 6px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none' }}>
+                              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                            </select>
+                            <input type="number" value={ing.cost_per_unit} min="0" step="0.0001" onChange={e => handleUpdateIngredient(ing.id, 'cost_per_unit', e.target.value)} placeholder="Custo/unid" style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', textAlign: 'right' }} />
                           </div>
-                        </>
+                          {/* Row 2: Type, Correction Factor, Weight/Volume */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                            <div>
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Tipo</label>
+                              <select value={ing.ingredient_type || 'simple'} onChange={e => handleUpdateIngredient(ing.id, 'ingredient_type', e.target.value)} style={{ width: '100%', padding: '5px 6px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none' }}>
+                                <option value="simple">Simples</option>
+                                <option value="compound">Composto</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Fator de Correção</label>
+                              <input type="number" value={ing.correction_factor || 1} min="0" step="0.01" onChange={e => handleUpdateIngredient(ing.id, 'correction_factor', e.target.value)} placeholder="1.00" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Peso/Volume (rendimento)</label>
+                              <input type="number" value={ing.weight_volume || 1} min="0" step="0.001" onChange={e => handleUpdateIngredient(ing.id, 'weight_volume', e.target.value)} placeholder="1.000" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                            </div>
+                          </div>
+                          {/* Row 3: Stock min/max, purchase origin */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 8, marginBottom: 10 }}>
+                            <div>
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Estoque Mín.</label>
+                              <input type="number" value={ing.min_stock || ''} min="0" step="0.001" onChange={e => handleUpdateIngredient(ing.id, 'min_stock', e.target.value)} placeholder="0" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Estoque Máx.</label>
+                              <input type="number" value={ing.max_stock || ''} min="0" step="0.001" onChange={e => handleUpdateIngredient(ing.id, 'max_stock', e.target.value)} placeholder="0" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Origem de Compra</label>
+                              <input value={ing.purchase_origin || ''} onChange={e => handleUpdateIngredient(ing.id, 'purchase_origin', e.target.value)} placeholder="Fornecedor / loja" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                            </div>
+                          </div>
+                          {/* Actions */}
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button onClick={() => handleSaveIngredient(ing)} style={{ padding: '5px 14px', borderRadius: 4, border: 'none', background: '#111827', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Salvar</button>
+                            <button onClick={() => setEditingIng(null)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, background: '#fff', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+                          </div>
+                        </div>
                       ) : (
+                        /* ── VIEW MODE ── */
                         <>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{ing.name}</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{ing.name}</span>
+                              {isCompound ? (
+                                <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#EDE9FE', color: '#7C3AED', display: 'flex', alignItems: 'center', gap: 2 }}>
+                                  <Layers size={9} /> Composto
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4, background: '#F3F4F6', color: C.muted }}>Simples</span>
+                              )}
+                              {cf !== 1.0 && <span style={{ fontSize: 10, color: C.muted }}>FC: {cf.toFixed(2)}</span>}
+                            </div>
+                            {stockConfigured && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <Warehouse size={10} color={stockColor} />
+                                <span style={{ fontSize: 10, color: stockColor, fontWeight: 600 }}>
+                                  {curStock.toFixed(2)} {ing.unit}
+                                  {minStock > 0 && <span style={{ color: C.light }}> / mín {minStock}</span>}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                           <span style={{ fontSize: 12, color: C.muted }}>{ing.unit}</span>
                           <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', textAlign: 'right' }}>{fmtBRL(ing.cost_per_unit)}</span>
                           <div style={{ textAlign: 'right' }}>
@@ -1679,23 +1890,113 @@ export default function Catalog({ adminToken }) {
                               <span style={{ fontSize: 11, color: C.light }}>—</span>
                             )}
                           </div>
-                          <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
                             <button
-                              onClick={() => setSelectedIngForHistory(selectedIngForHistory === ing.id ? null : ing.id)}
+                              onClick={() => { setStockPanelIngId(isStockOpen ? null : ing.id); setCompoundPanelIngId(null); setSelectedIngForHistory(null); setStockMovement({ type: 'in', quantity: '', reason: '', notes: '' }); }}
+                              title="Gerenciar estoque"
+                              style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid ' + C.border, background: isStockOpen ? '#ECFDF5' : '#fff', fontSize: 11, cursor: 'pointer', color: isStockOpen ? C.success : C.muted, display: 'flex', alignItems: 'center', gap: 3 }}
+                            >
+                              <ArrowDownUp size={11} /> Estoque
+                            </button>
+                            {isCompound && (
+                              <button
+                                onClick={() => { setCompoundPanelIngId(isCompoundOpen ? null : ing.id); setStockPanelIngId(null); setSelectedIngForHistory(null); }}
+                                title="Receita do composto"
+                                style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid ' + C.border, background: isCompoundOpen ? '#EDE9FE' : '#fff', fontSize: 11, cursor: 'pointer', color: isCompoundOpen ? '#7C3AED' : C.muted, display: 'flex', alignItems: 'center', gap: 3 }}
+                              >
+                                <Layers size={11} /> Receita
+                              </button>
+                            )}
+                            <button
+                              onClick={() => { setSelectedIngForHistory(selectedIngForHistory === ing.id ? null : ing.id); setStockPanelIngId(null); setCompoundPanelIngId(null); }}
                               title="Histórico de preço"
                               style={{ padding: '4px 7px', borderRadius: 4, border: '1px solid ' + C.border, background: selectedIngForHistory === ing.id ? '#EFF6FF' : '#fff', fontSize: 11, cursor: 'pointer', color: selectedIngForHistory === ing.id ? '#2563EB' : C.muted, display: 'flex', alignItems: 'center' }}
                             >
                               <BarChart2 size={13} />
                             </button>
-                            <button onClick={() => setEditingIng(ing.id)} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid ' + C.border, background: '#fff', fontSize: 11, cursor: 'pointer', color: C.muted }}>Editar</button>
+                            <button onClick={() => { setEditingIng(ing.id); setStockPanelIngId(null); setCompoundPanelIngId(null); setSelectedIngForHistory(null); }} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid ' + C.border, background: '#fff', fontSize: 11, cursor: 'pointer', color: C.muted }}>Editar</button>
                             <button onClick={() => handleDeleteIngredient(ing.id)} style={{ padding: '4px 6px', borderRadius: 4, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', fontSize: 11, cursor: 'pointer', color: C.danger }}>✕</button>
                           </div>
                         </>
                       )}
                     </div>
 
-                    {/* Inline price history panel */}
-                    {selectedIngForHistory === ing.id && (() => {
+                    {/* ── Stock movement panel ── */}
+                    {isStockOpen && !isEditing && (
+                      <div style={{ borderBottom: '1px solid ' + C.border, background: '#F0FDF4', padding: '14px 18px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: C.text, display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <Warehouse size={13} color={C.success} /> Estoque — {ing.name}
+                          </p>
+                          <button onClick={() => setStockPanelIngId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 16, lineHeight: 1 }}>×</button>
+                        </div>
+                        {/* Stock status */}
+                        <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                          <div style={{ background: stockConfigured ? (curStock <= minStock ? '#FEF2F2' : '#ECFDF5') : '#F3F4F6', borderRadius: 6, padding: '8px 14px', flex: 1, minWidth: 90 }}>
+                            <p style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 2 }}>ESTOQUE ATUAL</p>
+                            <p style={{ fontSize: 16, fontWeight: 800, color: stockColor }}>{curStock.toFixed(3)} {ing.unit}</p>
+                          </div>
+                          {stockConfigured && (
+                            <>
+                              <div style={{ background: '#F9FAFB', borderRadius: 6, padding: '8px 14px', flex: 1, minWidth: 90 }}>
+                                <p style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 2 }}>MÍNIMO</p>
+                                <p style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{minStock.toFixed(3)} {ing.unit}</p>
+                              </div>
+                              <div style={{ background: '#F9FAFB', borderRadius: 6, padding: '8px 14px', flex: 1, minWidth: 90 }}>
+                                <p style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 2 }}>MÁXIMO</p>
+                                <p style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{maxStock.toFixed(3)} {ing.unit}</p>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        {/* Movement form */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '120px 100px 1fr', gap: 8, marginBottom: 8 }}>
+                          <div>
+                            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tipo</label>
+                            <select value={stockMovement.type} onChange={e => setStockMovement(p => ({ ...p, type: e.target.value }))} style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#fff' }}>
+                              <option value="in">Entrada</option>
+                              <option value="out">Saída</option>
+                              <option value="adjustment">Ajuste</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Quantidade</label>
+                            <input type="number" min="0" step="0.001" value={stockMovement.quantity} onChange={e => setStockMovement(p => ({ ...p, quantity: e.target.value }))} placeholder="0.000" style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Motivo</label>
+                            <input value={stockMovement.reason} onChange={e => setStockMovement(p => ({ ...p, reason: e.target.value }))} placeholder="Compra, perda, inventário..." style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                          </div>
+                        </div>
+                        <div style={{ marginBottom: 10 }}>
+                          <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Observações</label>
+                          <input value={stockMovement.notes} onChange={e => setStockMovement(p => ({ ...p, notes: e.target.value }))} placeholder="Observações opcionais..." style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+                        <button
+                          onClick={() => handleStockMovement(ing.id)}
+                          disabled={savingStockMovement}
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 5, border: 'none', background: savingStockMovement ? '#9CA3AF' : C.success, color: '#fff', fontSize: 12, fontWeight: 700, cursor: savingStockMovement ? 'not-allowed' : 'pointer' }}
+                        >
+                          {savingStockMovement ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={12} />}
+                          {savingStockMovement ? 'Salvando...' : 'Registrar Movimentação'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* ── Compound recipe panel ── */}
+                    {isCompoundOpen && !isEditing && (
+                      <CompoundRecipePanel
+                        ingredient={ing}
+                        ingredients={ingredients}
+                        compoundItems={compoundItems}
+                        onSave={handleSaveCompoundRecipe}
+                        onClose={() => setCompoundPanelIngId(null)}
+                        saving={savingCompoundRecipe}
+                      />
+                    )}
+
+                    {/* ── Inline price history panel ── */}
+                    {selectedIngForHistory === ing.id && !isEditing && (() => {
                       const chartPoints = [];
                       if (history.length > 0) {
                         const beforeFirst = new Date(history[0].changed_at);
@@ -1739,7 +2040,7 @@ export default function Catalog({ adminToken }) {
             <h3 style={{ color: C.gold, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
               <Plus size={16} color={C.gold} /> Novo Insumo
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
               <div>
                 <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Nome do insumo *</label>
                 <input className="input-field" placeholder="ex: Farinha de trigo" value={newIng.name} onChange={e => setNewIng(p => ({ ...p, name: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
@@ -1753,6 +2054,37 @@ export default function Catalog({ adminToken }) {
               <div>
                 <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Custo por unid. (R$)</label>
                 <input className="input-field" type="number" min="0" step="0.0001" placeholder="0,00" value={newIng.cost_per_unit} onChange={e => setNewIng(p => ({ ...p, cost_per_unit: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tipo</label>
+                <select value={newIng.ingredient_type} onChange={e => setNewIng(p => ({ ...p, ingredient_type: e.target.value }))} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#F9FAFB', color: C.text }}>
+                  <option value="simple">Simples</option>
+                  <option value="compound">Composto</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Fator de Correção</label>
+                <input className="input-field" type="number" min="0" step="0.01" placeholder="1.00" value={newIng.correction_factor} onChange={e => setNewIng(p => ({ ...p, correction_factor: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Peso/Volume (rendimento)</label>
+                <input className="input-field" type="number" min="0" step="0.001" placeholder="1.000" value={newIng.weight_volume} onChange={e => setNewIng(p => ({ ...p, weight_volume: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 10, marginBottom: 14 }}>
+              <div>
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Estoque Mínimo</label>
+                <input className="input-field" type="number" min="0" step="0.001" placeholder="0" value={newIng.min_stock} onChange={e => setNewIng(p => ({ ...p, min_stock: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Estoque Máximo</label>
+                <input className="input-field" type="number" min="0" step="0.001" placeholder="0" value={newIng.max_stock} onChange={e => setNewIng(p => ({ ...p, max_stock: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Origem de Compra</label>
+                <input className="input-field" placeholder="Fornecedor / loja" value={newIng.purchase_origin} onChange={e => setNewIng(p => ({ ...p, purchase_origin: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
               </div>
             </div>
             <button onClick={handleAddIngredient} disabled={addingIng} style={{ padding: '10px 20px', background: C.gold, color: '#000', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: addingIng ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
