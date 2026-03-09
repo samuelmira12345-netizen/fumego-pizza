@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
   Flame, UtensilsCrossed, GlassWater, Settings, Package,
@@ -38,6 +38,25 @@ const C = {
   danger:        '#EF4444',
   success:       '#10B981',
 };
+
+// ── Global order beep (used by the page-level notification watcher) ───────────
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [[880, 0, 0.25], [1100, 0.20, 0.25], [1320, 0.40, 0.25], [1100, 0.60, 0.20], [1320, 0.80, 0.35]].forEach(([freq, t, dur]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + t);
+      gain.gain.setValueAtTime(0.65, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + dur + 0.01);
+    });
+  } catch {}
+}
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
@@ -433,6 +452,42 @@ export default function AdminPage() {
       }
     } catch {}
   }, [adminFetch]);
+
+  // ── Global order notification (plays regardless of active tab) ──────────────
+  const globalSeenIdsRef = useRef(null);
+  const [globalSoundOn, setGlobalSoundOn] = useState(() => {
+    try { return localStorage.getItem('admin_sound') !== 'off'; } catch { return true; }
+  });
+
+  // Persist sound preference
+  useEffect(() => {
+    try { localStorage.setItem('admin_sound', globalSoundOn ? 'on' : 'off'); } catch {}
+  }, [globalSoundOn]);
+
+  // Background polling: always runs, regardless of which section is open
+  useEffect(() => {
+    if (!authenticated) return;
+    const iv = setInterval(() => { loadOrders(); }, 15000);
+    return () => clearInterval(iv);
+  }, [authenticated, loadOrders]);
+
+  // Detect new orders and beep — skip when already on orders tab (KDSBoard handles it there)
+  const sectionRef = useRef(section);
+  useEffect(() => { sectionRef.current = section; }, [section]);
+
+  useEffect(() => {
+    if (!authenticated || !data.orders?.length) return;
+    const cur = new Set(data.orders.map(o => o.id));
+    if (globalSeenIdsRef.current === null) {
+      globalSeenIdsRef.current = new Set(cur);
+      return;
+    }
+    const added = [...cur].filter(id => !globalSeenIdsRef.current.has(id));
+    cur.forEach(id => globalSeenIdsRef.current.add(id));
+    if (added.length > 0 && globalSoundOn && sectionRef.current !== 'orders') {
+      playBeep();
+    }
+  }, [data.orders, authenticated, globalSoundOn]);
 
   async function saveAll() {
     setSaving(true);
