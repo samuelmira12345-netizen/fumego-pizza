@@ -24,9 +24,21 @@ const PM_LABELS = {
   card_delivery: 'Cartão na Entrega',
 };
 
-function toSPDay(isoStr) {
-  return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+function detectExpenseCategory(description) {
+  const d = (description || '').toLowerCase();
+  if (/salário|salario|funcionário|funcionario|vale|adiantamento|freelancer/i.test(d)) return 'Pessoal';
+  if (/aluguel|condomínio|condominio|iptu/i.test(d)) return 'Imóvel';
+  if (/energia|luz|eletric/i.test(d)) return 'Energia Elétrica';
+  if (/água|agua/i.test(d)) return 'Água';
+  if (/internet|telefo|wifi|g6|vivo|claro|oi /i.test(d)) return 'Telecom';
+  if (/entrega|motoboy|delivery|ifood/i.test(d)) return 'Entregadores';
+  if (/insumo|ingrediente|product|compra|fornecedor/i.test(d)) return 'Insumos';
+  if (/marketing|publicidade|anúncio|propaganda/i.test(d)) return 'Marketing';
+  if (/imposto|tax|iss|pis|cofins|simples/i.test(d)) return 'Impostos';
+  if (/transferência|transferencia|sangria/i.test(d)) return 'Transferência';
+  return 'Outros';
 }
+
 
 // ── GET handler ───────────────────────────────────────────────────────────────
 
@@ -364,6 +376,248 @@ export async function GET(request) {
     });
   }
 
+  // ── LANÇAMENTOS ──────────────────────────────────────────────────────────────
+  if (action === 'lancamentos') {
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('id, order_number, total, subtotal, delivery_fee, discount, cashback_used, payment_method, status, created_at, customer_name')
+      .gte('created_at', from + 'T00:00:00-03:00')
+      .lte('created_at', to   + 'T23:59:59-03:00')
+      .order('created_at', { ascending: false });
+
+    let cashEntries = [];
+    try {
+      const { data: entries } = await supabase
+        .from('cash_entries')
+        .select('id, type, amount, description, payment_method, created_at, session_id')
+        .gte('created_at', from + 'T00:00:00-03:00')
+        .lte('created_at', to   + 'T23:59:59-03:00')
+        .order('created_at', { ascending: false });
+      cashEntries = entries || [];
+    } catch {}
+
+    const receitas = (orders || []).map(o => ({
+      id:         'order_' + o.id,
+      date:       toSPDay(o.created_at),
+      created_at: o.created_at,
+      description: `Venda Nº ${o.order_number}${o.customer_name ? ' — ' + o.customer_name : ''}`,
+      category:   'Receitas de vendas',
+      account:    'Conta padrão',
+      value:      parseFloat(o.total || 0),
+      type:       'receita',
+      status:     o.status === 'cancelled' ? 'cancelado' : 'recebido',
+      payment_method: o.payment_method,
+    }));
+
+    const despesas = cashEntries.map(e => ({
+      id:         'cash_' + e.id,
+      date:       toSPDay(e.created_at),
+      created_at: e.created_at,
+      description: e.description || (e.type === 'sangria' ? 'Sangria de caixa' : 'Suprimento de caixa'),
+      category:   e.type === 'sangria' ? detectExpenseCategory(e.description) : 'Transferência',
+      account:    'Caixa',
+      value:      parseFloat(e.amount || 0),
+      type:       e.type === 'sangria' ? 'despesa' : 'transferencia',
+      status:     'pago',
+      payment_method: e.payment_method,
+    }));
+
+    const todos = [...receitas, ...despesas].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    const receitasRecebidas = receitas.filter(r => r.status === 'recebido').reduce((s, r) => s + r.value, 0);
+    const totalDespesas     = despesas.filter(d => d.type === 'despesa').reduce((s, d) => s + d.value, 0);
+
+    return NextResponse.json({
+      receitas,
+      despesas,
+      todos,
+      summary: {
+        receitasRecebidas,
+        receitasAberto:  0,
+        totalDespesas,
+        despesasAberto:  0,
+        totalPeriodo:    receitasRecebidas - totalDespesas,
+      },
+    });
+  }
+
+  // ── FLUXO DE CAIXA ────────────────────────────────────────────────────────────
+  if (action === 'fluxo_caixa') {
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('id, total, delivery_fee, payment_method, status, created_at')
+      .gte('created_at', from + 'T00:00:00-03:00')
+      .lte('created_at', to   + 'T23:59:59-03:00')
+      .order('created_at', { ascending: true });
+
+    let cashEntries = [];
+    try {
+      const { data: entries } = await supabase
+        .from('cash_entries')
+        .select('id, type, amount, description, created_at')
+        .gte('created_at', from + 'T00:00:00-03:00')
+        .lte('created_at', to   + 'T23:59:59-03:00')
+        .order('created_at', { ascending: true });
+      cashEntries = entries || [];
+    } catch {}
+
+    // Find opening balance (from the most recent closed session before this period)
+    let openingBalance = 0;
+    try {
+      const { data: sessions } = await supabase
+        .from('cash_sessions')
+        .select('initial_balance, final_balance, opened_at, closed_at')
+        .lte('opened_at', from + 'T23:59:59-03:00')
+        .order('opened_at', { ascending: false })
+        .limit(1);
+      const sess = sessions?.[0];
+      if (sess) openingBalance = parseFloat(sess.final_balance ?? sess.initial_balance ?? 0);
+    } catch {}
+
+    // Build daily map
+    const dateMap = {};
+    const cur = new Date(from + 'T12:00:00');
+    const endD = new Date(to  + 'T12:00:00');
+    while (cur <= endD) {
+      const k = cur.toLocaleDateString('en-CA');
+      dateMap[k] = { date: k, revenue: 0, expenses: 0, transfers: 0, orders: 0 };
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    const active = (orders || []).filter(o => o.status !== 'cancelled');
+    for (const o of active) {
+      const d = toSPDay(o.created_at);
+      if (dateMap[d]) { dateMap[d].revenue += parseFloat(o.total || 0); dateMap[d].orders++; }
+    }
+    for (const e of cashEntries) {
+      const d = toSPDay(e.created_at);
+      if (dateMap[d]) {
+        if (e.type === 'sangria')    dateMap[d].expenses   += parseFloat(e.amount || 0);
+        if (e.type === 'suprimento') dateMap[d].transfers  += parseFloat(e.amount || 0);
+      }
+    }
+
+    // Build cumulative time series
+    let running = openingBalance;
+    const timeSeries = Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date)).map(d => {
+      const opening = running;
+      running = running + d.revenue - d.expenses + d.transfers;
+      return { ...d, opening, closing: running };
+    });
+
+    return NextResponse.json({ timeSeries, openingBalance });
+  }
+
+  // ── ANÁLISE DE PAGAMENTOS ─────────────────────────────────────────────────────
+  if (action === 'analise_pagamentos') {
+    let cashEntries = [];
+    try {
+      const { data: entries } = await supabase
+        .from('cash_entries')
+        .select('id, type, amount, description, payment_method, created_at')
+        .eq('type', 'sangria')
+        .gte('created_at', from + 'T00:00:00-03:00')
+        .lte('created_at', to   + 'T23:59:59-03:00');
+      cashEntries = entries || [];
+    } catch {}
+
+    const total = cashEntries.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+
+    const categoryMap = {};
+    for (const e of cashEntries) {
+      const cat = detectExpenseCategory(e.description);
+      if (!categoryMap[cat]) categoryMap[cat] = { name: cat, value: 0, count: 0 };
+      categoryMap[cat].value += parseFloat(e.amount || 0);
+      categoryMap[cat].count++;
+    }
+
+    // Daily series
+    const dateMap = {};
+    const cur2 = new Date(from + 'T12:00:00');
+    const end2  = new Date(to   + 'T12:00:00');
+    while (cur2 <= end2) {
+      const k = cur2.toLocaleDateString('en-CA');
+      dateMap[k] = { date: k, value: 0 };
+      cur2.setDate(cur2.getDate() + 1);
+    }
+    for (const e of cashEntries) {
+      const d = toSPDay(e.created_at);
+      if (dateMap[d]) dateMap[d].value += parseFloat(e.amount || 0);
+    }
+
+    return NextResponse.json({
+      total,
+      byCategory: Object.values(categoryMap).sort((a, b) => b.value - a.value),
+      entries:    cashEntries,
+      timeSeries: Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date)),
+    });
+  }
+
+  // ── ANÁLISE DE RECEBIMENTOS ───────────────────────────────────────────────────
+  if (action === 'analise_recebimentos') {
+    const { data: orders } = await supabase
+      .from('orders')
+      .select('id, total, subtotal, delivery_fee, discount, cashback_used, payment_method, status, created_at')
+      .gte('created_at', from + 'T00:00:00-03:00')
+      .lte('created_at', to   + 'T23:59:59-03:00')
+      .order('created_at', { ascending: true });
+
+    const active = (orders || []).filter(o => o.status !== 'cancelled');
+    const total  = active.reduce((s, o) => s + parseFloat(o.total || 0), 0);
+
+    const pmMap = {};
+    for (const o of active) {
+      const m = o.payment_method || 'other';
+      if (!pmMap[m]) pmMap[m] = { method: m, label: PM_LABELS[m] || m, value: 0, count: 0 };
+      pmMap[m].value += parseFloat(o.total || 0);
+      pmMap[m].count++;
+    }
+
+    // Category breakdown (revenue types)
+    const vendasTotal   = active.reduce((s, o) => s + parseFloat(o.subtotal || 0), 0);
+    const entregasTotal = active.reduce((s, o) => s + parseFloat(o.delivery_fee || 0), 0);
+    const byCategory = [
+      { name: 'Vendas (Pedidos)',  value: vendasTotal,   count: active.length },
+      { name: 'Taxas de Entrega',  value: entregasTotal, count: active.length },
+    ].filter(c => c.value > 0);
+
+    // Daily series
+    const dateMap = {};
+    const cur3 = new Date(from + 'T12:00:00');
+    const end3  = new Date(to   + 'T12:00:00');
+    while (cur3 <= end3) {
+      const k = cur3.toLocaleDateString('en-CA');
+      dateMap[k] = { date: k, value: 0, orders: 0 };
+      cur3.setDate(cur3.getDate() + 1);
+    }
+    for (const o of active) {
+      const d = toSPDay(o.created_at);
+      if (dateMap[d]) { dateMap[d].value += parseFloat(o.total || 0); dateMap[d].orders++; }
+    }
+
+    return NextResponse.json({
+      total,
+      ordersCount: active.length,
+      byPaymentMethod: Object.values(pmMap).sort((a, b) => b.value - a.value),
+      byCategory,
+      timeSeries: Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date)),
+    });
+  }
+
+  // ── CUSTOS ────────────────────────────────────────────────────────────────────
+  if (action === 'custos') {
+    try {
+      const { data: costs } = await supabase
+        .from('financial_costs')
+        .select('*')
+        .order('type')
+        .order('name');
+      return NextResponse.json({ costs: costs || [] });
+    } catch {
+      return NextResponse.json({ costs: [] });
+    }
+  }
+
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
 }
 
@@ -410,6 +664,39 @@ export async function POST(request) {
       .select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ entry: data });
+  }
+
+  if (action === 'custos_save') {
+    try {
+      const payload = {
+        name:        body.name,
+        description: body.description || null,
+        type:        body.type,
+        amount:      body.amount != null ? parseFloat(body.amount) : null,
+        rate:        body.rate   != null ? parseFloat(body.rate)   : null,
+        base:        body.base   || 'gross',
+        category:    body.category || null,
+        is_active:   body.is_active !== false,
+        updated_at:  new Date().toISOString(),
+      };
+      if (body.id) {
+        const { data, error } = await supabase.from('financial_costs').update(payload).eq('id', body.id).select().single();
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ cost: data });
+      } else {
+        const { data, error } = await supabase.from('financial_costs').insert(payload).select().single();
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ cost: data });
+      }
+    } catch (e) { return NextResponse.json({ error: e.message }, { status: 500 }); }
+  }
+
+  if (action === 'custos_delete') {
+    try {
+      const { error } = await supabase.from('financial_costs').delete().eq('id', body.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    } catch (e) { return NextResponse.json({ error: e.message }, { status: 500 }); }
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });

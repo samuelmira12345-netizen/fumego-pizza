@@ -9,6 +9,10 @@ import {
   ChevronLeft, ChevronRight, Receipt, Percent, Activity,
 } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
+import LancamentosTab from './FinancialLancamentos';
+import FluxoCaixaTab from './FinancialFluxoCaixa';
+import { AnalisePagamentosTab, AnaliseRecebimentosTab } from './FinancialAnalise';
+import CustosTab from './FinancialCustos';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -1194,9 +1198,14 @@ export default function Financial({ adminToken, orders }) {
   }, [orders?.length]);
 
   const tabs = [
-    { key: 'faturamento', label: 'Faturamento' },
-    { key: 'caixa',       label: 'Caixa' },
-    { key: 'dre',         label: 'DRE' },
+    { key: 'faturamento',    label: 'Faturamento'        },
+    { key: 'caixa',          label: 'Caixa'              },
+    { key: 'lancamentos',    label: 'Lançamentos'        },
+    { key: 'fluxo',          label: 'Fluxo de Caixa'    },
+    { key: 'analise_pgto',   label: 'Análise Pgtos'     },
+    { key: 'analise_receb',  label: 'Análise Recebim.'  },
+    { key: 'dre',            label: 'DRE'                },
+    { key: 'custos',         label: 'Custos & Impostos' },
   ];
 
   return (
@@ -1216,9 +1225,14 @@ export default function Financial({ adminToken, orders }) {
         ))}
       </div>
 
-      {tab === 'faturamento' && <FaturamentoTab adminToken={adminToken} refreshTick={refreshTick} />}
-      {tab === 'caixa'       && <CaixaTab       adminToken={adminToken} refreshTick={refreshTick} />}
-      {tab === 'dre'         && <DreTab         adminToken={adminToken} refreshTick={refreshTick} />}
+      {tab === 'faturamento'   && <FaturamentoTab          adminToken={adminToken} refreshTick={refreshTick} />}
+      {tab === 'caixa'         && <CaixaTab               adminToken={adminToken} refreshTick={refreshTick} />}
+      {tab === 'lancamentos'   && <LancamentosTab          adminToken={adminToken} refreshTick={refreshTick} />}
+      {tab === 'fluxo'         && <FluxoCaixaTab           adminToken={adminToken} refreshTick={refreshTick} />}
+      {tab === 'analise_pgto'  && <AnalisePagamentosTab    adminToken={adminToken} refreshTick={refreshTick} />}
+      {tab === 'analise_receb' && <AnaliseRecebimentosTab  adminToken={adminToken} refreshTick={refreshTick} />}
+      {tab === 'dre'           && <DreTab                  adminToken={adminToken} refreshTick={refreshTick} />}
+      {tab === 'custos'        && <CustosTab               adminToken={adminToken} refreshTick={refreshTick} />}
     </div>
   );
 }
