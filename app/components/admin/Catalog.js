@@ -1402,7 +1402,7 @@ export default function Catalog({ adminToken }) {
           {/* Lista de ingredientes */}
           <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, overflow: 'hidden', marginBottom: 20 }}>
             {/* Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 100px', gap: 0, background: '#F9FAFB', borderBottom: '1px solid ' + C.border, padding: '10px 16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 140px', gap: 0, background: '#F9FAFB', borderBottom: '1px solid ' + C.border, padding: '10px 16px' }}>
               {['Insumo', 'Unidade', 'Custo/Unid.', 'Variação', ''].map((h, i) => (
                 <span key={i} style={{ fontSize: 11, fontWeight: 700, color: C.light, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: i >= 2 ? 'right' : 'left' }}>{h}</span>
               ))}
@@ -1423,7 +1423,7 @@ export default function Catalog({ adminToken }) {
 
                 return (
                   <div key={ing.id}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 100px', gap: 0, borderBottom: selectedIngForHistory === ing.id ? 'none' : '1px solid ' + C.border, padding: '10px 16px', alignItems: 'center' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 140px', gap: 0, borderBottom: selectedIngForHistory === ing.id ? 'none' : '1px solid ' + C.border, padding: '10px 16px', alignItems: 'center' }}>
                       {isEditing ? (
                         <>
                           <input value={ing.name} onChange={e => handleUpdateIngredient(ing.id, 'name', e.target.value)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', marginRight: 8 }} />
