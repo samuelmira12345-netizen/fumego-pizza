@@ -183,6 +183,7 @@ function ProductCard({
   imagePositions, onUpdateImagePos,
   stockLimits, onUpdateStockLimit,
   ingredients, recipe, onSaveRecipe,
+  onSave, isSaving,
 }) {
   const [fichaOpen, setFichaOpen] = useState(false);
   const pos   = imagePositions[String(product.id)] || { x: 50, y: 50 };
@@ -342,6 +343,15 @@ function ProductCard({
         )}
       </div>
 
+      {/* ── Salvar produto ── */}
+      <button
+        onClick={onSave}
+        disabled={isSaving}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', borderRadius: 6, border: 'none', background: isSaving ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 13, fontWeight: 700, cursor: isSaving ? 'not-allowed' : 'pointer', marginBottom: 8 }}
+      >
+        {isSaving ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><Save size={13} /> Salvar Produto</>}
+      </button>
+
       {/* ── Ficha Técnica ── */}
       <button
         onClick={() => setFichaOpen(v => !v)}
@@ -361,7 +371,7 @@ function ProductCard({
 
 // ── DrinkRow (collapsed + expandable) ─────────────────────────────────────────
 
-function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdate, onDelete, drinkStockLimits, onUpdateDrinkStockLimit }) {
+function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdate, onDelete, drinkStockLimits, onUpdateDrinkStockLimit, onSave, isSaving }) {
   const dstock = drinkStockLimits[String(drink.id)] || { enabled: false, qty: 0 };
 
   return (
@@ -461,9 +471,14 @@ function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdat
             )}
           </div>
 
-          <button onClick={() => onDelete(drink.id)} style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', color: C.danger, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            <Trash2 size={12} /> Excluir Bebida
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button onClick={onSave} disabled={isSaving} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, border: 'none', background: isSaving ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 12, fontWeight: 700, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
+              {isSaving ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><Save size={12} /> Salvar Bebida</>}
+            </button>
+            <button onClick={() => onDelete(drink.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', color: C.danger, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              <Trash2 size={12} /> Excluir
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -548,6 +563,7 @@ function ProductRow({
   imagePositions, onUpdateImagePos,
   stockLimits, onUpdateStockLimit,
   ingredients, recipe, onSaveRecipe,
+  onSave, savingProductId,
 }) {
   const catLabel = PROD_CATEGORIES.find(c => c.key === (product.category || 'pizza'))?.label || 'Pizza';
   const catColors = { pizza: '#F2A800', calzone: '#2563EB', combo: '#7C3AED', outros: '#6B7280' };
@@ -625,6 +641,8 @@ function ProductRow({
             ingredients={ingredients}
             recipe={recipe}
             onSaveRecipe={onSaveRecipe}
+            onSave={() => onSave(product)}
+            isSaving={savingProductId === product.id}
           />
         </div>
       )}
@@ -649,7 +667,8 @@ export default function Catalog({ adminToken }) {
   const [settings, setSettings]   = useState([]);
 
   const [loading, setLoading]     = useState(true);
-  const [saving, setSaving]       = useState(false);
+  const [savingProductId, setSavingProductId] = useState(null);
+  const [savingDrinkId, setSavingDrinkId] = useState(null);
   const [msg, setMsg]             = useState('');
   const [uploadingId, setUploadingId] = useState(null);
   const [uploadingUpsellIdx, setUploadingUpsellIdx] = useState(null);
@@ -676,7 +695,7 @@ export default function Catalog({ adminToken }) {
   const [selectedIngForHistory, setSelectedIngForHistory] = useState(null);
 
   // Upsell config editing state
-  const [savingUpsell, setSavingUpsell] = useState(false);
+  const [savingUpsellSlotIdx, setSavingUpsellSlotIdx] = useState(null); // idx do slot sendo salvo
   const blankUpsell = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null, custom_image_url: null });
   const [upsellSlots, setUpsellSlots] = useState([blankUpsell(), blankUpsell(), blankUpsell()]);
 
@@ -778,10 +797,10 @@ export default function Catalog({ adminToken }) {
     try { return JSON.parse(getSetting('drink_stock_limits') || '{}'); } catch { return {}; }
   }
 
-  async function saveUpsellConfig(configs) {
+  async function saveUpsellConfig(configs, slotIdx = null) {
     setUpsellSlots(configs);
     setSetting('upsell_config', JSON.stringify(configs));
-    setSavingUpsell(true);
+    setSavingUpsellSlotIdx(slotIdx);
     try {
       const res = await fetch('/api/admin', {
         method: 'POST',
@@ -793,7 +812,7 @@ export default function Catalog({ adminToken }) {
       setMsg('✅ Upsell salvo!');
       setTimeout(() => setMsg(''), 3000);
     } catch { setMsg('❌ Erro ao salvar upsell'); }
-    finally { setSavingUpsell(false); }
+    finally { setSavingUpsellSlotIdx(null); }
   }
 
   function updateDrinkStockLimit(drinkId, field, value) {
@@ -820,21 +839,40 @@ export default function Catalog({ adminToken }) {
 
   // ── Save ─────────────────────────────────────────────────────────────────────
 
-  async function save() {
-    setSaving(true);
+  async function saveProduct(product) {
+    if (!product) return;
+    setSavingProductId(product.id);
     setMsg('');
     try {
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-        body: JSON.stringify({ action: 'save_all', data: { products, drinks, settings } }),
+        body: JSON.stringify({ action: 'save_all', data: { products: [product], settings } }),
       });
       const d = await res.json();
       if (d.error) { setMsg('❌ ' + d.error); return; }
-      setMsg('✅ Salvo com sucesso!');
+      setMsg('✅ Produto salvo!');
       setTimeout(() => setMsg(''), 3000);
-    } catch { setMsg('❌ Erro ao salvar'); }
-    finally { setSaving(false); }
+    } catch { setMsg('❌ Erro ao salvar produto'); }
+    finally { setSavingProductId(null); }
+  }
+
+  async function saveDrink(drink) {
+    if (!drink) return;
+    setSavingDrinkId(drink.id);
+    setMsg('');
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'save_all', data: { drinks: [drink], settings } }),
+      });
+      const d = await res.json();
+      if (d.error) { setMsg('❌ ' + d.error); return; }
+      setMsg('✅ Bebida salva!');
+      setTimeout(() => setMsg(''), 3000);
+    } catch { setMsg('❌ Erro ao salvar bebida'); }
+    finally { setSavingDrinkId(null); }
   }
 
   // ── Image upload ─────────────────────────────────────────────────────────────
@@ -1085,11 +1123,6 @@ export default function Catalog({ adminToken }) {
         })}
         <div style={{ flex: 1 }} />
         {msg && <span style={{ fontSize: 13, fontWeight: 600, color: msg.startsWith('✅') ? '#059669' : '#EF4444', marginRight: 12 }}>{msg}</span>}
-        {tab === 'cardapio' && (
-          <button onClick={save} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 6, border: 'none', background: saving ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
-            {saving ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><Save size={13} /> Salvar</>}
-          </button>
-        )}
       </div>
 
       {/* ── ABA CARDÁPIO ─────────────────────────────────────────────────────── */}
@@ -1176,6 +1209,8 @@ export default function Catalog({ adminToken }) {
                       ingredients={ingredients}
                       recipe={recipes[p.id] || []}
                       onSaveRecipe={handleSaveRecipe}
+                      onSave={saveProduct}
+                      savingProductId={savingProductId}
                     />
                   ))}
                 </div>
@@ -1241,6 +1276,8 @@ export default function Catalog({ adminToken }) {
                       onDelete={handleDeleteDrink}
                       drinkStockLimits={drinkStockLimits}
                       onUpdateDrinkStockLimit={updateDrinkStockLimit}
+                      onSave={() => saveDrink(d)}
+                      isSaving={savingDrinkId === d.id}
                     />
                   ))}
                 </div>
@@ -1255,15 +1292,27 @@ export default function Catalog({ adminToken }) {
               ];
               return (
                 <div>
+                  {/* Header */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
                     <TrendingUp size={16} color={C.gold} />
                     <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Upsell no Carrinho</span>
-                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>— até 3 ofertas exibidas na gaveta do carrinho</span>
+                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>— ofertas exibidas na gaveta do carrinho</span>
+                    <div style={{ flex: 1 }} />
+                    <button
+                      onClick={() => {
+                        const next = [...upsellSlots, blankUpsell()];
+                        setUpsellSlots(next);
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: '1px solid ' + C.gold, background: 'rgba(242,168,0,0.08)', color: C.gold, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      <Plus size={13} /> Adicionar Upsell
+                    </button>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {upsellSlots.map((upsell, idx) => {
                       const selectedItem = upsell.product_id != null ? (allItems.find(i => String(i.id) === String(upsell.product_id)) || null) : null;
+                      const isSavingSlot = savingUpsellSlotIdx === idx;
                       return (
                         <div key={idx} style={{ background: C.card, borderRadius: 10, border: '1px solid ' + (upsell.enabled ? C.gold : C.border), padding: 16 }}>
                           {/* Slot header */}
@@ -1271,19 +1320,28 @@ export default function Catalog({ adminToken }) {
                             <span style={{ fontSize: 12, fontWeight: 800, background: upsell.enabled ? C.gold : C.border, color: upsell.enabled ? '#000' : C.muted, borderRadius: 6, padding: '2px 8px' }}>
                               Upsell {idx + 1}
                             </span>
-                            <div style={{ flex: 1 }} />
                             <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700, color: upsell.enabled ? C.success : C.muted }}>
                               <input
                                 type="checkbox"
                                 checked={!!upsell.enabled}
                                 onChange={e => {
                                   const next = upsellSlots.map((u, i) => i === idx ? { ...u, enabled: e.target.checked } : u);
-                                  saveUpsellConfig(next);
+                                  setUpsellSlots(next);
                                 }}
                                 style={{ width: 15, height: 15, accentColor: C.gold, cursor: 'pointer' }}
                               />
                               {upsell.enabled ? 'Ativo' : 'Inativo'}
                             </label>
+                            <div style={{ flex: 1 }} />
+                            <button
+                              onClick={() => {
+                                const next = upsellSlots.filter((_, i) => i !== idx);
+                                saveUpsellConfig(next, null);
+                              }}
+                              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', fontSize: 11, fontWeight: 600, cursor: 'pointer', color: C.danger }}
+                            >
+                              <Trash2 size={11} /> Remover
+                            </button>
                           </div>
 
                           {/* Produto */}
@@ -1295,7 +1353,7 @@ export default function Catalog({ adminToken }) {
                               value={upsell.product_id != null ? String(upsell.product_id) : ''}
                               onChange={e => {
                                 const next = upsellSlots.map((u, i) => i === idx ? { ...u, product_id: e.target.value || null } : u);
-                                saveUpsellConfig(next);
+                                setUpsellSlots(next);
                               }}
                               style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', background: '#fff', color: C.text }}
                             >
@@ -1325,7 +1383,6 @@ export default function Catalog({ adminToken }) {
                                   const next = upsellSlots.map((u, i) => i === idx ? { ...u, offer_label: e.target.value } : u);
                                   setUpsellSlots(next);
                                 }}
-                                onBlur={() => saveUpsellConfig(upsellSlots)}
                                 placeholder="Ex: Aproveite e adicione:"
                                 style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
                               />
@@ -1342,7 +1399,6 @@ export default function Catalog({ adminToken }) {
                                   const next = upsellSlots.map((u, i) => i === idx ? { ...u, custom_price: e.target.value ? parseFloat(e.target.value) : null } : u);
                                   setUpsellSlots(next);
                                 }}
-                                onBlur={() => saveUpsellConfig(upsellSlots)}
                                 placeholder={selectedItem ? fmtBRL(selectedItem.price).replace('R$\u00a0', '') : '0,00'}
                                 style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
                               />
@@ -1376,7 +1432,7 @@ export default function Catalog({ adminToken }) {
                                 <>
                                   <img src={upsell.custom_image_url} alt="" onError={e => { e.target.style.display = 'none'; }} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid ' + C.border, flexShrink: 0 }} />
                                   <button
-                                    onClick={() => { const next = upsellSlots.map((u, i) => i === idx ? { ...u, custom_image_url: null } : u); saveUpsellConfig(next); }}
+                                    onClick={() => { const next = upsellSlots.map((u, i) => i === idx ? { ...u, custom_image_url: null } : u); setUpsellSlots(next); }}
                                     style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', fontSize: 11, fontWeight: 600, cursor: 'pointer', color: C.danger }}
                                   >
                                     <Trash2 size={11} /> Remover foto
@@ -1389,14 +1445,14 @@ export default function Catalog({ adminToken }) {
                           </div>
 
                           {/* Mostrar foto */}
-                          <div style={{ marginBottom: selectedItem ? 14 : 0 }}>
+                          <div style={{ marginBottom: selectedItem ? 14 : 8 }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: C.text, fontWeight: 500 }}>
                               <input
                                 type="checkbox"
                                 checked={!!upsell.show_image}
                                 onChange={e => {
                                   const next = upsellSlots.map((u, i) => i === idx ? { ...u, show_image: e.target.checked } : u);
-                                  saveUpsellConfig(next);
+                                  setUpsellSlots(next);
                                 }}
                                 style={{ width: 15, height: 15, accentColor: C.gold, cursor: 'pointer' }}
                               />
@@ -1406,7 +1462,7 @@ export default function Catalog({ adminToken }) {
 
                           {/* Preview */}
                           {selectedItem && (
-                            <div style={{ background: '#F8F9FA', borderRadius: 8, padding: 12, border: '1px solid ' + C.border }}>
+                            <div style={{ background: '#F8F9FA', borderRadius: 8, padding: 12, border: '1px solid ' + C.border, marginBottom: 12 }}>
                               <p style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Prévia</p>
                               <div style={{ background: 'rgba(242,168,0,0.06)', border: '1px solid rgba(242,168,0,0.25)', borderRadius: 10, padding: 10 }}>
                                 <p style={{ fontSize: 10, fontWeight: 800, color: C.gold, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>
@@ -1431,14 +1487,23 @@ export default function Catalog({ adminToken }) {
                               </div>
                             </div>
                           )}
+
+                          {/* Botão Salvar individual */}
+                          <button
+                            onClick={() => saveUpsellConfig(upsellSlots, idx)}
+                            disabled={isSavingSlot}
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', borderRadius: 6, border: 'none', background: isSavingSlot ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 13, fontWeight: 700, cursor: isSavingSlot ? 'not-allowed' : 'pointer' }}
+                          >
+                            {isSavingSlot ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><Save size={13} /> Salvar Upsell {idx + 1}</>}
+                          </button>
                         </div>
                       );
                     })}
                   </div>
 
-                  {savingUpsell && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 12, color: C.muted }}>
-                      <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...
+                  {upsellSlots.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: C.muted, fontSize: 13 }}>
+                      Nenhum upsell configurado. Clique em "Adicionar Upsell" para criar.
                     </div>
                   )}
                 </div>
