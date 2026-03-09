@@ -17,9 +17,9 @@ const C = {
   text:     '#111827',
   muted:    '#6B7280',
   light:    '#9CA3AF',
-  purple:   '#7C3AED',
-  purpleL:  '#9333EA',
-  purpleDim:'rgba(124,58,237,0.1)',
+  purple:   '#F2A800',
+  purpleL:  '#FFD060',
+  purpleDim:'rgba(242,168,0,0.1)',
   success:  '#10B981',
   danger:   '#EF4444',
 };
