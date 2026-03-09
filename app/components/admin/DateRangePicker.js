@@ -40,18 +40,19 @@ function buildPresets(today) {
     const ms = new Date(ref.getFullYear(), ref.getMonth() - i, 1);
     const me = new Date(ref.getFullYear(), ref.getMonth() - i + 1, 0);
     const raw = ms.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    // "março de 2026" → "Março/2026"
     const label = raw.replace(' de ', '/').replace(/^\w/, c => c.toUpperCase());
     recentMonths.push({ label, from: yyyymmdd(ms), to: yyyymmdd(me) });
   }
 
   return [
-    { label: 'Hoje',           from: today,                to: today                },
-    { label: 'Ontem',          from: yest,                 to: yest                 },
-    { label: 'Esta semana',    from: yyyymmdd(weekStart),  to: today                },
-    { label: 'Semana passada', from: yyyymmdd(lastWeekStart), to: yyyymmdd(lastWeekEnd) },
-    { label: 'Este mês',       from: yyyymmdd(monthStart), to: today                },
-    { label: 'Mês passado',    from: yyyymmdd(lastMonthStart), to: yyyymmdd(lastMonthEnd) },
+    { label: 'Hoje',             from: today,                   to: today                },
+    { label: 'Ontem',            from: yest,                    to: yest                 },
+    { label: 'Últimos 7 dias',   from: addDays(today, -6),      to: today                },
+    { label: 'Últimos 30 dias',  from: addDays(today, -29),     to: today                },
+    { label: 'Esta semana',      from: yyyymmdd(weekStart),     to: today                },
+    { label: 'Semana passada',   from: yyyymmdd(lastWeekStart), to: yyyymmdd(lastWeekEnd) },
+    { label: 'Este mês',         from: yyyymmdd(monthStart),    to: today                },
+    { label: 'Mês passado',      from: yyyymmdd(lastMonthStart), to: yyyymmdd(lastMonthEnd) },
     ...recentMonths,
     { label: 'Últimos 2 meses', from: yyyymmdd(new Date(ref.getFullYear(), ref.getMonth() - 2, 1)), to: today },
     { label: 'Últimos 3 meses', from: yyyymmdd(new Date(ref.getFullYear(), ref.getMonth() - 3, 1)), to: today },
@@ -154,6 +155,7 @@ export default function DateRangePicker({ value, onChange }) {
   const [pickStep, setPickStep]   = useState(0); // 0 = picking from, 1 = picking to
   const [leftYear, setLeftYear]   = useState(() => parseInt((value?.from || today).split('-')[0]));
   const [leftMonth, setLeftMonth] = useState(() => parseInt((value?.from || today).split('-')[1]) - 1);
+  const [dropPos, setDropPos]     = useState({ top: 0, left: 0 });
   const ref = useRef(null);
 
   const rightYear  = leftMonth === 11 ? leftYear + 1 : leftYear;
@@ -175,6 +177,22 @@ export default function DateRangePicker({ value, onChange }) {
     if (open) document.addEventListener('mousedown', outside);
     return () => document.removeEventListener('mousedown', outside);
   }, [open]);
+
+  function handleToggle() {
+    if (!open && ref.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const viewW = window.innerWidth;
+      const dropW = 730;
+      let left = rect.right - dropW;
+      if (left < 8) left = 8;
+      if (left + dropW > viewW - 8) left = viewW - dropW - 8;
+      // Determine if dropdown should open upward
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const top = spaceBelow < 460 ? Math.max(8, rect.top - 460) : rect.bottom + 6;
+      setDropPos({ top, left });
+    }
+    setOpen(v => !v);
+  }
 
   function handleSelectDay(dateStr) {
     if (pickStep === 0) {
@@ -230,7 +248,7 @@ export default function DateRangePicker({ value, onChange }) {
     <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
       {/* Trigger */}
       <div
-        onClick={() => setOpen(v => !v)}
+        onClick={handleToggle}
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
           padding: '7px 14px', border: '1px solid #E5E7EB',
@@ -244,16 +262,19 @@ export default function DateRangePicker({ value, onChange }) {
         <CalendarDays size={14} color="#9CA3AF" style={{ flexShrink: 0, fontFamily: 'inherit' }} />
       </div>
 
-      {/* Dropdown */}
+      {/* Dropdown — uses position:fixed to avoid overflow clipping */}
       {open && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 9999,
+          position: 'fixed',
+          top: dropPos.top,
+          left: dropPos.left,
+          zIndex: 99999,
           background: '#fff', borderRadius: 10,
-          boxShadow: '0 8px 40px rgba(0,0,0,0.18)', border: '1px solid #E5E7EB',
-          display: 'flex', minWidth: 720,
+          boxShadow: '0 8px 40px rgba(0,0,0,0.22)', border: '1px solid #E5E7EB',
+          display: 'flex', width: 730,
         }}>
           {/* Left: presets */}
-          <div style={{ borderRight: '1px solid #E5E7EB', padding: '12px 0', width: 182, flexShrink: 0, overflowY: 'auto', maxHeight: 420 }}>
+          <div style={{ borderRight: '1px solid #E5E7EB', padding: '12px 0', width: 182, flexShrink: 0, overflowY: 'auto', maxHeight: 460 }}>
             {presets.map((p, i) => (
               <div
                 key={i}
