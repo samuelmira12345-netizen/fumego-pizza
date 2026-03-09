@@ -289,13 +289,42 @@ export async function GET(request) {
 
     // ── Parse report 3: sources ──────────────────────────────────────────────
 
+    function friendlySource(raw) {
+      if (!raw || raw === '(direct)' || raw === 'direct') return 'Direto';
+      const s = raw.toLowerCase();
+      if (s === 'google' || s.includes('google'))       return 'Google';
+      if (s.includes('instagram'))                       return 'Instagram';
+      if (s.includes('facebook') || s === 'fb')         return 'Facebook';
+      if (s.includes('whatsapp'))                        return 'WhatsApp';
+      if (s.includes('tiktok'))                          return 'TikTok';
+      if (s.includes('youtube'))                         return 'YouTube';
+      if (s.includes('twitter') || s.includes('t.co'))  return 'Twitter / X';
+      if (s.includes('bing'))                            return 'Bing';
+      if (s.includes('yahoo'))                           return 'Yahoo';
+      if (s === '(not set)' || s === 'not set')          return 'Outros';
+      return raw;
+    }
+
     const r3 = reports[3];
-    const sources = parseRows(r3).map(row => ({
-      source:         row.sessionSource === '(direct)' ? 'Direto' : row.sessionSource || '(direct)',
+    const rawSources = parseRows(r3).map(row => ({
+      source:         friendlySource(row.sessionSource),
       sessions:       row.sessions    || 0,
       newUsers:       row.newUsers    || 0,
       returningUsers: Math.max(0, (row.totalUsers || 0) - (row.newUsers || 0)),
     }));
+    // Merge rows that map to the same friendly name
+    const sourcesMap = new Map();
+    for (const row of rawSources) {
+      if (sourcesMap.has(row.source)) {
+        const existing = sourcesMap.get(row.source);
+        existing.sessions       += row.sessions;
+        existing.newUsers       += row.newUsers;
+        existing.returningUsers += row.returningUsers;
+      } else {
+        sourcesMap.set(row.source, { ...row });
+      }
+    }
+    const sources = [...sourcesMap.values()].sort((a, b) => b.sessions - a.sessions);
 
     // ── Parse report 4: products ─────────────────────────────────────────────
 
