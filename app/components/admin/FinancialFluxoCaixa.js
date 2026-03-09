@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   ChevronLeft, ChevronRight, RefreshCw, TrendingUp, TrendingDown,
-  DollarSign, BarChart2, Calendar, Table2,
+  DollarSign, BarChart2, Calendar, Table2, X,
 } from 'lucide-react';
 
 const C = {
@@ -199,8 +199,106 @@ function ChartView({ data }) {
   );
 }
 
+// ── Day Detail Modal ───────────────────────────────────────────────────────────
+function DayDetailModal({ day, month, year, d, onClose }) {
+  const saldoPeriodo = d.revenue - d.expenses + d.transfers;
+  const dateStr = `${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}/${year}`;
+  const rowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${C.border}` };
+  const labelStyle = { fontSize: 14, color: C.muted };
+  const valueStyle = { fontSize: 14, fontWeight: 700, color: C.text };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, boxShadow: '0 24px 64px rgba(0,0,0,0.25)', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 22px', borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: C.text }}>Detalhes do dia {dateStr}</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex', padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Saldo Inicial */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: '#F9FAFB', borderRadius: 10 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Saldo Inicial:</span>
+            <span style={{ fontSize: 16, fontWeight: 800, color: C.blue }}>{fmtBRL(d.opening)}</span>
+          </div>
+
+          {/* Receitas / Despesas side by side */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {/* Receitas */}
+            <div style={{ borderLeft: `3px solid ${C.success}`, paddingLeft: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.success, marginBottom: 10 }}>Receitas</div>
+              <div style={rowStyle}>
+                <span style={labelStyle}>Recebidas:</span>
+                <span style={{ ...valueStyle, color: C.success }}>{fmtBRL(d.revenue)}</span>
+              </div>
+              <div style={rowStyle}>
+                <span style={labelStyle}>Pendentes:</span>
+                <span style={valueStyle}>{fmtBRL(0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Total:</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: C.success }}>{fmtBRL(d.revenue)}</span>
+              </div>
+            </div>
+
+            {/* Despesas */}
+            <div style={{ borderLeft: `3px solid ${C.danger}`, paddingLeft: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.danger, marginBottom: 10 }}>Despesas</div>
+              <div style={rowStyle}>
+                <span style={labelStyle}>Pagas:</span>
+                <span style={{ ...valueStyle, color: C.danger }}>{fmtBRL(d.expenses)}</span>
+              </div>
+              <div style={rowStyle}>
+                <span style={labelStyle}>Pendentes:</span>
+                <span style={valueStyle}>{fmtBRL(0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Total:</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: C.danger }}>{fmtBRL(d.expenses)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Saldo do Período */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '12px 16px', borderRadius: 10,
+            background: saldoPeriodo >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.08)',
+          }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Saldo do Período:</span>
+            <span style={{ fontSize: 16, fontWeight: 800, color: saldoPeriodo >= 0 ? C.success : C.danger }}>
+              {saldoPeriodo >= 0 ? '+' : ''}{fmtBRL(saldoPeriodo)}
+            </span>
+          </div>
+
+          {/* Saldo Final */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '12px 16px', borderRadius: 10,
+            background: 'rgba(59,130,246,0.08)',
+          }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Saldo Final:</span>
+            <span style={{ fontSize: 16, fontWeight: 800, color: C.blue }}>{fmtBRL(d.closing)}</span>
+          </div>
+
+          {d.orders > 0 && (
+            <div style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>
+              {d.orders} pedido{d.orders !== 1 ? 's' : ''} no dia
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Calendar view ─────────────────────────────────────────────────────────────
 function CalendarView({ data, period }) {
+  const [selectedDay, setSelectedDay] = useState(null);
+
   if (!data?.timeSeries) return <EmptyState />;
   const ts = data.timeSeries;
 
@@ -220,66 +318,87 @@ function CalendarView({ data, period }) {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
   return (
-    <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
-      {/* Calendar header */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', background: '#F9FAFB', borderBottom: `1px solid ${C.border}` }}>
-        {DAYS_PT.map(d => (
-          <div key={d} style={{ padding: '10px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: C.light, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            {d}
-          </div>
-        ))}
-      </div>
-      {/* Calendar grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
-        {cells.map((day, i) => {
-          if (!day) return <div key={`e${i}`} style={{ minHeight: 90, border: `1px solid ${C.border}`, background: '#FAFAFA' }} />;
-          const d = dayMap[day];
-          const today = new Date();
-          const isToday = today.getDate() === day && today.getMonth() + 1 === month && today.getFullYear() === year;
-          return (
-            <div key={day} style={{
-              minHeight: 90, border: `1px solid ${C.border}`, padding: 8,
-              background: isToday ? 'rgba(242,168,0,0.04)' : C.card,
-              position: 'relative',
-            }}>
-              <div style={{
-                fontSize: 12, fontWeight: isToday ? 800 : 500,
-                color: isToday ? C.gold : C.text,
-                width: 22, height: 22, borderRadius: '50%',
-                background: isToday ? C.gold + '22' : 'transparent',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                marginBottom: 4,
-              }}>{day}</div>
-              {d && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                  {d.revenue > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: C.success }}>
-                      <TrendingUp size={9} /> {fmtShort(d.revenue)}
-                    </div>
-                  )}
-                  {d.expenses > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: C.danger }}>
-                      <TrendingDown size={9} /> {fmtShort(d.expenses)}
-                    </div>
-                  )}
-                  {(d.revenue > 0 || d.expenses > 0) && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: C.blue, marginTop: 2, borderTop: `1px solid ${C.border}`, paddingTop: 2 }}>
-                      <DollarSign size={9} /> {fmtShort(d.closing)}
-                    </div>
-                  )}
-                </div>
-              )}
+    <>
+      {selectedDay && (
+        <DayDetailModal
+          day={selectedDay}
+          month={month}
+          year={year}
+          d={dayMap[selectedDay]}
+          onClose={() => setSelectedDay(null)}
+        />
+      )}
+      <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+        {/* Calendar header */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', background: '#F9FAFB', borderBottom: `1px solid ${C.border}` }}>
+          {DAYS_PT.map(d => (
+            <div key={d} style={{ padding: '10px', textAlign: 'center', fontSize: 11, fontWeight: 700, color: C.light, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {d}
             </div>
-          );
-        })}
+          ))}
+        </div>
+        {/* Calendar grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
+          {cells.map((day, i) => {
+            if (!day) return <div key={`e${i}`} style={{ minHeight: 90, border: `1px solid ${C.border}`, background: '#FAFAFA' }} />;
+            const d = dayMap[day];
+            const today = new Date();
+            const isToday = today.getDate() === day && today.getMonth() + 1 === month && today.getFullYear() === year;
+            const hasData = d && (d.revenue > 0 || d.expenses > 0);
+            return (
+              <div
+                key={day}
+                onClick={() => d && setSelectedDay(day)}
+                style={{
+                  minHeight: 90, border: `1px solid ${C.border}`, padding: 8,
+                  background: isToday ? 'rgba(242,168,0,0.04)' : C.card,
+                  position: 'relative',
+                  cursor: d ? 'pointer' : 'default',
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => { if (d) e.currentTarget.style.background = '#F8FAFF'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = isToday ? 'rgba(242,168,0,0.04)' : C.card; }}
+              >
+                <div style={{
+                  fontSize: 12, fontWeight: isToday ? 800 : 500,
+                  color: isToday ? C.gold : C.text,
+                  width: 22, height: 22, borderRadius: '50%',
+                  background: isToday ? C.gold + '22' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 4,
+                }}>{day}</div>
+                {d && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {d.revenue > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: C.success }}>
+                        <TrendingUp size={9} /> {fmtShort(d.revenue)}
+                      </div>
+                    )}
+                    {d.expenses > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: C.danger }}>
+                        <TrendingDown size={9} /> {fmtShort(d.expenses)}
+                      </div>
+                    )}
+                    {(d.revenue > 0 || d.expenses > 0) && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: C.blue, marginTop: 2, borderTop: `1px solid ${C.border}`, paddingTop: 2 }}>
+                        <DollarSign size={9} /> {fmtShort(d.closing)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {/* Legend */}
+        <div style={{ padding: '10px 16px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: 20, fontSize: 11, color: C.muted }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: C.success }}><TrendingUp size={11} /> Receitas</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: C.danger }}><TrendingDown size={11} /> Despesas</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: C.blue }}><DollarSign size={11} /> Saldo final</span>
+          <span style={{ marginLeft: 'auto', color: C.light }}>Clique em um dia para ver detalhes</span>
+        </div>
       </div>
-      {/* Legend */}
-      <div style={{ padding: '10px 16px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: 20, fontSize: 11, color: C.muted }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: C.success }}><TrendingUp size={11} /> Receitas</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: C.danger }}><TrendingDown size={11} /> Despesas</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: C.blue }}><DollarSign size={11} /> Saldo final</span>
-      </div>
-    </div>
+    </>
   );
 }
 

@@ -48,42 +48,52 @@ function DonutChart({ data, palette }) {
   });
 
   const hov = hovered !== null ? slices[hovered] : null;
+  // Stack legend below when there are many items to avoid cramped side layout
+  const stackBelow = slices.length > 4;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-      <svg viewBox="0 0 180 180" style={{ width: 180, height: 180, flexShrink: 0 }}>
+    <div style={{ display: 'flex', flexDirection: stackBelow ? 'column' : 'row', alignItems: stackBelow ? 'flex-start' : 'center', gap: stackBelow ? 16 : 24 }}>
+      <div style={{ display: 'flex', justifyContent: stackBelow ? 'center' : 'flex-start', width: '100%' }}>
+        <svg viewBox="0 0 180 180" style={{ width: 180, height: 180, flexShrink: 0 }}>
+          {slices.map((s, i) => (
+            <path key={i} d={s.path} fill={s.color}
+              opacity={hovered !== null && hovered !== i ? 0.4 : 1}
+              style={{ cursor: 'pointer', transition: 'opacity 0.15s' }}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+            />
+          ))}
+          {hov ? (
+            <>
+              <text x={cx} y={cy - 8}  textAnchor="middle" fontSize={9}  fill={C.muted}>{hov.name?.slice(0, 16)}</text>
+              <text x={cx} y={cy + 6}  textAnchor="middle" fontSize={13} fontWeight="700" fill={C.text}>{(hov.pct * 100).toFixed(1)}%</text>
+              <text x={cx} y={cy + 20} textAnchor="middle" fontSize={9}  fill={C.muted}>{fmtShort(hov.value)}</text>
+            </>
+          ) : (
+            <>
+              <text x={cx} y={cy - 6} textAnchor="middle" fontSize={9}  fill={C.light}>TOTAL</text>
+              <text x={cx} y={cy + 8} textAnchor="middle" fontSize={13} fontWeight="700" fill={C.text}>{fmtShort(total)}</text>
+            </>
+          )}
+        </svg>
+      </div>
+      {/* Legend — 2-column grid when stacked below, single column when side */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: stackBelow ? '1fr 1fr' : '1fr',
+        gap: stackBelow ? '6px 16px' : 8,
+        width: stackBelow ? '100%' : undefined,
+        flex: stackBelow ? undefined : 1,
+      }}>
         {slices.map((s, i) => (
-          <path key={i} d={s.path} fill={s.color}
-            opacity={hovered !== null && hovered !== i ? 0.4 : 1}
-            style={{ cursor: 'pointer', transition: 'opacity 0.15s' }}
-            transform={hovered === i ? `translate(${3 * Math.cos((slices[i].path.match(/-?\d+\.?\d*/g)?.[0] ?? 0))},0)` : ''}
-            onMouseEnter={() => setHovered(i)}
-            onMouseLeave={() => setHovered(null)}
-          />
-        ))}
-        {hov ? (
-          <>
-            <text x={cx} y={cy - 8}  textAnchor="middle" fontSize={9}  fill={C.muted}>{hov.name?.slice(0, 16)}</text>
-            <text x={cx} y={cy + 6}  textAnchor="middle" fontSize={13} fontWeight="700" fill={C.text}>{(hov.pct * 100).toFixed(1)}%</text>
-            <text x={cx} y={cy + 20} textAnchor="middle" fontSize={9}  fill={C.muted}>{fmtShort(hov.value)}</text>
-          </>
-        ) : (
-          <>
-            <text x={cx} y={cy - 6} textAnchor="middle" fontSize={9}  fill={C.light}>TOTAL</text>
-            <text x={cx} y={cy + 8} textAnchor="middle" fontSize={13} fontWeight="700" fill={C.text}>{fmtShort(total)}</text>
-          </>
-        )}
-      </svg>
-      {/* Legend */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
-        {slices.map((s, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'default' }}
+          <div key={i}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'default', minWidth: 0 }}
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
             <div style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, color: C.muted, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 12, color: C.muted, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
               {s.name}
             </span>
-            <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: 'nowrap' }}>{fmtBRL(s.value)}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: 'nowrap', flexShrink: 0 }}>{(s.pct * 100).toFixed(0)}%</span>
           </div>
         ))}
       </div>
@@ -265,7 +275,7 @@ export function AnalisePagamentosTab({ adminToken, refreshTick }) {
       )}
 
       {subTab === 'categorias' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 16, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 380px) 1fr', gap: 16, alignItems: 'start' }}>
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Distribuição por Categoria</div>
             <DonutChart data={data?.byCategory} palette={PALETTE.map((_, i) => PALETTE[i])} />
@@ -379,7 +389,7 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }) {
       )}
 
       {subTab === 'forma_pagamento' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 16, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 380px) 1fr', gap: 16, alignItems: 'start' }}>
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Formas de Pagamento</div>
             <DonutChart
@@ -401,7 +411,7 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }) {
       )}
 
       {subTab === 'categorias' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '340px 1fr', gap: 16, alignItems: 'start' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 380px) 1fr', gap: 16, alignItems: 'start' }}>
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Categorias de Receita</div>
             <DonutChart data={data?.byCategory} />

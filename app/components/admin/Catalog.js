@@ -1411,23 +1411,15 @@ export default function Catalog({ adminToken }) {
                             <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.3 }}>
                               Foto personalizada
                             </label>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              id={`upsell-img-${idx}`}
-                              style={{ display: 'none' }}
-                              onChange={e => { if (e.target.files?.[0]) handleUpsellImageUpload(idx, e.target.files[0]); e.target.value = ''; }}
-                            />
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                              <button
-                                onClick={() => document.getElementById(`upsell-img-${idx}`).click()}
-                                disabled={uploadingUpsellIdx === idx}
-                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, border: '1px solid ' + C.border, background: '#fff', fontSize: 12, fontWeight: 600, cursor: uploadingUpsellIdx === idx ? 'not-allowed' : 'pointer', color: C.text, opacity: uploadingUpsellIdx === idx ? 0.6 : 1 }}
+                              <label
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, border: '1px solid ' + C.border, background: '#fff', fontSize: 12, fontWeight: 600, cursor: uploadingUpsellIdx === idx ? 'not-allowed' : 'pointer', color: C.text, opacity: uploadingUpsellIdx === idx ? 0.6 : 1, pointerEvents: uploadingUpsellIdx === idx ? 'none' : 'auto' }}
                               >
                                 {uploadingUpsellIdx === idx
                                   ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
                                   : <><Upload size={12} /> Fazer upload</>}
-                              </button>
+                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleUpsellImageUpload(idx, e.target.files[0]); e.target.value = ''; }} disabled={uploadingUpsellIdx === idx} />
+                              </label>
                               {upsell.custom_image_url ? (
                                 <>
                                   <img src={upsell.custom_image_url} alt="" onError={e => { e.target.style.display = 'none'; }} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid ' + C.border, flexShrink: 0 }} />
