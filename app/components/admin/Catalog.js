@@ -675,7 +675,7 @@ export default function Catalog({ adminToken }) {
 
   // Upsell config editing state
   const [savingUpsell, setSavingUpsell] = useState(false);
-  const blankUpsell = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null });
+  const blankUpsell = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null, custom_image_url: null });
   const [upsellSlots, setUpsellSlots] = useState([blankUpsell(), blankUpsell(), blankUpsell()]);
 
   // ── Data loading ─────────────────────────────────────────────────────────────
@@ -701,7 +701,7 @@ export default function Catalog({ adminToken }) {
       if (savedUpsell) {
         try {
           const parsed = JSON.parse(savedUpsell);
-          const blank = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null });
+          const blank = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null, custom_image_url: null });
           const normalize = slot => ({ ...blank(), ...(slot || {}), product_id: slot?.product_id != null ? String(slot.product_id) : null });
           if (Array.isArray(parsed)) {
             setUpsellSlots([0, 1, 2].map(i => normalize(parsed[i])));
@@ -1333,6 +1333,26 @@ export default function Catalog({ adminToken }) {
                             </div>
                           </div>
 
+                          {/* Foto personalizada */}
+                          <div style={{ marginBottom: 12 }}>
+                            <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                              URL da foto personalizada
+                            </label>
+                            <input
+                              value={upsell.custom_image_url || ''}
+                              onChange={e => {
+                                const next = upsellSlots.map((u, i) => i === idx ? { ...u, custom_image_url: e.target.value || null } : u);
+                                setUpsellSlots(next);
+                              }}
+                              onBlur={() => saveUpsellConfig(upsellSlots)}
+                              placeholder="https://... (deixe vazio para usar a foto do produto)"
+                              style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
+                            />
+                            {upsell.custom_image_url && (
+                              <img src={upsell.custom_image_url} alt="" onError={e => e.target.style.display='none'} style={{ marginTop: 6, width: 52, height: 52, borderRadius: 8, objectFit: 'cover', border: '1px solid ' + C.border }} />
+                            )}
+                          </div>
+
                           {/* Mostrar foto */}
                           <div style={{ marginBottom: selectedItem ? 14 : 0 }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: C.text, fontWeight: 500 }}>
@@ -1345,7 +1365,7 @@ export default function Catalog({ adminToken }) {
                                 }}
                                 style={{ width: 15, height: 15, accentColor: C.gold, cursor: 'pointer' }}
                               />
-                              Mostrar foto do produto no carrinho
+                              Mostrar foto no carrinho
                             </label>
                           </div>
 
@@ -1358,8 +1378,8 @@ export default function Catalog({ adminToken }) {
                                   ✦ {upsell.offer_label || 'Aproveite e adicione:'}
                                 </p>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                  {upsell.show_image && selectedItem.image_url && (
-                                    <img src={selectedItem.image_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                                  {upsell.show_image && (upsell.custom_image_url || selectedItem.image_url) && (
+                                    <img src={upsell.custom_image_url || selectedItem.image_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
                                   )}
                                   <div style={{ flex: 1 }}>
                                     <p style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{selectedItem.label}</p>

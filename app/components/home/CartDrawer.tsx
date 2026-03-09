@@ -6,10 +6,11 @@ import type { CartItem, Product } from './types';
 
 export interface UpsellConfig {
   enabled: boolean;
-  product_id: number | null;
+  product_id: number | string | null;
   offer_label: string;
   show_image: boolean;
   custom_price: number | null;
+  custom_image_url: string | null;
 }
 
 export interface UpsellItem {
@@ -196,9 +197,9 @@ export default function CartDrawer({
                     </p>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {item.config.show_image && item.product.image_url && (
+                      {item.config.show_image && (item.config.custom_image_url || item.product.image_url) && (
                         <img
-                          src={item.product.image_url}
+                          src={item.config.custom_image_url || item.product.image_url!}
                           alt={item.product.name}
                           style={{
                             width: 52, height: 52, borderRadius: 10,
