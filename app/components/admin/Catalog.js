@@ -759,18 +759,25 @@ export default function Catalog({ adminToken }) {
   }
 
   function getUpsellConfig() {
-    const defaults = { enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null };
-    try { return { ...defaults, ...JSON.parse(getSetting('upsell_config') || '{}') }; } catch { return defaults; }
+    const blank = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null });
+    try {
+      const parsed = JSON.parse(getSetting('upsell_config') || '[]');
+      if (Array.isArray(parsed)) {
+        return [0, 1, 2].map(i => ({ ...blank(), ...(parsed[i] || {}) }));
+      }
+      // backward compat: single object
+      return [{ ...blank(), ...parsed }, blank(), blank()];
+    } catch { return [blank(), blank(), blank()]; }
   }
 
-  async function saveUpsellConfig(config) {
+  async function saveUpsellConfig(configs) {
     setSavingUpsell(true);
     try {
-      setSetting('upsell_config', JSON.stringify(config));
+      setSetting('upsell_config', JSON.stringify(configs));
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-        body: JSON.stringify({ action: 'save_all', data: { products, drinks, settings: settings.map(s => s.key === 'upsell_config' ? { ...s, value: JSON.stringify(config) } : s).concat(settings.find(s => s.key === 'upsell_config') ? [] : [{ key: 'upsell_config', value: JSON.stringify(config) }]) } }),
+        body: JSON.stringify({ action: 'save_all', data: { products, drinks, settings: settings.map(s => s.key === 'upsell_config' ? { ...s, value: JSON.stringify(configs) } : s).concat(settings.find(s => s.key === 'upsell_config') ? [] : [{ key: 'upsell_config', value: JSON.stringify(configs) }]) } }),
       });
       const d = await res.json();
       if (d.error) { setMsg('❌ ' + d.error); return; }
@@ -1217,134 +1224,157 @@ export default function Catalog({ adminToken }) {
 
             {/* ── UPSELL ── */}
             {(() => {
-              const upsell = getUpsellConfig();
+              const upsells = getUpsellConfig();
               const allItems = [
                 ...products.filter(p => p.is_active).map(p => ({ id: p.id, label: p.name, price: p.price, image_url: p.image_url, type: 'product' })),
                 ...drinks.filter(d => d.is_active).map(d => ({ id: d.id, label: `${d.name}${d.size ? ` ${d.size}` : ''}`, price: d.price, image_url: null, type: 'drink' })),
               ];
-              const selectedItem = allItems.find(i => i.id === upsell.product_id) || null;
+
+              function updateSlot(idx, patch) {
+                const next = upsells.map((u, i) => i === idx ? { ...u, ...patch } : u);
+                saveUpsellConfig(next);
+              }
+
+              function updateSlotLocal(idx, patch) {
+                const next = upsells.map((u, i) => i === idx ? { ...u, ...patch } : u);
+                setSetting('upsell_config', JSON.stringify(next));
+              }
 
               return (
                 <div style={{ marginTop: 32, borderTop: '2px dashed ' + C.border, paddingTop: 24 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
                     <TrendingUp size={16} color={C.gold} />
                     <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Upsell no Carrinho</span>
-                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>— exibido na gaveta do carrinho para aumentar o ticket médio</span>
-                    <div style={{ flex: 1 }} />
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700, color: upsell.enabled ? C.success : C.muted }}>
-                      <input
-                        type="checkbox"
-                        checked={!!upsell.enabled}
-                        onChange={e => saveUpsellConfig({ ...upsell, enabled: e.target.checked })}
-                        style={{ width: 15, height: 15, accentColor: C.gold, cursor: 'pointer' }}
-                      />
-                      {upsell.enabled ? 'Ativo' : 'Inativo'}
-                    </label>
+                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>— até 3 ofertas exibidas na gaveta do carrinho</span>
                   </div>
 
-                  <div style={{ background: C.card, borderRadius: 10, border: '1px solid ' + C.border, padding: 20 }}>
-                    {/* Produto a oferecer */}
-                    <div style={{ marginBottom: 14 }}>
-                      <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                        Produto a oferecer
-                      </label>
-                      <select
-                        value={upsell.product_id || ''}
-                        onChange={e => saveUpsellConfig({ ...upsell, product_id: e.target.value ? Number(e.target.value) : null })}
-                        style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', background: '#fff', color: C.text }}
-                      >
-                        <option value="">Selecionar produto ou bebida...</option>
-                        <optgroup label="Produtos">
-                          {products.filter(p => p.is_active).map(p => (
-                            <option key={p.id} value={p.id}>{p.name} — R$ {fmtBRL(p.price)}</option>
-                          ))}
-                        </optgroup>
-                        <optgroup label="Bebidas">
-                          {drinks.filter(d => d.is_active).map(d => (
-                            <option key={d.id} value={d.id}>{d.name}{d.size ? ` ${d.size}` : ''} — R$ {fmtBRL(d.price)}</option>
-                          ))}
-                        </optgroup>
-                      </select>
-                    </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {upsells.map((upsell, idx) => {
+                      const selectedItem = allItems.find(i => i.id === upsell.product_id) || null;
+                      return (
+                        <div key={idx} style={{ background: C.card, borderRadius: 10, border: '1px solid ' + (upsell.enabled ? C.gold : C.border), padding: 16 }}>
+                          {/* Slot header */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: C.text, background: upsell.enabled ? C.gold : C.border, color: upsell.enabled ? '#000' : C.muted, borderRadius: 6, padding: '2px 8px' }}>
+                              Upsell {idx + 1}
+                            </span>
+                            <div style={{ flex: 1 }} />
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700, color: upsell.enabled ? C.success : C.muted }}>
+                              <input
+                                type="checkbox"
+                                checked={!!upsell.enabled}
+                                onChange={e => updateSlot(idx, { enabled: e.target.checked })}
+                                style={{ width: 15, height: 15, accentColor: C.gold, cursor: 'pointer' }}
+                              />
+                              {upsell.enabled ? 'Ativo' : 'Inativo'}
+                            </label>
+                          </div>
 
-                    {/* Texto da oferta + Preço especial */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 14, marginBottom: 14 }}>
-                      <div>
-                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                          Texto da oferta
-                        </label>
-                        <input
-                          value={upsell.offer_label}
-                          onChange={e => setSetting('upsell_config', JSON.stringify({ ...upsell, offer_label: e.target.value }))}
-                          onBlur={e => saveUpsellConfig({ ...upsell, offer_label: e.target.value })}
-                          placeholder="Ex: Aproveite e adicione:"
-                          style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                          Preço especial (R$)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={upsell.custom_price || ''}
-                          onChange={e => setSetting('upsell_config', JSON.stringify({ ...upsell, custom_price: e.target.value ? parseFloat(e.target.value) : null }))}
-                          onBlur={e => saveUpsellConfig({ ...upsell, custom_price: e.target.value ? parseFloat(e.target.value) : null })}
-                          placeholder={selectedItem ? fmtBRL(selectedItem.price).replace('R$\u00a0', '') : '0,00'}
-                          style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
-                        />
-                        <p style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>Deixe vazio para usar o preço original</p>
-                      </div>
-                    </div>
+                          {/* Produto */}
+                          <div style={{ marginBottom: 12 }}>
+                            <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                              Produto a oferecer
+                            </label>
+                            <select
+                              value={upsell.product_id || ''}
+                              onChange={e => updateSlot(idx, { product_id: e.target.value ? Number(e.target.value) : null })}
+                              style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', background: '#fff', color: C.text }}
+                            >
+                              <option value="">Selecionar produto ou bebida...</option>
+                              <optgroup label="Produtos">
+                                {products.filter(p => p.is_active).map(p => (
+                                  <option key={p.id} value={p.id}>{p.name} — R$ {fmtBRL(p.price)}</option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="Bebidas">
+                                {drinks.filter(d => d.is_active).map(d => (
+                                  <option key={d.id} value={d.id}>{d.name}{d.size ? ` ${d.size}` : ''} — R$ {fmtBRL(d.price)}</option>
+                                ))}
+                              </optgroup>
+                            </select>
+                          </div>
 
-                    {/* Mostrar foto */}
-                    <div style={{ marginBottom: 16 }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: C.text, fontWeight: 500 }}>
-                        <input
-                          type="checkbox"
-                          checked={!!upsell.show_image}
-                          onChange={e => saveUpsellConfig({ ...upsell, show_image: e.target.checked })}
-                          style={{ width: 15, height: 15, accentColor: C.gold, cursor: 'pointer' }}
-                        />
-                        Mostrar foto do produto no carrinho
-                      </label>
-                    </div>
-
-                    {/* Preview */}
-                    {selectedItem && (
-                      <div style={{ background: '#F8F9FA', borderRadius: 8, padding: 14, border: '1px solid ' + C.border }}>
-                        <p style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>Prévia (como aparece no carrinho)</p>
-                        <div style={{ background: 'rgba(242,168,0,0.06)', border: '1px solid rgba(242,168,0,0.25)', borderRadius: 10, padding: 12 }}>
-                          <p style={{ fontSize: 10, fontWeight: 800, color: C.gold, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
-                            ✦ {upsell.offer_label || 'Aproveite e adicione:'}
-                          </p>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            {upsell.show_image && selectedItem.image_url && (
-                              <img src={selectedItem.image_url} alt="" style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-                            )}
-                            <div style={{ flex: 1 }}>
-                              <p style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{selectedItem.label}</p>
+                          {/* Texto + Preço */}
+                          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 12 }}>
+                            <div>
+                              <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                                Texto da oferta
+                              </label>
+                              <input
+                                value={upsell.offer_label}
+                                onChange={e => updateSlotLocal(idx, { offer_label: e.target.value })}
+                                onBlur={() => saveUpsellConfig(getUpsellConfig())}
+                                placeholder="Ex: Aproveite e adicione:"
+                                style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
+                              />
                             </div>
-                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                              <p style={{ fontSize: 15, fontWeight: 800, color: C.gold }}>
-                                {fmtBRL(upsell.custom_price && upsell.custom_price > 0 ? upsell.custom_price : selectedItem.price)}
-                              </p>
-                              <div style={{ marginTop: 5, background: C.gold, color: '#000', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontWeight: 800 }}>
-                                + Adicionar
-                              </div>
+                            <div>
+                              <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                                Preço especial (R$)
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={upsell.custom_price || ''}
+                                onChange={e => updateSlotLocal(idx, { custom_price: e.target.value ? parseFloat(e.target.value) : null })}
+                                onBlur={() => saveUpsellConfig(getUpsellConfig())}
+                                placeholder={selectedItem ? fmtBRL(selectedItem.price).replace('R$\u00a0', '') : '0,00'}
+                                style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
+                              />
+                              <p style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>Vazio = preço original</p>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    )}
 
-                    {savingUpsell && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, color: C.muted }}>
-                        <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...
-                      </div>
-                    )}
+                          {/* Mostrar foto */}
+                          <div style={{ marginBottom: selectedItem ? 14 : 0 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: C.text, fontWeight: 500 }}>
+                              <input
+                                type="checkbox"
+                                checked={!!upsell.show_image}
+                                onChange={e => updateSlot(idx, { show_image: e.target.checked })}
+                                style={{ width: 15, height: 15, accentColor: C.gold, cursor: 'pointer' }}
+                              />
+                              Mostrar foto do produto no carrinho
+                            </label>
+                          </div>
+
+                          {/* Preview */}
+                          {selectedItem && (
+                            <div style={{ background: '#F8F9FA', borderRadius: 8, padding: 12, border: '1px solid ' + C.border }}>
+                              <p style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Prévia</p>
+                              <div style={{ background: 'rgba(242,168,0,0.06)', border: '1px solid rgba(242,168,0,0.25)', borderRadius: 10, padding: 10 }}>
+                                <p style={{ fontSize: 10, fontWeight: 800, color: C.gold, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>
+                                  ✦ {upsell.offer_label || 'Aproveite e adicione:'}
+                                </p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  {upsell.show_image && selectedItem.image_url && (
+                                    <img src={selectedItem.image_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+                                  )}
+                                  <div style={{ flex: 1 }}>
+                                    <p style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{selectedItem.label}</p>
+                                  </div>
+                                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                    <p style={{ fontSize: 14, fontWeight: 800, color: C.gold }}>
+                                      {fmtBRL(upsell.custom_price && upsell.custom_price > 0 ? upsell.custom_price : selectedItem.price)}
+                                    </p>
+                                    <div style={{ marginTop: 4, background: C.gold, color: '#000', borderRadius: 6, padding: '4px 8px', fontSize: 11, fontWeight: 800 }}>
+                                      + Adicionar
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
+
+                  {savingUpsell && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 12, color: C.muted }}>
+                      <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...
+                    </div>
+                  )}
                 </div>
               );
             })()}

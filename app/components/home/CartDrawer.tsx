@@ -12,6 +12,11 @@ export interface UpsellConfig {
   custom_price: number | null;
 }
 
+export interface UpsellItem {
+  config: UpsellConfig;
+  product: Product;
+}
+
 interface CartDrawerProps {
   cart: CartItem[];
   total: number;
@@ -19,8 +24,7 @@ interface CartDrawerProps {
   onGoToCheckout: () => void;
   onRemoveItem: (id: number) => void;
   onAddUpsell: (product: Product) => void;
-  upsellConfig: UpsellConfig | null;
-  upsellProduct: Product | null;
+  upsellItems: UpsellItem[];
 }
 
 export default function CartDrawer({
@@ -30,22 +34,8 @@ export default function CartDrawer({
   onGoToCheckout,
   onRemoveItem,
   onAddUpsell,
-  upsellConfig,
-  upsellProduct,
+  upsellItems,
 }: CartDrawerProps) {
-  const showUpsell =
-    upsellConfig?.enabled &&
-    upsellProduct &&
-    upsellProduct.is_active &&
-    !cart.some(i => i.product.id === upsellProduct.id);
-
-  const upsellPrice =
-    upsellConfig?.custom_price != null && upsellConfig.custom_price > 0
-      ? upsellConfig.custom_price
-      : upsellProduct
-      ? Number(upsellProduct.price)
-      : 0;
-
   return (
     <>
       {/* Overlay */}
@@ -178,58 +168,71 @@ export default function CartDrawer({
             })}
           </div>
 
-          {/* Upsell */}
-          {showUpsell && upsellProduct && (
-            <div style={{
-              margin: '4px 0 16px',
-              padding: '14px 14px',
-              background: 'rgba(242,168,0,0.06)',
-              border: `1px solid rgba(242,168,0,0.25)`,
-              borderRadius: 14,
-            }}>
-              <p style={{ fontSize: 10, fontWeight: 800, color: GOLD, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
-                ✦ {upsellConfig!.offer_label || 'Aproveite e adicione:'}
-              </p>
+          {/* Upsells */}
+          {upsellItems.length > 0 && (
+            <div style={{ margin: '4px 0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {upsellItems.map((item, idx) => {
+                const price =
+                  item.config.custom_price != null && item.config.custom_price > 0
+                    ? item.config.custom_price
+                    : Number(item.product.price);
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                {upsellConfig!.show_image && upsellProduct.image_url && (
-                  <img
-                    src={upsellProduct.image_url}
-                    alt={upsellProduct.name}
+                return (
+                  <div
+                    key={idx}
                     style={{
-                      width: 60, height: 60, borderRadius: 10,
-                      objectFit: 'cover', flexShrink: 0,
-                      border: `1px solid ${BORDER}`,
-                    }}
-                  />
-                )}
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', lineHeight: 1.3 }}>
-                    {upsellProduct.name}
-                  </p>
-                  {upsellProduct.description && (
-                    <p style={{ fontSize: 12, color: MUTED, marginTop: 2, lineHeight: 1.4 }}>
-                      {upsellProduct.description}
-                    </p>
-                  )}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: GOLD }}>
-                    R$ {fmt(upsellPrice)}
-                  </span>
-                  <button
-                    onClick={() => onAddUpsell(upsellProduct)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 5,
-                      background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`,
-                      color: BG, border: 'none', borderRadius: 10,
-                      padding: '8px 14px', fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                      padding: '12px 14px',
+                      background: 'rgba(242,168,0,0.06)',
+                      border: `1px solid rgba(242,168,0,0.25)`,
+                      borderRadius: 14,
                     }}
                   >
-                    <Plus size={14} /> Adicionar
-                  </button>
-                </div>
-              </div>
+                    <p style={{ fontSize: 10, fontWeight: 800, color: GOLD, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 8 }}>
+                      ✦ {item.config.offer_label || 'Aproveite e adicione:'}
+                    </p>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      {item.config.show_image && item.product.image_url && (
+                        <img
+                          src={item.product.image_url}
+                          alt={item.product.name}
+                          style={{
+                            width: 52, height: 52, borderRadius: 10,
+                            objectFit: 'cover', flexShrink: 0,
+                            border: `1px solid ${BORDER}`,
+                          }}
+                        />
+                      )}
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', lineHeight: 1.3 }}>
+                          {item.product.name}
+                        </p>
+                        {item.product.description && (
+                          <p style={{ fontSize: 11, color: MUTED, marginTop: 2, lineHeight: 1.4 }}>
+                            {item.product.description}
+                          </p>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0 }}>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: GOLD }}>
+                          R$ {fmt(price)}
+                        </span>
+                        <button
+                          onClick={() => onAddUpsell(item.product)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 4,
+                            background: `linear-gradient(135deg, ${GOLD}, ${GOLD_LIGHT})`,
+                            color: BG, border: 'none', borderRadius: 8,
+                            padding: '6px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer',
+                          }}
+                        >
+                          <Plus size={12} /> Adicionar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
