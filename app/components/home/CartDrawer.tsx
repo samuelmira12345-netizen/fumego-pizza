@@ -50,17 +50,21 @@ export default function CartDrawer({
         }}
       />
 
-      {/* Gaveta */}
+      {/* Gaveta — wrapper de centralização separado da animação */}
       <div
         style={{
           position: 'fixed', bottom: 0, left: '50%',
           transform: 'translateX(-50%)',
           width: '100%', maxWidth: 480,
+          zIndex: 51,
+        }}
+      >
+      <div
+        style={{
           background: '#0E0B00',
           borderRadius: '20px 20px 0 0',
           border: `1px solid ${BORDER}`,
           borderBottom: 'none',
-          zIndex: 51,
           animation: 'slideUp 0.28s cubic-bezier(0.16,1,0.3,1)',
           maxHeight: '90vh',
           display: 'flex',
@@ -265,6 +269,7 @@ export default function CartDrawer({
             Ir para o Checkout <ChevronRight size={18} />
           </button>
         </div>
+      </div>
       </div>
     </>
   );

@@ -675,6 +675,8 @@ export default function Catalog({ adminToken }) {
 
   // Upsell config editing state
   const [savingUpsell, setSavingUpsell] = useState(false);
+  const blankUpsell = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null });
+  const [upsellSlots, setUpsellSlots] = useState([blankUpsell(), blankUpsell(), blankUpsell()]);
 
   // ── Data loading ─────────────────────────────────────────────────────────────
 
@@ -691,7 +693,22 @@ export default function Catalog({ adminToken }) {
 
       setProducts(catalog.products || []);
       setDrinks(catalog.drinks || []);
-      setSettings(catalog.settings || []);
+      const rawSettings = catalog.settings || [];
+      setSettings(rawSettings);
+
+      // Initialize upsell slots from saved config
+      const savedUpsell = rawSettings.find(s => s.key === 'upsell_config')?.value;
+      if (savedUpsell) {
+        try {
+          const parsed = JSON.parse(savedUpsell);
+          const blank = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null });
+          if (Array.isArray(parsed)) {
+            setUpsellSlots([0, 1, 2].map(i => ({ ...blank(), ...(parsed[i] || {}) })));
+          } else {
+            setUpsellSlots([{ ...blank(), ...parsed }, blank(), blank()]);
+          }
+        } catch {}
+      }
 
       setIngredients(extra.ingredients || []);
       setPriceHistory(extra.priceHistory || []);
@@ -758,22 +775,11 @@ export default function Catalog({ adminToken }) {
     try { return JSON.parse(getSetting('drink_stock_limits') || '{}'); } catch { return {}; }
   }
 
-  function getUpsellConfig() {
-    const blank = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null });
-    try {
-      const parsed = JSON.parse(getSetting('upsell_config') || '[]');
-      if (Array.isArray(parsed)) {
-        return [0, 1, 2].map(i => ({ ...blank(), ...(parsed[i] || {}) }));
-      }
-      // backward compat: single object
-      return [{ ...blank(), ...parsed }, blank(), blank()];
-    } catch { return [blank(), blank(), blank()]; }
-  }
-
   async function saveUpsellConfig(configs) {
+    setUpsellSlots(configs);
+    setSetting('upsell_config', JSON.stringify(configs));
     setSavingUpsell(true);
     try {
-      setSetting('upsell_config', JSON.stringify(configs));
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
@@ -1224,21 +1230,10 @@ export default function Catalog({ adminToken }) {
 
             {/* ── UPSELL ── */}
             {(() => {
-              const upsells = getUpsellConfig();
               const allItems = [
                 ...products.filter(p => p.is_active).map(p => ({ id: p.id, label: p.name, price: p.price, image_url: p.image_url, type: 'product' })),
                 ...drinks.filter(d => d.is_active).map(d => ({ id: d.id, label: `${d.name}${d.size ? ` ${d.size}` : ''}`, price: d.price, image_url: null, type: 'drink' })),
               ];
-
-              function updateSlot(idx, patch) {
-                const next = upsells.map((u, i) => i === idx ? { ...u, ...patch } : u);
-                saveUpsellConfig(next);
-              }
-
-              function updateSlotLocal(idx, patch) {
-                const next = upsells.map((u, i) => i === idx ? { ...u, ...patch } : u);
-                setSetting('upsell_config', JSON.stringify(next));
-              }
 
               return (
                 <div style={{ marginTop: 32, borderTop: '2px dashed ' + C.border, paddingTop: 24 }}>
@@ -1249,13 +1244,13 @@ export default function Catalog({ adminToken }) {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    {upsells.map((upsell, idx) => {
+                    {upsellSlots.map((upsell, idx) => {
                       const selectedItem = allItems.find(i => i.id === upsell.product_id) || null;
                       return (
                         <div key={idx} style={{ background: C.card, borderRadius: 10, border: '1px solid ' + (upsell.enabled ? C.gold : C.border), padding: 16 }}>
                           {/* Slot header */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                            <span style={{ fontSize: 12, fontWeight: 800, color: C.text, background: upsell.enabled ? C.gold : C.border, color: upsell.enabled ? '#000' : C.muted, borderRadius: 6, padding: '2px 8px' }}>
+                            <span style={{ fontSize: 12, fontWeight: 800, background: upsell.enabled ? C.gold : C.border, color: upsell.enabled ? '#000' : C.muted, borderRadius: 6, padding: '2px 8px' }}>
                               Upsell {idx + 1}
                             </span>
                             <div style={{ flex: 1 }} />
@@ -1263,7 +1258,10 @@ export default function Catalog({ adminToken }) {
                               <input
                                 type="checkbox"
                                 checked={!!upsell.enabled}
-                                onChange={e => updateSlot(idx, { enabled: e.target.checked })}
+                                onChange={e => {
+                                  const next = upsellSlots.map((u, i) => i === idx ? { ...u, enabled: e.target.checked } : u);
+                                  saveUpsellConfig(next);
+                                }}
                                 style={{ width: 15, height: 15, accentColor: C.gold, cursor: 'pointer' }}
                               />
                               {upsell.enabled ? 'Ativo' : 'Inativo'}
@@ -1276,8 +1274,11 @@ export default function Catalog({ adminToken }) {
                               Produto a oferecer
                             </label>
                             <select
-                              value={upsell.product_id || ''}
-                              onChange={e => updateSlot(idx, { product_id: e.target.value ? Number(e.target.value) : null })}
+                              value={upsell.product_id ?? ''}
+                              onChange={e => {
+                                const next = upsellSlots.map((u, i) => i === idx ? { ...u, product_id: e.target.value ? Number(e.target.value) : null } : u);
+                                saveUpsellConfig(next);
+                              }}
                               style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', background: '#fff', color: C.text }}
                             >
                               <option value="">Selecionar produto ou bebida...</option>
@@ -1302,8 +1303,11 @@ export default function Catalog({ adminToken }) {
                               </label>
                               <input
                                 value={upsell.offer_label}
-                                onChange={e => updateSlotLocal(idx, { offer_label: e.target.value })}
-                                onBlur={() => saveUpsellConfig(getUpsellConfig())}
+                                onChange={e => {
+                                  const next = upsellSlots.map((u, i) => i === idx ? { ...u, offer_label: e.target.value } : u);
+                                  setUpsellSlots(next);
+                                }}
+                                onBlur={() => saveUpsellConfig(upsellSlots)}
                                 placeholder="Ex: Aproveite e adicione:"
                                 style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
                               />
@@ -1315,9 +1319,12 @@ export default function Catalog({ adminToken }) {
                               <input
                                 type="number"
                                 step="0.01"
-                                value={upsell.custom_price || ''}
-                                onChange={e => updateSlotLocal(idx, { custom_price: e.target.value ? parseFloat(e.target.value) : null })}
-                                onBlur={() => saveUpsellConfig(getUpsellConfig())}
+                                value={upsell.custom_price ?? ''}
+                                onChange={e => {
+                                  const next = upsellSlots.map((u, i) => i === idx ? { ...u, custom_price: e.target.value ? parseFloat(e.target.value) : null } : u);
+                                  setUpsellSlots(next);
+                                }}
+                                onBlur={() => saveUpsellConfig(upsellSlots)}
                                 placeholder={selectedItem ? fmtBRL(selectedItem.price).replace('R$\u00a0', '') : '0,00'}
                                 style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
                               />
@@ -1331,7 +1338,10 @@ export default function Catalog({ adminToken }) {
                               <input
                                 type="checkbox"
                                 checked={!!upsell.show_image}
-                                onChange={e => updateSlot(idx, { show_image: e.target.checked })}
+                                onChange={e => {
+                                  const next = upsellSlots.map((u, i) => i === idx ? { ...u, show_image: e.target.checked } : u);
+                                  saveUpsellConfig(next);
+                                }}
                                 style={{ width: 15, height: 15, accentColor: C.gold, cursor: 'pointer' }}
                               />
                               Mostrar foto do produto no carrinho
