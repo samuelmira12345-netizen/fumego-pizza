@@ -186,6 +186,8 @@ function ProductCard({
   onSave, isSaving,
 }) {
   const [fichaOpen, setFichaOpen] = useState(false);
+  const [cardTab, setCardTab]     = useState('geral'); // 'geral' | 'imagens'
+  const [stockOpen, setStockOpen] = useState(false);
   const pos   = imagePositions[String(product.id)] || { x: 50, y: 50 };
   const stock = stockLimits[String(product.id)]    || { enabled: false, qty: 0, low_stock_threshold: 3 };
   const margin = parseFloat(product.price) > 0 && parseFloat(product.cost_price) > 0
@@ -199,171 +201,222 @@ function ProductCard({
   };
   const labelStyle = { fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.3 };
 
+  const tabs = [
+    { key: 'geral',   label: 'Geral' },
+    { key: 'imagens', label: 'Imagens' },
+  ];
+
   return (
     <div style={{ background: '#FAFAFA', borderRadius: 8, padding: 14, border: '1px solid ' + C.border }}>
 
-      {/* ── Row 1: foto + campos básicos ── */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+      {/* ── Tab bar ── */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 12, borderBottom: '1px solid ' + C.border }}>
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setCardTab(t.key)}
+            style={{
+              padding: '6px 16px', border: 'none', background: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: cardTab === t.key ? 700 : 500,
+              color: cardTab === t.key ? C.gold : C.muted,
+              borderBottom: cardTab === t.key ? `2px solid ${C.gold}` : '2px solid transparent',
+              marginBottom: -1,
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Foto */}
-        <div style={{ flexShrink: 0 }}>
-          <div style={{ width: 80, height: 80, borderRadius: 7, overflow: 'hidden', border: '1px solid ' + C.border, background: '#F3F4F6', position: 'relative', marginBottom: 5 }}>
-            {product.image_url
-              ? <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos.x}% ${pos.y}%`, display: 'block' }} />
-              : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><UtensilsCrossed size={24} color={C.light} /></div>
-            }
-          </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', background: '#F3F4F6', color: C.muted, borderRadius: 5, fontSize: 11, cursor: 'pointer', border: '1px solid ' + C.border, opacity: uploadingId === product.id ? 0.5 : 1, whiteSpace: 'nowrap' }}>
-            {uploadingId === product.id
-              ? <><Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
-              : <><Upload size={11} /> Trocar foto</>
-            }
-            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) onUploadImage(idx, e.target.files[0]); }} disabled={uploadingId === product.id} />
-          </label>
-        </div>
-
-        {/* Campos principais */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
-          {/* Categoria + Ordem na mesma linha */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px', gap: 7 }}>
-            <div>
-              <label style={labelStyle}>Categoria</label>
-              <select value={product.category || 'pizza'} onChange={e => onUpdate(idx, 'category', e.target.value)}
-                style={{ ...inputStyle }}>
-                {PROD_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-              </select>
+      {/* ── GERAL TAB ── */}
+      {cardTab === 'geral' && (
+        <>
+          {/* Campos principais */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 10 }}>
+            {/* Categoria + Ordem */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px', gap: 7 }}>
+              <div>
+                <label style={labelStyle}>Categoria</label>
+                <select value={product.category || 'pizza'} onChange={e => onUpdate(idx, 'category', e.target.value)}
+                  style={{ ...inputStyle }}>
+                  {PROD_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Ordem</label>
+                <input type="number" value={product.sort_order || ''} placeholder="0"
+                  onChange={e => onUpdate(idx, 'sort_order', parseInt(e.target.value) || 0)}
+                  style={inputStyle} />
+              </div>
             </div>
+
+            {/* Preço + Custo */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+              <div>
+                <label style={labelStyle}>Preço (R$)</label>
+                <input type="number" step="0.01" placeholder="0,00" value={product.price || ''}
+                  onChange={e => onUpdate(idx, 'price', e.target.value)}
+                  style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Custo (R$)</label>
+                <input type="number" step="0.01" placeholder="0,00" value={product.cost_price || ''}
+                  onChange={e => onUpdate(idx, 'cost_price', e.target.value)}
+                  style={inputStyle} />
+              </div>
+            </div>
+
+            {/* Margem */}
+            {margin !== null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700,
+                background: margin >= 60 ? '#ECFDF5' : margin >= 40 ? '#FFFBEB' : '#FEF2F2',
+                color: margin >= 60 ? '#059669' : margin >= 40 ? '#D97706' : '#EF4444',
+              }}>
+                <TrendingDown size={11} />
+                Margem: {margin}% · Lucro: {fmtBRL(product.price - product.cost_price)}
+              </div>
+            )}
+
+            {/* Descrição */}
             <div>
-              <label style={labelStyle}>Ordem</label>
-              <input type="number" value={product.sort_order || ''} placeholder="0"
-                onChange={e => onUpdate(idx, 'sort_order', parseInt(e.target.value) || 0)}
+              <label style={labelStyle}>Descrição</label>
+              <input placeholder="Descrição do produto" value={product.description || ''}
+                onChange={e => onUpdate(idx, 'description', e.target.value)}
                 style={inputStyle} />
             </div>
           </div>
 
-          {/* Preço + Custo */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
-            <div>
-              <label style={labelStyle}>Preço (R$)</label>
-              <input type="number" step="0.01" placeholder="0,00" value={product.price || ''}
-                onChange={e => onUpdate(idx, 'price', e.target.value)}
-                style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Custo (R$)</label>
-              <input type="number" step="0.01" placeholder="0,00" value={product.cost_price || ''}
-                onChange={e => onUpdate(idx, 'cost_price', e.target.value)}
-                style={inputStyle} />
-            </div>
+          {/* ── Limitar Estoque (button + sub-panel) ── */}
+          <div style={{ marginBottom: 8 }}>
+            <button
+              onClick={() => setStockOpen(v => !v)}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 12px', borderRadius: 6,
+                border: '1px solid ' + (stock.enabled ? '#10B981' : C.border),
+                background: stock.enabled ? '#ECFDF5' : '#fff',
+                cursor: 'pointer', color: stock.enabled ? '#059669' : C.muted,
+                fontSize: 12, fontWeight: 600,
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Package size={13} />
+                Limitar estoque
+                {stock.enabled && (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
+                    background: stock.qty <= 0 ? 'rgba(239,68,68,0.12)' : stock.qty <= (stock.low_stock_threshold ?? 3) ? 'rgba(245,158,11,0.12)' : 'rgba(16,185,129,0.12)',
+                    color: stock.qty <= 0 ? C.danger : stock.qty <= (stock.low_stock_threshold ?? 3) ? '#D97706' : C.success }}>
+                    {stock.qty <= 0 ? 'Esgotado' : stock.qty <= (stock.low_stock_threshold ?? 3) ? `${stock.qty} unid.` : `${stock.qty} unid.`}
+                  </span>
+                )}
+              </span>
+              {stockOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </button>
+
+            {stockOpen && (
+              <div style={{ padding: '12px', background: '#F9FAFB', border: '1px solid ' + C.border, borderTop: 'none', borderRadius: '0 0 6px 6px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: 10 }}>
+                  <input type="checkbox" checked={!!stock.enabled} onChange={e => onUpdateStockLimit(product.id, 'enabled', e.target.checked)} />
+                  <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>Ativar limite de estoque</span>
+                </label>
+                {stock.enabled && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={labelStyle}>Qtd disponível</label>
+                      <input type="number" min="0" placeholder="0" value={stock.qty}
+                        onChange={e => onUpdateStockLimit(product.id, 'qty', parseInt(e.target.value) || 0)}
+                        style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Aviso "poucas unid."</label>
+                      <input type="number" min="1" max="50" placeholder="3" value={stock.low_stock_threshold ?? 3}
+                        onChange={e => onUpdateStockLimit(product.id, 'low_stock_threshold', parseInt(e.target.value) || 3)}
+                        style={inputStyle} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Margem */}
-          {margin !== null && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700,
-              background: margin >= 60 ? '#ECFDF5' : margin >= 40 ? '#FFFBEB' : '#FEF2F2',
-              color: margin >= 60 ? '#059669' : margin >= 40 ? '#D97706' : '#EF4444',
-            }}>
-              <TrendingDown size={11} />
-              Margem: {margin}% · Lucro: {fmtBRL(product.price - product.cost_price)}
-            </div>
+          {/* ── Salvar produto ── */}
+          <button
+            onClick={onSave}
+            disabled={isSaving}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', borderRadius: 6, border: 'none', background: isSaving ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 13, fontWeight: 700, cursor: isSaving ? 'not-allowed' : 'pointer', marginBottom: 8 }}
+          >
+            {isSaving ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><Save size={13} /> Salvar Produto</>}
+          </button>
+
+          {/* ── Ficha Técnica ── */}
+          <button
+            onClick={() => setFichaOpen(v => !v)}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 5, border: '1px dashed #C4B5FD', background: fichaOpen ? '#F5F3FF' : '#FAFAFA', cursor: 'pointer', color: '#7C3AED', fontWeight: 600, fontSize: 11 }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <BookOpen size={12} /> Ficha Técnica
+            </span>
+            {fichaOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          </button>
+          {fichaOpen && (
+            <FichaTecnica productId={product.id} productPrice={product.price} ingredients={ingredients} recipe={recipe} onSave={onSaveRecipe} />
           )}
-        </div>
-      </div>
-
-      {/* ── Descrição ── */}
-      <div style={{ marginBottom: 8 }}>
-        <label style={labelStyle}>Descrição</label>
-        <input placeholder="Descrição do produto" value={product.description || ''}
-          onChange={e => onUpdate(idx, 'description', e.target.value)}
-          style={inputStyle} />
-      </div>
-
-      {/* ── Posição da foto (sliders) ── */}
-      {product.image_url && (
-        <div style={{ marginBottom: 8, padding: '10px 12px', background: '#fff', borderRadius: 6, border: '1px solid ' + C.border }}>
-          <p style={{ fontSize: 10, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 8 }}>
-            Encaixe da foto
-          </p>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            {/* Preview */}
-            <div style={{ width: 64, height: 64, borderRadius: 6, overflow: 'hidden', border: '1px solid ' + C.border, flexShrink: 0 }}>
-              <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos.x}% ${pos.y}%`, display: 'block' }} />
-            </div>
-            {/* Sliders */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 10, color: C.muted, fontWeight: 600, width: 24 }}>H</span>
-                <input type="range" min="0" max="100" value={pos.x}
-                  onChange={e => onUpdateImagePos(product.id, parseInt(e.target.value), pos.y)}
-                  style={{ flex: 1, accentColor: C.gold }} />
-                <span style={{ fontSize: 10, color: C.muted, width: 30, textAlign: 'right' }}>{pos.x}%</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 10, color: C.muted, fontWeight: 600, width: 24 }}>V</span>
-                <input type="range" min="0" max="100" value={pos.y}
-                  onChange={e => onUpdateImagePos(product.id, pos.x, parseInt(e.target.value))}
-                  style={{ flex: 1, accentColor: C.gold }} />
-                <span style={{ fontSize: 10, color: C.muted, width: 30, textAlign: 'right' }}>{pos.y}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        </>
       )}
 
-      {/* ── Estoque ── */}
-      <div style={{ marginBottom: 8, padding: '10px 12px', background: '#fff', borderRadius: 6, border: '1px solid ' + C.border }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <input type="checkbox" checked={!!stock.enabled} onChange={e => onUpdateStockLimit(product.id, 'enabled', e.target.checked)} />
-            <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>Limitar estoque</span>
-          </label>
-          {stock.enabled && (
-            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
-              background: stock.qty <= 0 ? 'rgba(239,68,68,0.1)' : stock.qty <= (stock.low_stock_threshold ?? 3) ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)',
-              color: stock.qty <= 0 ? C.danger : stock.qty <= (stock.low_stock_threshold ?? 3) ? '#D97706' : C.success }}>
-              {stock.qty <= 0 ? 'Esgotado' : stock.qty <= (stock.low_stock_threshold ?? 3) ? 'Poucas unid.' : 'Disponível'}
-            </span>
-          )}
-        </div>
-        {stock.enabled && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
-            <div>
-              <label style={labelStyle}>Qtd disponível</label>
-              <input type="number" min="0" placeholder="0" value={stock.qty}
-                onChange={e => onUpdateStockLimit(product.id, 'qty', parseInt(e.target.value) || 0)}
-                style={inputStyle} />
+      {/* ── IMAGENS TAB ── */}
+      {cardTab === 'imagens' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Foto atual + upload */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            <div style={{ width: 90, height: 90, borderRadius: 7, overflow: 'hidden', border: '1px solid ' + C.border, background: '#F3F4F6', flexShrink: 0 }}>
+              {product.image_url
+                ? <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos.x}% ${pos.y}%`, display: 'block' }} />
+                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><UtensilsCrossed size={28} color={C.light} /></div>
+              }
             </div>
-            <div>
-              <label style={labelStyle}>Aviso "poucas unid."</label>
-              <input type="number" min="1" max="50" placeholder="3" value={stock.low_stock_threshold ?? 3}
-                onChange={e => onUpdateStockLimit(product.id, 'low_stock_threshold', parseInt(e.target.value) || 3)}
-                style={inputStyle} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#F3F4F6', color: C.muted, borderRadius: 6, fontSize: 12, cursor: 'pointer', border: '1px solid ' + C.border, opacity: uploadingId === product.id ? 0.5 : 1, fontWeight: 600 }}>
+                {uploadingId === product.id
+                  ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
+                  : <><Upload size={13} /> Trocar foto</>
+                }
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) onUploadImage(idx, e.target.files[0]); }} disabled={uploadingId === product.id} />
+              </label>
+              <p style={{ fontSize: 11, color: C.light }}>JPG, PNG ou WebP. Recomendado: 800×800px.</p>
             </div>
           </div>
-        )}
-      </div>
 
-      {/* ── Salvar produto ── */}
-      <button
-        onClick={onSave}
-        disabled={isSaving}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', borderRadius: 6, border: 'none', background: isSaving ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 13, fontWeight: 700, cursor: isSaving ? 'not-allowed' : 'pointer', marginBottom: 8 }}
-      >
-        {isSaving ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><Save size={13} /> Salvar Produto</>}
-      </button>
-
-      {/* ── Ficha Técnica ── */}
-      <button
-        onClick={() => setFichaOpen(v => !v)}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 5, border: '1px dashed #C4B5FD', background: fichaOpen ? '#F5F3FF' : '#FAFAFA', cursor: 'pointer', color: '#7C3AED', fontWeight: 600, fontSize: 11 }}
-      >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <BookOpen size={12} /> Ficha Técnica
-        </span>
-        {fichaOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-      </button>
-      {fichaOpen && (
-        <FichaTecnica productId={product.id} productPrice={product.price} ingredients={ingredients} recipe={recipe} onSave={onSaveRecipe} />
+          {/* Encaixe da foto (sliders) */}
+          {product.image_url && (
+            <div style={{ padding: '12px', background: '#fff', borderRadius: 6, border: '1px solid ' + C.border }}>
+              <p style={{ fontSize: 10, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 10 }}>
+                Encaixe da foto
+              </p>
+              <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                <div style={{ width: 72, height: 72, borderRadius: 6, overflow: 'hidden', border: '1px solid ' + C.border, flexShrink: 0 }}>
+                  <img src={product.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${pos.x}% ${pos.y}%`, display: 'block' }} />
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: C.muted, fontWeight: 600, width: 24 }}>H</span>
+                    <input type="range" min="0" max="100" value={pos.x}
+                      onChange={e => onUpdateImagePos(product.id, parseInt(e.target.value), pos.y)}
+                      style={{ flex: 1, accentColor: C.gold }} />
+                    <span style={{ fontSize: 10, color: C.muted, width: 30, textAlign: 'right' }}>{pos.x}%</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 10, color: C.muted, fontWeight: 600, width: 24 }}>V</span>
+                    <input type="range" min="0" max="100" value={pos.y}
+                      onChange={e => onUpdateImagePos(product.id, pos.x, parseInt(e.target.value))}
+                      style={{ flex: 1, accentColor: C.gold }} />
+                    <span style={{ fontSize: 10, color: C.muted, width: 30, textAlign: 'right' }}>{pos.y}%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -569,6 +622,15 @@ function ProductRow({
   const catColors = { pizza: '#F2A800', calzone: '#2563EB', combo: '#7C3AED', outros: '#6B7280' };
   const catColor = catColors[product.category] || catColors.pizza;
 
+  // CMV from ficha técnica
+  const cmvValue = (() => {
+    if (!recipe?.length) return null;
+    return recipe.reduce((s, item) => {
+      const ing = ingredients.find(g => g.id === item.ingredient_id);
+      return s + (parseFloat(item.quantity) || 0) * (parseFloat(ing?.cost_per_unit) || 0);
+    }, 0);
+  })();
+
   return (
     <div style={{ background: C.card, borderRadius: 8, border: isExpanded ? '1.5px solid #F2A800' : '1px solid ' + C.border, overflow: 'hidden', boxShadow: isExpanded ? '0 2px 12px rgba(242,168,0,0.12)' : '0 1px 2px rgba(0,0,0,0.04)' }}>
       {/* Collapsed row */}
@@ -585,8 +647,14 @@ function ProductRow({
           <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 3, background: catColor + '18', color: catColor }}>{catLabel}</span>
         </div>
 
-        {/* Price */}
-        <span style={{ fontSize: 14, fontWeight: 800, color: C.gold, minWidth: 76, textAlign: 'right', flexShrink: 0 }}>{fmtBRL(product.price)}</span>
+        {/* Price + CMV */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0, minWidth: 76 }}>
+          <span style={{ fontSize: 14, fontWeight: 800, color: C.gold }}>{fmtBRL(product.price)}</span>
+          {cmvValue !== null
+            ? <span style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>CMV: {fmtBRL(cmvValue)}</span>
+            : <span style={{ fontSize: 10, color: '#EF4444', fontWeight: 500 }}>Falta ficha técnica</span>
+          }
+        </div>
 
         {/* Active toggle */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
@@ -1191,7 +1259,20 @@ export default function Catalog({ adminToken }) {
                   </div>
                 )}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+                {/* Blur backdrop when a product is being edited */}
+                {expandedId !== null && (
+                  <div
+                    onClick={() => setExpandedId(null)}
+                    style={{
+                      position: 'fixed', inset: 0, zIndex: 10,
+                      backdropFilter: 'blur(3px)',
+                      WebkitBackdropFilter: 'blur(3px)',
+                      background: 'rgba(0,0,0,0.15)',
+                    }}
+                  />
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24, position: 'relative', zIndex: expandedId !== null ? 11 : 'auto' }}>
                   {filteredProducts.map((p, idx) => (
                     <ProductRow
                       key={p.id}

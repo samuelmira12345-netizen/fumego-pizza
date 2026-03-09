@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ChevronLeft, ChevronRight, RefreshCw, TrendingUp, TrendingDown,
+  RefreshCw, TrendingUp, TrendingDown,
   DollarSign, BarChart2, Calendar, Table2, X,
 } from 'lucide-react';
+import DateRangePicker from './DateRangePicker';
 
 const C = {
   gold: '#F2A800', bg: '#F4F5F7', card: '#ffffff', border: '#E5E7EB',
@@ -410,23 +411,20 @@ function EmptyState() {
   );
 }
 
+function firstOfMonthSP() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+}
+function todaySP2() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function FluxoCaixaTab({ adminToken, refreshTick }) {
   const [view, setView]       = useState('chart');
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(false);
-  const [period, setPeriod]   = useState(() => {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() + 1 };
-  });
-
-  const dateRange = (() => {
-    const { year, month } = period;
-    const from = `${year}-${String(month).padStart(2,'0')}-01`;
-    const last  = new Date(year, month, 0).getDate();
-    const to    = `${year}-${String(month).padStart(2,'0')}-${last}`;
-    return { from, to };
-  })();
+  const [dateRange, setDateRange] = useState({ from: firstOfMonthSP(), to: todaySP2(), fromTime: '00:00', toTime: '23:59' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -442,18 +440,6 @@ export default function FluxoCaixaTab({ adminToken, refreshTick }) {
   }, [adminToken, dateRange.from, dateRange.to]);
 
   useEffect(() => { load(); }, [load, refreshTick]);
-
-  const prevMonth = () => setPeriod(p => p.month === 1 ? { year: p.year - 1, month: 12 } : { ...p, month: p.month - 1 });
-  const nextMonth = () => {
-    const now = new Date();
-    if (period.year === now.getFullYear() && period.month === now.getMonth() + 1) return;
-    setPeriod(p => p.month === 12 ? { year: p.year + 1, month: 1 } : { ...p, month: p.month + 1 });
-  };
-
-  const isCurrentMonth = (() => {
-    const now = new Date();
-    return period.year === now.getFullYear() && period.month === now.getMonth() + 1;
-  })();
 
   const ts = data?.timeSeries || [];
   const totalReceitas = ts.reduce((s, d) => s + d.revenue, 0);
@@ -487,17 +473,7 @@ export default function FluxoCaixaTab({ adminToken, refreshTick }) {
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {/* Period */}
-          <div style={{ display: 'flex', alignItems: 'center', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
-            <button onClick={prevMonth} style={{ padding: '8px 10px', border: 'none', background: 'none', cursor: 'pointer', color: C.muted, display: 'flex' }}>
-              <ChevronLeft size={16} />
-            </button>
-            <span style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, color: C.text, borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}`, minWidth: 130, textAlign: 'center' }}>
-              {MONTHS_PT[period.month - 1]} {period.year}
-            </span>
-            <button onClick={nextMonth} style={{ padding: '8px 10px', border: 'none', background: 'none', cursor: isCurrentMonth ? 'default' : 'pointer', color: isCurrentMonth ? C.light : C.muted, display: 'flex' }}>
-              <ChevronRight size={16} />
-            </button>
-          </div>
+          <DateRangePicker value={dateRange} onChange={v => setDateRange(v)} />
           <button onClick={load} style={{ padding: '8px 12px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', color: C.muted }}>
             <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
           </button>
@@ -530,7 +506,7 @@ export default function FluxoCaixaTab({ adminToken, refreshTick }) {
         <>
           {view === 'table'    && <TableView    data={data} />}
           {view === 'chart'    && <ChartView    data={data} />}
-          {view === 'calendar' && <CalendarView data={data} period={period} />}
+          {view === 'calendar' && <CalendarView data={data} period={{ year: parseInt(dateRange.from.split('-')[0]), month: parseInt(dateRange.from.split('-')[1]) }} />}
         </>
       )}
     </div>

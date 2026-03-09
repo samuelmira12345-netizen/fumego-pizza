@@ -478,9 +478,10 @@ export default function Analytics({ adminToken }) {
     toTime:   '23:59',
   });
 
-  const [data,    setData]    = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState(null);
+  const [data,       setData]       = useState(null);
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState(null);
+  const [dbProducts, setDbProducts] = useState([]);
   const [productSearch, setProductSearch] = useState('');
 
   // Compute previous period (same duration)
@@ -522,6 +523,16 @@ export default function Analytics({ adminToken }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // ── Fetch product sales from internal DB (fallback for GA4 ecommerce) ────────
+  useEffect(() => {
+    if (!adminToken) return;
+    const params = new URLSearchParams({ type: 'products', from: dateRange.from, to: dateRange.to });
+    fetch(`/api/admin/reports?${params}`, { headers: { Authorization: `Bearer ${adminToken}` } })
+      .then(r => r.json())
+      .then(d => { if (d.data) setDbProducts(d.data); })
+      .catch(() => {});
+  }, [adminToken, dateRange.from, dateRange.to]);
+
   // ── Not configured ──────────────────────────────────────────────────────────
   if (data?.notConfigured) return <SetupBanner />;
 
@@ -557,11 +568,18 @@ export default function Analytics({ adminToken }) {
 
   // ── Filtered products ───────────────────────────────────────────────────────
 
+  // Use GA4 data if available, otherwise fall back to internal DB product sales
+  const usingDbProducts = !data?.products?.length && dbProducts.length > 0;
+
   const filteredProducts = useMemo(() => {
-    if (!data?.products) return [];
     const q = productSearch.toLowerCase();
-    return data.products.filter(p => !q || p.name.toLowerCase().includes(q));
-  }, [data?.products, productSearch]);
+    if (data?.products?.length) {
+      return data.products.filter(p => !q || p.name.toLowerCase().includes(q));
+    }
+    return dbProducts
+      .filter(p => !q || p.product_name.toLowerCase().includes(q))
+      .map(p => ({ name: p.product_name, qty: p.qty, revenue: p.revenue, isDb: true }));
+  }, [data?.products, dbProducts, productSearch]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -734,17 +752,46 @@ export default function Analytics({ adminToken }) {
 
             {filteredProducts.length === 0 ? (
               <div style={{ padding: '32px 22px', textAlign: 'center', color: C.light, fontSize: 13 }}>
-                {data.products?.length === 0
-                  ? 'Nenhum dado de produto. Verifique se os eventos de ecommerce estão configurados no site.'
-                  : 'Nenhum produto encontrado para a pesquisa.'
+                {productSearch
+                  ? 'Nenhum produto encontrado para a pesquisa.'
+                  : 'Nenhum dado de produto no período selecionado.'
                 }
               </div>
+            ) : usingDbProducts ? (
+              /* ── DB fallback table: Produto / Qtd Vendida / Receita ── */
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#F9FAFB' }}>
+                    {['Produto', 'Qtd vendida', 'Receita ↓'].map((h, i) => (
+                      <th key={i} style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.light, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid ' + C.border }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProducts.map((p, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid ' + C.border }}>
+                      <td style={{ padding: '12px 20px' }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.name}</p>
+                      </td>
+                      <td style={{ padding: '12px 20px', fontSize: 13, color: C.text }}>
+                        {(p.qty || 0).toLocaleString('pt-BR')}
+                      </td>
+                      <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 600, color: C.text }}>
+                        {fmtBRL(p.revenue)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             ) : (
+              /* ── GA4 table: Produto / Visitas / Sacola / Pedidos ── */
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#F9FAFB' }}>
                     {['Produto', 'Visitas', 'Sacola', 'Pedidos ↓'].map((h, i) => (
-                      <th key={i} style={{ padding: '10px 20px', textAlign: i === 0 ? 'left' : 'left', fontSize: 11, fontWeight: 700, color: C.light, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid ' + C.border }}>
+                      <th key={i} style={{ padding: '10px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.light, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid ' + C.border }}>
                         {h}
                       </th>
                     ))}
@@ -752,8 +799,8 @@ export default function Analytics({ adminToken }) {
                 </thead>
                 <tbody>
                   {filteredProducts.map((p, i) => {
-                    const cartPct   = p.views > 0 ? (p.addToCarts / p.views * 100) : null;
-                    const orderPct  = p.views > 0 ? (p.purchases  / p.views * 100) : null;
+                    const cartPct  = p.views > 0 ? (p.addToCarts / p.views * 100) : null;
+                    const orderPct = p.views > 0 ? (p.purchases  / p.views * 100) : null;
                     return (
                       <tr key={i} style={{ borderBottom: '1px solid ' + C.border }}>
                         <td style={{ padding: '12px 20px' }}>

@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ChevronLeft, ChevronRight, Search, RefreshCw, Plus, X,
+  Search, RefreshCw, Plus, X,
 } from 'lucide-react';
+import DateRangePicker from './DateRangePicker';
 
 const C = {
   gold: '#F2A800', bg: '#F4F5F7', card: '#ffffff', border: '#E5E7EB',
@@ -183,24 +184,21 @@ function AddModal({ adminToken, onClose, onSaved }) {
   );
 }
 
+function firstOfMonthSP() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+}
+function todaySP2() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
 export default function LancamentosTab({ adminToken, refreshTick }) {
   const [subTab, setSubTab] = useState('todos');
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [period, setPeriod] = useState(() => {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() + 1 };
-  });
-
-  const dateRange = (() => {
-    const { year, month } = period;
-    const from = `${year}-${String(month).padStart(2,'0')}-01`;
-    const last  = new Date(year, month, 0).getDate();
-    const to    = `${year}-${String(month).padStart(2,'0')}-${last}`;
-    return { from, to };
-  })();
+  const [dateRange, setDateRange] = useState({ from: firstOfMonthSP(), to: todaySP2(), fromTime: '00:00', toTime: '23:59' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -216,18 +214,6 @@ export default function LancamentosTab({ adminToken, refreshTick }) {
   }, [adminToken, dateRange.from, dateRange.to]);
 
   useEffect(() => { load(); }, [load, refreshTick]);
-
-  const prevMonth = () => setPeriod(p => p.month === 1 ? { year: p.year - 1, month: 12 } : { ...p, month: p.month - 1 });
-  const nextMonth = () => {
-    const now = new Date();
-    if (period.year === now.getFullYear() && period.month === now.getMonth() + 1) return;
-    setPeriod(p => p.month === 12 ? { year: p.year + 1, month: 1 } : { ...p, month: p.month + 1 });
-  };
-
-  const isCurrentMonth = (() => {
-    const now = new Date();
-    return period.year === now.getFullYear() && period.month === now.getMonth() + 1;
-  })();
 
   const s = data?.summary || {};
   const allEntries = subTab === 'receber' ? (data?.receitas || [])
@@ -268,17 +254,7 @@ export default function LancamentosTab({ adminToken, refreshTick }) {
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         {/* Period */}
-        <div style={{ display: 'flex', alignItems: 'center', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
-          <button onClick={prevMonth} style={{ padding: '8px 10px', border: 'none', background: 'none', cursor: 'pointer', color: C.muted, display: 'flex' }}>
-            <ChevronLeft size={16} />
-          </button>
-          <span style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, color: C.text, borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}`, minWidth: 130, textAlign: 'center' }}>
-            {MONTHS_PT[period.month - 1]} {period.year}
-          </span>
-          <button onClick={nextMonth} style={{ padding: '8px 10px', border: 'none', background: 'none', cursor: isCurrentMonth ? 'default' : 'pointer', color: isCurrentMonth ? C.light : C.muted, display: 'flex' }}>
-            <ChevronRight size={16} />
-          </button>
-        </div>
+        <DateRangePicker value={dateRange} onChange={v => setDateRange(v)} />
 
         {/* Search */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 12px', flex: 1, minWidth: 180 }}>

@@ -6,7 +6,7 @@ import {
   Wallet, AlertTriangle, RefreshCw, Search, Printer, X, Plus,
   Minus, Clock, CreditCard, Banknote, ChevronDown, BarChart2,
   ArrowUpRight, ArrowDownRight, Package, Calendar, FileText,
-  ChevronLeft, ChevronRight, Receipt, Percent, Activity,
+  Receipt, Percent, Activity,
 } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
 import LancamentosTab from './FinancialLancamentos';
@@ -927,18 +927,15 @@ function DreBarChart({ data }) {
 function DreTab({ adminToken, refreshTick }) {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(false);
-  const [period, setPeriod]   = useState(() => {
+  const [dateRange, setDateRange] = useState(() => {
     const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth() + 1 };
-  });
-
-  const dateRange = (() => {
-    const { year, month } = period;
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
     const from = `${year}-${String(month).padStart(2,'0')}-01`;
     const last  = new Date(year, month, 0).getDate();
     const to    = `${year}-${String(month).padStart(2,'0')}-${last}`;
-    return { from, to };
-  })();
+    return { from, to, fromTime: '00:00', toTime: '23:59' };
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -955,15 +952,6 @@ function DreTab({ adminToken, refreshTick }) {
 
   useEffect(() => { load(); }, [load, refreshTick]);
 
-  function prevMonth() {
-    setPeriod(p => p.month === 1 ? { year: p.year - 1, month: 12 } : { ...p, month: p.month - 1 });
-  }
-  function nextMonth() {
-    const now = new Date();
-    if (period.year === now.getFullYear() && period.month === now.getMonth() + 1) return;
-    setPeriod(p => p.month === 12 ? { year: p.year + 1, month: 1 } : { ...p, month: p.month + 1 });
-  }
-
   const EMPTY_CURRENT = {
     ordersCount: 0, cancelledCount: 0, cancelledValue: 0,
     salesRevenue: 0, deliveryFees: 0, grossRevenue: 0,
@@ -974,10 +962,6 @@ function DreTab({ adminToken, refreshTick }) {
   };
   const c = data?.current || EMPTY_CURRENT;
   const p = data?.previous;
-  const isCurrentMonth = (() => {
-    const now = new Date();
-    return period.year === now.getFullYear() && period.month === now.getMonth() + 1;
-  })();
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -991,18 +975,7 @@ function DreTab({ adminToken, refreshTick }) {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Period picker */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
-            <button onClick={prevMonth} style={{ padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', color: C.muted, display: 'flex', alignItems: 'center' }}>
-              <ChevronLeft size={16} />
-            </button>
-            <div style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, color: C.text, minWidth: 140, textAlign: 'center', borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}` }}>
-              {MONTHS_PT[period.month - 1]} de {period.year}
-            </div>
-            <button onClick={nextMonth} style={{ padding: '8px 12px', border: 'none', background: 'none', cursor: isCurrentMonth ? 'default' : 'pointer', color: isCurrentMonth ? C.light : C.muted, display: 'flex', alignItems: 'center' }}>
-              <ChevronRight size={16} />
-            </button>
-          </div>
+          <DateRangePicker value={dateRange} onChange={v => setDateRange(v)} />
           <button onClick={load} disabled={loading} style={{ padding: '8px 12px', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: C.muted, fontSize: 13 }}>
             <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
           </button>
