@@ -660,15 +660,16 @@ export default function HomePage() {
           upsellItems={upsellConfigs
             .filter(cfg => cfg.enabled && cfg.product_id != null)
             .reduce<UpsellItem[]>((acc, cfg) => {
-              // Busca em todos os produtos (incluindo ocultos) e também em bebidas
+              // Busca em produtos (incluindo ocultos) e bebidas
               const product: Product | null =
                 allProducts.find(p => String(p.id) === String(cfg.product_id)) ??
                 (() => {
                   const d = drinks.find(d => String(d.id) === String(cfg.product_id));
                   if (!d) return null;
-                  return { id: d.id, slug: '', name: d.size ? `${d.name} ${d.size}` : d.name, description: '', price: d.price, image_url: null, is_active: d.is_active, is_hidden: false, sort_order: 0 } as Product;
+                  return { id: d.id, slug: `drink-${d.id}`, name: d.size ? `${d.name} ${d.size}` : d.name, description: '', price: d.price, image_url: null, is_active: d.is_active, is_hidden: false, sort_order: 0 } as Product;
                 })() ?? null;
-              if (product && product.is_active && !cart.some(i => i.product.id === product.id)) {
+              const alreadyInCart = cart.some(i => String(i.product.id) === String(product?.id));
+              if (product && !alreadyInCart) {
                 acc.push({ config: cfg, product });
               }
               return acc;
