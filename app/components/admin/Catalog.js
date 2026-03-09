@@ -783,7 +783,7 @@ export default function Catalog({ adminToken }) {
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-        body: JSON.stringify({ action: 'save_all', data: { products, drinks, settings: settings.map(s => s.key === 'upsell_config' ? { ...s, value: JSON.stringify(configs) } : s).concat(settings.find(s => s.key === 'upsell_config') ? [] : [{ key: 'upsell_config', value: JSON.stringify(configs) }]) } }),
+        body: JSON.stringify({ action: 'save_setting', data: { key: 'upsell_config', value: JSON.stringify(configs) } }),
       });
       const d = await res.json();
       if (d.error) { setMsg('❌ ' + d.error); return; }
