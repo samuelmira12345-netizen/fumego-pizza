@@ -247,7 +247,7 @@ export default function DateRangePicker({ value, onChange }) {
       {/* Dropdown */}
       {open && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 9999,
+          position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 9999,
           background: '#fff', borderRadius: 10,
           boxShadow: '0 8px 40px rgba(0,0,0,0.18)', border: '1px solid #E5E7EB',
           display: 'flex', minWidth: 720,
