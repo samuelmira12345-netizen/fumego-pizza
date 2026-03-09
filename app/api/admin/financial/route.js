@@ -237,6 +237,133 @@ export async function GET(request) {
     }
   }
 
+  // ── DRE (Demonstração do Resultado do Exercício) ─────────────────────────────
+  if (action === 'dre') {
+    // Current period orders
+    const { data: orders, error: ordErr } = await supabase
+      .from('orders')
+      .select('id, total, subtotal, delivery_fee, discount, cashback_used, payment_method, status, created_at')
+      .gte('created_at', from + 'T00:00:00-03:00')
+      .lte('created_at', to   + 'T23:59:59-03:00')
+      .order('created_at', { ascending: true });
+
+    if (ordErr) return NextResponse.json({ error: ordErr.message }, { status: 500 });
+
+    // Previous period — same duration, immediately before
+    const periodDays = Math.round((new Date(to + 'T00:00:00') - new Date(from + 'T00:00:00')) / 86400000) + 1;
+    const prevToDate   = new Date(new Date(from + 'T00:00:00') - 86400000);
+    const prevFromDate = new Date(prevToDate.getTime() - (periodDays - 1) * 86400000);
+    const prevFrom = prevFromDate.toLocaleDateString('en-CA');
+    const prevTo   = prevToDate.toLocaleDateString('en-CA');
+
+    const { data: prevOrders } = await supabase
+      .from('orders')
+      .select('id, total, subtotal, delivery_fee, discount, cashback_used, status, created_at')
+      .gte('created_at', prevFrom + 'T00:00:00-03:00')
+      .lte('created_at', prevTo   + 'T23:59:59-03:00');
+
+    // Cash entries (Sangrias = operational expenses)
+    let cashEntries = [];
+    try {
+      const { data: entries } = await supabase
+        .from('cash_entries')
+        .select('id, type, amount, description, created_at')
+        .eq('type', 'sangria')
+        .gte('created_at', from + 'T00:00:00-03:00')
+        .lte('created_at', to   + 'T23:59:59-03:00')
+        .order('created_at', { ascending: true });
+      cashEntries = entries || [];
+    } catch { /* table may not exist */ }
+
+    // ── Current period calculations ────────────────────────────────────────────
+    const active    = (orders || []).filter(o => o.status !== 'cancelled');
+    const cancelled = (orders || []).filter(o => o.status === 'cancelled');
+
+    const salesRevenue   = active.reduce((s, o) => s + parseFloat(o.subtotal     || 0), 0);
+    const deliveryFees   = active.reduce((s, o) => s + parseFloat(o.delivery_fee || 0), 0);
+    const grossRevenue   = active.reduce((s, o) => s + parseFloat(o.total        || 0), 0);
+    const cancelledValue = cancelled.reduce((s, o) => s + parseFloat(o.total     || 0), 0);
+
+    const coupons  = active.reduce((s, o) => s + parseFloat(o.discount      || 0), 0);
+    const cashback = active.reduce((s, o) => s + parseFloat(o.cashback_used || 0), 0);
+    const deductions = coupons + cashback;
+
+    const netRevenue  = grossRevenue - deductions;
+    const cmv         = netRevenue * 0.35;          // ~35% pizza industry CMV
+    const grossProfit = netRevenue - cmv;
+    const grossMargin = netRevenue > 0 ? (grossProfit / netRevenue) * 100 : 0;
+
+    const totalExpenses = cashEntries.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+    const ebitda        = grossProfit - totalExpenses;
+    const ebitdaMargin  = netRevenue > 0 ? (ebitda / netRevenue) * 100 : 0;
+
+    // Simplified: no depreciation/taxes in this model
+    const netProfit = ebitda;
+    const netMargin = netRevenue > 0 ? (netProfit / netRevenue) * 100 : 0;
+
+    // ── Previous period calculations ────────────────────────────────────────────
+    const prevActive      = (prevOrders || []).filter(o => o.status !== 'cancelled');
+    const prevGrossRev    = prevActive.reduce((s, o) => s + parseFloat(o.total         || 0), 0);
+    const prevDeductions  = prevActive.reduce((s, o) => s + parseFloat(o.discount      || 0) + parseFloat(o.cashback_used || 0), 0);
+    const prevNetRevenue  = prevGrossRev - prevDeductions;
+    const prevCmv         = prevNetRevenue * 0.35;
+    const prevGrossProfit = prevNetRevenue - prevCmv;
+    const prevNetProfit   = prevGrossProfit;
+
+    // ── Daily time series ──────────────────────────────────────────────────────
+    const dateMap = {};
+    const cursor  = new Date(from + 'T12:00:00');
+    const endDay  = new Date(to   + 'T12:00:00');
+    while (cursor <= endDay) {
+      const k = cursor.toLocaleDateString('en-CA');
+      dateMap[k] = { date: k, revenue: 0, expenses: 0, profit: 0 };
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    for (const o of active) {
+      const d = toSPDay(o.created_at);
+      if (dateMap[d]) dateMap[d].revenue += parseFloat(o.total || 0);
+    }
+    for (const e of cashEntries) {
+      const d = toSPDay(e.created_at);
+      if (dateMap[d]) dateMap[d].expenses += parseFloat(e.amount || 0);
+    }
+    for (const k of Object.keys(dateMap)) {
+      dateMap[k].profit = dateMap[k].revenue * 0.65 - dateMap[k].expenses;
+    }
+
+    return NextResponse.json({
+      period: { from, to, prevFrom, prevTo },
+      current: {
+        ordersCount:    active.length,
+        cancelledCount: cancelled.length,
+        cancelledValue,
+        salesRevenue,
+        deliveryFees,
+        grossRevenue,
+        coupons,
+        cashback,
+        deductions,
+        netRevenue,
+        cmv,
+        grossProfit,
+        grossMargin,
+        expenses: totalExpenses,
+        expenseEntries: cashEntries,
+        ebitda,
+        ebitdaMargin,
+        netProfit,
+        netMargin,
+      },
+      previous: {
+        grossRevenue: prevGrossRev,
+        netRevenue:   prevNetRevenue,
+        grossProfit:  prevGrossProfit,
+        netProfit:    prevNetProfit,
+      },
+      timeSeries: Object.values(dateMap).sort((a, b) => a.date.localeCompare(b.date)),
+    });
+  }
+
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
 }
 

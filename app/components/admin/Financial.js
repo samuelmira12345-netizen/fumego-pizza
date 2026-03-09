@@ -5,7 +5,8 @@ import {
   DollarSign, TrendingUp, TrendingDown, ShoppingBag, Tag, Bike,
   Wallet, AlertTriangle, RefreshCw, Search, Printer, X, Plus,
   Minus, Clock, CreditCard, Banknote, ChevronDown, BarChart2,
-  ArrowUpRight, ArrowDownRight, Package, Calendar,
+  ArrowUpRight, ArrowDownRight, Package, Calendar, FileText,
+  ChevronLeft, ChevronRight, Receipt, Percent, Activity,
 } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
 
@@ -816,6 +817,367 @@ function CaixaTab({ adminToken, refreshTick }) {
   );
 }
 
+// ── DRE HELPERS ───────────────────────────────────────────────────────────────
+
+const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function pctChange(curr, prev) {
+  if (!prev || prev === 0) return null;
+  return ((curr - prev) / Math.abs(prev)) * 100;
+}
+
+function PctBadge({ curr, prev, inverse = false }) {
+  const chg = pctChange(curr, prev);
+  if (chg === null) return null;
+  const positive = inverse ? chg < 0 : chg > 0;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 2,
+      fontSize: 11, fontWeight: 600, padding: '2px 6px', borderRadius: 6,
+      background: positive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+      color: positive ? C.success : C.danger,
+    }}>
+      {chg > 0 ? <ArrowUpRight size={10}/> : <ArrowDownRight size={10}/>}
+      {Math.abs(chg).toFixed(1)}%
+    </span>
+  );
+}
+
+function DreRow({ label, value, indent = 0, bold = false, result = false, margin = null, sub = false, color = null, prevValue = null, inverse = false }) {
+  const fg = color || (result ? C.text : bold ? C.text : C.muted);
+  const bg = result ? (value >= 0 ? 'rgba(16,185,129,0.04)' : 'rgba(239,68,68,0.04)') : 'transparent';
+  const valColor = value < 0 ? C.danger : (value > 0 ? (result ? C.success : C.text) : C.light);
+  return (
+    <tr style={{ background: bg, borderBottom: `1px solid ${C.border}` }}>
+      <td style={{ padding: `${result ? 10 : 7}px 16px`, paddingLeft: 16 + indent * 20 }}>
+        <span style={{ fontSize: sub ? 12 : 13, fontWeight: bold || result ? 700 : 400, color: fg, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {label}
+          {margin !== null && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: margin >= 0 ? C.success : C.danger, background: margin >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', padding: '1px 6px', borderRadius: 10 }}>
+              {margin.toFixed(1)}%
+            </span>
+          )}
+        </span>
+      </td>
+      <td style={{ padding: `${result ? 10 : 7}px 16px`, textAlign: 'right', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: sub ? 12 : 13, fontWeight: bold || result ? 700 : 400, color: valColor }}>
+          {fmtBRL(value)}
+        </span>
+      </td>
+      <td style={{ padding: `${result ? 10 : 7}px 16px`, textAlign: 'right', width: 90 }}>
+        {prevValue !== null && <PctBadge curr={value} prev={prevValue} inverse={inverse} />}
+      </td>
+    </tr>
+  );
+}
+
+function DreSeparator({ label }) {
+  return (
+    <tr>
+      <td colSpan={3} style={{ padding: '6px 16px', background: '#F8F9FA', borderBottom: `1px solid ${C.border}` }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: C.light, textTransform: 'uppercase', letterSpacing: 1 }}>
+          {label}
+        </span>
+      </td>
+    </tr>
+  );
+}
+
+function DreBarChart({ data }) {
+  if (!data || data.length === 0) return null;
+  const maxV = Math.max(...data.map(d => Math.max(d.revenue, d.expenses, 0.01)));
+  const W = 600, H = 160, padL = 8, padR = 8, padT = 10, padB = 30;
+  const cW = W - padL - padR;
+  const cH = H - padT - padB;
+  const n = data.length;
+  const groupW = cW / n;
+  const barW = Math.max(3, Math.min(12, groupW * 0.35));
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
+      {data.map((d, i) => {
+        const x = padL + i * groupW + groupW / 2;
+        const rh = (d.revenue / maxV) * cH;
+        const eh = (d.expenses / maxV) * cH;
+        const ry = padT + cH - rh;
+        const ey = padT + cH - eh;
+        const showLabel = n <= 14 || i % Math.ceil(n / 7) === 0;
+        return (
+          <g key={d.date}>
+            {rh > 0 && <rect x={x - barW - 1} y={ry} width={barW} height={rh} fill={C.success} rx={2} opacity={0.85} />}
+            {eh > 0 && <rect x={x + 1} y={ey} width={barW} height={eh} fill={C.danger} rx={2} opacity={0.85} />}
+            {showLabel && (
+              <text x={x} y={H - 6} textAnchor="middle" fontSize={9} fill={C.light}>
+                {d.date.slice(8)}
+              </text>
+            )}
+          </g>
+        );
+      })}
+      <line x1={padL} y1={padT + cH} x2={W - padR} y2={padT + cH} stroke={C.border} strokeWidth={1} />
+    </svg>
+  );
+}
+
+// ── DRE TAB ───────────────────────────────────────────────────────────────────
+
+function DreTab({ adminToken, refreshTick }) {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [period, setPeriod]   = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  });
+
+  const dateRange = (() => {
+    const { year, month } = period;
+    const from = `${year}-${String(month).padStart(2,'0')}-01`;
+    const last  = new Date(year, month, 0).getDate();
+    const to    = `${year}-${String(month).padStart(2,'0')}-${last}`;
+    return { from, to };
+  })();
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/admin/financial?action=dre&from=${dateRange.from}&to=${dateRange.to}`,
+        { headers: { Authorization: `Bearer ${adminToken}` } }
+      );
+      const d = await res.json();
+      if (!d.error) setData(d);
+    } catch {}
+    setLoading(false);
+  }, [adminToken, dateRange.from, dateRange.to]);
+
+  useEffect(() => { load(); }, [load, refreshTick]);
+
+  function prevMonth() {
+    setPeriod(p => p.month === 1 ? { year: p.year - 1, month: 12 } : { ...p, month: p.month - 1 });
+  }
+  function nextMonth() {
+    const now = new Date();
+    if (period.year === now.getFullYear() && period.month === now.getMonth() + 1) return;
+    setPeriod(p => p.month === 12 ? { year: p.year + 1, month: 1 } : { ...p, month: p.month + 1 });
+  }
+
+  const c = data?.current;
+  const p = data?.previous;
+  const isCurrentMonth = (() => {
+    const now = new Date();
+    return period.year === now.getFullYear() && period.month === now.getMonth() + 1;
+  })();
+
+  return (
+    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <FileText size={20} color={C.gold} />
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>DRE — Demonstração do Resultado</div>
+            <div style={{ fontSize: 12, color: C.muted }}>Resultado financeiro do período selecionado</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Period picker */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, overflow: 'hidden' }}>
+            <button onClick={prevMonth} style={{ padding: '8px 12px', border: 'none', background: 'none', cursor: 'pointer', color: C.muted, display: 'flex', alignItems: 'center' }}>
+              <ChevronLeft size={16} />
+            </button>
+            <div style={{ padding: '8px 16px', fontSize: 13, fontWeight: 600, color: C.text, minWidth: 140, textAlign: 'center', borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}` }}>
+              {MONTHS_PT[period.month - 1]} de {period.year}
+            </div>
+            <button onClick={nextMonth} style={{ padding: '8px 12px', border: 'none', background: 'none', cursor: isCurrentMonth ? 'default' : 'pointer', color: isCurrentMonth ? C.light : C.muted, display: 'flex', alignItems: 'center' }}>
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          <button onClick={load} disabled={loading} style={{ padding: '8px 12px', background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: C.muted, fontSize: 13 }}>
+            <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+          </button>
+          <button onClick={() => window.print()} style={{ padding: '8px 14px', background: C.gold, border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#fff', fontSize: 13, fontWeight: 600 }}>
+            <Printer size={14} /> Imprimir
+          </button>
+        </div>
+      </div>
+
+      {loading && !data && (
+        <div style={{ textAlign: 'center', padding: 60, color: C.muted }}>
+          <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginBottom: 8 }} />
+          <div>Carregando DRE...</div>
+        </div>
+      )}
+
+      {c && (
+        <>
+          {/* ── KPI Cards ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+            <KPICard icon={DollarSign}   label="Receita Bruta"    value={fmtBRL(c.grossRevenue)} sub={`${c.ordersCount} pedidos`}  color={C.blue} />
+            <KPICard icon={Receipt}      label="Receita Líquida"  value={fmtBRL(c.netRevenue)}   sub={`Deduzido R$ ${(c.deductions).toFixed(2).replace('.',',')}`} color={C.teal} />
+            <KPICard icon={TrendingUp}   label="Lucro Bruto"      value={fmtBRL(c.grossProfit)}  sub={`Margem ${c.grossMargin.toFixed(1)}%`} color={c.grossProfit >= 0 ? C.success : C.danger} />
+            <KPICard icon={Activity}     label="Resultado do Período" value={fmtBRL(c.netProfit)} sub={`Margem ${c.netMargin.toFixed(1)}%`} color={c.netProfit >= 0 ? C.success : C.danger} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, alignItems: 'start' }}>
+            {/* ── DRE Table ── */}
+            <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Demonstração do Resultado do Exercício</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                    {dateRange.from.split('-').reverse().join('/')} — {dateRange.to.split('-').reverse().join('/')}
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: C.light }}>vs. período anterior</div>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <colgroup>
+                  <col style={{ width: '100%' }} />
+                  <col style={{ width: 140 }} />
+                  <col style={{ width: 90 }} />
+                </colgroup>
+                <tbody>
+                  <DreSeparator label="Receitas" />
+                  <DreRow label="(+) Receita Bruta de Vendas"  value={c.grossRevenue}  bold prevValue={p?.grossRevenue} />
+                  <DreRow label="Vendas (Pedidos)"             value={c.salesRevenue}  indent={1} sub />
+                  <DreRow label="Taxas de Entrega"             value={c.deliveryFees}  indent={1} sub />
+                  {c.cancelledValue > 0 && (
+                    <DreRow label={`Cancelamentos (${c.cancelledCount})`} value={-c.cancelledValue} indent={1} sub color={C.danger} />
+                  )}
+
+                  <DreSeparator label="Deduções" />
+                  <DreRow label="(-) Deduções da Receita"      value={-c.deductions}   bold color={C.danger} inverse />
+                  <DreRow label="Descontos / Cupons"           value={-c.coupons}      indent={1} sub color={C.danger} />
+                  <DreRow label="Cashback Concedido"           value={-c.cashback}     indent={1} sub color={C.danger} />
+
+                  <DreSeparator label="Receita Líquida" />
+                  <DreRow label="(=) RECEITA LÍQUIDA"          value={c.netRevenue}    result bold prevValue={p?.netRevenue} />
+
+                  <DreSeparator label="Custo das Mercadorias Vendidas" />
+                  <DreRow label="(-) CMV — Custo das Mercadorias Vendidas" value={-c.cmv} bold color={C.orange} />
+                  <DreRow label="CMV Estimado (~35% da Receita Líquida)" value={-c.cmv} indent={1} sub color={C.orange} />
+
+                  <DreSeparator label="Lucro Bruto" />
+                  <DreRow label="(=) LUCRO BRUTO"              value={c.grossProfit}   result bold margin={c.grossMargin} prevValue={p?.grossProfit} />
+
+                  <DreSeparator label="Despesas Operacionais" />
+                  <DreRow label="(-) Despesas Operacionais"    value={-c.expenses}     bold color={C.danger} inverse />
+                  {c.expenseEntries.length === 0 ? (
+                    <DreRow label="Sem despesas lançadas no período" value={0} indent={1} sub color={C.light} />
+                  ) : (
+                    c.expenseEntries.map(e => (
+                      <DreRow
+                        key={e.id}
+                        label={e.description || 'Sangria de caixa'}
+                        value={-parseFloat(e.amount || 0)}
+                        indent={1} sub color={C.danger}
+                      />
+                    ))
+                  )}
+
+                  <DreSeparator label="Resultado Operacional" />
+                  <DreRow label="(=) RESULTADO OPERACIONAL (EBITDA)" value={c.ebitda} result bold margin={c.ebitdaMargin} />
+
+                  <DreSeparator label="Resultado do Período" />
+                  <DreRow label="(=) RESULTADO DO PERÍODO"     value={c.netProfit}     result bold margin={c.netMargin} prevValue={p?.netProfit} />
+                </tbody>
+              </table>
+              <div style={{ padding: '10px 16px', background: '#FAFAFA', borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.light }}>
+                * CMV estimado em 35% da receita líquida (padrão setor pizzaria). Despesas operacionais originadas das sangrias de caixa.
+              </div>
+            </div>
+
+            {/* ── Right panel ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Comparison with previous */}
+              <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>vs. Período Anterior</div>
+                {[
+                  { label: 'Receita Bruta',    curr: c.grossRevenue,  prev: p?.grossRevenue },
+                  { label: 'Receita Líquida',  curr: c.netRevenue,    prev: p?.netRevenue },
+                  { label: 'Lucro Bruto',      curr: c.grossProfit,   prev: p?.grossProfit },
+                  { label: 'Resultado',        curr: c.netProfit,     prev: p?.netProfit },
+                ].map(row => {
+                  const chg = pctChange(row.curr, row.prev);
+                  const positive = chg >= 0;
+                  return (
+                    <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${C.border}` }}>
+                      <div style={{ fontSize: 12, color: C.muted }}>{row.label}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: row.curr >= 0 ? C.text : C.danger }}>{fmtBRL(row.curr)}</span>
+                        {chg !== null && (
+                          <span style={{ fontSize: 11, fontWeight: 600, color: positive ? C.success : C.danger }}>
+                            {positive ? '+' : ''}{chg.toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Margins summary */}
+              <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Margens do Período</div>
+                {[
+                  { label: 'Margem Bruta',     value: c.grossMargin,  color: C.success },
+                  { label: 'Margem EBITDA',    value: c.ebitdaMargin, color: C.blue },
+                  { label: 'Margem Líquida',   value: c.netMargin,    color: c.netMargin >= 0 ? C.teal : C.danger },
+                ].map(row => (
+                  <div key={row.label} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, color: C.muted }}>{row.label}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: row.color }}>{row.value.toFixed(1)}%</span>
+                    </div>
+                    <div style={{ height: 6, background: C.border, borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, row.value))}%`, background: row.color, borderRadius: 4, transition: 'width 0.5s ease' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Revenue composition */}
+              <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Composição da Receita</div>
+                {[
+                  { label: 'Vendas',         value: c.salesRevenue,  color: C.blue,    pct: c.grossRevenue > 0 ? (c.salesRevenue / c.grossRevenue) * 100 : 0 },
+                  { label: 'Taxas Entrega',  value: c.deliveryFees,  color: C.orange,  pct: c.grossRevenue > 0 ? (c.deliveryFees / c.grossRevenue) * 100 : 0 },
+                ].map(row => (
+                  <div key={row.label} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 12, color: C.muted }}>{row.label}</span>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, color: row.color, fontWeight: 600 }}>{row.pct.toFixed(1)}%</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{fmtBRL(row.value)}</span>
+                      </div>
+                    </div>
+                    <div style={{ height: 6, background: C.border, borderRadius: 4, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${row.pct}%`, background: row.color, borderRadius: 4 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Chart ── */}
+          {data.timeSeries && data.timeSeries.length > 1 && (
+            <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Receitas vs. Despesas — Diário</div>
+                <div style={{ display: 'flex', gap: 16, fontSize: 12, color: C.muted }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: C.success, display: 'inline-block' }} /> Receita</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: C.danger, display: 'inline-block' }} /> Despesas</span>
+                </div>
+              </div>
+              <DreBarChart data={data.timeSeries} />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── MAIN FINANCIAL COMPONENT ──────────────────────────────────────────────────
 
 export default function Financial({ adminToken, orders }) {
@@ -834,6 +1196,7 @@ export default function Financial({ adminToken, orders }) {
   const tabs = [
     { key: 'faturamento', label: 'Faturamento' },
     { key: 'caixa',       label: 'Caixa' },
+    { key: 'dre',         label: 'DRE' },
   ];
 
   return (
@@ -855,6 +1218,7 @@ export default function Financial({ adminToken, orders }) {
 
       {tab === 'faturamento' && <FaturamentoTab adminToken={adminToken} refreshTick={refreshTick} />}
       {tab === 'caixa'       && <CaixaTab       adminToken={adminToken} refreshTick={refreshTick} />}
+      {tab === 'dre'         && <DreTab         adminToken={adminToken} refreshTick={refreshTick} />}
     </div>
   );
 }
