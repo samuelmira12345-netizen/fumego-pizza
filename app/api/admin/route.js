@@ -176,15 +176,17 @@ export async function POST(request) {
 
     if (action === 'get_catalog_extra') {
       // Ingredientes (insumos), fichas técnicas e histórico de preços
-      const [ingredients, recipes, priceHistory] = await Promise.all([
+      const [ingredients, recipes, priceHistory, compoundItems] = await Promise.all([
         supabase.from('ingredients').select('*').order('name'),
         supabase.from('recipe_items').select('*'),
         supabase.from('ingredient_price_history').select('*').order('changed_at', { ascending: true }).limit(1000),
+        supabase.from('compound_ingredient_items').select('*'),
       ]);
       return NextResponse.json({
-        ingredients:  ingredients.data  || [],
-        recipes:      recipes.data      || [],
-        priceHistory: priceHistory.data || [],
+        ingredients:   ingredients.data   || [],
+        recipes:       recipes.data       || [],
+        priceHistory:  priceHistory.data  || [],
+        compoundItems: compoundItems.data || [],
       });
     }
 
@@ -195,7 +197,23 @@ export async function POST(request) {
     }
 
     if (action === 'save_ingredient') {
-      const { id, name, unit, cost_per_unit } = data;
+      const {
+        id, name, unit, cost_per_unit,
+        correction_factor, min_stock, max_stock, current_stock,
+        purchase_origin, ingredient_type, weight_volume,
+      } = data;
+      const extraFields = {
+        correction_factor: correction_factor !== undefined ? parseFloat(correction_factor) || 1.0 : undefined,
+        min_stock:         min_stock         !== undefined ? parseFloat(min_stock)         || 0   : undefined,
+        max_stock:         max_stock         !== undefined ? parseFloat(max_stock)         || 0   : undefined,
+        current_stock:     current_stock     !== undefined ? parseFloat(current_stock)     || 0   : undefined,
+        purchase_origin:   purchase_origin   !== undefined ? purchase_origin               : undefined,
+        ingredient_type:   ingredient_type   !== undefined ? ingredient_type               : undefined,
+        weight_volume:     weight_volume     !== undefined ? parseFloat(weight_volume)     || 1   : undefined,
+      };
+      // Remove undefined fields
+      Object.keys(extraFields).forEach(k => extraFields[k] === undefined && delete extraFields[k]);
+
       if (id) {
         // Check if price changed → record history
         const { data: existing } = await supabase.from('ingredients').select('cost_per_unit').eq('id', id).single();
@@ -210,13 +228,56 @@ export async function POST(request) {
           }).select().single();
           priceHistoryEntry = histEntry;
         }
-        await supabase.from('ingredients').update({ name, unit, cost_per_unit }).eq('id', id);
+        await supabase.from('ingredients').update({ name, unit, cost_per_unit, ...extraFields }).eq('id', id);
         return NextResponse.json({ success: true, priceHistoryEntry });
       } else {
-        const { data: inserted, error } = await supabase.from('ingredients').insert({ name, unit, cost_per_unit }).select().single();
+        const { data: inserted, error } = await supabase.from('ingredients').insert({ name, unit, cost_per_unit, ...extraFields }).select().single();
         if (error) return NextResponse.json({ error: error.message }, { status: 400 });
         return NextResponse.json({ success: true, ingredient: inserted });
       }
+    }
+
+    if (action === 'save_compound_recipe') {
+      const { compound_id, items } = data;
+      if (!compound_id) return NextResponse.json({ error: 'compound_id obrigatório' }, { status: 400 });
+      await supabase.from('compound_ingredient_items').delete().eq('compound_id', compound_id);
+      if (items && items.length > 0) {
+        const rows = items.map(i => ({ compound_id, ingredient_id: i.ingredient_id, quantity: parseFloat(i.quantity) || 0 }));
+        const { error } = await supabase.from('compound_ingredient_items').insert(rows);
+        if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'stock_movement') {
+      const { ingredient_id, movement_type, quantity, reason, notes } = data;
+      if (!ingredient_id || !movement_type || quantity === undefined) {
+        return NextResponse.json({ error: 'ingredient_id, movement_type e quantity são obrigatórios' }, { status: 400 });
+      }
+      const qty = parseFloat(quantity) || 0;
+
+      // Insert movement record
+      const { error: mvErr } = await supabase.from('stock_movements').insert({
+        ingredient_id,
+        movement_type,
+        quantity: qty,
+        reason: reason || '',
+        notes: notes || '',
+      });
+      if (mvErr) return NextResponse.json({ error: mvErr.message }, { status: 400 });
+
+      // Update current_stock
+      const { data: ing } = await supabase.from('ingredients').select('current_stock').eq('id', ingredient_id).single();
+      const currentStock = parseFloat(ing?.current_stock) || 0;
+      let newStock;
+      if (movement_type === 'in')         newStock = currentStock + qty;
+      else if (movement_type === 'out')   newStock = currentStock - qty;
+      else                                newStock = qty; // adjustment
+
+      const { error: updErr } = await supabase.from('ingredients').update({ current_stock: newStock }).eq('id', ingredient_id);
+      if (updErr) return NextResponse.json({ error: updErr.message }, { status: 400 });
+
+      return NextResponse.json({ success: true, new_stock: newStock });
     }
 
     if (action === 'delete_ingredient') {

@@ -5,7 +5,7 @@ import {
   UtensilsCrossed, GlassWater, Package, Upload, Loader2, Trash2,
   Plus, Check, ChevronDown, ChevronUp, Save, RefreshCw,
   DollarSign, TrendingDown, BookOpen, X, Eye, EyeOff, Copy,
-  BarChart2, TrendingUp,
+  BarChart2, TrendingUp, Layers, ArrowDownUp, Warehouse,
 } from 'lucide-react';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ const FILTER_TABS = [
   { key: 'upsell',  label: 'Upsell' },
 ];
 
-const UNITS = ['unid', 'kg', 'g', 'L', 'ml', 'cx', 'pct', 'dz', 'ft'];
+const UNITS = ['unid', 'kg', 'g', 'L', 'ml', 'cx', 'pct', 'dz', 'ft', 'Bag', 'UN', 'KG'];
 
 const C = {
   bg: '#F4F5F7', card: '#fff', border: '#E5E7EB',
@@ -739,6 +739,16 @@ export default function Catalog({ adminToken }) {
   const [ingredients, setIngredients] = useState([]);
   const [recipes, setRecipes]     = useState({}); // { [productId]: [{ ingredient_id, quantity }] }
   const [priceHistory, setPriceHistory] = useState([]); // for Análise tab
+  const [compoundItems, setCompoundItems] = useState([]); // [{ compound_id, ingredient_id, quantity }]
+
+  // Stock movement UI state
+  const [stockPanelIngId, setStockPanelIngId] = useState(null); // ingredient id with open stock panel
+  const [stockMovement, setStockMovement] = useState({ type: 'in', quantity: '', reason: '', notes: '' });
+  const [savingStockMovement, setSavingStockMovement] = useState(false);
+
+  // Compound recipe panel
+  const [compoundPanelIngId, setCompoundPanelIngId] = useState(null); // ingredient id with open compound panel
+  const [savingCompoundRecipe, setSavingCompoundRecipe] = useState(false);
 
   // Settings needed for stock limits and image positions
   const [settings, setSettings]   = useState([]);
@@ -762,7 +772,7 @@ export default function Catalog({ adminToken }) {
   const [expandedDrinkId, setExpandedDrinkId] = useState(null);
 
   // New ingredient form
-  const [newIng, setNewIng]       = useState({ name: '', unit: 'unid', cost_per_unit: '' });
+  const [newIng, setNewIng]       = useState({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '1.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
   const [addingIng, setAddingIng] = useState(false);
 
   // Edit ingredient inline
@@ -811,6 +821,7 @@ export default function Catalog({ adminToken }) {
 
       setIngredients(extra.ingredients || []);
       setPriceHistory(extra.priceHistory || []);
+      setCompoundItems(extra.compoundItems || []);
 
       // Build recipes map: { [productId]: [{ ingredient_id, quantity }] }
       const recipeMap = {};
@@ -1024,11 +1035,21 @@ export default function Catalog({ adminToken }) {
     if (!newIng.name) { alert('Nome é obrigatório'); return; }
     setAddingIng(true);
     try {
-      const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'save_ingredient', data: { name: newIng.name, unit: newIng.unit, cost_per_unit: parseFloat(newIng.cost_per_unit) || 0 } }) });
+      const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'save_ingredient', data: {
+        name: newIng.name,
+        unit: newIng.unit,
+        cost_per_unit: parseFloat(newIng.cost_per_unit) || 0,
+        ingredient_type: newIng.ingredient_type || 'simple',
+        correction_factor: parseFloat(newIng.correction_factor) || 1.0,
+        min_stock: parseFloat(newIng.min_stock) || 0,
+        max_stock: parseFloat(newIng.max_stock) || 0,
+        purchase_origin: newIng.purchase_origin || '',
+        weight_volume: parseFloat(newIng.weight_volume) || 1.0,
+      } }) });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
       if (d.ingredient) setIngredients(prev => [...prev, d.ingredient].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
-      setNewIng({ name: '', unit: 'unid', cost_per_unit: '' });
+      setNewIng({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '1.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
     } catch (e) { alert('Erro: ' + e.message); }
     finally { setAddingIng(false); }
   }
