@@ -6,20 +6,22 @@ import { GOLD, MUTED } from './tokens';
 interface FloatingCartProps {
   itemCount: number;
   total: number;
-  onCheckout: () => void;
+  onOpenCart: () => void;
 }
 
-export default function FloatingCart({ itemCount, total, onCheckout }: FloatingCartProps) {
+export default function FloatingCart({ itemCount, total, onOpenCart }: FloatingCartProps) {
   if (itemCount === 0) return null;
 
   return (
     <div
+      onClick={onOpenCart}
       style={{
         position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
         width: '100%', maxWidth: 480, padding: '14px 18px',
         background: 'rgba(18, 13, 0, 0.97)', backdropFilter: 'blur(20px)',
         borderTop: '1px solid rgba(242,168,0,0.2)', zIndex: 40,
         boxShadow: '0 -8px 40px rgba(0,0,0,0.7)',
+        cursor: 'pointer',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -32,8 +34,8 @@ export default function FloatingCart({ itemCount, total, onCheckout }: FloatingC
           R$ {total.toFixed(2).replace('.', ',')}
         </span>
       </div>
-      <button className="btn-primary" onClick={onCheckout}>
-        Ir para o Checkout
+      <button className="btn-primary" onClick={e => { e.stopPropagation(); onOpenCart(); }}>
+        Ver Carrinho
       </button>
     </div>
   );
