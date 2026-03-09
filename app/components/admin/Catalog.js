@@ -702,10 +702,11 @@ export default function Catalog({ adminToken }) {
         try {
           const parsed = JSON.parse(savedUpsell);
           const blank = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null });
+          const normalize = slot => ({ ...blank(), ...(slot || {}), product_id: slot?.product_id != null ? String(slot.product_id) : null });
           if (Array.isArray(parsed)) {
-            setUpsellSlots([0, 1, 2].map(i => ({ ...blank(), ...(parsed[i] || {}) })));
+            setUpsellSlots([0, 1, 2].map(i => normalize(parsed[i])));
           } else {
-            setUpsellSlots([{ ...blank(), ...parsed }, blank(), blank()]);
+            setUpsellSlots([normalize(parsed), blank(), blank()]);
           }
         } catch {}
       }
@@ -1245,7 +1246,7 @@ export default function Catalog({ adminToken }) {
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     {upsellSlots.map((upsell, idx) => {
-                      const selectedItem = allItems.find(i => i.id === upsell.product_id) || null;
+                      const selectedItem = upsell.product_id != null ? (allItems.find(i => String(i.id) === String(upsell.product_id)) || null) : null;
                       return (
                         <div key={idx} style={{ background: C.card, borderRadius: 10, border: '1px solid ' + (upsell.enabled ? C.gold : C.border), padding: 16 }}>
                           {/* Slot header */}
@@ -1274,9 +1275,9 @@ export default function Catalog({ adminToken }) {
                               Produto a oferecer
                             </label>
                             <select
-                              value={upsell.product_id ?? ''}
+                              value={upsell.product_id != null ? String(upsell.product_id) : ''}
                               onChange={e => {
-                                const next = upsellSlots.map((u, i) => i === idx ? { ...u, product_id: e.target.value ? Number(e.target.value) : null } : u);
+                                const next = upsellSlots.map((u, i) => i === idx ? { ...u, product_id: e.target.value || null } : u);
                                 saveUpsellConfig(next);
                               }}
                               style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', background: '#fff', color: C.text }}
