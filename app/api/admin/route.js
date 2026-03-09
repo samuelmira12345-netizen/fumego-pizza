@@ -92,6 +92,12 @@ export async function POST(request) {
       return NextResponse.json({ orders: rows || [], hasMore: (rows || []).length === pageSize });
     }
 
+    if (action === 'save_setting') {
+      const { key, value } = data;
+      await supabase.from('settings').upsert({ key, value }, { onConflict: 'key' });
+      return NextResponse.json({ success: true });
+    }
+
     if (action === 'save_all') {
       const { products, drinks, settings } = data;
       if (products) for (const p of products) await supabase.from('products').upsert(p);

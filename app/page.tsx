@@ -30,6 +30,7 @@ export default function HomePage() {
   const router = useRouter();
 
   const [products, setProducts]               = useState<Product[]>([]);
+  const [allProducts, setAllProducts]         = useState<Product[]>([]); // todos, incluindo ocultos — usado para upsell
   const [drinks, setDrinks]                   = useState<Drink[]>([]);
   const [settings, setSettings]               = useState<Settings>({});
   const [storeOpen, setStoreOpen]             = useState(true);
@@ -86,6 +87,7 @@ export default function HomePage() {
         supabase.from('settings').select('*'),
       ]);
       if (pRes.data) {
+        setAllProducts(pRes.data);
         // Filtra produtos ocultos do cardápio, exceto calabresa e marguerita (capa da loja)
         const visibleProducts = pRes.data.filter((p: Product) =>
           !p.is_hidden || p.slug === 'calabresa' || p.slug === 'marguerita'
@@ -658,7 +660,14 @@ export default function HomePage() {
           upsellItems={upsellConfigs
             .filter(cfg => cfg.enabled && cfg.product_id != null)
             .reduce<UpsellItem[]>((acc, cfg) => {
-              const product = products.find(p => p.id === cfg.product_id!) ?? null;
+              // Busca em todos os produtos (incluindo ocultos) e também em bebidas
+              const product: Product | null =
+                allProducts.find(p => String(p.id) === String(cfg.product_id)) ??
+                (() => {
+                  const d = drinks.find(d => String(d.id) === String(cfg.product_id));
+                  if (!d) return null;
+                  return { id: d.id, slug: '', name: d.size ? `${d.name} ${d.size}` : d.name, description: '', price: d.price, image_url: null, is_active: d.is_active, is_hidden: false, sort_order: 0 } as Product;
+                })() ?? null;
               if (product && product.is_active && !cart.some(i => i.product.id === product.id)) {
                 acc.push({ config: cfg, product });
               }
