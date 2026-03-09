@@ -632,7 +632,7 @@ function ProductRow({
   })();
 
   return (
-    <div style={{ background: C.card, borderRadius: 8, border: isExpanded ? '1.5px solid #F2A800' : '1px solid ' + C.border, overflow: 'hidden', boxShadow: isExpanded ? '0 2px 12px rgba(242,168,0,0.12)' : '0 1px 2px rgba(0,0,0,0.04)' }}>
+    <div style={{ position: isExpanded ? 'relative' : 'static', zIndex: isExpanded ? 1001 : 'auto', background: C.card, borderRadius: 8, border: isExpanded ? '1.5px solid #F2A800' : '1px solid ' + C.border, overflow: 'hidden', boxShadow: isExpanded ? '0 2px 12px rgba(242,168,0,0.12)' : '0 1px 2px rgba(0,0,0,0.04)' }}>
       {/* Collapsed row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px' }}>
         {/* Thumbnail */}
@@ -647,12 +647,21 @@ function ProductRow({
           <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 3, background: catColor + '18', color: catColor }}>{catLabel}</span>
         </div>
 
-        {/* Price + CMV */}
+        {/* Price + CMV % */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0, minWidth: 76 }}>
           <span style={{ fontSize: 14, fontWeight: 800, color: C.gold }}>{fmtBRL(product.price)}</span>
           {cmvValue !== null
-            ? <span style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>CMV: {fmtBRL(cmvValue)}</span>
-            : <span style={{ fontSize: 10, color: '#EF4444', fontWeight: 500 }}>Falta ficha técnica</span>
+            ? (() => {
+                const price = parseFloat(product.price);
+                const pct = price > 0 ? Math.round(cmvValue / price * 100) : null;
+                return pct !== null
+                  ? <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 4,
+                      background: pct <= 30 ? '#ECFDF5' : pct <= 45 ? '#FFFBEB' : '#FEF2F2',
+                      color: pct <= 30 ? '#059669' : pct <= 45 ? '#D97706' : '#EF4444',
+                    }}>CMV {pct}%</span>
+                  : null;
+              })()
+            : <span style={{ fontSize: 10, color: '#EF4444', fontWeight: 500 }}>Falta ficha</span>
           }
         </div>
 
@@ -1264,15 +1273,15 @@ export default function Catalog({ adminToken }) {
                   <div
                     onClick={() => setExpandedId(null)}
                     style={{
-                      position: 'fixed', inset: 0, zIndex: 10,
+                      position: 'fixed', inset: 0, zIndex: 1000,
                       backdropFilter: 'blur(3px)',
                       WebkitBackdropFilter: 'blur(3px)',
-                      background: 'rgba(0,0,0,0.15)',
+                      background: 'rgba(0,0,0,0.2)',
                     }}
                   />
                 )}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24, position: 'relative', zIndex: expandedId !== null ? 11 : 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
                   {filteredProducts.map((p, idx) => (
                     <ProductRow
                       key={p.id}
