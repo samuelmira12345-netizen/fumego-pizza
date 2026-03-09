@@ -24,6 +24,7 @@ const FILTER_TABS = [
   { key: 'combo',   label: 'Combo' },
   { key: 'outros',  label: 'Outros' },
   { key: 'bebidas', label: 'Bebidas' },
+  { key: 'upsell',  label: 'Upsell' },
 ];
 
 const UNITS = ['unid', 'kg', 'g', 'L', 'ml', 'cx', 'pct', 'dz', 'ft'];
@@ -651,6 +652,7 @@ export default function Catalog({ adminToken }) {
   const [saving, setSaving]       = useState(false);
   const [msg, setMsg]             = useState('');
   const [uploadingId, setUploadingId] = useState(null);
+  const [uploadingUpsellIdx, setUploadingUpsellIdx] = useState(null);
 
   // New product form
   const [showNewProduct, setShowNewProduct] = useState(false);
@@ -854,6 +856,22 @@ export default function Catalog({ adminToken }) {
       alert('✅ Foto enviada!');
     } catch (e) { alert('Erro: ' + e.message); }
     finally { setUploadingId(null); }
+  }
+
+  async function handleUpsellImageUpload(idx, file) {
+    if (!file) return;
+    setUploadingUpsellIdx(idx);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('prefix', `upsell-${idx}`);
+      const res = await fetch('/api/admin/upload-image', { method: 'POST', headers: { 'Authorization': `Bearer ${adminToken}` }, body: formData });
+      const result = await res.json();
+      if (!res.ok) { setMsg('❌ Erro no upload: ' + result.error); return; }
+      const next = upsellSlots.map((u, i) => i === idx ? { ...u, custom_image_url: result.url } : u);
+      saveUpsellConfig(next);
+    } catch (e) { setMsg('❌ Erro no upload: ' + e.message); }
+    finally { setUploadingUpsellIdx(null); }
   }
 
   // ── Drinks ───────────────────────────────────────────────────────────────────
@@ -1090,7 +1108,7 @@ export default function Catalog({ adminToken }) {
 
           <div style={{ padding: '24px 28px', paddingBottom: 80 }}>
             {/* Produtos */}
-            {catFilter !== 'bebidas' && (
+            {catFilter !== 'bebidas' && catFilter !== 'upsell' && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                   <UtensilsCrossed size={16} color={C.gold} />
@@ -1229,15 +1247,14 @@ export default function Catalog({ adminToken }) {
               </>
             )}
 
-            {/* ── UPSELL ── */}
-            {(() => {
+            {/* ── UPSELL TAB ── */}
+            {catFilter === 'upsell' && (() => {
               const allItems = [
                 ...products.filter(p => p.is_active).map(p => ({ id: p.id, label: p.name, price: p.price, image_url: p.image_url, type: 'product' })),
                 ...drinks.filter(d => d.is_active).map(d => ({ id: d.id, label: `${d.name}${d.size ? ` ${d.size}` : ''}`, price: d.price, image_url: null, type: 'drink' })),
               ];
-
               return (
-                <div style={{ marginTop: 32, borderTop: '2px dashed ' + C.border, paddingTop: 24 }}>
+                <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
                     <TrendingUp size={16} color={C.gold} />
                     <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Upsell no Carrinho</span>
@@ -1333,24 +1350,42 @@ export default function Catalog({ adminToken }) {
                             </div>
                           </div>
 
-                          {/* Foto personalizada */}
+                          {/* Foto personalizada — upload */}
                           <div style={{ marginBottom: 12 }}>
-                            <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-                              URL da foto personalizada
+                            <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                              Foto personalizada
                             </label>
                             <input
-                              value={upsell.custom_image_url || ''}
-                              onChange={e => {
-                                const next = upsellSlots.map((u, i) => i === idx ? { ...u, custom_image_url: e.target.value || null } : u);
-                                setUpsellSlots(next);
-                              }}
-                              onBlur={() => saveUpsellConfig(upsellSlots)}
-                              placeholder="https://... (deixe vazio para usar a foto do produto)"
-                              style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
+                              type="file"
+                              accept="image/*"
+                              id={`upsell-img-${idx}`}
+                              style={{ display: 'none' }}
+                              onChange={e => { if (e.target.files?.[0]) handleUpsellImageUpload(idx, e.target.files[0]); e.target.value = ''; }}
                             />
-                            {upsell.custom_image_url && (
-                              <img src={upsell.custom_image_url} alt="" onError={e => e.target.style.display='none'} style={{ marginTop: 6, width: 52, height: 52, borderRadius: 8, objectFit: 'cover', border: '1px solid ' + C.border }} />
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => document.getElementById(`upsell-img-${idx}`).click()}
+                                disabled={uploadingUpsellIdx === idx}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, border: '1px solid ' + C.border, background: '#fff', fontSize: 12, fontWeight: 600, cursor: uploadingUpsellIdx === idx ? 'not-allowed' : 'pointer', color: C.text, opacity: uploadingUpsellIdx === idx ? 0.6 : 1 }}
+                              >
+                                {uploadingUpsellIdx === idx
+                                  ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
+                                  : <><Upload size={12} /> Fazer upload</>}
+                              </button>
+                              {upsell.custom_image_url ? (
+                                <>
+                                  <img src={upsell.custom_image_url} alt="" onError={e => { e.target.style.display = 'none'; }} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid ' + C.border, flexShrink: 0 }} />
+                                  <button
+                                    onClick={() => { const next = upsellSlots.map((u, i) => i === idx ? { ...u, custom_image_url: null } : u); saveUpsellConfig(next); }}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', fontSize: 11, fontWeight: 600, cursor: 'pointer', color: C.danger }}
+                                  >
+                                    <Trash2 size={11} /> Remover foto
+                                  </button>
+                                </>
+                              ) : (
+                                <span style={{ fontSize: 11, color: C.muted }}>Sem foto — usará a foto do produto</span>
+                              )}
+                            </div>
                           </div>
 
                           {/* Mostrar foto */}
