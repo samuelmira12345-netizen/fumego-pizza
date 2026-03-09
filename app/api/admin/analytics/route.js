@@ -143,7 +143,7 @@ export async function GET(request) {
       { startDate: prevStart, endDate: prevEnd, name: 'previous' },
     ];
 
-    // ── 5 batch reports ──────────────────────────────────────────────────────
+    // ── 4 batch reports (main) ───────────────────────────────────────────────
 
     const batchResult = await runBatchReports(propertyId, accessToken, [
 
@@ -189,9 +189,16 @@ export async function GET(request) {
         orderBys:   [{ metric: { metricName: 'sessions' }, desc: true }],
         limit: 20,
       },
+    ]);
 
-      // Report 4 — Product performance (ecommerce)
-      {
+    const reports = batchResult.reports || [];
+
+    // ── Report 4 — Product performance (ecommerce, optional) ────────────────
+    // Fetched separately because itemName requires Enhanced Ecommerce and
+    // an incompatibility would otherwise break the entire batch.
+    let productsReport = null;
+    try {
+      const productsBatch = await runBatchReports(propertyId, accessToken, [{
         dateRanges: [{ startDate, endDate }],
         dimensions: [{ name: 'itemName' }],
         metrics:    [
@@ -201,10 +208,11 @@ export async function GET(request) {
         ],
         orderBys: [{ metric: { metricName: 'itemViews' }, desc: true }],
         limit: 50,
-      },
-    ]);
-
-    const reports = batchResult.reports || [];
+      }]);
+      productsReport = (productsBatch.reports || [])[0] || null;
+    } catch {
+      // ecommerce not configured — products will be empty
+    }
 
     // ── Parse report 0: overall metrics ─────────────────────────────────────
 
@@ -291,7 +299,7 @@ export async function GET(request) {
 
     // ── Parse report 4: products ─────────────────────────────────────────────
 
-    const r4 = reports[4];
+    const r4 = productsReport;
     const products = parseRows(r4)
       .filter(row => row.itemName && row.itemName !== '(not set)')
       .map(row => ({
