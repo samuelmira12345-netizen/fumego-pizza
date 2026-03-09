@@ -964,7 +964,15 @@ function DreTab({ adminToken, refreshTick }) {
     setPeriod(p => p.month === 12 ? { year: p.year + 1, month: 1 } : { ...p, month: p.month + 1 });
   }
 
-  const c = data?.current;
+  const EMPTY_CURRENT = {
+    ordersCount: 0, cancelledCount: 0, cancelledValue: 0,
+    salesRevenue: 0, deliveryFees: 0, grossRevenue: 0,
+    coupons: 0, cashback: 0, deductions: 0,
+    netRevenue: 0, cmv: 0, grossProfit: 0, grossMargin: 0,
+    expenses: 0, expenseEntries: [],
+    ebitda: 0, ebitdaMargin: 0, netProfit: 0, netMargin: 0,
+  };
+  const c = data?.current || EMPTY_CURRENT;
   const p = data?.previous;
   const isCurrentMonth = (() => {
     const now = new Date();
@@ -1011,7 +1019,8 @@ function DreTab({ adminToken, refreshTick }) {
         </div>
       )}
 
-      {c && (
+      {/* ── DRE Content ── */}
+      {true && (
         <>
           {/* ── KPI Cards ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
@@ -1164,7 +1173,7 @@ function DreTab({ adminToken, refreshTick }) {
           </div>
 
           {/* ── Chart ── */}
-          {data.timeSeries && data.timeSeries.length > 1 && (
+          {data?.timeSeries && data.timeSeries.length > 1 && (
             <div style={{ background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Receitas vs. Despesas — Diário</div>
@@ -1173,7 +1182,7 @@ function DreTab({ adminToken, refreshTick }) {
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: C.danger, display: 'inline-block' }} /> Despesas</span>
                 </div>
               </div>
-              <DreBarChart data={data.timeSeries} />
+              <DreBarChart data={data?.timeSeries} />
             </div>
           )}
         </>

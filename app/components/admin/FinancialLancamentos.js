@@ -1,8 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ChevronLeft, ChevronRight, Search, RefreshCw,
-  TrendingUp, TrendingDown, Clock, CheckCircle, AlertCircle, ArrowUpDown,
+  ChevronLeft, ChevronRight, Search, RefreshCw, Plus, X,
 } from 'lucide-react';
 
 const C = {
@@ -17,8 +16,12 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
 
 const PM_LABELS = { pix:'PIX', card:'Cartão de Crédito', cash:'Dinheiro', card_delivery:'Cartão na Entrega' };
 
+const CATEGORIES_RECEITA = ['Receitas de vendas','Serviços','Outras receitas'];
+const CATEGORIES_DESPESA = ['Pessoal','Imóvel','Energia Elétrica','Água','Telecom','Entregadores','Insumos','Marketing','Impostos','Outros'];
+
 const fmtBRL = v => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtDate = iso => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day:'2-digit', month:'2-digit', year:'numeric' });
+const todaySP = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
 function StatusBadge({ status }) {
   const MAP = {
@@ -48,11 +51,144 @@ function SummaryChip({ label, amount, color, count }) {
   );
 }
 
+function AddModal({ adminToken, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    entry_type: 'despesa',
+    description: '',
+    category: CATEGORIES_DESPESA[0],
+    amount: '',
+    payment_method: 'cash',
+    date: todaySP(),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const categories = form.entry_type === 'receita' ? CATEGORIES_RECEITA : CATEGORIES_DESPESA;
+
+  function handleChange(field, value) {
+    setForm(f => {
+      const next = { ...f, [field]: value };
+      if (field === 'entry_type') {
+        next.category = value === 'receita' ? CATEGORIES_RECEITA[0] : CATEGORIES_DESPESA[0];
+      }
+      return next;
+    });
+  }
+
+  async function handleSave() {
+    if (!form.description.trim()) { setError('Informe a descrição.'); return; }
+    if (!form.amount || parseFloat(form.amount) <= 0) { setError('Informe o valor.'); return; }
+    setSaving(true); setError('');
+    try {
+      const res = await fetch('/api/admin/financial', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'lancamento_add', ...form }),
+      });
+      const d = await res.json();
+      if (d.error) { setError(d.error); setSaving(false); return; }
+      onSaved();
+      onClose();
+    } catch (e) { setError('Erro ao salvar.'); setSaving(false); }
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '9px 12px', border: `1px solid ${C.border}`, borderRadius: 8,
+    fontSize: 13, color: C.text, outline: 'none', background: '#fff', boxSizing: 'border-box',
+  };
+  const labelStyle = { fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 4, display: 'block' };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: C.card, borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Adicionar Lançamento</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, display: 'flex' }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Tipo */}
+          <div>
+            <label style={labelStyle}>Tipo</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[{ key: 'receita', label: 'Receita' }, { key: 'despesa', label: 'Despesa' }].map(t => (
+                <button key={t.key} onClick={() => handleChange('entry_type', t.key)} style={{
+                  flex: 1, padding: '9px 12px', border: `1px solid ${form.entry_type === t.key ? (t.key === 'receita' ? C.success : C.danger) : C.border}`,
+                  borderRadius: 8, background: form.entry_type === t.key ? (t.key === 'receita' ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)') : '#fff',
+                  color: form.entry_type === t.key ? (t.key === 'receita' ? C.success : C.danger) : C.muted,
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}>{t.label}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Data */}
+          <div>
+            <label style={labelStyle}>Data</label>
+            <input type="date" value={form.date} onChange={e => handleChange('date', e.target.value)} style={inputStyle} />
+          </div>
+
+          {/* Descrição */}
+          <div>
+            <label style={labelStyle}>Descrição</label>
+            <input value={form.description} onChange={e => handleChange('description', e.target.value)}
+              placeholder="Ex: Pagamento fornecedor" style={inputStyle} />
+          </div>
+
+          {/* Categoria */}
+          <div>
+            <label style={labelStyle}>Categoria</label>
+            <select value={form.category} onChange={e => handleChange('category', e.target.value)} style={inputStyle}>
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {/* Valor */}
+          <div>
+            <label style={labelStyle}>Valor (R$)</label>
+            <input type="number" min="0" step="0.01" value={form.amount}
+              onChange={e => handleChange('amount', e.target.value)}
+              placeholder="0,00" style={inputStyle} />
+          </div>
+
+          {/* Forma de pagamento */}
+          <div>
+            <label style={labelStyle}>Forma de Pagamento</label>
+            <select value={form.payment_method} onChange={e => handleChange('payment_method', e.target.value)} style={inputStyle}>
+              <option value="cash">Dinheiro</option>
+              <option value="pix">PIX</option>
+              <option value="card">Cartão de Crédito</option>
+              <option value="card_delivery">Cartão na Entrega</option>
+            </select>
+          </div>
+
+          {error && <div style={{ fontSize: 12, color: C.danger, background: 'rgba(239,68,68,0.08)', padding: '8px 12px', borderRadius: 8 }}>{error}</div>}
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', gap: 10, padding: '0 20px 20px' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '10px', border: `1px solid ${C.border}`, borderRadius: 8, background: '#fff', color: C.muted, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            Cancelar
+          </button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: '10px', border: 'none', borderRadius: 8, background: C.gold, color: '#fff', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Salvando...' : 'Salvar Lançamento'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LancamentosTab({ adminToken, refreshTick }) {
   const [subTab, setSubTab] = useState('todos');
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [showModal, setShowModal] = useState(false);
   const [period, setPeriod] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
@@ -112,6 +248,10 @@ export default function LancamentosTab({ adminToken, refreshTick }) {
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {showModal && (
+        <AddModal adminToken={adminToken} onClose={() => setShowModal(false)} onSaved={load} />
+      )}
+
       {/* Sub-tab bar */}
       <div style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, display: 'flex', overflow: 'hidden' }}>
         {SUBTABS.map(t => (
@@ -149,6 +289,15 @@ export default function LancamentosTab({ adminToken, refreshTick }) {
 
         <button onClick={load} style={{ padding: '8px 12px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: C.muted }}>
           <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+        </button>
+
+        {/* Adicionar button */}
+        <button onClick={() => setShowModal(true)} style={{
+          padding: '8px 16px', background: C.gold, border: 'none', borderRadius: 8,
+          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+          color: '#fff', fontSize: 13, fontWeight: 700,
+        }}>
+          <Plus size={15} /> Adicionar
         </button>
       </div>
 
@@ -199,7 +348,7 @@ export default function LancamentosTab({ adminToken, refreshTick }) {
                 <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: C.light, fontSize: 13 }}>
                   Nenhum lançamento encontrado
                 </td></tr>
-              ) : filtered.map((e, i) => {
+              ) : filtered.map((e) => {
                 const isExpense   = e.type === 'despesa';
                 const isTransfer  = e.type === 'transferencia';
                 const isCancelled = e.status === 'cancelado';

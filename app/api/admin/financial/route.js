@@ -24,6 +24,11 @@ const PM_LABELS = {
   card_delivery: 'Cartão na Entrega',
 };
 
+function toSPDay(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
 function detectExpenseCategory(description) {
   const d = (description || '').toLowerCase();
   if (/salário|salario|funcionário|funcionario|vale|adiantamento|freelancer/i.test(d)) return 'Pessoal';
@@ -409,12 +414,26 @@ export async function GET(request) {
       payment_method: o.payment_method,
     }));
 
-    const despesas = cashEntries.map(e => ({
+    // Separate manual receitas from despesas
+    const manualReceitas = cashEntries.filter(e => e.type === 'receita_manual').map(e => ({
+      id:         'cash_' + e.id,
+      date:       toSPDay(e.created_at),
+      created_at: e.created_at,
+      description: e.description || 'Receita manual',
+      category:   e.category || 'Outros',
+      account:    'Caixa',
+      value:      parseFloat(e.amount || 0),
+      type:       'receita',
+      status:     'recebido',
+      payment_method: e.payment_method,
+    }));
+
+    const despesas = cashEntries.filter(e => e.type !== 'receita_manual').map(e => ({
       id:         'cash_' + e.id,
       date:       toSPDay(e.created_at),
       created_at: e.created_at,
       description: e.description || (e.type === 'sangria' ? 'Sangria de caixa' : 'Suprimento de caixa'),
-      category:   e.type === 'sangria' ? detectExpenseCategory(e.description) : 'Transferência',
+      category:   e.type === 'sangria' ? (e.category || detectExpenseCategory(e.description)) : 'Transferência',
       account:    'Caixa',
       value:      parseFloat(e.amount || 0),
       type:       e.type === 'sangria' ? 'despesa' : 'transferencia',
@@ -422,13 +441,14 @@ export async function GET(request) {
       payment_method: e.payment_method,
     }));
 
-    const todos = [...receitas, ...despesas].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    const allReceitas = [...receitas, ...manualReceitas];
+    const todos = [...allReceitas, ...despesas].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    const receitasRecebidas = receitas.filter(r => r.status === 'recebido').reduce((s, r) => s + r.value, 0);
+    const receitasRecebidas = allReceitas.filter(r => r.status === 'recebido').reduce((s, r) => s + r.value, 0);
     const totalDespesas     = despesas.filter(d => d.type === 'despesa').reduce((s, d) => s + d.value, 0);
 
     return NextResponse.json({
-      receitas,
+      receitas: allReceitas,
       despesas,
       todos,
       summary: {
@@ -662,6 +682,21 @@ export async function POST(request) {
         payment_method: body.payment_method || 'cash',
       })
       .select().single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ entry: data });
+  }
+
+  if (action === 'lancamento_add') {
+    const entryType = body.entry_type === 'receita' ? 'receita_manual' : 'sangria';
+    const payload = {
+      type:           entryType,
+      amount:         parseFloat(body.amount || 0),
+      description:    body.description || '',
+      payment_method: body.payment_method || 'cash',
+      category:       body.category || null,
+      created_at:     body.date ? new Date(body.date + 'T12:00:00-03:00').toISOString() : new Date().toISOString(),
+    };
+    const { data, error } = await supabase.from('cash_entries').insert(payload).select().single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ entry: data });
   }
