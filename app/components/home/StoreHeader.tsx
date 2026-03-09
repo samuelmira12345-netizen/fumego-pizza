@@ -13,14 +13,14 @@ interface StoreHeaderProps {
   setShowUserMenu: (v: boolean) => void;
   logoUrl: string | null;
   logoSize: number;
-  onGoToCheckout: () => void;
+  onOpenCart: () => void;
   onLogout: () => void;
   cashbackBalance?: number;
 }
 
 export default function StoreHeader({
   user, cartCount, showUserMenu, setShowUserMenu,
-  logoUrl, logoSize, onGoToCheckout, onLogout, cashbackBalance = 0,
+  logoUrl, logoSize, onOpenCart, onLogout, cashbackBalance = 0,
 }: StoreHeaderProps) {
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -69,7 +69,7 @@ export default function StoreHeader({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 14 }}>
         {/* Carrinho */}
         <button
-          onClick={onGoToCheckout}
+          onClick={onOpenCart}
           aria-label={cartCount > 0 ? `Ver carrinho (${cartCount} ${cartCount === 1 ? 'item' : 'itens'})` : 'Ver carrinho'}
           style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', position: 'relative', padding: 4 }}
         >

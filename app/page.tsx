@@ -11,6 +11,8 @@ import { useRouter } from 'next/navigation';
 import StoreHeader from './components/home/StoreHeader';
 import ProductModal from './components/home/ProductModal';
 import FloatingCart from './components/home/FloatingCart';
+import CartDrawer from './components/home/CartDrawer';
+import type { UpsellConfig } from './components/home/CartDrawer';
 import type { Product, Drink, DrinkSelection, CartItem, CartItemOption, AppSettings, AppUser, StockLimit, ImagePosition } from './components/home/types';
 import {
   GOLD, GOLD_LIGHT, BG, CARD, BORDER, MUTED, FAINT,
@@ -45,10 +47,12 @@ export default function HomePage() {
   const [selectedOption, setSelectedOption]   = useState<CartItemOption | null>(null);
   const [selectedOption2, setSelectedOption2] = useState<CartItemOption | null>(null);
   const [showUserMenu, setShowUserMenu]       = useState(false);
+  const [showCartDrawer, setShowCartDrawer]   = useState(false);
   const [showEmptyCartToast, setShowEmptyCartToast] = useState(false);
   const [stockLimits, setStockLimits]         = useState<Record<string, StockLimit>>({});
   const [imagePositions, setImagePositions]   = useState<Record<string, ImagePosition>>({});
   const [cashbackBalance, setCashbackBalance] = useState(0);
+  const [upsellConfig, setUpsellConfig]       = useState<UpsellConfig | null>(null);
 
   useEffect(() => {
     router.prefetch('/checkout');
@@ -120,6 +124,11 @@ export default function HomePage() {
         // Image positions
         if (s.image_positions) {
           try { setImagePositions(JSON.parse(s.image_positions)); } catch {}
+        }
+
+        // Upsell config
+        if (s.upsell_config) {
+          try { setUpsellConfig(JSON.parse(s.upsell_config)); } catch {}
         }
 
         // Compute effective store open status using business hours (Brasília timezone)
@@ -238,14 +247,37 @@ export default function HomePage() {
     return t;
   }
 
-  function goToCheckout() {
+  function openCartDrawer() {
     if (cart.length === 0) {
       setShowEmptyCartToast(true);
       setTimeout(() => setShowEmptyCartToast(false), 2500);
       return;
     }
+    setShowCartDrawer(true);
+  }
+
+  function goToCheckout() {
+    setShowCartDrawer(false);
     localStorage.setItem('fumego_cart', JSON.stringify(cart));
     router.push('/checkout');
+  }
+
+  function removeCartItemFromDrawer(itemId: number) {
+    saveCart(cart.filter(i => i.id !== itemId));
+    // Se o carrinho ficar vazio, fecha a gaveta
+    if (cart.length <= 1) setShowCartDrawer(false);
+  }
+
+  function addUpsellToCart(product: Product) {
+    const item: CartItem = {
+      id: Date.now(),
+      product,
+      observations: '',
+      drinks: [],
+      option: null,
+      option2: null,
+    };
+    saveCart([...cart, item]);
   }
 
   function getModalTotal(): number {
@@ -342,7 +374,7 @@ export default function HomePage() {
         setShowUserMenu={setShowUserMenu}
         logoUrl={logoUrl}
         logoSize={logoSize}
-        onGoToCheckout={goToCheckout}
+        onOpenCart={openCartDrawer}
         onLogout={logout}
         cashbackBalance={cashbackBalance}
       />
@@ -599,13 +631,31 @@ export default function HomePage() {
       <FloatingCart
         itemCount={cartCount}
         total={getCartTotal()}
-        onCheckout={goToCheckout}
+        onOpenCart={openCartDrawer}
       />
 
       {/* ── FOOTER ── */}
       <footer style={{ textAlign: 'center', color: FAINT, fontSize: 11, padding: '12px 16px', paddingBottom: cartCount > 0 ? 132 : 24, letterSpacing: 2, textTransform: 'uppercase' }}>
         Fumêgo © {new Date().getFullYear()}
       </footer>
+
+      {/* ── GAVETA DO CARRINHO ── */}
+      {showCartDrawer && (
+        <CartDrawer
+          cart={cart}
+          total={getCartTotal()}
+          onClose={() => setShowCartDrawer(false)}
+          onGoToCheckout={goToCheckout}
+          onRemoveItem={removeCartItemFromDrawer}
+          onAddUpsell={addUpsellToCart}
+          upsellConfig={upsellConfig}
+          upsellProduct={
+            upsellConfig?.product_id != null
+              ? products.find(p => p.id === upsellConfig!.product_id!) ?? null
+              : null
+          }
+        />
+      )}
 
       {/* ── MODAL PRODUTO (componente extraído) ── */}
       {showModal && selectedProduct && (

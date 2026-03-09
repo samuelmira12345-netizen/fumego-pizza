@@ -243,7 +243,7 @@ export default function CheckoutPage() {
   }
 
   function isFormValid() {
-    if (!form.name || !form.phone || !form.street || !form.number || !form.neighborhood) return false;
+    if (!form.name || !form.phone) return false;
     if (isScheduled && (!scheduledDate || !selectedSlot)) return false;
     return true;
   }
@@ -320,18 +320,13 @@ export default function CheckoutPage() {
   function handleSubmitOrder() {
     if (!isFormValid()) {
       const missing = [];
-      if (!form.name.trim())         missing.push('Nome completo');
-      if (!form.phone.trim())        missing.push('Telefone com DDD');
-      if (!form.street.trim())       missing.push('Rua / Avenida');
-      if (!form.number.trim())       missing.push('Número');
-      if (!form.neighborhood.trim()) missing.push('Bairro');
-      if (isScheduled && !scheduledDate)  missing.push('Data de agendamento');
-      if (isScheduled && !selectedSlot)   missing.push('Horário de agendamento');
+      if (!form.name.trim())  missing.push('Nome completo');
+      if (!form.phone.trim()) missing.push('Telefone com DDD');
+      if (isScheduled && !scheduledDate) missing.push('Data de agendamento');
+      if (isScheduled && !selectedSlot)  missing.push('Horário de agendamento');
       setFormError(`Preencha os campos obrigatórios antes de finalizar: ${missing.join(', ')}.`);
       if (!form.name.trim() || !form.phone.trim()) {
         scrollToStep('checkout-personal');
-      } else if (!form.street.trim() || !form.number.trim() || !form.neighborhood.trim()) {
-        scrollToStep('checkout-address');
       } else if (isScheduled && (!scheduledDate || !selectedSlot)) {
         scrollToStep('checkout-scheduling');
       }
@@ -668,31 +663,46 @@ export default function CheckoutPage() {
 
         {/* DADOS PESSOAIS */}
         <div id="checkout-personal" style={{ marginBottom: 16 }}>
-          {user ? (
-            /* Usuário logado — exibe resumo limpo */
-            <div style={{ background: CARD, borderRadius: 16, padding: 14, border: `1px solid ${BORDER}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 3 }}>{user.name}</p>
-                {user.phone && <p style={{ fontSize: 12, color: MUTED }}>{user.phone}</p>}
-                {user.email && <p style={{ fontSize: 12, color: MUTED }}>{user.email}</p>}
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 700, color: GREEN, background: 'rgba(72,187,120,0.12)', padding: '4px 10px', borderRadius: 20 }}>
-                Logado
-              </span>
-            </div>
-          ) : (
-            /* Visitante — formulário completo */
-            <>
-              <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Seus Dados</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <input className="input-field" placeholder="Nome completo *" value={form.name} onChange={e => updateForm('name', e.target.value)} />
-                <input className="input-field" placeholder="Telefone com DDD *" value={form.phone} onChange={e => updateForm('phone', e.target.value)} type="tel" />
-                <input className="input-field" placeholder="E-mail" value={form.email} onChange={e => updateForm('email', e.target.value)} type="email" />
-                <input className="input-field" placeholder="CPF (para cupom/PIX)" value={form.cpf} onChange={e => updateForm('cpf', e.target.value)}
-                  onBlur={() => { if (form.name.trim() && form.phone.trim()) scrollToStep('checkout-address'); }} />
-              </div>
-            </>
-          )}
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: GOLD, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 10 }}>Seus Dados</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input
+              className="input-field"
+              placeholder="Nome completo *"
+              value={form.name}
+              onChange={e => updateForm('name', e.target.value)}
+              autoComplete="name"
+              name="name"
+            />
+            <input
+              className="input-field"
+              placeholder="Telefone com DDD *"
+              value={form.phone}
+              onChange={e => updateForm('phone', e.target.value)}
+              type="tel"
+              autoComplete="tel"
+              name="tel"
+              inputMode="tel"
+            />
+            <input
+              className="input-field"
+              placeholder="E-mail"
+              value={form.email}
+              onChange={e => updateForm('email', e.target.value)}
+              type="email"
+              autoComplete="email"
+              name="email"
+            />
+            <input
+              className="input-field"
+              placeholder="CPF (para cupom/PIX)"
+              value={form.cpf}
+              onChange={e => updateForm('cpf', e.target.value)}
+              autoComplete="off"
+              name="cpf"
+              inputMode="numeric"
+              onBlur={() => { if (form.name.trim() && form.phone.trim()) scrollToStep('checkout-address'); }}
+            />
+          </div>
         </div>
 
         {/* ENDEREÇO */}
@@ -701,20 +711,27 @@ export default function CheckoutPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ position: 'relative' }}>
               <input className="input-field" placeholder="CEP" value={form.zipcode}
-                onChange={e => updateForm('zipcode', e.target.value)} onBlur={handleCepBlur} maxLength={9} inputMode="numeric" />
+                onChange={e => updateForm('zipcode', e.target.value)} onBlur={handleCepBlur} maxLength={9} inputMode="numeric"
+                autoComplete="postal-code" name="postal-code" />
               {cepLoading && <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: GOLD }}>Buscando...</span>}
             </div>
-            <input className="input-field" placeholder="Rua / Avenida *" value={form.street} onChange={e => updateForm('street', e.target.value)} />
+            <input className="input-field" placeholder="Rua / Avenida" value={form.street} onChange={e => updateForm('street', e.target.value)}
+              autoComplete="address-line1" name="address-line1" />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
-              <input className="input-field" placeholder="Número *" value={form.number} onChange={e => updateForm('number', e.target.value)} />
-              <input className="input-field" placeholder="Complemento" value={form.complement} onChange={e => updateForm('complement', e.target.value)} />
+              <input className="input-field" placeholder="Número" value={form.number} onChange={e => updateForm('number', e.target.value)}
+                autoComplete="address-line2" name="address-line2" inputMode="text" />
+              <input className="input-field" placeholder="Complemento" value={form.complement} onChange={e => updateForm('complement', e.target.value)}
+                autoComplete="address-line3" name="address-line3" />
             </div>
-            <input className="input-field" placeholder="Bairro *" value={form.neighborhood}
+            <input className="input-field" placeholder="Bairro" value={form.neighborhood}
               onChange={e => updateForm('neighborhood', e.target.value)}
-              onBlur={e => { if (e.target.value.trim()) scrollToStep(schedulingEnabled ? 'checkout-scheduling' : 'checkout-payment'); }} />
+              onBlur={e => { if (e.target.value.trim()) scrollToStep(schedulingEnabled ? 'checkout-scheduling' : 'checkout-payment'); }}
+              autoComplete="address-level3" name="address-level3" />
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
-              <input className="input-field" placeholder="Cidade" value={form.city} onChange={e => updateForm('city', e.target.value)} />
-              <input className="input-field" placeholder="Estado" value={form.state} onChange={e => updateForm('state', e.target.value)} maxLength={2} />
+              <input className="input-field" placeholder="Cidade" value={form.city} onChange={e => updateForm('city', e.target.value)}
+                autoComplete="address-level2" name="address-level2" />
+              <input className="input-field" placeholder="Estado" value={form.state} onChange={e => updateForm('state', e.target.value)} maxLength={2}
+                autoComplete="address-level1" name="address-level1" />
             </div>
           </div>
         </div>
