@@ -243,7 +243,7 @@ export default function CheckoutPage() {
   }
 
   function isFormValid() {
-    if (!form.name || !form.phone) return false;
+    if (!form.name || !form.phone || !form.street || !form.number || !form.neighborhood) return false;
     if (isScheduled && (!scheduledDate || !selectedSlot)) return false;
     return true;
   }
@@ -320,13 +320,18 @@ export default function CheckoutPage() {
   function handleSubmitOrder() {
     if (!isFormValid()) {
       const missing = [];
-      if (!form.name.trim())  missing.push('Nome completo');
-      if (!form.phone.trim()) missing.push('Telefone com DDD');
+      if (!form.name.trim())         missing.push('Nome completo');
+      if (!form.phone.trim())        missing.push('Telefone com DDD');
+      if (!form.street.trim())       missing.push('Rua / Avenida');
+      if (!form.number.trim())       missing.push('Número');
+      if (!form.neighborhood.trim()) missing.push('Bairro');
       if (isScheduled && !scheduledDate) missing.push('Data de agendamento');
       if (isScheduled && !selectedSlot)  missing.push('Horário de agendamento');
       setFormError(`Preencha os campos obrigatórios antes de finalizar: ${missing.join(', ')}.`);
       if (!form.name.trim() || !form.phone.trim()) {
         scrollToStep('checkout-personal');
+      } else if (!form.street.trim() || !form.number.trim() || !form.neighborhood.trim()) {
+        scrollToStep('checkout-address');
       } else if (isScheduled && (!scheduledDate || !selectedSlot)) {
         scrollToStep('checkout-scheduling');
       }
@@ -715,15 +720,15 @@ export default function CheckoutPage() {
                 autoComplete="postal-code" name="postal-code" />
               {cepLoading && <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: GOLD }}>Buscando...</span>}
             </div>
-            <input className="input-field" placeholder="Rua / Avenida" value={form.street} onChange={e => updateForm('street', e.target.value)}
+            <input className="input-field" placeholder="Rua / Avenida *" value={form.street} onChange={e => updateForm('street', e.target.value)}
               autoComplete="address-line1" name="address-line1" />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
-              <input className="input-field" placeholder="Número" value={form.number} onChange={e => updateForm('number', e.target.value)}
+              <input className="input-field" placeholder="Número *" value={form.number} onChange={e => updateForm('number', e.target.value)}
                 autoComplete="address-line2" name="address-line2" inputMode="text" />
               <input className="input-field" placeholder="Complemento" value={form.complement} onChange={e => updateForm('complement', e.target.value)}
                 autoComplete="address-line3" name="address-line3" />
             </div>
-            <input className="input-field" placeholder="Bairro" value={form.neighborhood}
+            <input className="input-field" placeholder="Bairro *" value={form.neighborhood}
               onChange={e => updateForm('neighborhood', e.target.value)}
               onBlur={e => { if (e.target.value.trim()) scrollToStep(schedulingEnabled ? 'checkout-scheduling' : 'checkout-payment'); }}
               autoComplete="address-level3" name="address-level3" />
