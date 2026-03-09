@@ -668,7 +668,9 @@ export default function HomePage() {
                   if (!d) return null;
                   return { id: d.id, slug: `drink-${d.id}`, name: d.size ? `${d.name} ${d.size}` : d.name, description: '', price: d.price, image_url: null, is_active: d.is_active, is_hidden: false, sort_order: 0 } as Product;
                 })() ?? null;
-              const alreadyInCart = cart.some(i => String(i.product.id) === String(product?.id));
+              const alreadyInCart =
+                cart.some(i => String(i.product.id) === String(product?.id)) ||
+                selectedDrinks.some(d => String(d.id) === String(product?.id));
               if (product && !alreadyInCart) {
                 acc.push({ config: cfg, product });
               }
