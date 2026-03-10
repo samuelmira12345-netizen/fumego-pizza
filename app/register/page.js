@@ -80,7 +80,7 @@ export default function RegisterPage() {
       if (!res.ok) { setError(data.error || 'Erro ao cadastrar'); return; }
       // JWT armazenado em cookie httpOnly pelo servidor (seguro contra XSS).
       localStorage.setItem('fumego_user', JSON.stringify(data.user));
-      router.push('/');
+      router.push('/teste');
     } catch { setError('Erro de conexão'); }
     finally { setLoading(false); }
   }
@@ -170,7 +170,7 @@ export default function RegisterPage() {
             style={{ background: 'none', border: 'none', color: GOLD, fontSize: 13, cursor: 'pointer' }}>
             Já tem conta? Entrar
           </button>
-          <button onClick={() => router.push('/')}
+          <button onClick={() => router.push('/teste')}
             style={{ background: 'none', border: 'none', color: MUTED, fontSize: 13, cursor: 'pointer' }}>
             ← Voltar ao cardápio
           </button>

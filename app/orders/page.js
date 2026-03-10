@@ -254,7 +254,7 @@ export default function OrdersPage() {
               <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.6 }}>
                 Nenhum pedido em andamento no momento.
               </p>
-              <button onClick={() => router.push('/')}
+              <button onClick={() => router.push('/teste')}
                 style={{ marginTop: 20, background: `linear-gradient(135deg, ${GOLD}, #FFD060)`, color: BG, border: 'none', borderRadius: 12, padding: '12px 24px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
                 Fazer um pedido →
               </button>
