@@ -120,6 +120,67 @@ export async function POST(request) {
 
       await supabase.from('orders').update(updates).eq('id', id);
 
+      // Deduz ingredientes do estoque ao confirmar pedido
+      if (status === 'confirmed') {
+        try {
+          // Idempotência: verificar se já deduziu para este pedido
+          const { data: existingMov } = await supabase
+            .from('stock_movements')
+            .select('id')
+            .eq('reference_id', id)
+            .eq('movement_type', 'sale')
+            .limit(1);
+
+          if (!existingMov || existingMov.length === 0) {
+            // Buscar order_items com produto
+            const { data: orderItems } = await supabase
+              .from('order_items')
+              .select('product_id, quantity, product_name')
+              .eq('order_id', id);
+
+            for (const oi of (orderItems || [])) {
+              if (!oi.product_id) continue;
+              // Buscar ficha técnica com ingrediente
+              const { data: recipe } = await supabase
+                .from('recipe_items')
+                .select('quantity, recipe_unit, ingredient_id, ingredients(id, unit, current_stock, name)')
+                .eq('product_id', oi.product_id);
+
+              for (const ri of (recipe || [])) {
+                const ing = ri.ingredients;
+                if (!ing) continue;
+                const ingUnit = ing.unit;
+                const recipeUnit = ri.recipe_unit || ingUnit;
+                const needsConv = (ingUnit === 'kg' && recipeUnit === 'g') || (ingUnit === 'L' && recipeUnit === 'ml');
+                const convFactor = needsConv ? 0.001 : 1;
+                const toDeduct = (parseFloat(ri.quantity) || 0) * convFactor * (parseInt(oi.quantity) || 1);
+                if (toDeduct <= 0) continue;
+
+                // Atualizar current_stock
+                const newStock = Math.max(0, (parseFloat(ing.current_stock) || 0) - toDeduct);
+                await supabase
+                  .from('ingredients')
+                  .update({ current_stock: newStock })
+                  .eq('id', ing.id);
+
+                // Registrar movimentação
+                await supabase.from('stock_movements').insert({
+                  ingredient_id: ing.id,
+                  movement_type: 'sale',
+                  quantity: toDeduct,
+                  reason: 'order',
+                  reference_id: id,
+                  notes: `Venda: ${oi.product_name || 'produto'}`,
+                });
+              }
+            }
+          }
+        } catch (stockErr) {
+          // Não falha o update de status por erro de estoque
+          logger.error('[Stock] Erro ao deduzir ingredientes', { id, err: stockErr.message });
+        }
+      }
+
       // Gera cashback quando loja finaliza o pedido manualmente (dinheiro/cartão na entrega)
       if (status === 'delivered') {
         const { data: order } = await supabase
@@ -347,6 +408,7 @@ export async function POST(request) {
           product_id,
           ingredient_id: i.ingredient_id,
           quantity: parseFloat(i.quantity) || 0,
+          recipe_unit: i.recipe_unit || null,
         }));
         const { error } = await supabase.from('recipe_items').insert(rows);
         if (error) return NextResponse.json({ error: error.message }, { status: 400 });

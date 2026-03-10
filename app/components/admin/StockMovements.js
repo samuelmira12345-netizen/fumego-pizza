@@ -6,6 +6,7 @@ import {
   RefreshCw, AlertTriangle, Package, DollarSign,
   ChevronDown, ChevronUp, Filter, Calendar,
 } from 'lucide-react';
+import DateRangePicker from '../DateRangePicker';
 
 const C = {
   bg: '#F4F5F7', card: '#fff', border: '#E5E7EB',
@@ -50,8 +51,7 @@ export default function StockMovements({ adminToken }) {
   // Date range filter – default: last 30 days
   const defaultEnd   = toLocalDateStr(new Date());
   const defaultStart = toLocalDateStr(new Date(Date.now() - 30 * 24 * 3600 * 1000));
-  const [dateStart, setDateStart] = useState(defaultStart);
-  const [dateEnd,   setDateEnd]   = useState(defaultEnd);
+  const [dateRange, setDateRange] = useState({ from: defaultStart, to: defaultEnd });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -99,8 +99,8 @@ export default function StockMovements({ adminToken }) {
 
   // ── Date range filtering ──────────────────────────────────────────────────
 
-  const rangeStart = dateStart ? new Date(dateStart + 'T00:00:00') : null;
-  const rangeEnd   = dateEnd   ? new Date(dateEnd   + 'T23:59:59') : null;
+  const rangeStart = dateRange.from ? new Date(dateRange.from + 'T00:00:00') : null;
+  const rangeEnd   = dateRange.to   ? new Date(dateRange.to   + 'T23:59:59') : null;
 
   const movementsInRange = movements.filter(m => {
     const d = new Date(m.created_at);
@@ -122,10 +122,10 @@ export default function StockMovements({ adminToken }) {
   const periodInCount  = movementsInRange.filter(m => m.movement_type === 'in').length;
   const periodOutCount = movementsInRange.filter(m => m.movement_type === 'out' || m.movement_type === 'sale').length;
 
-  const periodLabel = dateStart === dateEnd
+  const periodLabel = dateRange.from === dateRange.to
     ? 'no dia'
-    : dateStart && dateEnd
-      ? `${new Date(dateStart + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} – ${new Date(dateEnd + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+    : dateRange.from && dateRange.to
+      ? `${new Date(dateRange.from + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} – ${new Date(dateRange.to + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
       : 'no período';
 
   if (loading) {
@@ -157,44 +157,8 @@ export default function StockMovements({ adminToken }) {
       <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, padding: '14px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <Calendar size={16} color={C.gold} />
         <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Período:</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="date"
-            value={dateStart}
-            onChange={e => setDateStart(e.target.value)}
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, color: C.text, background: '#F9FAFB', outline: 'none', cursor: 'pointer' }}
-          />
-          <span style={{ color: C.muted, fontSize: 13 }}>até</span>
-          <input
-            type="date"
-            value={dateEnd}
-            onChange={e => setDateEnd(e.target.value)}
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, color: C.text, background: '#F9FAFB', outline: 'none', cursor: 'pointer' }}
-          />
-        </div>
-        {/* Quick range buttons */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {[
-            { label: 'Hoje',    days: 0 },
-            { label: '7 dias',  days: 7 },
-            { label: '30 dias', days: 30 },
-            { label: '90 dias', days: 90 },
-          ].map(({ label, days }) => (
-            <button
-              key={label}
-              onClick={() => {
-                const end = new Date();
-                const start = days === 0 ? end : new Date(end.getTime() - days * 24 * 3600 * 1000);
-                setDateStart(toLocalDateStr(start));
-                setDateEnd(toLocalDateStr(end));
-              }}
-              style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid ' + C.border, background: '#F3F4F6', color: C.muted, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {(dateStart || dateEnd) && (
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
+        {(dateRange.from || dateRange.to) && (
           <span style={{ fontSize: 11, color: C.muted, marginLeft: 'auto' }}>
             {movementsInRange.length} movimentação{movementsInRange.length !== 1 ? 'ões' : ''} no período
           </span>
