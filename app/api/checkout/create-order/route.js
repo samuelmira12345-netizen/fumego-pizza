@@ -213,30 +213,48 @@ export async function POST(request) {
     }
 
     // ── Cardápio Web Partner API ──────────────────────────────────────────────
-    // Envia o pedido ao painel do CardápioWeb (não bloqueia a resposta ao cliente)
+    // Envia o pedido ao painel do CardápioWeb (não bloqueia a resposta ao cliente).
+    // Após 3 tentativas com backoff registra o status em cw_push_status para
+    // que o cron de retry possa retentar pedidos com falha persistente.
     if (isCWPartnerEnabled()) {
       pushOrderToCW(order, orderItems)
-        .then(result => {
+        .then(async result => {
           if (result.ok) {
             logger.info('[CW Partner] Pedido enviado com sucesso ao CardápioWeb', {
               orderId:   order.id,
               cwOrderId: result.data?.id,
             });
+            await supabase.from('orders').update({
+              cw_push_status:      'success',
+              cw_push_attempts:    (order.cw_push_attempts || 0) + 1,
+              cw_push_last_error:  null,
+            }).eq('id', order.id);
           } else {
+            const errMsg = result.error || (result.errors || []).join('; ') || `HTTP ${result.status}`;
             logger.error('[CW Partner] Falha ao enviar pedido ao CardápioWeb', {
               orderId: order.id,
               status:  result.status,
               errors:  result.errors,
               error:   result.error,
             });
+            await supabase.from('orders').update({
+              cw_push_status:     'failed',
+              cw_push_attempts:   (order.cw_push_attempts || 0) + 1,
+              cw_push_last_error: errMsg.slice(0, 500),
+            }).eq('id', order.id);
           }
         })
-        .catch(e =>
+        .catch(async e => {
           logger.error('[CW Partner] Exceção ao enviar pedido ao CardápioWeb', {
             orderId: order.id,
             error:   e.message,
-          })
-        );
+          });
+          await supabase.from('orders').update({
+            cw_push_status:     'failed',
+            cw_push_attempts:   (order.cw_push_attempts || 0) + 1,
+            cw_push_last_error: e.message?.slice(0, 500),
+          }).eq('id', order.id);
+        });
     } else {
       logger.warn('[CW Partner] Integração inativa — pedido NÃO enviado ao CardápioWeb', {
         orderId: order.id,
