@@ -237,38 +237,37 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
 
 const UNITS_COMPOUND = ['unid', 'kg', 'g', 'L', 'ml', 'cx', 'pct', 'dz', 'ft', 'Bag', 'UN', 'KG'];
 
-function CompoundRecipePanel({ ingredient, ingredients, compoundItems, onSave, onClose, saving, adminToken, onIngredientCreated }) {
-  const ingCompoundItems = compoundItems.filter(c => c.compound_id === ingredient.id);
-  const [localItems, setLocalItems] = useState(ingCompoundItems.map(c => ({ ingredient_id: c.ingredient_id, quantity: c.quantity })));
-  const [addSubIng, setAddSubIng] = useState('');
-  const [addSubQty, setAddSubQty] = useState('');
+// ── RecipeItemsEditor: edit ingredients of a single named recipe ──────────────
+function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved, onCancel, onIngredientCreated }) {
+  const existing = recipe?.compound_recipe_items || [];
+  const [name, setName]     = useState(recipe?.name || '');
+  const [yieldQty, setYieldQty] = useState(String(recipe?.yield_quantity ?? 1));
+  const [items, setItems]   = useState(existing.map(i => ({ ingredient_id: i.ingredient_id, quantity: String(i.quantity) })));
+  const [addIng, setAddIng] = useState('');
+  const [addQty, setAddQty] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  // New sub-ingredient inline creation
-  const [showNewSub, setShowNewSub]     = useState(false);
-  const [newSubName, setNewSubName]     = useState('');
-  const [newSubUnit, setNewSubUnit]     = useState('kg');
-  const [newSubCost, setNewSubCost]     = useState('');
-  const [newSubQty, setNewSubQty]       = useState('');
-  const [creatingNew, setCreatingNew]   = useState(false);
+  // New sub-ingredient inline
+  const [showNewSub, setShowNewSub] = useState(false);
+  const [newSubName, setNewSubName] = useState('');
+  const [newSubUnit, setNewSubUnit] = useState('kg');
+  const [newSubCost, setNewSubCost] = useState('');
+  const [newSubQty, setNewSubQty]   = useState('');
+  const [creatingNew, setCreatingNew] = useState(false);
 
-  useEffect(() => {
-    setLocalItems(compoundItems.filter(c => c.compound_id === ingredient.id).map(c => ({ ingredient_id: c.ingredient_id, quantity: c.quantity })));
-  }, [ingredient.id, compoundItems]);
-
-  const wv = parseFloat(ingredient.weight_volume) || 1;
-  const availSubs = ingredients.filter(g => g.id !== ingredient.id && !localItems.find(i => i.ingredient_id === g.id));
-
-  const enrichedLocal = localItems.map(i => {
+  const available = ingredients.filter(g => g.id !== compound.id && !items.find(i => i.ingredient_id === g.id));
+  const enriched  = items.map(i => {
     const sub = ingredients.find(g => g.id === i.ingredient_id);
     return { ...i, name: sub?.name, unit: sub?.unit, cost_per_unit: parseFloat(sub?.cost_per_unit) || 0 };
   });
-  const localTotalCost = enrichedLocal.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
-  const localComputedCost = wv > 0 ? localTotalCost / wv : 0;
+  const totalCost = enriched.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
+  const yieldNum  = parseFloat(yieldQty) || 1;
+  const costPerUnit = yieldNum > 0 ? totalCost / yieldNum : 0;
 
-  function addSubItem() {
-    if (!addSubIng || !addSubQty) return;
-    setLocalItems(prev => [...prev, { ingredient_id: addSubIng, quantity: parseFloat(addSubQty) }]);
-    setAddSubIng(''); setAddSubQty('');
+  function addItem() {
+    if (!addIng || !addQty) return;
+    setItems(prev => [...prev, { ingredient_id: addIng, quantity: addQty }]);
+    setAddIng(''); setAddQty('');
   }
 
   async function handleCreateNewSub() {
@@ -277,26 +276,19 @@ function CompoundRecipePanel({ ingredient, ingredients, compoundItems, onSave, o
     try {
       const res = await fetch('/api/admin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
         body: JSON.stringify({ action: 'save_ingredient', data: {
-          name: newSubName.trim(),
-          unit: newSubUnit,
+          name: newSubName.trim(), unit: newSubUnit,
           cost_per_unit: parseFloat(newSubCost) || 0,
-          ingredient_type: 'simple',
-          correction_factor: 1.0,
-          min_stock: 0,
-          max_stock: 0,
-          weight_volume: 1.0,
+          ingredient_type: 'simple', correction_factor: 1.0,
+          min_stock: 0, max_stock: 0, weight_volume: 1.0,
         }}),
       });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
       if (d.ingredient) {
         onIngredientCreated(d.ingredient);
-        // Add to local items if qty provided
-        if (newSubQty) {
-          setLocalItems(prev => [...prev, { ingredient_id: d.ingredient.id, quantity: parseFloat(newSubQty) }]);
-        }
+        if (newSubQty) setItems(prev => [...prev, { ingredient_id: d.ingredient.id, quantity: newSubQty }]);
         setNewSubName(''); setNewSubUnit('kg'); setNewSubCost(''); setNewSubQty('');
         setShowNewSub(false);
       }
@@ -304,71 +296,91 @@ function CompoundRecipePanel({ ingredient, ingredients, compoundItems, onSave, o
     finally { setCreatingNew(false); }
   }
 
+  async function handleSave() {
+    if (!name.trim()) { alert('Nome da receita é obrigatório'); return; }
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'save_compound_recipe_v2', data: {
+          id: recipe?.id || null,
+          compound_id: compound.id,
+          name: name.trim(),
+          yield_quantity: parseFloat(yieldQty) || 1,
+          items: items.map(i => ({ ingredient_id: i.ingredient_id, quantity: parseFloat(i.quantity) || 0 })),
+        }}),
+      });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      onSaved(d.recipe_id);
+    } catch (e) { alert('Erro: ' + e.message); }
+    finally { setSaving(false); }
+  }
+
   return (
-    <div style={{ borderBottom: '1px solid ' + C.border, background: '#F5F3FF', padding: '14px 18px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: '#7C3AED', display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Layers size={13} /> Receita do Composto — {ingredient.name}
-          {wv !== 1 && <span style={{ fontSize: 10, color: C.muted, fontWeight: 500 }}>(Rendimento: {wv} {ingredient.unit})</span>}
-        </p>
-        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 16, lineHeight: 1 }}>×</button>
+    <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 8, padding: '12px 14px', marginBottom: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 8, marginBottom: 10 }}>
+        <div>
+          <label style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, display: 'block', marginBottom: 3 }}>NOME DA RECEITA *</label>
+          <input value={name} onChange={e => setName(e.target.value)} placeholder="ex: Massa 10kg" style={{ width: '100%', padding: '6px 8px', borderRadius: 5, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', boxSizing: 'border-box', color: C.text }} />
+        </div>
+        <div>
+          <label style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, display: 'block', marginBottom: 3 }}>RENDIMENTO ({compound.unit})</label>
+          <input type="number" min="0.001" step="0.001" value={yieldQty} onChange={e => setYieldQty(e.target.value)} style={{ width: '100%', padding: '6px 8px', borderRadius: 5, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', boxSizing: 'border-box', color: C.text }} />
+        </div>
       </div>
-      {enrichedLocal.length > 0 && (
+
+      {enriched.length > 0 && (
         <div style={{ marginBottom: 10, border: '1px solid #DDD6FE', borderRadius: 6, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 30px', background: '#EDE9FE', borderBottom: '1px solid #DDD6FE', padding: '5px 10px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 28px', background: '#EDE9FE', padding: '5px 10px' }}>
             {['Insumo', 'Qtd', 'Unid', 'Custo', ''].map((h, i) => <span key={i} style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase' }}>{h}</span>)}
           </div>
-          {enrichedLocal.map((item, idx) => (
-            <div key={item.ingredient_id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 30px', alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid #EDE9FE' }}>
+          {enriched.map((item, idx) => (
+            <div key={item.ingredient_id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 28px', alignItems: 'center', padding: '5px 10px', borderTop: '1px solid #EDE9FE' }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{item.name || '—'}</span>
               <input type="number" value={item.quantity} min="0" step="0.001"
-                onChange={e => setLocalItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: e.target.value } : it))}
-                style={{ width: '100%', padding: '3px 5px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', textAlign: 'right', boxSizing: 'border-box', color: C.text }} />
+                onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: e.target.value } : it))}
+                style={{ padding: '3px 5px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', textAlign: 'right', color: C.text }} />
               <span style={{ fontSize: 11, color: C.muted, textAlign: 'center' }}>{item.unit}</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', textAlign: 'right' }}>{fmtBRL((parseFloat(item.quantity) || 0) * item.cost_per_unit)}</span>
-              <button onClick={() => setLocalItems(prev => prev.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={12} /></button>
+              <button onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.danger }}><X size={12} /></button>
             </div>
           ))}
         </div>
       )}
-      {localTotalCost > 0 && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          <div style={{ background: '#EDE9FE', borderRadius: 6, padding: '6px 12px', flex: 1, minWidth: 120 }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 2 }}>CUSTO TOTAL INGREDIENTES</p>
-            <p style={{ fontSize: 13, fontWeight: 800, color: '#6D28D9' }}>{fmtBRL(localTotalCost)}</p>
+
+      {totalCost > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <div style={{ background: '#EDE9FE', borderRadius: 6, padding: '6px 10px', flex: 1 }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 2 }}>CUSTO TOTAL</p>
+            <p style={{ fontSize: 13, fontWeight: 800, color: '#6D28D9' }}>{fmtBRL(totalCost)}</p>
           </div>
-          <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '6px 12px', flex: 1, minWidth: 120 }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: C.success, marginBottom: 2 }}>CUSTO/UNID CALCULADO</p>
-            <p style={{ fontSize: 13, fontWeight: 800, color: '#047857' }}>{fmtBRL(localComputedCost)}</p>
-            {wv !== 1 && <p style={{ fontSize: 10, color: C.muted }}>÷ {wv} {ingredient.unit} rendimento</p>}
+          <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '6px 10px', flex: 1 }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: C.success, marginBottom: 2 }}>CUSTO/{compound.unit.toUpperCase()}</p>
+            <p style={{ fontSize: 13, fontWeight: 800, color: '#047857' }}>{fmtBRL(costPerUnit)}</p>
           </div>
         </div>
       )}
-      {enrichedLocal.length === 0 && <p style={{ fontSize: 12, color: C.light, marginBottom: 10 }}>Nenhum ingrediente na receita. Adicione abaixo.</p>}
 
-      {/* Adicionar insumo existente */}
-      {availSubs.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center' }}>
-          <select value={addSubIng} onChange={e => setAddSubIng(e.target.value)} style={{ flex: 1, padding: '5px 8px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', background: '#fff', color: C.text }}>
-            <option value="">Selecionar insumo existente...</option>
-            {availSubs.map(g => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
+      {/* Add existing ingredient */}
+      {available.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          <select value={addIng} onChange={e => setAddIng(e.target.value)} style={{ flex: 1, padding: '5px 8px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', background: '#fff', color: C.text }}>
+            <option value="">Adicionar insumo...</option>
+            {available.map(g => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
           </select>
-          <input type="number" value={addSubQty} min="0" step="0.001" onChange={e => setAddSubQty(e.target.value)} placeholder="Qtd" style={{ width: 70, padding: '5px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }} />
-          <button onClick={addSubItem} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: '#7C3AED', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={12} /> Add</button>
+          <input type="number" value={addQty} min="0" step="0.001" onChange={e => setAddQty(e.target.value)} placeholder="Qtd" style={{ width: 70, padding: '5px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }} />
+          <button onClick={addItem} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: '#7C3AED', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}><Plus size={12} /> Add</button>
         </div>
       )}
 
-      {/* Criar novo sub-insumo inline */}
-      <button
-        onClick={() => setShowNewSub(v => !v)}
-        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 4, border: '1px dashed #DDD6FE', background: showNewSub ? '#EDE9FE' : 'transparent', color: '#7C3AED', fontSize: 11, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}
-      >
-        <Plus size={11} /> {showNewSub ? 'Cancelar novo' : 'Criar novo insumo'}
+      {/* Create new sub-ingredient */}
+      <button onClick={() => setShowNewSub(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 4, border: '1px dashed #DDD6FE', background: showNewSub ? '#EDE9FE' : 'transparent', color: '#7C3AED', fontSize: 11, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+        <Plus size={11} /> {showNewSub ? 'Cancelar' : 'Criar novo insumo'}
       </button>
-
       {showNewSub && (
-        <div style={{ background: '#fff', borderRadius: 6, border: '1px solid #DDD6FE', padding: '10px 12px', marginBottom: 10 }}>
-          <p style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Novo insumo</p>
+        <div style={{ background: '#fff', borderRadius: 6, border: '1px solid #DDD6FE', padding: '10px 12px', marginBottom: 8 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 80px 100px 70px', gap: 6, marginBottom: 6 }}>
             <input value={newSubName} onChange={e => setNewSubName(e.target.value)} placeholder="Nome *" style={{ padding: '5px 7px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }} />
             <select value={newSubUnit} onChange={e => setNewSubUnit(e.target.value)} style={{ padding: '5px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }}>
@@ -377,26 +389,164 @@ function CompoundRecipePanel({ ingredient, ingredients, compoundItems, onSave, o
             <input type="number" value={newSubCost} onChange={e => setNewSubCost(e.target.value)} placeholder="Custo/unid" min="0" step="0.0001" style={{ padding: '5px 7px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }} />
             <input type="number" value={newSubQty} onChange={e => setNewSubQty(e.target.value)} placeholder="Qtd" min="0" step="0.001" style={{ padding: '5px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }} />
           </div>
-          <button
-            onClick={handleCreateNewSub}
-            disabled={creatingNew}
-            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 4, border: 'none', background: creatingNew ? '#9CA3AF' : '#7C3AED', color: '#fff', fontSize: 12, fontWeight: 700, cursor: creatingNew ? 'not-allowed' : 'pointer' }}
-          >
+          <button onClick={handleCreateNewSub} disabled={creatingNew} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 4, border: 'none', background: creatingNew ? '#9CA3AF' : '#7C3AED', color: '#fff', fontSize: 12, fontWeight: 700, cursor: creatingNew ? 'not-allowed' : 'pointer' }}>
             {creatingNew ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={11} />}
             {creatingNew ? 'Criando...' : 'Criar e adicionar'}
           </button>
         </div>
       )}
 
-      <button
-        onClick={() => onSave(ingredient.id, localItems, localComputedCost)}
-        disabled={saving}
-        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 5, border: 'none', background: saving ? '#9CA3AF' : '#7C3AED', color: '#fff', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}
-      >
-        {saving ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={12} />}
-        {saving ? 'Salvando...' : 'Salvar Receita'}
-      </button>
-      {localComputedCost > 0 && <p style={{ fontSize: 10, color: C.muted, marginTop: 5 }}>O custo/unid do composto será atualizado para {fmtBRL(localComputedCost)} automaticamente.</p>}
+      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+        <button onClick={handleSave} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 5, border: 'none', background: saving ? '#9CA3AF' : '#7C3AED', color: '#fff', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}>
+          {saving ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={12} />}
+          {saving ? 'Salvando...' : 'Salvar Receita'}
+        </button>
+        <button onClick={onCancel} style={{ padding: '6px 12px', borderRadius: 5, border: '1px solid #DDD6FE', background: '#fff', color: C.muted, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+      </div>
+    </div>
+  );
+}
+
+// ── CompoundRecipePanel: multiple named recipes per compound ──────────────────
+function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onIngredientCreated, onRecipeApplied }) {
+  const [recipes, setRecipes]         = useState([]);
+  const [loadingRec, setLoadingRec]   = useState(true);
+  const [editingRecipe, setEditingRecipe] = useState(null); // null | 'new' | recipe_object
+  const [applyingId, setApplyingId]   = useState(null);
+  const [batches, setBatches]         = useState(1);
+  const [confirmDelete, setConfirmDelete] = useState(null); // recipe id to confirm
+
+  useEffect(() => { loadRecipes(); }, [ingredient.id]);
+
+  async function loadRecipes() {
+    setLoadingRec(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'get_compound_recipes', data: { compound_id: ingredient.id } }),
+      });
+      const d = await res.json();
+      setRecipes(d.recipes || []);
+    } catch { /* silent */ }
+    finally { setLoadingRec(false); }
+  }
+
+  async function handleApply(recipe) {
+    setApplyingId(recipe.id);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'apply_compound_recipe', data: { recipe_id: recipe.id, batches } }),
+      });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      onRecipeApplied?.(ingredient.id, d.compound_stock);
+      alert(`✅ Receita "${recipe.name}" aplicada! Estoque atualizado: ${d.compound_stock} ${ingredient.unit}`);
+    } catch (e) { alert('Erro: ' + e.message); }
+    finally { setApplyingId(null); }
+  }
+
+  async function handleDelete(recipeId) {
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'delete_compound_recipe', data: { id: recipeId } }),
+      });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      setRecipes(prev => prev.filter(r => r.id !== recipeId));
+      setConfirmDelete(null);
+    } catch (e) { alert('Erro: ' + e.message); }
+  }
+
+  return (
+    <div style={{ borderBottom: '1px solid ' + C.border, background: '#F5F3FF', padding: '14px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#7C3AED', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Layers size={13} /> Receitas — {ingredient.name}
+        </p>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 18, lineHeight: 1 }}>×</button>
+      </div>
+
+      {/* Batch count selector */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '8px 12px', background: '#EDE9FE', borderRadius: 6 }}>
+        <span style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700 }}>LOTES P/ PRODUÇÃO:</span>
+        <input type="number" min="1" step="1" value={batches} onChange={e => setBatches(Math.max(1, parseInt(e.target.value) || 1))} style={{ width: 60, padding: '4px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, textAlign: 'center', outline: 'none', color: C.text }} />
+        <span style={{ fontSize: 11, color: C.muted }}>lote(s)</span>
+      </div>
+
+      {/* Recipe form (new or editing) */}
+      {editingRecipe !== null && (
+        <RecipeItemsEditor
+          recipe={editingRecipe === 'new' ? null : editingRecipe}
+          compound={ingredient}
+          ingredients={ingredients}
+          adminToken={adminToken}
+          onIngredientCreated={ing => onIngredientCreated?.(ing)}
+          onSaved={() => { setEditingRecipe(null); loadRecipes(); }}
+          onCancel={() => setEditingRecipe(null)}
+        />
+      )}
+
+      {/* Recipe list */}
+      {loadingRec ? (
+        <p style={{ fontSize: 12, color: C.muted, textAlign: 'center', padding: '16px 0' }}>Carregando receitas...</p>
+      ) : recipes.length === 0 && editingRecipe === null ? (
+        <p style={{ fontSize: 12, color: C.light, marginBottom: 10 }}>Nenhuma receita cadastrada. Crie a primeira abaixo.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+          {recipes.map(recipe => {
+            const itemCount = recipe.compound_recipe_items?.length || 0;
+            const isApplying = applyingId === recipe.id;
+            const isConfirming = confirmDelete === recipe.id;
+            return (
+              <div key={recipe.id} style={{ background: '#fff', borderRadius: 8, border: '1px solid #DDD6FE', padding: '10px 12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isConfirming ? 8 : 0 }}>
+                  <div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{recipe.name}</span>
+                    <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>
+                      Rendimento: {recipe.yield_quantity} {ingredient.unit} · {itemCount} insumo(s)
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <button
+                      onClick={() => handleApply(recipe)}
+                      disabled={isApplying}
+                      style={{ padding: '4px 10px', borderRadius: 4, border: 'none', background: isApplying ? '#9CA3AF' : '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: isApplying ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                    >
+                      {isApplying ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={11} />}
+                      Produzir
+                    </button>
+                    <button onClick={() => { setEditingRecipe(recipe); setConfirmDelete(null); }} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #DDD6FE', background: '#fff', color: C.muted, fontSize: 11, cursor: 'pointer' }}>Editar</button>
+                    {isConfirming ? (
+                      <span style={{ fontSize: 11, color: C.danger }}>
+                        Confirmar?{' '}
+                        <button onClick={() => handleDelete(recipe.id)} style={{ color: C.danger, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11 }}>Sim</button>
+                        {' / '}
+                        <button onClick={() => setConfirmDelete(null)} style={{ color: C.muted, background: 'none', border: 'none', cursor: 'pointer', fontSize: 11 }}>Não</button>
+                      </span>
+                    ) : (
+                      <button onClick={() => setConfirmDelete(recipe.id)} style={{ padding: '4px 6px', borderRadius: 4, border: '1px solid #DDD6FE', background: '#fff', color: C.danger, fontSize: 11, cursor: 'pointer' }}><Trash2 size={11} /></button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {editingRecipe === null && (
+        <button
+          onClick={() => setEditingRecipe('new')}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 5, border: '1px dashed #7C3AED', background: 'transparent', color: '#7C3AED', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+        >
+          <Plus size={12} /> Nova Receita
+        </button>
+      )}
     </div>
   );
 }
@@ -1006,6 +1156,9 @@ export default function Catalog({ adminToken }) {
   const [compoundPanelIngId, setCompoundPanelIngId] = useState(null); // ingredient id with open compound panel
   const [savingCompoundRecipe, setSavingCompoundRecipe] = useState(false);
 
+  // Per-ingredient stock movement chart
+  const [ingMovements, setIngMovements] = useState({}); // { [ingredient_id]: movements[] }
+
   // Settings needed for stock limits and image positions
   const [settings, setSettings]   = useState([]);
 
@@ -1095,6 +1248,20 @@ export default function Catalog({ adminToken }) {
   }, [adminToken]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Fetch stock movements when a stock panel opens (for chart)
+  useEffect(() => {
+    if (!stockPanelIngId || ingMovements[stockPanelIngId]) return;
+    fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ action: 'get_stock_movements', data: { ingredient_id: stockPanelIngId, limit: 30 } }),
+    }).then(r => r.json()).then(d => {
+      if (d.movements) {
+        setIngMovements(prev => ({ ...prev, [stockPanelIngId]: d.movements.slice().reverse() }));
+      }
+    }).catch(() => {});
+  }, [stockPanelIngId]);
 
   // ── Settings helpers ─────────────────────────────────────────────────────────
 
@@ -1366,22 +1533,26 @@ export default function Catalog({ adminToken }) {
     finally { setSavingCompoundRecipe(false); }
   }
 
-  async function handleStockMovement(ingredient_id) {
+  async function handleStockMovement(ingredient_id, isCompound = false) {
     if (!stockMovement.quantity) { alert('Quantidade é obrigatória'); return; }
+    if (isCompound && !stockMovement.reason?.trim()) { alert('Justificativa é obrigatória para compostos'); return; }
+    if (isCompound && !stockMovement.admin_password?.trim()) { alert('Senha do admin é obrigatória para compostos'); return; }
     setSavingStockMovement(true);
     try {
+      const movType = isCompound ? 'adjustment' : stockMovement.type;
       const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'stock_movement', data: {
         ingredient_id,
-        movement_type: stockMovement.type,
+        movement_type: movType,
         quantity: parseFloat(stockMovement.quantity),
         reason: stockMovement.reason,
         notes: stockMovement.notes,
+        ...(isCompound ? { admin_password: stockMovement.admin_password } : {}),
       } }) });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
       // Update local ingredient stock
       setIngredients(prev => prev.map(i => i.id === ingredient_id ? { ...i, current_stock: d.new_stock } : i));
-      setStockMovement({ type: 'in', quantity: '', reason: '', notes: '' });
+      setStockMovement({ type: 'in', quantity: '', reason: '', notes: '', admin_password: '' });
       setStockPanelIngId(null);
       setMsg('✅ Estoque atualizado!');
       setTimeout(() => setMsg(''), 3000);
@@ -1933,7 +2104,14 @@ export default function Catalog({ adminToken }) {
 
       {/* ── ABA INSUMOS ──────────────────────────────────────────────────────── */}
       {tab === 'insumos' && (
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', position: 'relative' }}>
+          {/* Blur backdrop when any ingredient panel is open */}
+          {(stockPanelIngId || compoundPanelIngId || editingIng || selectedIngForHistory) && (
+            <div
+              onClick={() => { setStockPanelIngId(null); setCompoundPanelIngId(null); setEditingIng(null); setSelectedIngForHistory(null); }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', zIndex: 50, cursor: 'pointer' }}
+            />
+          )}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 10 }}>
             <p style={{ fontSize: 13, color: C.muted }}>
               Insumos são matérias-primas utilizadas nas fichas técnicas dos produtos para calcular custo e margem automaticamente.
@@ -1998,6 +2176,8 @@ export default function Catalog({ adminToken }) {
                     margin: '4px 8px',
                     boxShadow: `0 0 0 3px ${activeBorderColor}22`,
                     overflow: 'hidden',
+                    position: 'relative',
+                    zIndex: 51,
                   } : {}}>
                     {/* Main row */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 180px', gap: 0, borderBottom: (hasAnyPanelOpen || isEditing) ? '1px solid ' + (activeBorderColor ? activeBorderColor + '40' : C.border) : '1px solid ' + C.border, padding: '10px 16px', alignItems: 'center', background: activeBorderColor ? activeBorderColor + '08' : 'transparent' }}>
@@ -2150,31 +2330,80 @@ export default function Catalog({ adminToken }) {
                             </>
                           )}
                         </div>
+                        {/* Mini stock history chart */}
+                        {(() => {
+                          const mvs = ingMovements[ing.id];
+                          if (!mvs || mvs.length === 0) return null;
+                          const maxQty = Math.max(...mvs.map(m => Math.abs(parseFloat(m.quantity) || 0)), 0.001);
+                          return (
+                            <div style={{ marginBottom: 12 }}>
+                              <p style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>Histórico de movimentações (últimas {mvs.length})</p>
+                              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 48, background: '#F9FAFB', borderRadius: 6, padding: '6px 8px', overflow: 'hidden' }}>
+                                {mvs.map((m, idx) => {
+                                  const qty = Math.abs(parseFloat(m.quantity) || 0);
+                                  const pct = qty / maxQty;
+                                  const color = m.movement_type === 'in' ? '#10B981' : m.movement_type === 'out' ? '#EF4444' : '#F59E0B';
+                                  return (
+                                    <div key={m.id || idx} title={`${m.movement_type}: ${qty} ${ing.unit}\n${m.reason || ''}`} style={{ flex: 1, minWidth: 4, background: color, borderRadius: 2, height: Math.max(4, pct * 36) + 'px', alignSelf: 'flex-end', opacity: 0.85, cursor: 'default', transition: 'height 0.2s' }} />
+                                  );
+                                })}
+                              </div>
+                              <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                                {[['#10B981', 'Entrada'], ['#EF4444', 'Saída'], ['#F59E0B', 'Ajuste']].map(([color, label]) => (
+                                  <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 9, color: C.muted }}>
+                                    <span style={{ width: 8, height: 8, borderRadius: 2, background: color, display: 'inline-block' }} />{label}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         {/* Movement form */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '120px 100px 1fr', gap: 8, marginBottom: 8 }}>
-                          <div>
-                            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tipo</label>
-                            <select value={stockMovement.type} onChange={e => setStockMovement(p => ({ ...p, type: e.target.value }))} style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#fff' }}>
-                              <option value="in">Entrada</option>
-                              <option value="out">Saída</option>
-                              <option value="adjustment">Ajuste</option>
-                            </select>
+                        {isCompound && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, padding: '8px 10px', background: '#FEF3C7', borderRadius: 6, border: '1px solid #FDE68A' }}>
+                            <span style={{ fontSize: 11, color: '#92400E', fontWeight: 600 }}>
+                              Compostos: somente ajuste de estoque. Requer justificativa e senha do admin.
+                            </span>
                           </div>
+                        )}
+                        <div style={{ display: 'grid', gridTemplateColumns: isCompound ? '100px 1fr' : '120px 100px 1fr', gap: 8, marginBottom: 8 }}>
+                          {!isCompound && (
+                            <div>
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tipo</label>
+                              <select value={stockMovement.type} onChange={e => setStockMovement(p => ({ ...p, type: e.target.value }))} style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#fff' }}>
+                                <option value="in">Entrada</option>
+                                <option value="out">Saída</option>
+                                <option value="adjustment">Ajuste</option>
+                              </select>
+                            </div>
+                          )}
                           <div>
-                            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Quantidade</label>
+                            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>
+                              {isCompound ? 'Novo Estoque' : 'Quantidade'}
+                            </label>
                             <input type="number" min="0" step="0.001" value={stockMovement.quantity} onChange={e => setStockMovement(p => ({ ...p, quantity: e.target.value }))} placeholder="0.000" style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
                           </div>
                           <div>
-                            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Motivo</label>
-                            <input value={stockMovement.reason} onChange={e => setStockMovement(p => ({ ...p, reason: e.target.value }))} placeholder="Compra, perda, inventário..." style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>
+                              {isCompound ? 'Justificativa *' : 'Motivo'}
+                            </label>
+                            <input value={stockMovement.reason} onChange={e => setStockMovement(p => ({ ...p, reason: e.target.value }))} placeholder={isCompound ? 'Motivo do ajuste (obrigatório)...' : 'Compra, perda, inventário...'} style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
                           </div>
                         </div>
-                        <div style={{ marginBottom: 10 }}>
-                          <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Observações</label>
-                          <input value={stockMovement.notes} onChange={e => setStockMovement(p => ({ ...p, notes: e.target.value }))} placeholder="Observações opcionais..." style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
-                        </div>
+                        {isCompound ? (
+                          <div style={{ marginBottom: 10 }}>
+                            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Senha do Admin *</label>
+                            <input type="password" value={stockMovement.admin_password || ''} onChange={e => setStockMovement(p => ({ ...p, admin_password: e.target.value }))} placeholder="Digite a senha do admin..." style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                          </div>
+                        ) : (
+                          <div style={{ marginBottom: 10 }}>
+                            <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Observações</label>
+                            <input value={stockMovement.notes} onChange={e => setStockMovement(p => ({ ...p, notes: e.target.value }))} placeholder="Observações opcionais..." style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                          </div>
+                        )}
                         <button
-                          onClick={() => handleStockMovement(ing.id)}
+                          onClick={() => handleStockMovement(ing.id, isCompound)}
                           disabled={savingStockMovement}
                           style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 5, border: 'none', background: savingStockMovement ? '#9CA3AF' : C.success, color: '#fff', fontSize: 12, fontWeight: 700, cursor: savingStockMovement ? 'not-allowed' : 'pointer' }}
                         >
@@ -2189,12 +2418,10 @@ export default function Catalog({ adminToken }) {
                       <CompoundRecipePanel
                         ingredient={ing}
                         ingredients={ingredients}
-                        compoundItems={compoundItems}
-                        onSave={handleSaveCompoundRecipe}
-                        onClose={() => setCompoundPanelIngId(null)}
-                        saving={savingCompoundRecipe}
                         adminToken={adminToken}
+                        onClose={() => setCompoundPanelIngId(null)}
                         onIngredientCreated={newIng => setIngredients(prev => [...prev, newIng].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))}
+                        onRecipeApplied={(ingId, newStock) => setIngredients(prev => prev.map(i => i.id === ingId ? { ...i, current_stock: newStock } : i))}
                       />
                     )}
 
@@ -2323,6 +2550,35 @@ export default function Catalog({ adminToken }) {
           <p style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>
             Configure o sabor especial que aparece como destaque no cardápio. Esse conteúdo é exibido automaticamente no site.
           </p>
+
+          {/* Toggle ativo/inativo */}
+          {(() => {
+            const enabled = getSetting('special_flavor_enabled') !== 'false';
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: C.card, borderRadius: 12, border: '1px solid ' + C.border, padding: '14px 20px', maxWidth: 600, marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: 0 }}>Exibir no cardápio</p>
+                  <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>
+                    {enabled ? 'O especial do mês está visível para os clientes.' : 'O especial do mês está oculto do cardápio.'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => saveSetting('special_flavor_enabled', enabled ? 'false' : 'true')}
+                  style={{
+                    width: 48, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
+                    background: enabled ? C.gold : '#D1D5DB',
+                    position: 'relative', transition: 'background 0.2s', flexShrink: 0,
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: 3, left: enabled ? 25 : 3,
+                    width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'left 0.2s',
+                  }} />
+                </button>
+              </div>
+            );
+          })()}
 
           <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, padding: 24, maxWidth: 600, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '10px 14px', background: 'rgba(242,168,0,0.08)', borderRadius: 8, border: '1px solid rgba(242,168,0,0.2)' }}>
