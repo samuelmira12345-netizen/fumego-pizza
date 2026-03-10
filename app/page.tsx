@@ -81,66 +81,70 @@ export default function HomePage() {
 
   async function loadData() {
     try {
-      const [pRes, dRes, sRes] = await Promise.all([
-        supabase.from('products').select('*').order('sort_order'),
-        supabase.from('drinks').select('*').eq('is_active', true).order('name'),
-        supabase.from('settings').select('*'),
-      ]);
-      if (pRes.data) {
-        setAllProducts(pRes.data);
-        // Filtra produtos ocultos do cardápio, exceto calabresa e marguerita (capa da loja)
-        const visibleProducts = pRes.data.filter((p: Product) =>
+      // /api/catalog é cacheado na CDN por 60 s (s-maxage=60, stale-while-revalidate=300)
+      // → elimina queries ao banco a cada visita; o banco só é consultado 1× por minuto
+      const res = await fetch('/api/catalog');
+      if (!res.ok) throw new Error('Falha ao carregar catálogo');
+      const { products: pData, drinks: dData, settings: sData, productStock, drinkStock } = await res.json();
+
+      if (pData) {
+        setAllProducts(pData);
+        const visibleProducts = pData.filter((p: Product) =>
           !p.is_hidden || p.slug === 'calabresa' || p.slug === 'marguerita'
         );
         setProducts(visibleProducts);
       }
-      if (sRes.data) {
+
+      if (sData) {
         const s: Settings = {};
-        sRes.data.forEach((i: { key: string; value: string }) => { s[i.key] = i.value; });
+        sData.forEach((i: { key: string; value: string }) => { s[i.key] = i.value; });
         setSettings(s);
 
-        // Cacheia a logo no localStorage para ser usada na próxima tela de loading
         if (s.logo_url) {
           try { localStorage.setItem('fumego_logo_url', s.logo_url); } catch {}
           setLoadingLogoUrl(s.logo_url);
         }
 
-        // Stock limits
-        if (s.stock_limits) {
+        // Stock limits: usa tabela product_stock (nova) com fallback para JSON legado
+        if (productStock?.length > 0) {
+          const stockMap: Record<string, StockLimit> = {};
+          for (const row of productStock) {
+            stockMap[String(row.product_id)] = { enabled: row.enabled, qty: row.quantity };
+          }
+          setStockLimits(stockMap);
+        } else if (s.stock_limits) {
           try { setStockLimits(JSON.parse(s.stock_limits)); } catch {}
         }
 
-        // Filtra bebidas: remove as que têm controle de estoque ativo com qty = 0
-        if (dRes.data) {
-          let drinkStockMap: Record<string, { enabled: boolean; qty: number }> = {};
-          if (s.drink_stock_limits) {
-            try { drinkStockMap = JSON.parse(s.drink_stock_limits); } catch {}
+        // Filtra bebidas pelo estoque: usa drink_stock (nova) com fallback para JSON legado
+        if (dData) {
+          const drinkStockMap: Record<string, { enabled: boolean; qty: number }> = {};
+          if (drinkStock?.length > 0) {
+            for (const row of drinkStock) {
+              drinkStockMap[String(row.drink_id)] = { enabled: row.enabled, qty: row.quantity };
+            }
+          } else if (s.drink_stock_limits) {
+            try { Object.assign(drinkStockMap, JSON.parse(s.drink_stock_limits)); } catch {}
           }
-          const visibleDrinks = dRes.data.filter((d: Drink) => {
+          const visibleDrinks = dData.filter((d: Drink) => {
             const sl = drinkStockMap[String(d.id)];
             return !sl || !sl.enabled || sl.qty > 0;
           });
           setDrinks(visibleDrinks);
         }
 
-        // Image positions
         if (s.image_positions) {
           try { setImagePositions(JSON.parse(s.image_positions)); } catch {}
         }
 
-        // Upsell config
         if (s.upsell_config) {
           try {
             const parsed = JSON.parse(s.upsell_config);
-            if (Array.isArray(parsed)) {
-              setUpsellConfigs(parsed);
-            } else {
-              setUpsellConfigs([parsed]); // backward compat: single object
-            }
+            setUpsellConfigs(Array.isArray(parsed) ? parsed : [parsed]);
           } catch {}
         }
 
-        // Compute effective store open status using business hours (Brasília timezone)
+        // Status da loja com base no horário de Brasília
         let effectiveOpen = s.store_open === 'true';
         let label: string | null = null;
         if (effectiveOpen && s.business_hours) {
@@ -162,9 +166,8 @@ export default function HomePage() {
         }
         setStoreOpen(effectiveOpen);
         setTodayLabel(label);
-      } else if (dRes.data) {
-        // Fallback: sem settings, mostra todas as bebidas ativas
-        setDrinks(dRes.data);
+      } else if (dData) {
+        setDrinks(dData);
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }

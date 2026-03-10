@@ -1,9 +1,17 @@
 /**
- * Rate limiter híbrido: usa Supabase como backend distribuído (funciona em múltiplas
- * instâncias serverless no Vercel) e faz fallback para in-memory se o Supabase falhar.
+ * Rate limiter híbrido com três níveis de fallback:
+ *   1. Upstash Redis REST API (distribuído, sem latência extra de DB)
+ *   2. Supabase rate_limit_log (distribuído, fallback se Upstash não configurado)
+ *   3. In-memory Map (single-instance fallback, último recurso)
  *
- * Para usar o Supabase, execute o SQL abaixo no seu projeto Supabase:
+ * Para usar Upstash (recomendado):
+ *   Adicione ao Vercel → Settings → Environment Variables:
+ *     UPSTASH_REDIS_REST_URL=https://xxxx.upstash.io
+ *     UPSTASH_REDIS_REST_TOKEN=AXxx...
+ *   Crie um banco Redis em https://console.upstash.com (plano gratuito suficiente)
  *
+ * Para usar Supabase (alternativa):
+ *   Execute no Supabase SQL Editor:
  *   CREATE TABLE IF NOT EXISTS rate_limit_log (
  *     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  *     key TEXT NOT NULL,
@@ -16,65 +24,61 @@
  *     USING (false) WITH CHECK (false);
  */
 
-// ── Fallback in-memory (instância única) ──────────────────────────────────────
+// ── 1. Upstash Redis (janela fixa via INCR + EXPIRE) ─────────────────────────
 
-interface MemEntry {
-  count: number;
-  windowStart: number;
-}
-
-const memStore = new Map<string, MemEntry>();
-
-function evictExpired(windowMs: number) {
-  const now = Date.now();
-  for (const [key, entry] of memStore) {
-    if (now - entry.windowStart > windowMs) memStore.delete(key);
-  }
-}
-
-function checkRateLimitMemory(
+async function checkRateLimitUpstash(
   key: string,
   maxAttempts: number,
   windowMs: number
-): { allowed: boolean; retryAfterMs: number } {
-  const now = Date.now();
+): Promise<{ allowed: boolean; retryAfterMs: number }> {
+  const url   = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) throw new Error('Upstash não configurado');
 
-  if (memStore.size > 500) evictExpired(windowMs);
+  // Janela fixa: bucket muda a cada windowMs milissegundos
+  const bucket = Math.floor(Date.now() / windowMs);
+  const redisKey = `rl:${key}:${bucket}`;
+  const ttlSec = Math.ceil((windowMs * 2) / 1000);
 
-  const entry = memStore.get(key);
-  if (!entry) {
-    memStore.set(key, { count: 1, windowStart: now });
-    return { allowed: true, retryAfterMs: 0 };
-  }
+  // Pipeline: INCR + EXPIRE num único request HTTP
+  const res = await fetch(`${url}/pipeline`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify([
+      ['INCR', redisKey],
+      ['EXPIRE', redisKey, ttlSec],
+    ]),
+  });
 
-  if (now - entry.windowStart > windowMs) {
-    memStore.set(key, { count: 1, windowStart: now });
-    return { allowed: true, retryAfterMs: 0 };
-  }
+  if (!res.ok) throw new Error(`Upstash HTTP ${res.status}`);
 
-  if (entry.count >= maxAttempts) {
-    const retryAfterMs = windowMs - (now - entry.windowStart);
+  const [[, count]] = await res.json() as [[string, number], [string, number]];
+
+  if (count > maxAttempts) {
+    // Tempo até o fim da janela atual
+    const windowEnd = (bucket + 1) * windowMs;
+    const retryAfterMs = Math.max(0, windowEnd - Date.now());
     return { allowed: false, retryAfterMs };
   }
 
-  entry.count += 1;
   return { allowed: true, retryAfterMs: 0 };
 }
 
-// ── Rate limiter distribuído via Supabase ──────────────────────────────────────
+// ── 2. Supabase rate_limit_log (fallback distribuído) ────────────────────────
 
 async function checkRateLimitSupabase(
   key: string,
   maxAttempts: number,
   windowMs: number
 ): Promise<{ allowed: boolean; retryAfterMs: number }> {
-  // Import dinâmico para evitar circular dependency
   const { getSupabaseAdmin } = await import('./supabase');
   const supabase = getSupabaseAdmin();
 
   const windowStart = new Date(Date.now() - windowMs).toISOString();
 
-  // Conta tentativas recentes para esta chave
   const { count, error: countErr } = await supabase
     .from('rate_limit_log')
     .select('*', { count: 'exact', head: true })
@@ -86,7 +90,6 @@ async function checkRateLimitSupabase(
   const attempts = count ?? 0;
 
   if (attempts >= maxAttempts) {
-    // Calcula quando a janela mais antiga vai expirar
     const { data: oldest } = await supabase
       .from('rate_limit_log')
       .select('attempted_at')
@@ -104,42 +107,77 @@ async function checkRateLimitSupabase(
     return { allowed: false, retryAfterMs };
   }
 
-  // Registra esta tentativa
   await supabase.from('rate_limit_log').insert({ key });
 
-  // Limpeza assíncrona de entradas antigas (não bloqueia a resposta)
-  // void: descarta o PromiseLike intencionalmente (fire-and-forget)
-  void supabase
-    .from('rate_limit_log')
-    .delete()
-    .lt('attempted_at', windowStart);
+  // Limpeza assíncrona (fire-and-forget)
+  void supabase.from('rate_limit_log').delete().lt('attempted_at', windowStart);
 
   return { allowed: true, retryAfterMs: 0 };
 }
 
-// ── Exportação principal ───────────────────────────────────────────────────────
+// ── 3. In-memory fallback (single-instance, último recurso) ──────────────────
+
+interface MemEntry { count: number; windowStart: number }
+const memStore = new Map<string, MemEntry>();
+
+function evictExpired(windowMs: number) {
+  const now = Date.now();
+  for (const [k, e] of memStore) {
+    if (now - e.windowStart > windowMs) memStore.delete(k);
+  }
+}
+
+function checkRateLimitMemory(
+  key: string,
+  maxAttempts: number,
+  windowMs: number
+): { allowed: boolean; retryAfterMs: number } {
+  const now = Date.now();
+  if (memStore.size > 500) evictExpired(windowMs);
+
+  const entry = memStore.get(key);
+  if (!entry) {
+    memStore.set(key, { count: 1, windowStart: now });
+    return { allowed: true, retryAfterMs: 0 };
+  }
+  if (now - entry.windowStart > windowMs) {
+    memStore.set(key, { count: 1, windowStart: now });
+    return { allowed: true, retryAfterMs: 0 };
+  }
+  if (entry.count >= maxAttempts) {
+    return { allowed: false, retryAfterMs: windowMs - (now - entry.windowStart) };
+  }
+  entry.count += 1;
+  return { allowed: true, retryAfterMs: 0 };
+}
+
+// ── Exportação principal ──────────────────────────────────────────────────────
 
 /**
  * Verifica se a chave excedeu o limite de tentativas na janela de tempo.
- *
- * Usa Supabase para funcionar corretamente em múltiplas instâncias serverless
- * (Vercel, AWS Lambda, etc.). Faz fallback para in-memory se Supabase falhar.
- *
- * @param key         - Identificador único (ex: "login:1.2.3.4")
- * @param maxAttempts - Número máximo de tentativas permitidas
- * @param windowMs    - Janela de tempo em milissegundos
+ * Tenta Upstash → Supabase → in-memory nessa ordem.
  */
 export async function checkRateLimit(
   key: string,
   maxAttempts = 5,
   windowMs = 60_000
 ): Promise<{ allowed: boolean; retryAfterMs: number }> {
+  // Nível 1: Upstash Redis (preferencial em produção multi-instância)
+  try {
+    return await checkRateLimitUpstash(key, maxAttempts, windowMs);
+  } catch {
+    // Upstash não configurado ou falhou → próximo nível
+  }
+
+  // Nível 2: Supabase rate_limit_log
   try {
     return await checkRateLimitSupabase(key, maxAttempts, windowMs);
   } catch {
-    // Supabase indisponível ou tabela não criada → fallback in-memory
-    return checkRateLimitMemory(key, maxAttempts, windowMs);
+    // Supabase falhou → último recurso
   }
+
+  // Nível 3: in-memory (não distribuído, mas nunca falha)
+  return checkRateLimitMemory(key, maxAttempts, windowMs);
 }
 
 /** Extrai o IP real do request do Next.js (App Router). */
