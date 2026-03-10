@@ -142,9 +142,38 @@ export async function POST(request) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === 'update_coupon') {
+      const { id, ...fields } = data;
+      if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
+      const { error } = await supabase.from('coupons').update(fields).eq('id', id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ success: true });
+    }
+
     if (action === 'delete_coupon') {
       await supabase.from('coupons').delete().eq('id', data.id);
       return NextResponse.json({ success: true });
+    }
+
+    if (action === 'get_coupon_analytics') {
+      // Fetch coupon usage records and orders that used coupons
+      const [usageRes, ordersRes] = await Promise.all([
+        supabase
+          .from('coupon_usage')
+          .select('id, coupon_id, cpf, user_id, created_at')
+          .order('created_at', { ascending: false })
+          .limit(2000),
+        supabase
+          .from('orders')
+          .select('id, order_number, customer_name, customer_cpf, coupon_code, discount, total, payment_method, created_at')
+          .not('coupon_code', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(2000),
+      ]);
+      return NextResponse.json({
+        usage:  usageRes.data  || [],
+        orders: ordersRes.data || [],
+      });
     }
 
     if (action === 'add_drink') {
@@ -238,13 +267,23 @@ export async function POST(request) {
     }
 
     if (action === 'save_compound_recipe') {
-      const { compound_id, items } = data;
+      const { compound_id, items, computed_cost } = data;
       if (!compound_id) return NextResponse.json({ error: 'compound_id obrigatório' }, { status: 400 });
       await supabase.from('compound_ingredient_items').delete().eq('compound_id', compound_id);
       if (items && items.length > 0) {
         const rows = items.map(i => ({ compound_id, ingredient_id: i.ingredient_id, quantity: parseFloat(i.quantity) || 0 }));
         const { error } = await supabase.from('compound_ingredient_items').insert(rows);
         if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      // Auto-update cost_per_unit of the compound ingredient based on recipe
+      if (computed_cost !== undefined && computed_cost > 0) {
+        const { data: existing } = await supabase.from('ingredients').select('cost_per_unit').eq('id', compound_id).single();
+        const oldPrice = parseFloat(existing?.cost_per_unit);
+        const newPrice = parseFloat(computed_cost);
+        if (!isNaN(oldPrice) && oldPrice !== newPrice) {
+          await supabase.from('ingredient_price_history').insert({ ingredient_id: compound_id, old_price: oldPrice, new_price: newPrice });
+        }
+        await supabase.from('ingredients').update({ cost_per_unit: newPrice }).eq('id', compound_id);
       }
       return NextResponse.json({ success: true });
     }
