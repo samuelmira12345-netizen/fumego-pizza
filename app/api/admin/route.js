@@ -26,7 +26,7 @@ import {
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
-export function verifyAdminToken(request) {
+function verifyAdminToken(request) {
   const auth   = request.headers.get('authorization') || '';
   const token  = auth.replace('Bearer ', '').trim();
   const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
