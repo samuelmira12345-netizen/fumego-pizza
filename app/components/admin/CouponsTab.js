@@ -79,7 +79,14 @@ function BarChartSimple({ data, color = C.gold, height = 60 }) {
 // ── Coupon form ──────────────────────────────────────────────────────────────
 
 function CouponForm({ initial, onSave, onCancel, saving }) {
-  const [form, setForm] = useState(initial || { ...BLANK_COUPON });
+  const [form, setForm] = useState(() => {
+    const base = initial || { ...BLANK_COUPON };
+    return {
+      ...base,
+      available_days: Array.isArray(base.available_days) ? base.available_days : [],
+      payment_methods: Array.isArray(base.payment_methods) ? base.payment_methods : [],
+    };
+  });
 
   function set(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
 
