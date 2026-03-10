@@ -55,7 +55,8 @@ async function checkRateLimitUpstash(
 
   if (!res.ok) throw new Error(`Upstash HTTP ${res.status}`);
 
-  const [[, count]] = await res.json() as [[string, number], [string, number]];
+  // Upstash pipeline retorna [{ result: N, error: null }, { result: 1, error: null }]
+  const [{ result: count }] = await res.json() as [{ result: number; error: string | null }];
 
   if (count > maxAttempts) {
     // Tempo até o fim da janela atual

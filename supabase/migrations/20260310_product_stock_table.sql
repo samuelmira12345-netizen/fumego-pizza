@@ -31,7 +31,7 @@ CREATE POLICY "service role only" ON product_stock USING (false) WITH CHECK (fal
 -- 2. Tabela de estoque de bebidas
 -- ─────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS drink_stock (
-  drink_id    BIGINT      NOT NULL REFERENCES drinks(id) ON DELETE CASCADE,
+  drink_id    UUID        NOT NULL REFERENCES drinks(id) ON DELETE CASCADE,
   quantity    INTEGER     NOT NULL DEFAULT 0 CHECK (quantity >= 0),
   enabled     BOOLEAN     NOT NULL DEFAULT false,
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -93,7 +93,7 @@ BEGIN
       BEGIN
         INSERT INTO drink_stock (drink_id, quantity, enabled, updated_at)
         VALUES (
-          v_key::BIGINT,
+          v_key::UUID,
           GREATEST(0, COALESCE((v_entry->>'qty')::INT, 0)),
           COALESCE((v_entry->>'enabled')::BOOLEAN, false),
           NOW()
@@ -121,7 +121,7 @@ AS $$
 DECLARE
   v_item        JSONB;
   v_product_id  UUID;
-  v_drink_id    BIGINT;
+  v_drink_id    UUID;
   v_qty         INT;
   v_need        INT;
   v_enabled     BOOLEAN;
@@ -159,7 +159,7 @@ BEGIN
     -- Bebida
     IF (v_item->>'drink_id') IS NOT NULL AND (v_item->>'drink_id') <> '' THEN
       BEGIN
-        v_drink_id := (v_item->>'drink_id')::BIGINT;
+        v_drink_id := (v_item->>'drink_id')::UUID;
       EXCEPTION WHEN OTHERS THEN
         CONTINUE;
       END;
@@ -213,7 +213,7 @@ BEGIN
     -- Bebida
     IF (v_item->>'drink_id') IS NOT NULL AND (v_item->>'drink_id') <> '' THEN
       BEGIN
-        v_drink_id := (v_item->>'drink_id')::BIGINT;
+        v_drink_id := (v_item->>'drink_id')::UUID;
       EXCEPTION WHEN OTHERS THEN
         CONTINUE;
       END;
