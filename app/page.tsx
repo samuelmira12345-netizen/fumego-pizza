@@ -1,4 +1,26 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+
 export default function ComingSoonPage() {
+  const [logoUrl, setLogoUrl] = useState<string | null>(() => {
+    try { return typeof window !== 'undefined' ? localStorage.getItem('fumego_logo_url') : null; } catch { return null; }
+  });
+
+  useEffect(() => {
+    fetch('/api/catalog')
+      .then(r => r.json())
+      .then(d => {
+        const logo = (d.settings as { key: string; value: string }[] | undefined)
+          ?.find((s: { key: string }) => s.key === 'logo_url')?.value;
+        if (logo) {
+          setLogoUrl(logo);
+          try { localStorage.setItem('fumego_logo_url', logo); } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <>
       <style>{`
@@ -13,7 +35,7 @@ export default function ComingSoonPage() {
         }
         @keyframes glow-pulse {
           0%, 100% { filter: drop-shadow(0 0 28px rgba(242,168,0,0.45)); }
-          50%       { filter: drop-shadow(0 0 48px rgba(242,168,0,0.75)); }
+          50%       { filter: drop-shadow(0 0 52px rgba(242,168,0,0.8)); }
         }
         @keyframes fade-up {
           from { opacity: 0; transform: translateY(10px); }
@@ -29,23 +51,34 @@ export default function ComingSoonPage() {
           alignItems: 'center',
           justifyContent: 'center',
           background: '#080600',
-          gap: 0,
         }}
       >
-        {/* Flame icon as logo placeholder */}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="72"
-          height="72"
-          viewBox="0 0 24 24"
-          fill="#F2A800"
-          style={{
-            animation: 'glow-pulse 2.5s ease-in-out infinite',
-            marginBottom: 20,
-          }}
-        >
-          <path d="M12 2c0 0-5.5 5.3-5.5 10.5C6.5 16.1 9 19 12 19s5.5-2.9 5.5-6.5C17.5 7.3 12 2 12 2zm0 15c-1.9 0-3.5-1.7-3.5-4 0-2.5 2-5.5 3.5-7.6 1.5 2.1 3.5 5.1 3.5 7.6 0 2.3-1.6 4-3.5 4z" />
-        </svg>
+        {/* Logo */}
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt="FUMÊGO"
+            style={{
+              width: 100,
+              height: 100,
+              objectFit: 'contain',
+              marginBottom: 24,
+              animation: 'glow-pulse 2.5s ease-in-out infinite',
+            }}
+          />
+        ) : (
+          /* Fallback flame SVG shown before logo loads */
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="72"
+            height="72"
+            viewBox="0 0 24 24"
+            fill="#F2A800"
+            style={{ animation: 'glow-pulse 2.5s ease-in-out infinite', marginBottom: 24 }}
+          >
+            <path d="M12 2c0 0-5.5 5.3-5.5 10.5C6.5 16.1 9 19 12 19s5.5-2.9 5.5-6.5C17.5 7.3 12 2 12 2zm0 15c-1.9 0-3.5-1.7-3.5-4 0-2.5 2-5.5 3.5-7.6 1.5 2.1 3.5 5.1 3.5 7.6 0 2.3-1.6 4-3.5 4z" />
+          </svg>
+        )}
 
         {/* FUMÊGO logotype */}
         <p
