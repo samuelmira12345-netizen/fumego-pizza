@@ -1796,10 +1796,19 @@ export default function Catalog({ adminToken }) {
 
                 const hasAnyPanelOpen = isStockOpen || isCompoundOpen || selectedIngForHistory === ing.id;
 
+                // Border color per active mode
+                const activeBorderColor = isEditing ? '#111827' : isStockOpen ? '#10B981' : isCompoundOpen ? '#7C3AED' : selectedIngForHistory === ing.id ? '#2563EB' : null;
+
                 return (
-                  <div key={ing.id}>
+                  <div key={ing.id} style={activeBorderColor ? {
+                    border: `2px solid ${activeBorderColor}`,
+                    borderRadius: 8,
+                    margin: '4px 8px',
+                    boxShadow: `0 0 0 3px ${activeBorderColor}22`,
+                    overflow: 'hidden',
+                  } : {}}>
                     {/* Main row */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 180px', gap: 0, borderBottom: (hasAnyPanelOpen || isEditing) ? 'none' : '1px solid ' + C.border, padding: '10px 16px', alignItems: 'center' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 180px', gap: 0, borderBottom: (hasAnyPanelOpen || isEditing) ? '1px solid ' + (activeBorderColor ? activeBorderColor + '40' : C.border) : '1px solid ' + C.border, padding: '10px 16px', alignItems: 'center', background: activeBorderColor ? activeBorderColor + '08' : 'transparent' }}>
                       {isEditing ? (
                         /* ── EDIT MODE ── */
                         <div style={{ gridColumn: '1 / -1' }}>
@@ -1821,8 +1830,8 @@ export default function Catalog({ adminToken }) {
                               </select>
                             </div>
                             <div>
-                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Fator de Correção</label>
-                              <input type="number" value={ing.correction_factor || 1} min="0" step="0.01" onChange={e => handleUpdateIngredient(ing.id, 'correction_factor', e.target.value)} placeholder="1.00" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Fator de Correção (%)</label>
+                              <input type="number" value={Math.round((parseFloat(ing.correction_factor) || 1) * 100)} min="1" max="200" step="1" onChange={e => handleUpdateIngredient(ing.id, 'correction_factor', (parseFloat(e.target.value) || 100) / 100)} placeholder="100" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
                             </div>
                             <div>
                               <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Peso/Volume (rendimento)</label>
@@ -1863,7 +1872,7 @@ export default function Catalog({ adminToken }) {
                               ) : (
                                 <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4, background: '#F3F4F6', color: C.muted }}>Simples</span>
                               )}
-                              {cf !== 1.0 && <span style={{ fontSize: 10, color: C.muted }}>FC: {cf.toFixed(2)}</span>}
+                              {cf !== 1.0 && <span style={{ fontSize: 10, color: C.muted }}>FC: {Math.round(cf * 100)}%</span>}
                             </div>
                             {stockConfigured && (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -2065,8 +2074,8 @@ export default function Catalog({ adminToken }) {
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Fator de Correção</label>
-                <input className="input-field" type="number" min="0" step="0.01" placeholder="1.00" value={newIng.correction_factor} onChange={e => setNewIng(p => ({ ...p, correction_factor: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Fator de Correção (%)</label>
+                <input className="input-field" type="number" min="1" max="200" step="1" placeholder="100" value={Math.round((parseFloat(newIng.correction_factor) || 1) * 100)} onChange={e => setNewIng(p => ({ ...p, correction_factor: (parseFloat(e.target.value) || 100) / 100 }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
               </div>
               <div>
                 <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Peso/Volume (rendimento)</label>

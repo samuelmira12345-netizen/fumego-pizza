@@ -280,6 +280,19 @@ export async function POST(request) {
       return NextResponse.json({ success: true, new_stock: newStock });
     }
 
+    if (action === 'get_stock_movements') {
+      const { limit: lim = 200, offset: off = 0, ingredient_id } = data || {};
+      let query = supabase
+        .from('stock_movements')
+        .select('id, ingredient_id, movement_type, quantity, reason, notes, created_at, ingredients(name, unit)')
+        .order('created_at', { ascending: false })
+        .range(off, off + lim - 1);
+      if (ingredient_id) query = query.eq('ingredient_id', ingredient_id);
+      const { data: movements, error } = await query;
+      if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ movements: movements || [] });
+    }
+
     if (action === 'delete_ingredient') {
       const { error } = await supabase.from('ingredients').delete().eq('id', data.id);
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });

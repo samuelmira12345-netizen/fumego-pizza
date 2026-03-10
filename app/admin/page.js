@@ -20,6 +20,7 @@ import Customers from '../components/admin/Customers';
 import Catalog from '../components/admin/Catalog';
 import Analytics from '../components/admin/Analytics';
 import Financial from '../components/admin/Financial';
+import StockMovements from '../components/admin/StockMovements';
 
 const SESSION_KEY = 'admin_token';
 
@@ -84,7 +85,7 @@ const NAV_GROUPS = [
       { key: 'analytics',   icon: BarChart2,       label: 'Analytics' },
       { key: 'marketing',   icon: Megaphone,       label: 'Marketing',  soon: true },
       { key: 'financial',   icon: Wallet,          label: 'Financeiro' },
-      { key: 'stock',       icon: Archive,         label: 'Estoque',    soon: true },
+      { key: 'stock',       icon: Archive,         label: 'Estoque' },
       { key: 'reports',     icon: BarChart2,       label: 'Relatórios' },
     ],
   },
@@ -1214,8 +1215,13 @@ export default function AdminPage() {
           />
         )}
 
+        {/* ── Estoque / Movimentações ──────────────────────────────────── */}
+        {section === 'stock' && (
+          <StockMovements adminToken={adminToken} />
+        )}
+
         {/* ── Coming Soon sections ─────────────────────────────────────── */}
-        {['deliveries', 'marketing', 'stock'].includes(section) && (
+        {['deliveries', 'marketing'].includes(section) && (
           <ComingSoon label={NAV_GROUPS.flatMap(g => g.items).find(i => i.key === section)?.label || section} />
         )}
 
