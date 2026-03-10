@@ -6,7 +6,7 @@ import {
   RefreshCw, AlertTriangle, Package, DollarSign,
   ChevronDown, ChevronUp, Filter, Calendar,
 } from 'lucide-react';
-import DateRangePicker from '../DateRangePicker';
+import DateRangePicker from './DateRangePicker';
 
 const C = {
   bg: '#F4F5F7', card: '#fff', border: '#E5E7EB',
