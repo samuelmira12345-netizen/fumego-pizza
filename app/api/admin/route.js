@@ -22,6 +22,7 @@ import {
 import {
   handleGetCatalogExtra, handleSaveIngredient, handleSaveCompoundRecipe,
   handleStockMovement, handleGetStockMovements, handleDeleteIngredient, handleSaveRecipe,
+  handleGetCompoundRecipes, handleSaveCompoundRecipeV2, handleDeleteCompoundRecipe, handleApplyCompoundRecipe,
 } from '../../../lib/admin-actions/inventory';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -92,11 +93,15 @@ export async function POST(request) {
     // ── Inventory ───────────────────────────────────────────────────────────
     if (action === 'get_catalog_extra')    return handleGetCatalogExtra(supabase);
     if (action === 'save_ingredient')      return handleSaveIngredient(supabase, data);
-    if (action === 'save_compound_recipe') return handleSaveCompoundRecipe(supabase, data);
-    if (action === 'stock_movement')       return handleStockMovement(supabase, data);
-    if (action === 'get_stock_movements')  return handleGetStockMovements(supabase, data);
-    if (action === 'delete_ingredient')    return handleDeleteIngredient(supabase, data);
-    if (action === 'save_recipe')          return handleSaveRecipe(supabase, data);
+    if (action === 'save_compound_recipe')    return handleSaveCompoundRecipe(supabase, data);
+    if (action === 'get_compound_recipes')    return handleGetCompoundRecipes(supabase, data);
+    if (action === 'save_compound_recipe_v2') return handleSaveCompoundRecipeV2(supabase, data);
+    if (action === 'delete_compound_recipe')  return handleDeleteCompoundRecipe(supabase, data);
+    if (action === 'apply_compound_recipe')   return handleApplyCompoundRecipe(supabase, data);
+    if (action === 'stock_movement')          return handleStockMovement(supabase, data);
+    if (action === 'get_stock_movements')     return handleGetStockMovements(supabase, data);
+    if (action === 'delete_ingredient')       return handleDeleteIngredient(supabase, data);
+    if (action === 'save_recipe')             return handleSaveRecipe(supabase, data);
 
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
   } catch (e) {
