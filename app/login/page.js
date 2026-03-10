@@ -41,7 +41,7 @@ export default function LoginPage() {
       // JWT armazenado em cookie httpOnly pelo servidor (seguro contra XSS).
       // Apenas os dados de perfil (sem credenciais) ficam no localStorage para a UI.
       localStorage.setItem('fumego_user', JSON.stringify(data.user));
-      router.push('/');
+      router.push('/teste');
     } catch (e) { setError('Erro de conexão'); }
     finally { setLoading(false); }
   }
@@ -90,7 +90,7 @@ export default function LoginPage() {
             style={{ background: 'none', border: 'none', color: GOLD, fontSize: 13, cursor: 'pointer' }}>
             Não tem conta? Criar agora
           </button>
-          <button onClick={() => router.push('/')}
+          <button onClick={() => router.push('/teste')}
             style={{ background: 'none', border: 'none', color: MUTED, fontSize: 13, cursor: 'pointer' }}>
             ← Voltar ao cardápio
           </button>

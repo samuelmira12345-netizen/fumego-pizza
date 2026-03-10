@@ -94,7 +94,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     const c = localStorage.getItem('fumego_cart');
-    if (!c || JSON.parse(c).length === 0) { router.push('/'); return; }
+    if (!c || JSON.parse(c).length === 0) { router.push('/teste'); return; }
     const parsedCart = JSON.parse(c);
     setCart(parsedCart);
     if (typeof window !== 'undefined' && window.gtag) {
@@ -240,7 +240,7 @@ export default function CheckoutPage() {
     const newCart = cart.filter(c => c.id !== itemId);
     setCart(newCart);
     localStorage.setItem('fumego_cart', JSON.stringify(newCart));
-    if (newCart.length === 0) router.push('/');
+    if (newCart.length === 0) router.push('/teste');
   }
 
   function isFormValid() {
@@ -501,7 +501,7 @@ export default function CheckoutPage() {
             <Clock size={16} color={GOLD} />
             <span>Previsão de entrega: {deliveryTime}</span>
           </div>
-          <button className="btn-primary" onClick={() => router.push('/')}>Voltar ao Cardápio</button>
+          <button className="btn-primary" onClick={() => router.push('/teste')}>Voltar ao Cardápio</button>
           {instagramUrl && (
             <a href={instagramUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, padding: '12px 24px', border: `1px solid ${BORDER}`, borderRadius: 14, color: '#fff', fontSize: 14, fontWeight: 600, background: 'rgba(255,255,255,0.04)' }}>
@@ -548,7 +548,7 @@ export default function CheckoutPage() {
           {paymentMethod === 'card_delivery' && (
             <p style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>A maquininha será levada pelo entregador. Obrigado!</p>
           )}
-          <button className="btn-primary" onClick={() => router.push('/')}>Voltar ao Cardápio</button>
+          <button className="btn-primary" onClick={() => router.push('/teste')}>Voltar ao Cardápio</button>
           {instagramUrl && (
             <a href={instagramUrl} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, padding: '12px 24px', border: `1px solid ${BORDER}`, borderRadius: 14, color: '#fff', fontSize: 14, fontWeight: 600, background: 'rgba(255,255,255,0.04)' }}>
@@ -577,7 +577,7 @@ export default function CheckoutPage() {
             Pagamento não confirmado
           </h1>
           <p style={{ color: MUTED, marginBottom: 24 }}>O tempo para pagamento expirou e o pedido foi cancelado automaticamente.</p>
-          <button className="btn-primary" onClick={() => router.push('/')}>Voltar ao Cardápio</button>
+          <button className="btn-primary" onClick={() => router.push('/teste')}>Voltar ao Cardápio</button>
         </div>
       </div>
     );
@@ -629,7 +629,7 @@ export default function CheckoutPage() {
     <div style={{ minHeight: '100vh', background: BG, animation: 'checkoutFadeIn 0.22s ease-out' }}>
       <style>{`@keyframes checkoutFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`}</style>
       <header className="header" style={{ justifyContent: 'space-between' }}>
-        <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: GOLD, fontSize: 22, cursor: 'pointer', width: 32 }}>←</button>
+        <button onClick={() => router.push('/teste')} style={{ background: 'none', border: 'none', color: GOLD, fontSize: 22, cursor: 'pointer', width: 32 }}>←</button>
         <h1 style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontSize: 18, fontWeight: 'bold', color: GOLD }}>Checkout</h1>
         <div style={{ width: 32 }} />
       </header>
@@ -662,7 +662,7 @@ export default function CheckoutPage() {
               </div>
             </div>
           ))}
-          <button onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: GOLD, fontSize: 13, cursor: 'pointer', marginTop: 4 }}>
+          <button onClick={() => router.push('/teste')} style={{ background: 'none', border: 'none', color: GOLD, fontSize: 13, cursor: 'pointer', marginTop: 4 }}>
             + Adicionar mais itens
           </button>
         </div>

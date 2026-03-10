@@ -137,7 +137,7 @@ export default function WalletPage() {
           </div>
         )}
 
-        <button className="btn-primary" onClick={() => router.push('/')} style={{ marginTop: 24 }}>
+        <button className="btn-primary" onClick={() => router.push('/teste')} style={{ marginTop: 24 }}>
           Fazer um Pedido
         </button>
       </div>
