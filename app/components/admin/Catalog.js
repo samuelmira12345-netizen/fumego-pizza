@@ -41,10 +41,27 @@ function fmtBRL(v) {
 
 // ── Ficha Técnica Panel ───────────────────────────────────────────────────────
 
+// Unit sub-conversion map: base unit → { sub unit, conversion factor to base }
+const UNIT_SUB = { kg: { sub: 'g', factor: 0.001 }, L: { sub: 'ml', factor: 0.001 } };
+
+function toBaseQty(qty, recipeUnit, baseUnit) {
+  if (!recipeUnit || recipeUnit === baseUnit) return parseFloat(qty) || 0;
+  const conv = UNIT_SUB[baseUnit];
+  if (conv && conv.sub === recipeUnit) return (parseFloat(qty) || 0) * conv.factor;
+  return parseFloat(qty) || 0;
+}
+
+function getUnitOptions(baseUnit) {
+  const conv = UNIT_SUB[baseUnit];
+  if (conv) return [baseUnit, conv.sub];
+  return [baseUnit];
+}
+
 function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) {
   const [items, setItems] = useState([]);
   const [addIng, setAddIng] = useState('');
   const [addQty, setAddQty] = useState('');
+  const [addUnit, setAddUnit] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { setItems(recipe || []); }, [recipe]);
@@ -54,7 +71,10 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
     return { ...i, name: ing?.name, unit: ing?.unit, cost_per_unit: parseFloat(ing?.cost_per_unit) || 0 };
   });
 
-  const calcCost = enriched.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
+  const calcCost = enriched.reduce((s, i) => {
+    const baseQty = toBaseQty(i.quantity, i.recipe_unit, i.unit);
+    return s + baseQty * i.cost_per_unit;
+  }, 0);
   const price = parseFloat(productPrice) || 0;
   const margin = price > 0 && calcCost > 0 ? ((price - calcCost) / price * 100) : null;
 
@@ -62,8 +82,10 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
 
   function addItem() {
     if (!addIng || !addQty) return;
-    setItems(prev => [...prev, { ingredient_id: addIng, quantity: parseFloat(addQty) }]);
-    setAddIng(''); setAddQty('');
+    const ing = ingredients.find(g => g.id === addIng);
+    const recipeUnit = addUnit || ing?.unit || '';
+    setItems(prev => [...prev, { ingredient_id: addIng, quantity: parseFloat(addQty), recipe_unit: recipeUnit }]);
+    setAddIng(''); setAddQty(''); setAddUnit('');
   }
 
   function removeItem(ingredient_id) {
@@ -74,6 +96,10 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
     setItems(prev => prev.map(i => i.ingredient_id === ingredient_id ? { ...i, quantity: qty } : i));
   }
 
+  function updateRecipeUnit(ingredient_id, unit) {
+    setItems(prev => prev.map(i => i.ingredient_id === ingredient_id ? { ...i, recipe_unit: unit } : i));
+  }
+
   async function save() {
     setSaving(true);
     try { await onSave(productId, items); } finally { setSaving(false); }
@@ -81,6 +107,13 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
 
   const cmv = price > 0 && calcCost > 0 ? (calcCost / price * 100) : null;
   const lucro = price > 0 ? price - calcCost : null;
+
+  // When ingredient selection changes, reset unit to its base unit
+  function handleAddIngChange(ingId) {
+    setAddIng(ingId);
+    const ing = ingredients.find(g => g.id === ingId);
+    setAddUnit(ing?.unit || '');
+  }
 
   return (
     <div style={{ marginTop: 12, padding: '16px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E0E7EF' }}>
@@ -91,28 +124,43 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
       {/* Tabela de ingredientes */}
       {enriched.length > 0 && (
         <div style={{ marginBottom: 12, border: '1px solid ' + C.border, borderRadius: 6, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 30px', background: '#F3F4F6', borderBottom: '1px solid ' + C.border, padding: '6px 10px' }}>
-            {['Insumo', 'Qtd', 'Unid', 'Custo', ''].map((h, i) => (
-              <span key={i} style={{ fontSize: 10, fontWeight: 700, color: C.light, textTransform: 'uppercase' }}>{h}</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 70px 90px 30px', background: '#F3F4F6', borderBottom: '1px solid ' + C.border, padding: '6px 10px' }}>
+            {['Insumo', 'Qtd', 'Unid', 'Custo', ''].map((h, idx) => (
+              <span key={idx} style={{ fontSize: 10, fontWeight: 700, color: C.light, textTransform: 'uppercase' }}>{h}</span>
             ))}
           </div>
-          {enriched.map(i => (
-            <div key={i.ingredient_id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 30px', alignItems: 'center', padding: '7px 10px', borderBottom: '1px solid ' + C.border + '60' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{i.name || '—'}</span>
-              <input
-                type="number" value={i.quantity} min="0" step="0.001"
-                onChange={e => updateQty(i.ingredient_id, e.target.value)}
-                style={{ width: '100%', padding: '3px 5px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', textAlign: 'right', boxSizing: 'border-box' }}
-              />
-              <span style={{ fontSize: 11, color: C.muted, textAlign: 'center' }}>{i.unit}</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', textAlign: 'right' }}>
-                {fmtBRL((parseFloat(i.quantity) || 0) * i.cost_per_unit)}
-              </span>
-              <button onClick={() => removeItem(i.ingredient_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <X size={12} />
-              </button>
-            </div>
-          ))}
+          {enriched.map(i => {
+            const unitOptions = getUnitOptions(i.unit);
+            const displayUnit = i.recipe_unit || i.unit;
+            const baseCost = toBaseQty(i.quantity, i.recipe_unit, i.unit) * i.cost_per_unit;
+            return (
+              <div key={i.ingredient_id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 70px 90px 30px', alignItems: 'center', padding: '7px 10px', borderBottom: '1px solid ' + C.border + '60' }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{i.name || '—'}</span>
+                <input
+                  type="number" value={i.quantity} min="0" step="0.001"
+                  onChange={e => updateQty(i.ingredient_id, e.target.value)}
+                  style={{ width: '100%', padding: '3px 5px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', textAlign: 'right', boxSizing: 'border-box' }}
+                />
+                {unitOptions.length > 1 ? (
+                  <select
+                    value={displayUnit}
+                    onChange={e => updateRecipeUnit(i.ingredient_id, e.target.value)}
+                    style={{ padding: '2px 4px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 11, outline: 'none', background: '#fff', color: C.text, textAlign: 'center' }}
+                  >
+                    {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                ) : (
+                  <span style={{ fontSize: 11, color: C.muted, textAlign: 'center' }}>{i.unit}</span>
+                )}
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', textAlign: 'right' }}>
+                  {fmtBRL(baseCost)}
+                </span>
+                <button onClick={() => removeItem(i.ingredient_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <X size={12} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -148,14 +196,24 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
 
       {/* Adicionar ingrediente */}
       {availableIngs.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
-          <select value={addIng} onChange={e => setAddIng(e.target.value)}
-            style={{ flex: 1, padding: '5px 8px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', background: '#fff' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
+          <select value={addIng} onChange={e => handleAddIngChange(e.target.value)}
+            style={{ flex: 1, minWidth: 160, padding: '5px 8px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', background: '#fff' }}>
             <option value="">Selecionar insumo...</option>
             {availableIngs.map(g => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
           </select>
           <input type="number" value={addQty} min="0" step="0.001" onChange={e => setAddQty(e.target.value)} placeholder="Qtd"
             style={{ width: 70, padding: '5px 6px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none' }} />
+          {addIng && (() => {
+            const ing = ingredients.find(g => g.id === addIng);
+            const opts = getUnitOptions(ing?.unit || '');
+            return opts.length > 1 ? (
+              <select value={addUnit} onChange={e => setAddUnit(e.target.value)}
+                style={{ padding: '5px 6px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', background: '#fff', color: C.text }}>
+                {opts.map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+            ) : null;
+          })()}
           <button onClick={addItem} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: '#111827', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
             <Plus size={12} /> Add
           </button>
@@ -972,6 +1030,7 @@ export default function Catalog({ adminToken }) {
   // New ingredient form
   const [newIng, setNewIng]       = useState({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '1.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
   const [addingIng, setAddingIng] = useState(false);
+  const [showNewIngModal, setShowNewIngModal] = useState(false);
 
   // Edit ingredient inline
   const [editingIng, setEditingIng] = useState(null); // ingredient id
@@ -1259,6 +1318,7 @@ export default function Catalog({ adminToken }) {
       if (d.error) { alert('Erro: ' + d.error); return; }
       if (d.ingredient) setIngredients(prev => [...prev, d.ingredient].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
       setNewIng({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '1.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
+      setShowNewIngModal(false);
     } catch (e) { alert('Erro: ' + e.message); }
     finally { setAddingIng(false); }
   }
@@ -1874,9 +1934,17 @@ export default function Catalog({ adminToken }) {
       {/* ── ABA INSUMOS ──────────────────────────────────────────────────────── */}
       {tab === 'insumos' && (
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
-          <p style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>
-            Insumos são matérias-primas utilizadas nas fichas técnicas dos produtos para calcular custo e margem automaticamente.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 10 }}>
+            <p style={{ fontSize: 13, color: C.muted }}>
+              Insumos são matérias-primas utilizadas nas fichas técnicas dos produtos para calcular custo e margem automaticamente.
+            </p>
+            <button
+              onClick={() => setShowNewIngModal(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: C.gold, color: '#000', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              <Plus size={14} /> Novo Insumo
+            </button>
+          </div>
 
           {/* Lista de ingredientes */}
           <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, overflow: 'hidden', marginBottom: 20 }}>
@@ -2170,63 +2238,78 @@ export default function Catalog({ adminToken }) {
             )}
           </div>
 
-          {/* Adicionar insumo */}
-          <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '2px dashed ' + C.border }}>
-            <h3 style={{ color: C.gold, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-              <Plus size={16} color={C.gold} /> Novo Insumo
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-              <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Nome do insumo *</label>
-                <input className="input-field" placeholder="ex: Farinha de trigo" value={newIng.name} onChange={e => setNewIng(p => ({ ...p, name: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Unidade</label>
-                <select value={newIng.unit} onChange={e => setNewIng(p => ({ ...p, unit: e.target.value }))} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#F9FAFB', color: C.text }}>
-                  {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Custo por unid. (R$)</label>
-                <input className="input-field" type="number" min="0" step="0.0001" placeholder="0,00" value={newIng.cost_per_unit} onChange={e => setNewIng(p => ({ ...p, cost_per_unit: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+          {/* Modal: Novo Insumo */}
+          {showNewIngModal && (
+            <div
+              onClick={e => { if (e.target === e.currentTarget) setShowNewIngModal(false); }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+            >
+              <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 620, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,0.35)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                  <h3 style={{ color: C.gold, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6, fontSize: 16, margin: 0 }}>
+                    <Plus size={18} color={C.gold} /> Novo Insumo
+                  </h3>
+                  <button onClick={() => setShowNewIngModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 22, lineHeight: 1, padding: 4 }}>×</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Nome do insumo *</label>
+                    <input className="input-field" placeholder="ex: Farinha de trigo" value={newIng.name} onChange={e => setNewIng(p => ({ ...p, name: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Unidade</label>
+                    <select value={newIng.unit} onChange={e => setNewIng(p => ({ ...p, unit: e.target.value }))} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#F9FAFB', color: C.text }}>
+                      {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Custo por unid. (R$)</label>
+                    <input className="input-field" type="number" min="0" step="0.0001" placeholder="0,00" value={newIng.cost_per_unit} onChange={e => setNewIng(p => ({ ...p, cost_per_unit: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tipo</label>
+                    <select value={newIng.ingredient_type} onChange={e => setNewIng(p => ({ ...p, ingredient_type: e.target.value }))} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#F9FAFB', color: C.text }}>
+                      <option value="simple">Simples</option>
+                      <option value="compound">Composto</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Fator de Correção (%)</label>
+                    <input className="input-field" type="number" min="1" max="200" step="1" placeholder="100" value={Math.round((parseFloat(newIng.correction_factor) || 1) * 100)} onChange={e => setNewIng(p => ({ ...p, correction_factor: (parseFloat(e.target.value) || 100) / 100 }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Peso/Volume (rendimento)</label>
+                    <input className="input-field" type="number" min="0" step="0.001" placeholder="1.000" value={newIng.weight_volume} onChange={e => setNewIng(p => ({ ...p, weight_volume: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 10, marginBottom: 20 }}>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Estoque Mínimo</label>
+                    <input className="input-field" type="number" min="0" step="0.001" placeholder="0" value={newIng.min_stock} onChange={e => setNewIng(p => ({ ...p, min_stock: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Estoque Máximo</label>
+                    <input className="input-field" type="number" min="0" step="0.001" placeholder="0" value={newIng.max_stock} onChange={e => setNewIng(p => ({ ...p, max_stock: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Origem de Compra</label>
+                    <input className="input-field" placeholder="Fornecedor / loja" value={newIng.purchase_origin} onChange={e => setNewIng(p => ({ ...p, purchase_origin: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={handleAddIngredient} disabled={addingIng} style={{ padding: '10px 20px', background: C.gold, color: '#000', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: addingIng ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {addingIng ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
+                    {addingIng ? 'Adicionando...' : 'Adicionar Insumo'}
+                  </button>
+                  <button onClick={() => setShowNewIngModal(false)} style={{ padding: '10px 16px', borderRadius: 8, border: '1px solid ' + C.border, background: '#fff', color: C.text, fontSize: 13, cursor: 'pointer' }}>
+                    Cancelar
+                  </button>
+                </div>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-              <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tipo</label>
-                <select value={newIng.ingredient_type} onChange={e => setNewIng(p => ({ ...p, ingredient_type: e.target.value }))} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#F9FAFB', color: C.text }}>
-                  <option value="simple">Simples</option>
-                  <option value="compound">Composto</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Fator de Correção (%)</label>
-                <input className="input-field" type="number" min="1" max="200" step="1" placeholder="100" value={Math.round((parseFloat(newIng.correction_factor) || 1) * 100)} onChange={e => setNewIng(p => ({ ...p, correction_factor: (parseFloat(e.target.value) || 100) / 100 }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Peso/Volume (rendimento)</label>
-                <input className="input-field" type="number" min="0" step="0.001" placeholder="1.000" value={newIng.weight_volume} onChange={e => setNewIng(p => ({ ...p, weight_volume: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 10, marginBottom: 14 }}>
-              <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Estoque Mínimo</label>
-                <input className="input-field" type="number" min="0" step="0.001" placeholder="0" value={newIng.min_stock} onChange={e => setNewIng(p => ({ ...p, min_stock: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Estoque Máximo</label>
-                <input className="input-field" type="number" min="0" step="0.001" placeholder="0" value={newIng.max_stock} onChange={e => setNewIng(p => ({ ...p, max_stock: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Origem de Compra</label>
-                <input className="input-field" placeholder="Fornecedor / loja" value={newIng.purchase_origin} onChange={e => setNewIng(p => ({ ...p, purchase_origin: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-              </div>
-            </div>
-            <button onClick={handleAddIngredient} disabled={addingIng} style={{ padding: '10px 20px', background: C.gold, color: '#000', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: addingIng ? 0.5 : 1, display: 'flex', alignItems: 'center', gap: 6 }}>
-              {addingIng ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
-              {addingIng ? 'Adicionando...' : 'Adicionar Insumo'}
-            </button>
-          </div>
+          )}
         </div>
       )}
 

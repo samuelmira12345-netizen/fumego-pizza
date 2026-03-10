@@ -45,6 +45,7 @@ export default function CheckoutPage() {
   const [cashbackBalance, setCashbackBalance] = useState(0);
   const [cashbackTxs, setCashbackTxs]         = useState([]);
   const [useCashbackBalance, setUseCashbackBalance] = useState(false);
+  const [cashbackMaxPercent, setCashbackMaxPercent] = useState(50);
 
   // Agendamento
   const [schedulingEnabled, setSchedulingEnabled] = useState(false);
@@ -118,7 +119,7 @@ export default function CheckoutPage() {
       if (u.id) {
         fetch(`/api/cashback/balance?user_id=${u.id}`)
           .then(r => r.json())
-          .then(data => { setCashbackBalance(data.balance || 0); setCashbackTxs(data.transactions || []); })
+          .then(data => { setCashbackBalance(data.balance || 0); setCashbackTxs(data.transactions || []); setCashbackMaxPercent(data.cashback_max_percent ?? 50); })
           .catch(() => {});
       }
     }
@@ -213,10 +214,10 @@ export default function CheckoutPage() {
   /** Total antes de aplicar o cashback */
   function calcBeforeCashback() { return Math.max(0, calcSubtotal() + deliveryFee - calcDiscount()); }
 
-  /** Desconto de cashback: máximo 50% do total pré-cashback */
+  /** Desconto de cashback: máximo cashbackMaxPercent% do total pré-cashback */
   function calcCashbackDiscount() {
     if (!useCashbackBalance || cashbackBalance <= 0) return 0;
-    return Math.min(cashbackBalance, calcBeforeCashback() * 0.5);
+    return Math.min(cashbackBalance, calcBeforeCashback() * (cashbackMaxPercent / 100));
   }
 
   function calcTotal() { return Math.max(0, calcBeforeCashback() - calcCashbackDiscount()); }
@@ -852,7 +853,7 @@ export default function CheckoutPage() {
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Usar Saldo de Cashback</p>
                 <p style={{ fontSize: 12, color: MUTED }}>
-                  Disponível: R$ {cashbackBalance.toFixed(2).replace('.', ',')} · Máx. 50% do pedido
+                  Disponível: R$ {cashbackBalance.toFixed(2).replace('.', ',')} · Máx. {cashbackMaxPercent}% do pedido
                 </p>
               </div>
             </div>
@@ -869,7 +870,7 @@ export default function CheckoutPage() {
                   <span style={{ color: '#fff' }}>R$ {calcBeforeCashback().toFixed(2).replace('.', ',')}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: GREEN }}>
-                  <span>Desconto Cashback (máx. 50%)</span>
+                  <span>Desconto Cashback (máx. {cashbackMaxPercent}%)</span>
                   <span>− R$ {calcCashbackDiscount().toFixed(2).replace('.', ',')}</span>
                 </div>
                 <div style={{ height: 1, background: BORDER, margin: '4px 0' }} />

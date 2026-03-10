@@ -6,7 +6,7 @@ import {
   Flame, UtensilsCrossed, GlassWater, Settings, Package,
   Upload, Loader2, Trash2, Plus, Check, Save,
   Palette, Store, Landmark, CreditCard, Banknote, Clock,
-  Plug, RefreshCw, X, Copy, Tag,
+  Plug, RefreshCw, X, Copy, Tag, Gift,
   LayoutDashboard, ShoppingBag, Users, ChefHat, Truck,
   Megaphone, Wallet, Archive, BarChart2, LogOut, ChevronRight,
   PanelLeftClose, PanelLeftOpen,
@@ -1128,6 +1128,57 @@ export default function AdminPage() {
                       <Plus size={12} /> Adicionar horário
                     </button>
                   </>
+                )}
+              </div>
+
+              {/* Fidelidade / Cashback */}
+              <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <h3 style={{ color: C.text, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+                  <Gift size={16} color={C.gold} /> Fidelidade / Cashback
+                </h3>
+                <p style={{ color: C.textMuted, fontSize: 12, marginBottom: 16 }}>Configure o programa de cashback para clientes cadastrados. O cashback é creditado após cada pedido confirmado e pode ser usado em compras futuras.</p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div>
+                    <label style={{ color: C.textMuted, fontSize: 12, display: 'block', marginBottom: 4, fontWeight: 600 }}>
+                      % de Cashback por Pedido
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        className="input-field"
+                        type="number" min="0" max="100" step="0.5"
+                        placeholder="5"
+                        value={getSetting('cashback_percent') || '5'}
+                        onChange={e => updateSetting('cashback_percent', e.target.value)}
+                        style={{ background: '#F9FAFB', color: C.text, borderColor: C.border, maxWidth: 100 }}
+                      />
+                      <span style={{ color: C.textMuted, fontSize: 13 }}>%</span>
+                    </div>
+                    <p style={{ color: C.textLight, fontSize: 11, marginTop: 4 }}>Percentual do valor do pedido que retorna como cashback.</p>
+                  </div>
+                  <div>
+                    <label style={{ color: C.textMuted, fontSize: 12, display: 'block', marginBottom: 4, fontWeight: 600 }}>
+                      % Máximo do Pedido Coberto
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input
+                        className="input-field"
+                        type="number" min="0" max="100" step="5"
+                        placeholder="50"
+                        value={getSetting('cashback_max_percent') || '50'}
+                        onChange={e => updateSetting('cashback_max_percent', e.target.value)}
+                        style={{ background: '#F9FAFB', color: C.text, borderColor: C.border, maxWidth: 100 }}
+                      />
+                      <span style={{ color: C.textMuted, fontSize: 13 }}>%</span>
+                    </div>
+                    <p style={{ color: C.textLight, fontSize: 11, marginTop: 4 }}>Limite máximo do valor do pedido que pode ser pago com cashback.</p>
+                  </div>
+                </div>
+
+                {parseFloat(getSetting('cashback_percent') || '5') > 0 && (
+                  <div style={{ marginTop: 14, padding: '10px 14px', background: 'rgba(242,168,0,0.08)', borderRadius: 8, border: '1px solid rgba(242,168,0,0.2)', fontSize: 12, color: '#92400E' }}>
+                    Exemplo: pedido de R$ 100 → cliente ganha R$ {parseFloat(getSetting('cashback_percent') || '5').toFixed(2)} em cashback e pode usar até R$ {parseFloat(getSetting('cashback_max_percent') || '50').toFixed(0)} em desconto num próximo pedido de R$ 100.
+                  </div>
                 )}
               </div>
 

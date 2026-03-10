@@ -6,8 +6,9 @@ import {
   Tag, BarChart2, Clock, Users, TrendingUp, TrendingDown,
   DollarSign, Gift, Calendar, ChevronDown, ChevronUp,
   Truck, CreditCard, Smartphone, Banknote, AlertTriangle,
-  Copy, Eye, EyeOff, Filter,
+  Copy, Eye, EyeOff, Filter, Edit2,
 } from 'lucide-react';
+import DateRangePicker from '../DateRangePicker';
 
 const C = {
   bg: '#F4F5F7', card: '#fff', border: '#E5E7EB',
@@ -268,7 +269,7 @@ function CouponForm({ initial, onSave, onCancel, saving }) {
 
 // ── Coupon Card (single coupon display) ──────────────────────────────────────
 
-function CouponCard({ coupon, usage, onDelete, onToggle }) {
+function CouponCard({ coupon, usage, onDelete, onToggle, onEdit }) {
   const [expanded, setExpanded] = useState(false);
 
   const isExpired = coupon.valid_until && new Date(coupon.valid_until) < new Date();
@@ -321,6 +322,9 @@ function CouponCard({ coupon, usage, onDelete, onToggle }) {
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           <button onClick={() => onToggle(coupon)} title={coupon.is_active ? 'Desativar' : 'Ativar'} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid ' + C.border, background: '#fff', cursor: 'pointer', color: C.muted }}>
             {coupon.is_active ? <EyeOff size={13} /> : <Eye size={13} />}
+          </button>
+          <button onClick={() => onEdit && onEdit(coupon)} title="Editar cupom" style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid ' + C.border, background: '#fff', cursor: 'pointer', color: C.muted }}>
+            <Edit2 size={13} />
           </button>
           <button onClick={() => setExpanded(v => !v)} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid ' + C.border, background: '#fff', cursor: 'pointer', color: C.muted }}>
             {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -386,7 +390,7 @@ export default function CouponsTab({ adminToken }) {
   const [orders, setOrders]         = useState([]);     // orders with coupon
   const [loading, setLoading]       = useState(true);
   const [analyticsTab, setAnalyticsTab] = useState('overview'); // 'overview' | 'history' | 'charts'
-  const [showForm, setShowForm]     = useState(false);
+  const [formMode, setFormMode]     = useState(null); // null | 'new' | coupon_object (editing)
   const [saving, setSaving]         = useState(false);
   const [msg, setMsg]               = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'active' | 'inactive' | 'expired'
@@ -394,8 +398,7 @@ export default function CouponsTab({ adminToken }) {
   // Period selector for analytics
   const defaultEnd   = new Date().toISOString().slice(0, 10);
   const defaultStart = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
-  const [periodStart, setPeriodStart] = useState(defaultStart);
-  const [periodEnd,   setPeriodEnd]   = useState(defaultEnd);
+  const [periodRange, setPeriodRange] = useState({ from: defaultStart, to: defaultEnd });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -425,8 +428,8 @@ export default function CouponsTab({ adminToken }) {
 
   // ── Analytics derived data ─────────────────────────────────────────────────
 
-  const periodStartDt = periodStart ? new Date(periodStart + 'T00:00:00') : null;
-  const periodEndDt   = periodEnd   ? new Date(periodEnd   + 'T23:59:59') : null;
+  const periodStartDt = periodRange.from ? new Date(periodRange.from + 'T00:00:00') : null;
+  const periodEndDt   = periodRange.to   ? new Date(periodRange.to   + 'T23:59:59') : null;
 
   const ordersInPeriod = orders.filter(o => {
     const d = new Date(o.created_at);
@@ -512,7 +515,7 @@ export default function CouponsTab({ adminToken }) {
       if (d.error) { alert('Erro: ' + d.error); return; }
       setMsg('✅ Cupom salvo!');
       setTimeout(() => setMsg(''), 3000);
-      setShowForm(false);
+      setFormMode(null);
       await load();
     } catch (e) { alert('Erro: ' + e.message); }
     finally { setSaving(false); }
@@ -576,7 +579,7 @@ export default function CouponsTab({ adminToken }) {
           <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: '1px solid ' + C.border, background: '#fff', fontSize: 13, cursor: 'pointer', color: C.text }}>
             <RefreshCw size={13} /> Atualizar
           </button>
-          <button onClick={() => setShowForm(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: C.gold, color: '#000', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+          <button onClick={() => setFormMode('new')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, border: 'none', background: C.gold, color: '#000', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
             <Plus size={14} /> Novo Cupom
           </button>
         </div>
@@ -586,10 +589,15 @@ export default function CouponsTab({ adminToken }) {
         <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 8, padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#065F46', fontWeight: 600 }}>{msg}</div>
       )}
 
-      {/* New coupon form */}
-      {showForm && (
+      {/* Coupon form — new or editing */}
+      {formMode !== null && (
         <div style={{ marginBottom: 24 }}>
-          <CouponForm onSave={handleSaveCoupon} onCancel={() => setShowForm(false)} saving={saving} />
+          <CouponForm
+            initial={formMode !== 'new' ? formMode : undefined}
+            onSave={handleSaveCoupon}
+            onCancel={() => setFormMode(null)}
+            saving={saving}
+          />
         </div>
       )}
 
@@ -599,12 +607,7 @@ export default function CouponsTab({ adminToken }) {
       <div style={{ background: C.card, borderRadius: 10, border: '1px solid ' + C.border, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <Calendar size={14} color={C.gold} />
         <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Análise do período:</span>
-        <input type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, color: C.text, background: '#F9FAFB', outline: 'none' }} />
-        <span style={{ color: C.muted, fontSize: 12 }}>até</span>
-        <input type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} style={{ padding: '5px 8px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, color: C.text, background: '#F9FAFB', outline: 'none' }} />
-        {[{ label: '7d', days: 7 }, { label: '30d', days: 30 }, { label: '90d', days: 90 }].map(({ label, days }) => (
-          <button key={label} onClick={() => { const e = new Date(); const s = new Date(e.getTime() - days * 86400000); setPeriodStart(s.toISOString().slice(0, 10)); setPeriodEnd(e.toISOString().slice(0, 10)); }} style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid ' + C.border, background: '#F3F4F6', color: C.muted, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>{label}</button>
-        ))}
+        <DateRangePicker value={periodRange} onChange={setPeriodRange} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14, marginBottom: 24 }}>
@@ -724,6 +727,7 @@ export default function CouponsTab({ adminToken }) {
                   usage={usage.filter(u => u.coupon_id === coupon.id)}
                   onDelete={handleDeleteCoupon}
                   onToggle={handleToggleCoupon}
+                  onEdit={c => { setFormMode(c); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 />
               ))}
             </div>

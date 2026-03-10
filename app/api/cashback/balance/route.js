@@ -16,10 +16,14 @@ export async function GET(request) {
 
   try {
     const supabase = getSupabaseAdmin();
-    const result = await getCashbackBalance(supabase, userId);
-    return NextResponse.json(result);
+    const [result, settingRes] = await Promise.all([
+      getCashbackBalance(supabase, userId),
+      supabase.from('settings').select('value').eq('key', 'cashback_max_percent').single(),
+    ]);
+    const cashbackMaxPercent = parseFloat(settingRes.data?.value || '50');
+    return NextResponse.json({ ...result, cashback_max_percent: cashbackMaxPercent });
   } catch (e) {
     console.error('[Cashback Balance]', e.message);
-    return NextResponse.json({ balance: 0, transactions: [] });
+    return NextResponse.json({ balance: 0, transactions: [], cashback_max_percent: 50 });
   }
 }
