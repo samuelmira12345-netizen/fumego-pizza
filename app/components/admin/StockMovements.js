@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   ArrowDownUp, Warehouse, TrendingUp, TrendingDown,
   RefreshCw, AlertTriangle, Package, DollarSign,
-  ChevronDown, ChevronUp, Filter,
+  ChevronDown, ChevronUp, Filter, Calendar,
 } from 'lucide-react';
 
 const C = {
@@ -24,6 +24,13 @@ function fmtDate(iso) {
     ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+function toLocalDateStr(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 const MOVEMENT_LABELS = {
   in:         { label: 'Entrada',  color: '#059669', bg: '#ECFDF5', icon: '▲' },
   out:        { label: 'Saída',    color: '#EF4444', bg: '#FEF2F2', icon: '▼' },
@@ -38,7 +45,13 @@ export default function StockMovements({ adminToken }) {
   const [filterType, setFilterType]     = useState('all');
   const [filterIng, setFilterIng]       = useState('');
   const [showAlerts, setShowAlerts]     = useState(true);
-  const [showOverview, setShowOverview] = useState(true);
+  const [showOverview, setShowOverview] = useState(false);
+
+  // Date range filter – default: last 30 days
+  const defaultEnd   = toLocalDateStr(new Date());
+  const defaultStart = toLocalDateStr(new Date(Date.now() - 30 * 24 * 3600 * 1000));
+  const [dateStart, setDateStart] = useState(defaultStart);
+  const [dateEnd,   setDateEnd]   = useState(defaultEnd);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,19 +97,36 @@ export default function StockMovements({ adminToken }) {
 
   const configuredCount = ingredients.filter(ing => (parseFloat(ing.min_stock) || 0) > 0 || (parseFloat(ing.max_stock) || 0) > 0).length;
 
-  const filteredMovements = movements.filter(m => {
+  // ── Date range filtering ──────────────────────────────────────────────────
+
+  const rangeStart = dateStart ? new Date(dateStart + 'T00:00:00') : null;
+  const rangeEnd   = dateEnd   ? new Date(dateEnd   + 'T23:59:59') : null;
+
+  const movementsInRange = movements.filter(m => {
+    const d = new Date(m.created_at);
+    if (rangeStart && d < rangeStart) return false;
+    if (rangeEnd   && d > rangeEnd)   return false;
+    return true;
+  });
+
+  const filteredMovements = movementsInRange.filter(m => {
     if (filterType !== 'all' && m.movement_type !== filterType) return false;
     if (filterIng && m.ingredient_id !== filterIng) return false;
     return true;
   });
 
-  // ── Summaries for this week ──────────────────────────────────────────────
+  // ── Summaries for selected period ────────────────────────────────────────
 
-  const now = new Date();
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
-  const recentMv = movements.filter(m => new Date(m.created_at) >= weekAgo);
-  const weekIn  = recentMv.filter(m => m.movement_type === 'in').reduce((s, m) => s + (parseFloat(m.quantity) || 0), 0);
-  const weekOut = recentMv.filter(m => m.movement_type === 'out' || m.movement_type === 'sale').reduce((s, m) => s + (parseFloat(m.quantity) || 0), 0);
+  const periodIn  = movementsInRange.filter(m => m.movement_type === 'in').reduce((s, m) => s + (parseFloat(m.quantity) || 0), 0);
+  const periodOut = movementsInRange.filter(m => m.movement_type === 'out' || m.movement_type === 'sale').reduce((s, m) => s + (parseFloat(m.quantity) || 0), 0);
+  const periodInCount  = movementsInRange.filter(m => m.movement_type === 'in').length;
+  const periodOutCount = movementsInRange.filter(m => m.movement_type === 'out' || m.movement_type === 'sale').length;
+
+  const periodLabel = dateStart === dateEnd
+    ? 'no dia'
+    : dateStart && dateEnd
+      ? `${new Date(dateStart + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} – ${new Date(dateEnd + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+      : 'no período';
 
   if (loading) {
     return (
@@ -110,7 +140,7 @@ export default function StockMovements({ adminToken }) {
   return (
     <div style={{ padding: '24px 28px', maxWidth: 1100 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 4 }}>Movimentação do Estoque</h2>
           <p style={{ fontSize: 13, color: C.muted }}>Histórico de entradas, saídas e ajustes de insumos.</p>
@@ -121,6 +151,54 @@ export default function StockMovements({ adminToken }) {
         >
           <RefreshCw size={14} /> Atualizar
         </button>
+      </div>
+
+      {/* ── Seletor de período ────────────────────────────────────────────── */}
+      <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, padding: '14px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <Calendar size={16} color={C.gold} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Período:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            type="date"
+            value={dateStart}
+            onChange={e => setDateStart(e.target.value)}
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, color: C.text, background: '#F9FAFB', outline: 'none', cursor: 'pointer' }}
+          />
+          <span style={{ color: C.muted, fontSize: 13 }}>até</span>
+          <input
+            type="date"
+            value={dateEnd}
+            onChange={e => setDateEnd(e.target.value)}
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, color: C.text, background: '#F9FAFB', outline: 'none', cursor: 'pointer' }}
+          />
+        </div>
+        {/* Quick range buttons */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {[
+            { label: 'Hoje',    days: 0 },
+            { label: '7 dias',  days: 7 },
+            { label: '30 dias', days: 30 },
+            { label: '90 dias', days: 90 },
+          ].map(({ label, days }) => (
+            <button
+              key={label}
+              onClick={() => {
+                const end = new Date();
+                const start = days === 0 ? end : new Date(end.getTime() - days * 24 * 3600 * 1000);
+                setDateStart(toLocalDateStr(start));
+                setDateEnd(toLocalDateStr(end));
+              }}
+              style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid ' + C.border, background: '#F3F4F6', color: C.muted, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {(dateStart || dateEnd) && (
+          <span style={{ fontSize: 11, color: C.muted, marginLeft: 'auto' }}>
+            {movementsInRange.length} movimentação{movementsInRange.length !== 1 ? 'ões' : ''} no período
+          </span>
+        )}
       </div>
 
       {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
@@ -137,19 +215,19 @@ export default function StockMovements({ adminToken }) {
         <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, padding: '16px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <TrendingUp size={16} color={C.success} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Entradas (7 dias)</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Entradas ({periodLabel})</span>
           </div>
-          <p style={{ fontSize: 22, fontWeight: 800, color: C.success }}>{weekIn.toFixed(2)}</p>
-          <p style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{recentMv.filter(m => m.movement_type === 'in').length} movimentações</p>
+          <p style={{ fontSize: 22, fontWeight: 800, color: C.success }}>{periodIn.toFixed(2)}</p>
+          <p style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{periodInCount} movimentações</p>
         </div>
 
         <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, padding: '16px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <TrendingDown size={16} color={C.danger} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Saídas (7 dias)</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Saídas ({periodLabel})</span>
           </div>
-          <p style={{ fontSize: 22, fontWeight: 800, color: C.danger }}>{weekOut.toFixed(2)}</p>
-          <p style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{recentMv.filter(m => m.movement_type === 'out' || m.movement_type === 'sale').length} movimentações</p>
+          <p style={{ fontSize: 22, fontWeight: 800, color: C.danger }}>{periodOut.toFixed(2)}</p>
+          <p style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>{periodOutCount} movimentações</p>
         </div>
 
         <div style={{ background: lowStockAlerts.length > 0 ? '#FEF2F2' : C.card, borderRadius: 12, border: '1px solid ' + (lowStockAlerts.length > 0 ? '#FECACA' : C.border), padding: '16px 20px' }}>

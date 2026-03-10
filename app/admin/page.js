@@ -5,8 +5,8 @@ import { supabase } from '../../lib/supabase';
 import {
   Flame, UtensilsCrossed, GlassWater, Settings, Package,
   Upload, Loader2, Trash2, Plus, Check, Save,
-  Palette, Store, Star, Landmark, CreditCard, Banknote, Clock,
-  Plug, RefreshCw, X, Copy,
+  Palette, Store, Landmark, CreditCard, Banknote, Clock,
+  Plug, RefreshCw, X, Copy, Tag,
   LayoutDashboard, ShoppingBag, Users, ChefHat, Truck,
   Megaphone, Wallet, Archive, BarChart2, LogOut, ChevronRight,
   PanelLeftClose, PanelLeftOpen,
@@ -21,6 +21,7 @@ import Catalog from '../components/admin/Catalog';
 import Analytics from '../components/admin/Analytics';
 import Financial from '../components/admin/Financial';
 import StockMovements from '../components/admin/StockMovements';
+import CouponsTab from '../components/admin/CouponsTab';
 
 const SESSION_KEY = 'admin_token';
 
@@ -75,6 +76,7 @@ const NAV_GROUPS = [
     label: 'OPERAÇÃO',
     items: [
       { key: 'catalog',     icon: UtensilsCrossed, label: 'Catálogo' },
+      { key: 'coupons',     icon: Tag,             label: 'Cupons' },
       { key: 'cardapioweb', icon: Plug,            label: 'CardápioWeb' },
       { key: 'deliveries',  icon: Truck,           label: 'Entregas',   soon: true },
     ],
@@ -987,6 +989,13 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* ── CUPONS ────────────────────────────────────────────────────── */}
+        {section === 'coupons' && (
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <CouponsTab adminToken={adminToken} />
+          </div>
+        )}
+
         {/* ── CARDÁPIOWEB ───────────────────────────────────────────────── */}
         {section === 'cardapioweb' && (
           <div style={{ padding: '24px 32px', paddingBottom: 60 }}>
@@ -1087,15 +1096,6 @@ export default function AdminPage() {
                 </h3>
                 <p style={{ color: C.textMuted, fontSize: 12, marginBottom: 10 }}>Link exibido após o pedido ser confirmado.</p>
                 <input className="input-field" placeholder="https://instagram.com/suaconta" value={getSetting('instagram_url')} onChange={e => updateSetting('instagram_url', e.target.value)} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-              </div>
-
-              {/* Especial do Mês */}
-              <div style={{ background: C.card, borderRadius: 12, padding: 20, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                <h3 style={{ color: C.text, fontWeight: 700, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                  <Star size={16} color={C.gold} /> Especial do Mês
-                </h3>
-                <input className="input-field" placeholder="Nome do sabor especial" value={getSetting('special_flavor_name')} onChange={e => updateSetting('special_flavor_name', e.target.value)} style={{ marginBottom: 8, background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-                <textarea className="input-field" placeholder="Descrição" value={getSetting('special_flavor_description')} onChange={e => updateSetting('special_flavor_description', e.target.value)} rows="3" style={{ resize: 'none', background: '#F9FAFB', color: C.text, borderColor: C.border }} />
               </div>
 
               {/* Agendamento */}

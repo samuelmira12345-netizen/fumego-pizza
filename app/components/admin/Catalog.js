@@ -5,7 +5,7 @@ import {
   UtensilsCrossed, GlassWater, Package, Upload, Loader2, Trash2,
   Plus, Check, ChevronDown, ChevronUp, Save, RefreshCw,
   DollarSign, TrendingDown, BookOpen, X, Eye, EyeOff, Copy,
-  BarChart2, TrendingUp, Layers, ArrowDownUp, Warehouse,
+  BarChart2, TrendingUp, Layers, ArrowDownUp, Warehouse, Star,
 } from 'lucide-react';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -177,11 +177,21 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
 
 // ── CompoundRecipePanel ───────────────────────────────────────────────────────
 
-function CompoundRecipePanel({ ingredient, ingredients, compoundItems, onSave, onClose, saving }) {
+const UNITS_COMPOUND = ['unid', 'kg', 'g', 'L', 'ml', 'cx', 'pct', 'dz', 'ft', 'Bag', 'UN', 'KG'];
+
+function CompoundRecipePanel({ ingredient, ingredients, compoundItems, onSave, onClose, saving, adminToken, onIngredientCreated }) {
   const ingCompoundItems = compoundItems.filter(c => c.compound_id === ingredient.id);
   const [localItems, setLocalItems] = useState(ingCompoundItems.map(c => ({ ingredient_id: c.ingredient_id, quantity: c.quantity })));
   const [addSubIng, setAddSubIng] = useState('');
   const [addSubQty, setAddSubQty] = useState('');
+
+  // New sub-ingredient inline creation
+  const [showNewSub, setShowNewSub]     = useState(false);
+  const [newSubName, setNewSubName]     = useState('');
+  const [newSubUnit, setNewSubUnit]     = useState('kg');
+  const [newSubCost, setNewSubCost]     = useState('');
+  const [newSubQty, setNewSubQty]       = useState('');
+  const [creatingNew, setCreatingNew]   = useState(false);
 
   useEffect(() => {
     setLocalItems(compoundItems.filter(c => c.compound_id === ingredient.id).map(c => ({ ingredient_id: c.ingredient_id, quantity: c.quantity })));
@@ -203,6 +213,39 @@ function CompoundRecipePanel({ ingredient, ingredients, compoundItems, onSave, o
     setAddSubIng(''); setAddSubQty('');
   }
 
+  async function handleCreateNewSub() {
+    if (!newSubName.trim()) { alert('Nome é obrigatório'); return; }
+    setCreatingNew(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'save_ingredient', data: {
+          name: newSubName.trim(),
+          unit: newSubUnit,
+          cost_per_unit: parseFloat(newSubCost) || 0,
+          ingredient_type: 'simple',
+          correction_factor: 1.0,
+          min_stock: 0,
+          max_stock: 0,
+          weight_volume: 1.0,
+        }}),
+      });
+      const d = await res.json();
+      if (d.error) { alert('Erro: ' + d.error); return; }
+      if (d.ingredient) {
+        onIngredientCreated(d.ingredient);
+        // Add to local items if qty provided
+        if (newSubQty) {
+          setLocalItems(prev => [...prev, { ingredient_id: d.ingredient.id, quantity: parseFloat(newSubQty) }]);
+        }
+        setNewSubName(''); setNewSubUnit('kg'); setNewSubCost(''); setNewSubQty('');
+        setShowNewSub(false);
+      }
+    } catch (e) { alert('Erro: ' + e.message); }
+    finally { setCreatingNew(false); }
+  }
+
   return (
     <div style={{ borderBottom: '1px solid ' + C.border, background: '#F5F3FF', padding: '14px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -222,7 +265,7 @@ function CompoundRecipePanel({ ingredient, ingredients, compoundItems, onSave, o
               <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{item.name || '—'}</span>
               <input type="number" value={item.quantity} min="0" step="0.001"
                 onChange={e => setLocalItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: e.target.value } : it))}
-                style={{ width: '100%', padding: '3px 5px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', textAlign: 'right', boxSizing: 'border-box' }} />
+                style={{ width: '100%', padding: '3px 5px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', textAlign: 'right', boxSizing: 'border-box', color: C.text }} />
               <span style={{ fontSize: 11, color: C.muted, textAlign: 'center' }}>{item.unit}</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', textAlign: 'right' }}>{fmtBRL((parseFloat(item.quantity) || 0) * item.cost_per_unit)}</span>
               <button onClick={() => setLocalItems(prev => prev.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.danger, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={12} /></button>
@@ -231,36 +274,71 @@ function CompoundRecipePanel({ ingredient, ingredients, compoundItems, onSave, o
         </div>
       )}
       {localTotalCost > 0 && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-          <div style={{ background: '#EDE9FE', borderRadius: 6, padding: '6px 12px', flex: 1 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+          <div style={{ background: '#EDE9FE', borderRadius: 6, padding: '6px 12px', flex: 1, minWidth: 120 }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 2 }}>CUSTO TOTAL INGREDIENTES</p>
             <p style={{ fontSize: 13, fontWeight: 800, color: '#6D28D9' }}>{fmtBRL(localTotalCost)}</p>
           </div>
-          <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '6px 12px', flex: 1 }}>
+          <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '6px 12px', flex: 1, minWidth: 120 }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: C.success, marginBottom: 2 }}>CUSTO/UNID CALCULADO</p>
             <p style={{ fontSize: 13, fontWeight: 800, color: '#047857' }}>{fmtBRL(localComputedCost)}</p>
+            {wv !== 1 && <p style={{ fontSize: 10, color: C.muted }}>÷ {wv} {ingredient.unit} rendimento</p>}
           </div>
         </div>
       )}
       {enrichedLocal.length === 0 && <p style={{ fontSize: 12, color: C.light, marginBottom: 10 }}>Nenhum ingrediente na receita. Adicione abaixo.</p>}
+
+      {/* Adicionar insumo existente */}
       {availSubs.length > 0 && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10, alignItems: 'center' }}>
-          <select value={addSubIng} onChange={e => setAddSubIng(e.target.value)} style={{ flex: 1, padding: '5px 8px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', background: '#fff' }}>
-            <option value="">Selecionar insumo...</option>
-            {availSubs.filter(g => !localItems.find(i => i.ingredient_id === g.id)).map(g => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center' }}>
+          <select value={addSubIng} onChange={e => setAddSubIng(e.target.value)} style={{ flex: 1, padding: '5px 8px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', background: '#fff', color: C.text }}>
+            <option value="">Selecionar insumo existente...</option>
+            {availSubs.map(g => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
           </select>
-          <input type="number" value={addSubQty} min="0" step="0.001" onChange={e => setAddSubQty(e.target.value)} placeholder="Qtd" style={{ width: 70, padding: '5px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none' }} />
+          <input type="number" value={addSubQty} min="0" step="0.001" onChange={e => setAddSubQty(e.target.value)} placeholder="Qtd" style={{ width: 70, padding: '5px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }} />
           <button onClick={addSubItem} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: '#7C3AED', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><Plus size={12} /> Add</button>
         </div>
       )}
+
+      {/* Criar novo sub-insumo inline */}
       <button
-        onClick={() => onSave(ingredient.id, localItems)}
+        onClick={() => setShowNewSub(v => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 4, border: '1px dashed #DDD6FE', background: showNewSub ? '#EDE9FE' : 'transparent', color: '#7C3AED', fontSize: 11, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}
+      >
+        <Plus size={11} /> {showNewSub ? 'Cancelar novo' : 'Criar novo insumo'}
+      </button>
+
+      {showNewSub && (
+        <div style={{ background: '#fff', borderRadius: 6, border: '1px solid #DDD6FE', padding: '10px 12px', marginBottom: 10 }}>
+          <p style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Novo insumo</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 80px 100px 70px', gap: 6, marginBottom: 6 }}>
+            <input value={newSubName} onChange={e => setNewSubName(e.target.value)} placeholder="Nome *" style={{ padding: '5px 7px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }} />
+            <select value={newSubUnit} onChange={e => setNewSubUnit(e.target.value)} style={{ padding: '5px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }}>
+              {UNITS_COMPOUND.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+            <input type="number" value={newSubCost} onChange={e => setNewSubCost(e.target.value)} placeholder="Custo/unid" min="0" step="0.0001" style={{ padding: '5px 7px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }} />
+            <input type="number" value={newSubQty} onChange={e => setNewSubQty(e.target.value)} placeholder="Qtd" min="0" step="0.001" style={{ padding: '5px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }} />
+          </div>
+          <button
+            onClick={handleCreateNewSub}
+            disabled={creatingNew}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', borderRadius: 4, border: 'none', background: creatingNew ? '#9CA3AF' : '#7C3AED', color: '#fff', fontSize: 12, fontWeight: 700, cursor: creatingNew ? 'not-allowed' : 'pointer' }}
+          >
+            {creatingNew ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={11} />}
+            {creatingNew ? 'Criando...' : 'Criar e adicionar'}
+          </button>
+        </div>
+      )}
+
+      <button
+        onClick={() => onSave(ingredient.id, localItems, localComputedCost)}
         disabled={saving}
         style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 5, border: 'none', background: saving ? '#9CA3AF' : '#7C3AED', color: '#fff', fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}
       >
         {saving ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={12} />}
         {saving ? 'Salvando...' : 'Salvar Receita'}
       </button>
+      {localComputedCost > 0 && <p style={{ fontSize: 10, color: C.muted, marginTop: 5 }}>O custo/unid do composto será atualizado para {fmtBRL(localComputedCost)} automaticamente.</p>}
     </div>
   );
 }
@@ -817,10 +895,40 @@ function ProductRow({
   );
 }
 
+// ── SpecialFlavorSaveButton ───────────────────────────────────────────────────
+
+function SpecialFlavorSaveButton({ name, description, onSave }) {
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await onSave('special_flavor_name', name);
+      await onSave('special_flavor_description', description);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleSave}
+      disabled={saving}
+      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 8, border: 'none', background: saved ? C.success : saving ? '#9CA3AF' : C.gold, color: saved ? '#fff' : '#000', fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer' }}
+    >
+      {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
+      {saving ? 'Salvando...' : saved ? 'Salvo!' : 'Salvar Especial do Mês'}
+    </button>
+  );
+}
+
 // ── Catalog Main ───────────────────────────────────────────────────────────────
 
 export default function Catalog({ adminToken }) {
-  const [tab, setTab]           = useState('cardapio'); // 'cardapio' | 'insumos' | 'analise'
+  const [tab, setTab]           = useState('cardapio'); // 'cardapio' | 'insumos' | 'analise' | 'especial'
   const [catFilter, setCatFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null); // product id currently expanded for editing
 
@@ -941,6 +1049,17 @@ export default function Catalog({ adminToken }) {
       if (idx >= 0) return prev.map((s, i) => i === idx ? { ...s, value } : s);
       return [...prev, { key, value }];
     });
+  }
+
+  async function saveSetting(key, value) {
+    setSetting(key, value);
+    try {
+      await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'save_setting', data: { key, value } }),
+      });
+    } catch (e) { console.error('Erro ao salvar configuração:', e); }
   }
 
   function getImagePositions() {
@@ -1165,10 +1284,10 @@ export default function Catalog({ adminToken }) {
     } catch (e) { alert('Erro: ' + e.message); }
   }
 
-  async function handleSaveCompoundRecipe(compound_id, items) {
+  async function handleSaveCompoundRecipe(compound_id, items, computedCost) {
     setSavingCompoundRecipe(true);
     try {
-      const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'save_compound_recipe', data: { compound_id, items } }) });
+      const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'save_compound_recipe', data: { compound_id, items, computed_cost: computedCost } }) });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
       // Update local compoundItems state
@@ -1177,6 +1296,10 @@ export default function Catalog({ adminToken }) {
         const newRows = items.map(i => ({ compound_id, ingredient_id: i.ingredient_id, quantity: i.quantity }));
         return [...filtered, ...newRows];
       });
+      // Auto-update compound ingredient cost if computed
+      if (computedCost > 0) {
+        setIngredients(prev => prev.map(i => i.id === compound_id ? { ...i, cost_per_unit: computedCost } : i));
+      }
       setMsg('✅ Receita composta salva!');
       setTimeout(() => setMsg(''), 3000);
     } catch (e) { alert('Erro: ' + e.message); }
@@ -1329,6 +1452,7 @@ export default function Catalog({ adminToken }) {
       <div style={{ background: '#fff', borderBottom: '1px solid ' + C.border, padding: '0 28px', display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
         {[
           { key: 'cardapio', icon: UtensilsCrossed, label: 'Cardápio' },
+          { key: 'especial', icon: Star,            label: 'Especial do Mês' },
           { key: 'insumos',  icon: Package,         label: 'Insumos' },
           { key: 'analise',  icon: BarChart2,        label: 'Análise de Preço' },
         ].map(t => {
@@ -1856,7 +1980,7 @@ export default function Catalog({ adminToken }) {
                           {/* Actions */}
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button onClick={() => handleSaveIngredient(ing)} style={{ padding: '5px 14px', borderRadius: 4, border: 'none', background: '#111827', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Salvar</button>
-                            <button onClick={() => setEditingIng(null)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, background: '#fff', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+                            <button onClick={() => setEditingIng(null)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, background: '#fff', color: C.text, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
                           </div>
                         </div>
                       ) : (
@@ -2001,6 +2125,8 @@ export default function Catalog({ adminToken }) {
                         onSave={handleSaveCompoundRecipe}
                         onClose={() => setCompoundPanelIngId(null)}
                         saving={savingCompoundRecipe}
+                        adminToken={adminToken}
+                        onIngredientCreated={newIng => setIngredients(prev => [...prev, newIng].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))}
                       />
                     )}
 
@@ -2100,6 +2226,81 @@ export default function Catalog({ adminToken }) {
               {addingIng ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={14} />}
               {addingIng ? 'Adicionando...' : 'Adicionar Insumo'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── ABA ESPECIAL DO MÊS ──────────────────────────────────────────────── */}
+      {tab === 'especial' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <Star size={20} color={C.gold} />
+            <p style={{ fontSize: 18, fontWeight: 800, color: C.text }}>Especial do Mês</p>
+          </div>
+          <p style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>
+            Configure o sabor especial que aparece como destaque no cardápio. Esse conteúdo é exibido automaticamente no site.
+          </p>
+
+          <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, padding: 24, maxWidth: 600, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '10px 14px', background: 'rgba(242,168,0,0.08)', borderRadius: 8, border: '1px solid rgba(242,168,0,0.2)' }}>
+              <Star size={14} color={C.gold} />
+              <span style={{ fontSize: 12, color: '#92400E', fontWeight: 600 }}>
+                Este sabor substitui automaticamente a descrição do produto "Especial do Mês" no cardápio.
+              </span>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                Nome do Sabor *
+              </label>
+              <input
+                className="input-field"
+                placeholder="ex: Quatro Queijos Trufada"
+                value={getSetting('special_flavor_name')}
+                onChange={e => setSetting('special_flavor_name', e.target.value)}
+                style={{ background: '#F9FAFB', color: C.text, borderColor: C.border, fontSize: 14 }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 11, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                Descrição
+              </label>
+              <textarea
+                className="input-field"
+                placeholder="Descreva os ingredientes, diferenciais do sabor..."
+                value={getSetting('special_flavor_description')}
+                onChange={e => setSetting('special_flavor_description', e.target.value)}
+                rows={4}
+                style={{ resize: 'vertical', background: '#F9FAFB', color: C.text, borderColor: C.border, fontFamily: 'inherit', fontSize: 13 }}
+              />
+            </div>
+
+            <SpecialFlavorSaveButton
+              name={getSetting('special_flavor_name')}
+              description={getSetting('special_flavor_description')}
+              onSave={saveSetting}
+            />
+
+            {/* Preview */}
+            {getSetting('special_flavor_name') && (
+              <div style={{ marginTop: 20, padding: 16, background: '#FFFBEB', borderRadius: 8, border: '1px solid #FDE68A' }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Prévia do Cardápio</p>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 8, background: 'linear-gradient(135deg,#F2A800,#EF4444)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Star size={18} color="#fff" />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 3 }}>
+                      Especial do Mês — {getSetting('special_flavor_name')}
+                    </p>
+                    {getSetting('special_flavor_description') && (
+                      <p style={{ fontSize: 12, color: C.muted }}>{getSetting('special_flavor_description')}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
