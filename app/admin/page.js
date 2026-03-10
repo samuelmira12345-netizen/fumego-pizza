@@ -1148,7 +1148,7 @@ export default function AdminPage() {
                         className="input-field"
                         type="number" min="0" max="100" step="0.5"
                         placeholder="5"
-                        value={getSetting('cashback_percent') || '5'}
+                        value={getSetting('cashback_percent')}
                         onChange={e => updateSetting('cashback_percent', e.target.value)}
                         style={{ background: '#F9FAFB', color: C.text, borderColor: C.border, maxWidth: 100 }}
                       />
@@ -1165,7 +1165,7 @@ export default function AdminPage() {
                         className="input-field"
                         type="number" min="0" max="100" step="5"
                         placeholder="50"
-                        value={getSetting('cashback_max_percent') || '50'}
+                        value={getSetting('cashback_max_percent')}
                         onChange={e => updateSetting('cashback_max_percent', e.target.value)}
                         style={{ background: '#F9FAFB', color: C.text, borderColor: C.border, maxWidth: 100 }}
                       />
