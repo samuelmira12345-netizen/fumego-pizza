@@ -2,12 +2,13 @@
  * GET /api/admin/diagnostics
  *
  * Verifica o status de Sentry e Upstash em produção.
- * Protegido pelo mesmo token admin (Authorization: Bearer <ADMIN_JWT_SECRET>).
- *
- * Retorna JSON com o resultado de cada teste.
+ * Protegido pelo mesmo JWT admin do painel (role === 'admin').
+ * Use o token que o admin panel envia — obtido via POST /api/auth/login
+ * com as credenciais de admin.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import jwt from 'jsonwebtoken';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -15,12 +16,18 @@ function unauthorized() {
   return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 }
 
-/** Verifica o token admin simples (mesmo mecanismo do route.js admin). */
+/** Verifica JWT admin — idêntico ao verifyAdminToken() do route.js. */
 function isAuthorized(req: NextRequest): boolean {
   const auth   = req.headers.get('authorization') ?? '';
-  const secret = process.env.ADMIN_JWT_SECRET ?? '';
-  if (!secret) return false;
-  return auth === `Bearer ${secret}`;
+  const token  = auth.replace('Bearer ', '').trim();
+  const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+  if (!token || !secret) return false;
+  try {
+    const decoded = jwt.verify(token, secret) as { role?: string };
+    return decoded.role === 'admin';
+  } catch {
+    return false;
+  }
 }
 
 // ── Teste Upstash ─────────────────────────────────────────────────────────────
