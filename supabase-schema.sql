@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS products (
   price DECIMAL(10,2) NOT NULL,
   image_url TEXT,
   is_active BOOLEAN DEFAULT true,
+  is_hidden BOOLEAN DEFAULT false,
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -40,6 +41,7 @@ CREATE TABLE IF NOT EXISTS drinks (
   size TEXT,
   price DECIMAL(10,2) NOT NULL,
   is_active BOOLEAN DEFAULT true,
+  is_hidden BOOLEAN DEFAULT false,
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
