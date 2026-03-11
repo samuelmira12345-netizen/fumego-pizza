@@ -2,9 +2,11 @@
  * GET /api/admin/diagnostics
  *
  * Verifica o status de Sentry e Upstash em produção.
- * Protegido pelo mesmo JWT admin do painel (role === 'admin').
- * Use o token que o admin panel envia — obtido via POST /api/auth/login
- * com as credenciais de admin.
+ *
+ * Autenticação (aceita qualquer uma das opções):
+ *  1. JWT admin  — Authorization: Bearer <token do painel>
+ *  2. Chave dedicada — Authorization: Bearer <DIAGNOSTICS_SECRET>
+ *     Defina DIAGNOSTICS_SECRET nas env vars do Vercel (qualquer string aleatória forte).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -16,14 +18,21 @@ function unauthorized() {
   return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 }
 
-/** Verifica JWT admin — idêntico ao verifyAdminToken() do route.js. */
+/** Aceita JWT admin válido OU o DIAGNOSTICS_SECRET direto. */
 function isAuthorized(req: NextRequest): boolean {
-  const auth   = req.headers.get('authorization') ?? '';
-  const token  = auth.replace('Bearer ', '').trim();
-  const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
-  if (!token || !secret) return false;
+  const auth  = req.headers.get('authorization') ?? '';
+  const token = auth.replace('Bearer ', '').trim();
+  if (!token) return false;
+
+  // Opção 1: chave dedicada (mais simples para Postman/CI)
+  const diagSecret = process.env.DIAGNOSTICS_SECRET;
+  if (diagSecret && token === diagSecret) return true;
+
+  // Opção 2: JWT admin padrão
+  const jwtSecret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+  if (!jwtSecret) return false;
   try {
-    const decoded = jwt.verify(token, secret) as { role?: string };
+    const decoded = jwt.verify(token, jwtSecret) as { role?: string };
     return decoded.role === 'admin';
   } catch {
     return false;
