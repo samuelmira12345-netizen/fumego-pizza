@@ -871,7 +871,7 @@ function ProductCard({
 
 // ── DrinkRow (collapsed + expandable) ─────────────────────────────────────────
 
-function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdate, onDelete, drinkStockLimits, onUpdateDrinkStockLimit, onSave, isSaving }) {
+function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdate, onDelete, drinkStockLimits, onUpdateDrinkStockLimit, onToggleFlag, onSave, isSaving }) {
   const dstock = drinkStockLimits[String(drink.id)] || { enabled: false, qty: 0 };
 
   return (
@@ -894,7 +894,7 @@ function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdat
 
         {/* Active toggle */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: isSaving ? 'wait' : 'pointer', flexShrink: 0 }}>
-          <input type="checkbox" checked={!!drink.is_active} disabled={isSaving} onChange={async e => { const val = e.target.checked; onUpdate(idx, 'is_active', val); await onSave({ ...drink, is_active: val }); }} />
+          <input type="checkbox" checked={!!drink.is_active} disabled={isSaving} onChange={e => onToggleFlag(drink.id, 'is_active', e.target.checked)} />
           <span style={{ fontSize: 11, fontWeight: 600, color: drink.is_active ? C.success : C.light, minWidth: 40 }}>
             {drink.is_active ? 'Ativo' : 'Inativo'}
           </span>
@@ -902,7 +902,7 @@ function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdat
 
         {/* Hidden toggle */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: isSaving ? 'wait' : 'pointer', flexShrink: 0 }}>
-          <input type="checkbox" checked={!!drink.is_hidden} disabled={isSaving} onChange={async e => { const val = e.target.checked; onUpdate(idx, 'is_hidden', val); await onSave({ ...drink, is_hidden: val }); }} />
+          <input type="checkbox" checked={!!drink.is_hidden} disabled={isSaving} onChange={e => onToggleFlag(drink.id, 'is_hidden', e.target.checked)} />
           <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: drink.is_hidden ? '#7C3AED' : C.light }}>
             {drink.is_hidden ? <EyeOff size={11} /> : <Eye size={11} />}
             {drink.is_hidden ? 'Oculto' : 'Visível'}
@@ -1097,7 +1097,7 @@ function ProductRow({
   imagePositions, onUpdateImagePos,
   stockLimits, onUpdateStockLimit,
   ingredients, recipe, onSaveRecipe,
-  onSave, savingProductId,
+  onSave, onToggleFlag, savingProductId,
 }) {
   const catLabel = PROD_CATEGORIES.find(c => c.key === (product.category || 'pizza'))?.label || 'Pizza';
   const catColors = { pizza: '#F2A800', calzone: '#2563EB', combo: '#7C3AED', outros: '#6B7280' };
@@ -1148,7 +1148,7 @@ function ProductRow({
 
         {/* Active toggle */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: savingProductId === product.id ? 'wait' : 'pointer', flexShrink: 0 }}>
-          <input type="checkbox" checked={!!product.is_active} disabled={savingProductId === product.id} onChange={async e => { const val = e.target.checked; onUpdate(idx, 'is_active', val); await onSave({ ...product, is_active: val }); }} />
+          <input type="checkbox" checked={!!product.is_active} disabled={savingProductId === product.id} onChange={e => onToggleFlag(product.id, 'is_active', e.target.checked)} />
           <span style={{ fontSize: 11, fontWeight: 600, color: product.is_active ? C.success : C.light, minWidth: 40 }}>
             {product.is_active ? 'Ativo' : 'Inativo'}
           </span>
@@ -1156,7 +1156,7 @@ function ProductRow({
 
         {/* Hidden toggle */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: savingProductId === product.id ? 'wait' : 'pointer', flexShrink: 0, title: 'Ocultar do cardápio online' }}>
-          <input type="checkbox" checked={!!product.is_hidden} disabled={savingProductId === product.id} onChange={async e => { const val = e.target.checked; onUpdate(idx, 'is_hidden', val); await onSave({ ...product, is_hidden: val }); }} />
+          <input type="checkbox" checked={!!product.is_hidden} disabled={savingProductId === product.id} onChange={e => onToggleFlag(product.id, 'is_hidden', e.target.checked)} />
           <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: product.is_hidden ? '#7C3AED' : C.light }}>
             {product.is_hidden ? <EyeOff size={11} /> : <Eye size={11} />}
             {product.is_hidden ? 'Oculto' : 'Visível'}
@@ -1465,7 +1465,59 @@ export default function Catalog({ adminToken }) {
     setDrinks(prev => { const d = [...prev]; d[idx] = { ...d[idx], [field]: value }; return d; });
   }
 
-  // ── Save ─────────────────────────────────────────────────────────────────────
+  // ── Save / toggles ───────────────────────────────────────────────────────────
+
+  async function toggleProductFlag(productId, field, value) {
+    if (!['is_active', 'is_hidden'].includes(field)) return;
+    setSavingProductId(productId);
+    const prevProducts = products;
+    setProducts(prev => prev.map(p => String(p.id) === String(productId) ? { ...p, [field]: value } : p));
+
+    try {
+      const payload = { id: productId, [field]: value };
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'update_product_flags', data: payload }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || 'Erro ao atualizar produto');
+      if (d.product) setProducts(prev => prev.map(p => String(p.id) === String(productId) ? d.product : p));
+      setMsg('✅ Produto atualizado!');
+      setTimeout(() => setMsg(''), 3000);
+    } catch (e) {
+      setProducts(prevProducts);
+      setMsg('❌ ' + (e.message || 'Erro ao atualizar produto'));
+    } finally {
+      setSavingProductId(null);
+    }
+  }
+
+  async function toggleDrinkFlag(drinkId, field, value) {
+    if (!['is_active', 'is_hidden'].includes(field)) return;
+    setSavingDrinkId(drinkId);
+    const prevDrinks = drinks;
+    setDrinks(prev => prev.map(d => String(d.id) === String(drinkId) ? { ...d, [field]: value } : d));
+
+    try {
+      const payload = { id: drinkId, [field]: value };
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'update_drink_flags', data: payload }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || 'Erro ao atualizar bebida');
+      if (d.drink) setDrinks(prev => prev.map(item => String(item.id) === String(drinkId) ? d.drink : item));
+      setMsg('✅ Bebida atualizada!');
+      setTimeout(() => setMsg(''), 3000);
+    } catch (e) {
+      setDrinks(prevDrinks);
+      setMsg('❌ ' + (e.message || 'Erro ao atualizar bebida'));
+    } finally {
+      setSavingDrinkId(null);
+    }
+  }
 
   async function saveProduct(product) {
     if (!product) return;
@@ -1916,6 +1968,7 @@ export default function Catalog({ adminToken }) {
                       recipe={recipes[p.id] || []}
                       onSaveRecipe={handleSaveRecipe}
                       onSave={saveProduct}
+                      onToggleFlag={toggleProductFlag}
                       savingProductId={savingProductId}
                     />
                     );
@@ -1983,6 +2036,7 @@ export default function Catalog({ adminToken }) {
                       onDelete={handleDeleteDrink}
                       drinkStockLimits={drinkStockLimits}
                       onUpdateDrinkStockLimit={updateDrinkStockLimit}
+                      onToggleFlag={toggleDrinkFlag}
                       onSave={saveDrink}
                       isSaving={savingDrinkId === d.id}
                     />

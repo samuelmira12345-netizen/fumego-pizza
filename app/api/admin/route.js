@@ -12,6 +12,7 @@ import {
 import {
   handleSaveAll, handleSaveSetting, handleAddProduct,
   handleAddDrink, handleDeleteDrink, handleDuplicateDrink, handleRemoveLogo,
+  handleUpdateProductFlags, handleUpdateDrinkFlags,
 } from '../../../lib/admin-actions/catalog';
 import {
   handleAddCoupon, handleUpdateCoupon, handleDeleteCoupon, handleGetCouponAnalytics,
@@ -83,6 +84,8 @@ export async function POST(request) {
     if (action === 'delete_drink')      return handleDeleteDrink(supabase, data);
     if (action === 'duplicate_drink')   return handleDuplicateDrink(supabase, data);
     if (action === 'remove_logo')       return handleRemoveLogo(supabase);
+    if (action === 'update_product_flags') return handleUpdateProductFlags(supabase, data);
+    if (action === 'update_drink_flags')   return handleUpdateDrinkFlags(supabase, data);
 
     // ── Coupons ─────────────────────────────────────────────────────────────
     if (action === 'add_coupon')        return handleAddCoupon(supabase, data);
