@@ -1092,7 +1092,7 @@ function PriceLineChart({ points }) {
 // ── ProductRow (collapsed + expandable) ──────────────────────────────────────
 
 function ProductRow({
-  product, idx, isExpanded, onToggleExpand, onDuplicate,
+  product, idx, isExpanded, onToggleExpand, onDuplicate, onDelete,
   onUpdate, onUploadImage, uploadingId,
   imagePositions, onUpdateImagePos,
   stockLimits, onUpdateStockLimit,
@@ -1171,6 +1171,13 @@ function ProductRow({
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
           }}>
             <Copy size={12} /> Duplicar
+          </button>
+          <button onClick={() => onDelete(product.id)} title="Excluir sabor" style={{
+            padding: '5px 9px', borderRadius: 4, border: '1px solid #FECACA',
+            background: '#FEF2F2', color: '#B91C1C', fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            <Trash2 size={12} /> Excluir
           </button>
           <button onClick={onToggleExpand} style={{
             padding: '5px 12px', borderRadius: 4, border: 'none',
@@ -1382,6 +1389,11 @@ export default function Catalog({ adminToken }) {
     });
   }
 
+  function setCatalogVisibilityOverridesLocal(overrides) {
+    if (!overrides || typeof overrides !== 'object') return;
+    setSetting('catalog_visibility_overrides', JSON.stringify(overrides));
+  }
+
   async function saveSetting(key, value) {
     setSetting(key, value);
     try {
@@ -1483,6 +1495,7 @@ export default function Catalog({ adminToken }) {
       const d = await res.json();
       if (!res.ok || d.error) throw new Error(d.error || 'Erro ao atualizar produto');
       if (d.product) setProducts(prev => prev.map(p => String(p.id) === String(productId) ? d.product : p));
+      setCatalogVisibilityOverridesLocal(d.catalog_visibility_overrides);
       setMsg('✅ Produto atualizado!');
       setTimeout(() => setMsg(''), 3000);
     } catch (e) {
@@ -1509,6 +1522,7 @@ export default function Catalog({ adminToken }) {
       const d = await res.json();
       if (!res.ok || d.error) throw new Error(d.error || 'Erro ao atualizar bebida');
       if (d.drink) setDrinks(prev => prev.map(item => String(item.id) === String(drinkId) ? d.drink : item));
+      setCatalogVisibilityOverridesLocal(d.catalog_visibility_overrides);
       setMsg('✅ Bebida atualizada!');
       setTimeout(() => setMsg(''), 3000);
     } catch (e) {
@@ -1527,7 +1541,7 @@ export default function Catalog({ adminToken }) {
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-        body: JSON.stringify({ action: 'save_all', data: { products: [product], settings } }),
+        body: JSON.stringify({ action: 'save_all', data: { products: [product] } }),
       });
       const d = await res.json();
       if (d.error) { setMsg('❌ ' + d.error); return; }
@@ -1545,7 +1559,7 @@ export default function Catalog({ adminToken }) {
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-        body: JSON.stringify({ action: 'save_all', data: { drinks: [drink], settings } }),
+        body: JSON.stringify({ action: 'save_all', data: { drinks: [drink] } }),
       });
       const d = await res.json();
       if (d.error) { setMsg('❌ ' + d.error); return; }
@@ -1619,6 +1633,32 @@ export default function Catalog({ adminToken }) {
       if (d.error) { alert('Erro: ' + d.error); return; }
       setDrinks(prev => prev.filter(dr => dr.id !== drinkId));
     } catch (e) { alert('Erro: ' + e.message); }
+  }
+
+  async function handleDeleteProduct(productId) {
+    if (!confirm('Excluir este produto? Essa ação não pode ser desfeita.')) return;
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'delete_product', data: { id: productId } }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || 'Erro ao excluir produto');
+      setProducts(prev => prev.filter((p) => String(p.id) !== String(productId)));
+      setCatalogVisibilityOverridesLocal(d.catalog_visibility_overrides);
+      setExpandedId(prev => (String(prev) === String(productId) ? null : prev));
+      setRecipes(prev => {
+        const next = { ...prev };
+        delete next[productId];
+        delete next[String(productId)];
+        return next;
+      });
+      setMsg('✅ Produto excluído!');
+      setTimeout(() => setMsg(''), 3000);
+    } catch (e) {
+      setMsg('❌ ' + (e.message || 'Erro ao excluir produto'));
+    }
   }
 
   // ── Ingredients ──────────────────────────────────────────────────────────────
@@ -1957,6 +1997,7 @@ export default function Catalog({ adminToken }) {
                       isExpanded={expandedId === p.id}
                       onToggleExpand={() => setExpandedId(prev => prev === p.id ? null : p.id)}
                       onDuplicate={handleDuplicateProduct}
+                      onDelete={handleDeleteProduct}
                       onUpdate={updateProduct}
                       onUploadImage={handleImageUpload}
                       uploadingId={uploadingId}

@@ -5,10 +5,10 @@ import { parseCatalogVisibilityOverrides, applyCatalogVisibilityOverrides } from
 /**
  * GET /api/catalog
  *
- * Retorna produtos visíveis, bebidas ativas e settings.
- * - Produtos com is_hidden=true são filtrados no banco (nunca chegam ao browser)
- * - Produtos com is_active=false chegam ao frontend para exibir "ESGOTADO"
- * - Bebidas com is_hidden=true ou is_active=false são filtradas no banco
+ * Retorna catálogo para cliente após aplicar overrides de visibilidade/atividade.
+ * - Produtos ocultos são filtrados após merge com settings (fallback para bancos legados)
+ * - Produtos inativos chegam ao frontend para exibir "ESGOTADO"
+ * - Bebidas ocultas/inativas são filtradas após merge
  * - Cache-Control: no-store → mudanças no admin refletem imediatamente
  */
 export async function GET() {
@@ -16,15 +16,9 @@ export async function GET() {
     const supabase = getSupabaseAdmin();
 
     const [products, drinks, settings, productStock, drinkStock] = await Promise.all([
-      // Filtra produtos ocultos diretamente no banco
-      supabase.from('products').select('*')
-        .or('is_hidden.is.null,is_hidden.eq.false')
-        .order('sort_order'),
-      // Filtra bebidas ocultas e inativas diretamente no banco
-      supabase.from('drinks').select('*')
-        .or('is_hidden.is.null,is_hidden.eq.false')
-        .eq('is_active', true)
-        .order('name'),
+      // Busca completo e aplica regras de visibilidade/atividade após merge com overrides
+      supabase.from('products').select('*').order('sort_order'),
+      supabase.from('drinks').select('*').order('name'),
       supabase.from('settings').select('*'),
       supabase.from('product_stock').select('product_id, quantity, enabled').eq('enabled', true),
       supabase.from('drink_stock').select('drink_id, quantity, enabled').eq('enabled', true),
@@ -34,9 +28,12 @@ export async function GET() {
     const overrides = parseCatalogVisibilityOverrides(settingsData);
     const merged = applyCatalogVisibilityOverrides(products.data || [], drinks.data || [], overrides);
 
+    const visibleProducts = (merged.products || []).filter((p) => !p.is_hidden);
+    const visibleDrinks = (merged.drinks || []).filter((d) => !d.is_hidden && d.is_active);
+
     const response = NextResponse.json({
-      products:     merged.products,
-      drinks:       merged.drinks,
+      products:     visibleProducts,
+      drinks:       visibleDrinks,
       settings:     settingsData,
       productStock: productStock.data || [],
       drinkStock:   drinkStock.data   || [],
