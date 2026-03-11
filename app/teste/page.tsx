@@ -83,7 +83,7 @@ export default function HomePage() {
     try {
       // /api/catalog é cacheado na CDN por 60 s (s-maxage=60, stale-while-revalidate=300)
       // → elimina queries ao banco a cada visita; o banco só é consultado 1× por minuto
-      const res = await fetch('/api/catalog');
+      const res = await fetch('/api/catalog', { cache: 'no-store' });
       if (!res.ok) throw new Error('Falha ao carregar catálogo');
       const { products: pData, drinks: dData, settings: sData, productStock, drinkStock } = await res.json();
 
@@ -126,6 +126,7 @@ export default function HomePage() {
           }
           const visibleDrinks = dData.filter((d: Drink) => {
             if (d.is_hidden) return false;
+            if (!d.is_active) return false;
             const sl = drinkStockMap[String(d.id)];
             return !sl || !sl.enabled || sl.qty > 0;
           });
