@@ -1894,10 +1894,14 @@ export default function Catalog({ adminToken }) {
                 )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-                  {filteredProducts.map((p, idx) => (
+                  {filteredProducts.map((p) => {
+                    const productIdx = products.findIndex(prod => String(prod.id) === String(p.id));
+                    if (productIdx < 0) return null;
+
+                    return (
                     <ProductRow
                       key={p.id}
-                      product={p} idx={idx}
+                      product={p} idx={productIdx}
                       isExpanded={expandedId === p.id}
                       onToggleExpand={() => setExpandedId(prev => prev === p.id ? null : p.id)}
                       onDuplicate={handleDuplicateProduct}
@@ -1914,7 +1918,8 @@ export default function Catalog({ adminToken }) {
                       onSave={saveProduct}
                       savingProductId={savingProductId}
                     />
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
