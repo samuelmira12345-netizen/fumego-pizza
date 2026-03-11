@@ -688,6 +688,37 @@ function ProductCard({
               </div>
             )}
 
+            {/* Promoção */}
+            <div style={{ background: product.promo_active ? '#FFF7ED' : '#F9FAFB', border: `1px solid ${product.promo_active ? '#FED7AA' : C.border}`, borderRadius: 6, padding: '10px 12px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', marginBottom: product.promo_active ? 8 : 0 }}>
+                <input type="checkbox" checked={!!product.promo_active}
+                  onChange={e => onUpdate(idx, 'promo_active', e.target.checked)} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: product.promo_active ? '#C2410C' : C.muted }}>
+                  🏷️ Ativar promoção
+                </span>
+                {product.promo_active && product.sale_price && (
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#FEF3C7', color: '#D97706' }}>
+                    PROMO ATIVA
+                  </span>
+                )}
+              </label>
+              {product.promo_active && (
+                <div>
+                  <label style={labelStyle}>Preço Promocional (R$)</label>
+                  <input type="number" step="0.01" placeholder="0,00"
+                    value={product.sale_price || ''}
+                    onChange={e => onUpdate(idx, 'sale_price', e.target.value)}
+                    style={{ ...inputStyle, borderColor: '#FED7AA', background: '#fff' }} />
+                  {product.sale_price && product.price && (
+                    <p style={{ fontSize: 11, color: '#059669', marginTop: 3, fontWeight: 600 }}>
+                      Desconto: {Math.round((1 - product.sale_price / product.price) * 100)}% off (
+                      {fmtBRL(product.price)} → {fmtBRL(product.sale_price)})
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Descrição */}
             <div>
               <label style={labelStyle}>Descrição</label>
@@ -854,7 +885,17 @@ function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdat
         </div>
 
         {/* Price */}
-        <span style={{ fontSize: 14, fontWeight: 800, color: C.gold, minWidth: 76, textAlign: 'right', flexShrink: 0 }}>{fmtBRL(drink.price)}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0, minWidth: 76 }}>
+          {drink.promo_active && drink.sale_price ? (
+            <>
+              <span style={{ fontSize: 11, textDecoration: 'line-through', color: C.muted }}>{fmtBRL(drink.price)}</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: '#EF4444' }}>{fmtBRL(drink.sale_price)}</span>
+              <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 3, background: '#FEF3C7', color: '#D97706' }}>PROMO</span>
+            </>
+          ) : (
+            <span style={{ fontSize: 14, fontWeight: 800, color: C.gold }}>{fmtBRL(drink.price)}</span>
+          )}
+        </div>
 
         {/* Active toggle */}
         <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
@@ -916,6 +957,32 @@ function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdat
             <input className="input-field" placeholder="Preço" type="number" step="0.01" value={drink.price || ''}
               onChange={e => onUpdate(idx, 'price', e.target.value)}
               style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+          </div>
+
+          {/* Promoção */}
+          <div style={{ marginBottom: 8, background: drink.promo_active ? '#FFF7ED' : '#F9FAFB', border: `1px solid ${drink.promo_active ? '#FED7AA' : C.border}`, borderRadius: 6, padding: '10px 12px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', marginBottom: drink.promo_active ? 8 : 0 }}>
+              <input type="checkbox" checked={!!drink.promo_active}
+                onChange={e => onUpdate(idx, 'promo_active', e.target.checked)} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: drink.promo_active ? '#C2410C' : C.muted }}>🏷️ Ativar promoção</span>
+              {drink.promo_active && drink.sale_price && (
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#FEF3C7', color: '#D97706' }}>PROMO ATIVA</span>
+              )}
+            </label>
+            {drink.promo_active && (
+              <div>
+                <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Preço Promocional (R$)</label>
+                <input className="input-field" type="number" step="0.01" placeholder="0,00"
+                  value={drink.sale_price || ''}
+                  onChange={e => onUpdate(idx, 'sale_price', e.target.value)}
+                  style={{ background: '#fff', color: C.text, borderColor: '#FED7AA' }} />
+                {drink.sale_price && drink.price && (
+                  <p style={{ fontSize: 11, color: '#059669', marginTop: 3, fontWeight: 600 }}>
+                    {Math.round((1 - drink.sale_price / drink.price) * 100)}% off ({fmtBRL(drink.price)} → {fmtBRL(drink.sale_price)})
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, border: '1px solid ' + C.border }}>
@@ -1060,7 +1127,15 @@ function ProductRow({
 
         {/* Price + CMV % */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0, minWidth: 76 }}>
-          <span style={{ fontSize: 14, fontWeight: 800, color: C.gold }}>{fmtBRL(product.price)}</span>
+          {product.promo_active && product.sale_price ? (
+            <>
+              <span style={{ fontSize: 11, textDecoration: 'line-through', color: C.muted }}>{fmtBRL(product.price)}</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: '#EF4444' }}>{fmtBRL(product.sale_price)}</span>
+              <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 3, background: '#FEF3C7', color: '#D97706' }}>PROMO</span>
+            </>
+          ) : (
+            <span style={{ fontSize: 14, fontWeight: 800, color: C.gold }}>{fmtBRL(product.price)}</span>
+          )}
           {cmvValue !== null
             ? (() => {
                 const price = parseFloat(product.price);

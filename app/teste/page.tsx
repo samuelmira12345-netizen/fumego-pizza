@@ -479,7 +479,9 @@ export default function HomePage() {
               <div style={{ flex: 1, textAlign: 'center', padding: '32px 8px 18px', background: 'linear-gradient(to top, rgba(8,6,0,0.95) 0%, rgba(8,6,0,0.55) 60%, transparent 100%)', borderRadius: '0 0 0 150px' }}>
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>Calabresa</p>
                 {calabresa.is_active
-                  ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(calabresa.price)}</p>
+                  ? (calabresa as any).promo_active && (calabresa as any).sale_price
+                    ? <><p style={{ fontSize: 12, textDecoration: 'line-through', color: '#7A6040', marginTop: 3 }}>R$ {fmt(calabresa.price)}</p><p style={{ fontSize: 15, fontWeight: 800, color: '#EF4444', marginTop: 1 }}>R$ {fmt((calabresa as any).sale_price)}</p></>
+                    : <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(calabresa.price)}</p>
                   : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
                 }
                 {(() => { const s = getStock(calabresa); const thr = s?.low_stock_threshold ?? 3; return calabresa.is_active && s && s.qty > 0 && s.qty <= thr ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
@@ -487,7 +489,9 @@ export default function HomePage() {
               <div style={{ flex: 1, textAlign: 'center', padding: '32px 8px 18px', background: 'linear-gradient(to top, rgba(8,6,0,0.95) 0%, rgba(8,6,0,0.55) 60%, transparent 100%)', borderRadius: '0 0 150px 0' }}>
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>Marguerita</p>
                 {marguerita.is_active
-                  ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(marguerita.price)}</p>
+                  ? (marguerita as any).promo_active && (marguerita as any).sale_price
+                    ? <><p style={{ fontSize: 12, textDecoration: 'line-through', color: '#7A6040', marginTop: 3 }}>R$ {fmt(marguerita.price)}</p><p style={{ fontSize: 15, fontWeight: 800, color: '#EF4444', marginTop: 1 }}>R$ {fmt((marguerita as any).sale_price)}</p></>
+                    : <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(marguerita.price)}</p>
                   : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
                 }
                 {(() => { const s = getStock(marguerita); const thr = s?.low_stock_threshold ?? 3; return marguerita.is_active && s && s.qty > 0 && s.qty <= thr ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
@@ -621,9 +625,16 @@ export default function HomePage() {
               </p>
               {(() => { const s = getStock(especial); const thr = s?.low_stock_threshold ?? 3; return especial.is_active && s && s.qty > 0 && s.qty <= thr ? <p style={{ fontSize: 11, color: '#F6AD55', marginTop: 6, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: especial.is_active ? GOLD : '#E04040', fontSize: especial.is_active ? 26 : 15, fontWeight: 800 }}>
-                  {especial.is_active ? `R$ ${fmt(especial.price)}` : 'Indisponível no momento'}
-                </span>
+                {especial.is_active && (especial as any).promo_active && (especial as any).sale_price ? (
+                  <div>
+                    <span style={{ fontSize: 13, textDecoration: 'line-through', color: MUTED }}>R$ {fmt(especial.price)}</span>
+                    <span style={{ display: 'block', color: '#EF4444', fontSize: 26, fontWeight: 900 }}>R$ {fmt((especial as any).sale_price)}</span>
+                  </div>
+                ) : (
+                  <span style={{ color: especial.is_active ? GOLD : '#E04040', fontSize: especial.is_active ? 26 : 15, fontWeight: 800 }}>
+                    {especial.is_active ? `R$ ${fmt(especial.price)}` : 'Indisponível no momento'}
+                  </span>
+                )}
                 {especial.is_active && (
                   <button
                     onClick={e => { e.stopPropagation(); openProductModal(especial); }}

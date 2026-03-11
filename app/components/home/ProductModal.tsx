@@ -171,9 +171,21 @@ export default function ProductModal({
         <p style={{ fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.55 }}>
           {product.description}
         </p>
-        <p style={{ fontSize: 24, fontWeight: 800, color: product.is_active ? GOLD : '#E04040', marginBottom: 22 }}>
-          {product.is_active ? `R$ ${fmt(product.price)}` : 'ESGOTADO'}
-        </p>
+        {product.is_active && (product as any).promo_active && (product as any).sale_price ? (
+          <div style={{ marginBottom: 22 }}>
+            <span style={{ display: 'inline-block', background: '#EF4444', color: '#fff', fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 4, marginBottom: 6, letterSpacing: 0.5 }}>
+              🏷️ PROMOÇÃO
+            </span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+              <span style={{ fontSize: 16, textDecoration: 'line-through', color: MUTED }}>R$ {fmt(product.price)}</span>
+              <span style={{ fontSize: 28, fontWeight: 900, color: '#EF4444' }}>R$ {fmt((product as any).sale_price)}</span>
+            </div>
+          </div>
+        ) : (
+          <p style={{ fontSize: 24, fontWeight: 800, color: product.is_active ? GOLD : '#E04040', marginBottom: 22 }}>
+            {product.is_active ? `R$ ${fmt(product.price)}` : 'ESGOTADO'}
+          </p>
+        )}
 
         {/* ── Opções — Combo (duas pizzas) ─────────────────────────────── */}
         {product.is_active && isCombo && (
