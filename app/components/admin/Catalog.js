@@ -1092,7 +1092,7 @@ function PriceLineChart({ points }) {
 // ── ProductRow (collapsed + expandable) ──────────────────────────────────────
 
 function ProductRow({
-  product, idx, isExpanded, onToggleExpand, onDuplicate,
+  product, idx, isExpanded, onToggleExpand, onDuplicate, onDelete,
   onUpdate, onUploadImage, uploadingId,
   imagePositions, onUpdateImagePos,
   stockLimits, onUpdateStockLimit,
@@ -1171,6 +1171,13 @@ function ProductRow({
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
           }}>
             <Copy size={12} /> Duplicar
+          </button>
+          <button onClick={() => onDelete(product.id)} title="Excluir sabor" style={{
+            padding: '5px 9px', borderRadius: 4, border: '1px solid #FECACA',
+            background: '#FEF2F2', color: '#B91C1C', fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            <Trash2 size={12} /> Excluir
           </button>
           <button onClick={onToggleExpand} style={{
             padding: '5px 12px', borderRadius: 4, border: 'none',
@@ -1621,6 +1628,31 @@ export default function Catalog({ adminToken }) {
     } catch (e) { alert('Erro: ' + e.message); }
   }
 
+  async function handleDeleteProduct(productId) {
+    if (!confirm('Excluir este produto? Essa ação não pode ser desfeita.')) return;
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'delete_product', data: { id: productId } }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || 'Erro ao excluir produto');
+      setProducts(prev => prev.filter((p) => String(p.id) !== String(productId)));
+      setExpandedId(prev => (String(prev) === String(productId) ? null : prev));
+      setRecipes(prev => {
+        const next = { ...prev };
+        delete next[productId];
+        delete next[String(productId)];
+        return next;
+      });
+      setMsg('✅ Produto excluído!');
+      setTimeout(() => setMsg(''), 3000);
+    } catch (e) {
+      setMsg('❌ ' + (e.message || 'Erro ao excluir produto'));
+    }
+  }
+
   // ── Ingredients ──────────────────────────────────────────────────────────────
 
   async function handleAddIngredient() {
@@ -1957,6 +1989,7 @@ export default function Catalog({ adminToken }) {
                       isExpanded={expandedId === p.id}
                       onToggleExpand={() => setExpandedId(prev => prev === p.id ? null : p.id)}
                       onDuplicate={handleDuplicateProduct}
+                      onDelete={handleDeleteProduct}
                       onUpdate={updateProduct}
                       onUploadImage={handleImageUpload}
                       uploadingId={uploadingId}
