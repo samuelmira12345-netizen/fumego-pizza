@@ -30,6 +30,10 @@ const S = {
     label: 'EM PREPARO',   color: '#1D4ED8', bg: '#EFF6FF', border: '#BFDBFE',
     headerBg: '#2563EB',   text: '#fff',     icon: ChefHat,
   },
+  ready: {
+    label: 'PRONTO',       color: '#B45309', bg: '#FFFBEB', border: '#FDE68A',
+    headerBg: '#F59E0B',   text: '#fff',     icon: PackageCheck,
+  },
   delivering: {
     label: 'EM ENTREGA',   color: '#6D28D9', bg: '#F5F3FF', border: '#DDD6FE',
     headerBg: '#7C3AED',   text: '#fff',     icon: Truck,
@@ -48,6 +52,7 @@ const COLUMNS = [
   { id: 'novos',       statuses: ['pending'],               cfg: S.pending },
   { id: 'agendados',   statuses: ['scheduled'],             cfg: S.scheduled },
   { id: 'preparo',     statuses: ['confirmed', 'preparing'], cfg: S.confirmed },
+  { id: 'prontos',     statuses: ['ready'],                 cfg: S.ready },
   { id: 'entrega',     statuses: ['delivering'],             cfg: S.delivering },
   { id: 'finalizados', statuses: ['delivered'],              cfg: S.delivered },
 ];
@@ -127,7 +132,7 @@ function diffMins(fromIso, toIso) {
   return Math.round((new Date(toIso) - new Date(fromIso)) / 60000);
 }
 
-// Beep estridente via Web Audio API
+// Beep estridente para NOVO PEDIDO via Web Audio API
 function playBeep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -146,6 +151,26 @@ function playBeep() {
   } catch {}
 }
 
+// Sino suave para PEDIDO PRONTO (campainha de balcão)
+function playReadyChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Dois "dingues" ascendentes — como campainha de balcão
+    [[1047, 0, 0.45], [1319, 0.22, 0.45], [1568, 0.44, 0.65], [1319, 0.68, 0.35]].forEach(([freq, t, dur]) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + t);
+      gain.gain.setValueAtTime(0.55, ctx.currentTime + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + dur);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + dur + 0.01);
+    });
+  } catch {}
+}
+
 function useSecondTick() {
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -157,7 +182,7 @@ function useSecondTick() {
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onClick, onQuickAction, isNew, onDragStart, customerOrderCount }) {
+function OrderCard({ order, onClick, onQuickAction, isNew, isReady, onDragStart, customerOrderCount }) {
   const cfg  = S[order.status] || S.pending;
   const mins = elapsedMins(order.created_at);
   const pm   = PM[order.payment_method];
@@ -166,11 +191,19 @@ function OrderCard({ order, onClick, onQuickAction, isNew, onDragStart, customer
   const isNewCustomer = totalOrders === 1;
 
   const quickAction = {
-    scheduled:  { label: '→ Preparo',    next: 'confirmed',  bg: S.confirmed.headerBg },
-    confirmed:  { label: '→ Entrega',    next: 'delivering', bg: S.delivering.headerBg },
-    preparing:  { label: '→ Entrega',    next: 'delivering', bg: S.delivering.headerBg },
-    delivering: { label: '✓ Finalizar',  next: 'delivered',  bg: S.delivered.headerBg },
+    scheduled:  { label: '→ Preparo',   next: 'confirmed',  bg: S.confirmed.headerBg },
+    confirmed:  { label: '✓ Pronto',    next: 'ready',      bg: S.ready.headerBg },
+    preparing:  { label: '✓ Pronto',    next: 'ready',      bg: S.ready.headerBg },
+    ready:      { label: '→ Entrega',   next: 'delivering', bg: S.delivering.headerBg },
+    delivering: { label: '✓ Finalizar', next: 'delivered',  bg: S.delivered.headerBg },
   }[order.status];
+
+  const borderColor = isReady ? '#F59E0B' : isNew ? cfg.color : '#D1D5DB';
+  const shadow = isReady
+    ? '0 0 0 2px #F59E0B40, 0 2px 8px rgba(245,158,11,0.25)'
+    : isNew
+      ? `0 0 0 2px ${cfg.color}30, 0 2px 6px rgba(0,0,0,0.07)`
+      : '0 1px 2px rgba(0,0,0,0.05)';
 
   return (
     <div
@@ -178,28 +211,35 @@ function OrderCard({ order, onClick, onQuickAction, isNew, onDragStart, customer
       onDragStart={e => { onDragStart(order); e.dataTransfer.effectAllowed = 'move'; }}
       onClick={onClick}
       style={{
-        background: '#fff',
+        background: isReady ? '#FFFDF5' : '#fff',
         borderRadius: 4,
-        border: `1px solid ${isNew ? cfg.color : '#D1D5DB'}`,
+        border: `1px solid ${borderColor}`,
         borderLeft: `4px solid ${cfg.color}`,
         padding: '11px 12px 10px',
         cursor: 'grab',
-        boxShadow: isNew
-          ? `0 0 0 2px ${cfg.color}30, 0 2px 6px rgba(0,0,0,0.07)`
-          : '0 1px 2px rgba(0,0,0,0.05)',
+        boxShadow: shadow,
         transition: 'box-shadow 0.12s, transform 0.1s, opacity 0.1s',
         position: 'relative',
         userSelect: 'none',
+        animation: isReady ? 'kdsReadyPulse 1.5s ease-in-out infinite' : undefined,
       }}
       onMouseEnter={e => {
         e.currentTarget.style.boxShadow = '0 3px 12px rgba(0,0,0,0.12)';
         e.currentTarget.style.transform = 'translateY(-1px)';
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.boxShadow = isNew ? `0 0 0 2px ${cfg.color}30` : '0 1px 2px rgba(0,0,0,0.05)';
+        e.currentTarget.style.boxShadow = shadow;
         e.currentTarget.style.transform = 'translateY(0)';
       }}
     >
+      {isReady && (
+        <div style={{
+          position: 'absolute', top: 9, right: isNew ? 22 : 9,
+          width: 8, height: 8, borderRadius: '50%', background: '#F59E0B',
+          boxShadow: '0 0 0 3px #FEF3C7',
+          animation: 'kdsPulse 1.2s ease-in-out infinite',
+        }} />
+      )}
       {isNew && (
         <div style={{
           position: 'absolute', top: 9, right: 9,
@@ -287,11 +327,12 @@ const DROP_TARGET_STATUS = {
   novos:       'pending',
   agendados:   'scheduled',
   preparo:     'confirmed',
+  prontos:     'ready',
   entrega:     'delivering',
   finalizados: 'delivered',
 };
 
-function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStart, onDrop, customerOrderCount }) {
+function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, readyIds, onDragStart, onDrop, customerOrderCount }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const cards = orders
     .filter(o => col.statuses.includes(o.status))
@@ -364,6 +405,7 @@ function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, onDragStar
                 onClick={() => onCardClick(o)}
                 onQuickAction={onQuickAction}
                 isNew={newIds.has(o.id)}
+                isReady={readyIds ? readyIds.has(o.id) : false}
                 onDragStart={onDragStart}
                 customerOrderCount={customerOrderCount}
               />
@@ -381,12 +423,14 @@ function OrderTimeline({ order }) {
   const steps = [
     { label: 'Pedido recebido',       time: order.created_at,    icon: Bell,         color: '#D97706' },
     { label: 'Entrou em preparo',      time: order.confirmed_at,  icon: ChefHat,      color: '#2563EB' },
+    { label: 'Pronto para entrega',    time: order.ready_at,      icon: PackageCheck, color: '#F59E0B' },
     { label: 'Saiu para entrega',      time: order.delivering_at, icon: Truck,        color: '#7C3AED' },
     { label: 'Pedido entregue',        time: order.delivered_at,  icon: CheckCircle,  color: '#059669' },
   ];
 
   const durations = [
-    { label: 'Produção',  from: order.created_at,   to: order.delivering_at },
+    { label: 'Produção',  from: order.created_at,   to: order.ready_at      },
+    { label: 'Espera',    from: order.ready_at,      to: order.delivering_at },
     { label: 'Entrega',   from: order.delivering_at, to: order.delivered_at  },
     { label: 'Total',     from: order.created_at,   to: order.delivered_at  },
   ].filter(d => d.from && d.to);
@@ -829,7 +873,8 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
   const actionButtons = [
     order.status === 'scheduled'  && { label: '✓ Aceitar Agendado',     next: 'confirmed',  bg: S.confirmed.headerBg,  primary: true },
     (order.status === 'confirmed' || order.status === 'preparing')
-                                  && { label: '🚚 Enviar para Entrega', next: 'delivering', bg: S.delivering.headerBg, primary: true },
+                                  && { label: '✅ Marcar Pronto',       next: 'ready',      bg: S.ready.headerBg,      primary: true },
+    order.status === 'ready'      && { label: '🚚 Enviar para Entrega', next: 'delivering', bg: S.delivering.headerBg, primary: true },
     order.status === 'delivering' && { label: '✓ Finalizar Pedido',     next: 'delivered',  bg: S.delivered.headerBg,  primary: true },
     !['delivered','cancelled'].includes(order.status)
                                   && { label: '✕ Cancelar',            next: 'cancelled',  bg: '#EF4444',             primary: false },
@@ -1108,6 +1153,192 @@ function QuickStat({ label, value, color, hidden }) {
   );
 }
 
+// ── Kitchen KDS (tablet/iPad de cozinha) ─────────────────────────────────────
+
+function KitchenOrderCard({ order, onMarkReady }) {
+  const [marking, setMarking] = useState(false);
+  const mins = elapsedMins(order.created_at);
+  const urgentColor = mins >= 30 ? '#EF4444' : mins >= 20 ? '#F59E0B' : '#10B981';
+
+  return (
+    <div style={{
+      background: '#1C1C1E', borderRadius: 12,
+      border: `2px solid ${urgentColor}40`,
+      borderLeft: `5px solid ${urgentColor}`,
+      padding: '16px 18px',
+      display: 'flex', flexDirection: 'column', gap: 10,
+    }}>
+      {/* Número + timer */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 36, fontWeight: 900, color: '#fff', fontFamily: 'monospace', letterSpacing: -1 }}>
+          #{order.order_number || String(order.id).slice(-4).toUpperCase()}
+        </span>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: urgentColor, fontFamily: 'monospace' }}>
+            {fmtElapsed(mins)}
+          </div>
+          <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+            Chegou: {fmtTime(order.created_at)}
+          </div>
+        </div>
+      </div>
+
+      {/* Itens / sabores */}
+      {order.order_items && order.order_items.length > 0 ? (
+        <div style={{ background: '#2C2C2E', borderRadius: 8, padding: '10px 12px' }}>
+          {order.order_items.map((item, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: i < order.order_items.length - 1 ? 6 : 0 }}>
+              <span style={{ fontSize: 20, fontWeight: 900, color: '#F59E0B', minWidth: 28 }}>{item.quantity}×</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#F3F4F6', lineHeight: 1.3 }}>{item.product_name}</span>
+            </div>
+          ))}
+          {(order.order_items || []).some(i => i.observations) && (
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #3C3C3E' }}>
+              {order.order_items.filter(i => i.observations).map((item, i) => (
+                <p key={i} style={{ fontSize: 12, color: '#FBBF24', fontStyle: 'italic' }}>
+                  ⚠️ {item.product_name}: {item.observations}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ background: '#2C2C2E', borderRadius: 8, padding: '10px 12px' }}>
+          <p style={{ fontSize: 13, color: '#6B7280' }}>Sem itens carregados</p>
+        </div>
+      )}
+
+      {/* Observações do pedido */}
+      {order.observations && (
+        <div style={{ background: '#3B2B00', border: '1px solid #7C5A00', borderRadius: 8, padding: '8px 12px' }}>
+          <p style={{ fontSize: 13, color: '#FDE68A' }}>⚠️ {order.observations}</p>
+        </div>
+      )}
+
+      {/* Bairro */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: 13, color: '#9CA3AF' }}>📍 {order.delivery_neighborhood || '—'}</span>
+      </div>
+
+      {/* Botão PRONTO */}
+      <button
+        disabled={marking || order.status === 'ready'}
+        onClick={async () => {
+          setMarking(true);
+          await onMarkReady();
+          setMarking(false);
+        }}
+        style={{
+          width: '100%', padding: '16px', borderRadius: 10, border: 'none',
+          fontSize: 20, fontWeight: 900, cursor: marking || order.status === 'ready' ? 'not-allowed' : 'pointer',
+          background: order.status === 'ready' ? '#065F46' : marking ? '#374151' : '#10B981',
+          color: '#fff', letterSpacing: 1, transition: 'background 0.15s',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+        }}
+      >
+        {order.status === 'ready'
+          ? <><PackageCheck size={22} /> PRONTO ✓</>
+          : marking
+          ? 'Aguarde...'
+          : <><PackageCheck size={22} /> MARCAR PRONTO</>
+        }
+      </button>
+    </div>
+  );
+}
+
+function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
+  const kitchenOrders = orders
+    .filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status))
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+  const preparing = kitchenOrders.filter(o => o.status !== 'ready');
+  const ready     = kitchenOrders.filter(o => o.status === 'ready');
+
+  return (
+    <div style={{ flex: 1, background: '#111111', overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {/* Header da cozinha */}
+      <div style={{ background: '#1C1C1E', borderBottom: '1px solid #2C2C2E', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+        <ChefHat size={26} color="#F59E0B" />
+        <div>
+          <span style={{ fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: 0.5 }}>COZINHA — KDS</span>
+          <div style={{ fontSize: 12, color: '#6B7280', marginTop: 1 }}>
+            {preparing.length} em preparo · {ready.length} prontos
+          </div>
+        </div>
+        <div style={{ flex: 1 }} />
+        {/* Clock */}
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: '#F59E0B', fontFamily: 'monospace' }}>
+            {new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}
+          </div>
+          <div style={{ fontSize: 11, color: '#6B7280' }}>
+            {new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: '2-digit' })}
+          </div>
+        </div>
+        <button onClick={() => setSoundOn(s => !s)}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, border: '1px solid ' + (soundOn ? '#065F46' : '#374151'), background: soundOn ? '#064E3B' : '#1C1C1E', color: soundOn ? '#34D399' : '#6B7280', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+          {soundOn ? <Volume2 size={14} /> : <VolumeX size={14} />} Som
+        </button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+        {kitchenOrders.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '100px 0', color: '#4B5563' }}>
+            <ChefHat size={56} style={{ margin: '0 auto 16px', display: 'block', opacity: 0.2 }} />
+            <p style={{ fontSize: 18, fontWeight: 600 }}>Nenhum pedido em preparo</p>
+            <p style={{ fontSize: 14, marginTop: 6, opacity: 0.6 }}>Aguardando pedidos da cozinha...</p>
+          </div>
+        ) : (
+          <>
+            {/* Em preparo */}
+            {preparing.length > 0 && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <ChefHat size={16} color="#60A5FA" />
+                  <span style={{ fontSize: 11, fontWeight: 800, color: '#60A5FA', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                    Em Preparo ({preparing.length})
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, marginBottom: 24 }}>
+                  {preparing.map(o => (
+                    <KitchenOrderCard
+                      key={o.id}
+                      order={o}
+                      onMarkReady={() => onMarkReady(o.id)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Prontos aguardando entrega */}
+            {ready.length > 0 && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <PackageCheck size={16} color="#F59E0B" />
+                  <span style={{ fontSize: 11, fontWeight: 800, color: '#F59E0B', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                    Prontos — Aguardando Retirada ({ready.length})
+                  </span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                  {ready.map(o => (
+                    <KitchenOrderCard
+                      key={o.id}
+                      order={o}
+                      onMarkReady={() => onMarkReady(o.id)}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── KDS Board Principal ───────────────────────────────────────────────────────
 
 export default function KDSBoard({
@@ -1119,12 +1350,14 @@ export default function KDSBoard({
   const [itemsLoading, setItemsLoading] = useState(false);
   const [soundOn, setSoundOn]           = useState(true);
   const [newIds, setNewIds]             = useState(new Set());
+  const [readyIds, setReadyIds]         = useState(new Set());
   const [countdown, setCountdown]       = useState(15);
   const [showRevenue, setShowRevenue]   = useState(true);
   const [dragging, setDragging]         = useState(null);
   const [showDrawer, setShowDrawer]     = useState(false);
-  const [viewMode, setViewMode]         = useState('kanban'); // 'kanban' | 'lista'
+  const [viewMode, setViewMode]         = useState('kanban'); // 'kanban' | 'lista' | 'cozinha'
   const seenIdsRef                      = useRef(null);
+  const prevStatusRef                   = useRef({});
   const onUpdateRef                     = useRef(onUpdateStatus);
   const tick                            = useSecondTick();
 
@@ -1178,6 +1411,24 @@ export default function KDSBoard({
       orders
         .filter(o => added.has(o.id) && o.status === 'pending')
         .forEach(o => onUpdateRef.current(o.id, 'status', 'confirmed'));
+    }
+  }, [orders, soundOn]);
+
+  // Detectar pedidos que entraram em 'ready' → campainha
+  useEffect(() => {
+    if (!orders.length) return;
+    const newReady = new Set();
+    orders.forEach(o => {
+      const prev = prevStatusRef.current[o.id];
+      if (o.status === 'ready' && prev !== undefined && prev !== 'ready') {
+        newReady.add(o.id);
+      }
+      prevStatusRef.current[o.id] = o.status;
+    });
+    if (newReady.size > 0) {
+      setReadyIds(newReady);
+      if (soundOn) playReadyChime();
+      setTimeout(() => setReadyIds(new Set()), 10000);
     }
   }, [orders, soundOn]);
 
@@ -1299,7 +1550,8 @@ export default function KDSBoard({
     w.document.close();
   }
 
-  const hasScheduled = visible.some(o => o.status === 'scheduled');
+  const hasScheduled   = visible.some(o => o.status === 'scheduled');
+  const preparing_count = visible.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status)).length;
   const cols = COLUMNS.filter(c => c.id !== 'agendados' || hasScheduled);
 
   return (
@@ -1329,32 +1581,31 @@ export default function KDSBoard({
 
         <div style={{ flex: 1 }} />
 
-        {/* Toggle Kanban / Lista */}
+        {/* Toggle Kanban / Cozinha / Lista */}
         <div style={{ display: 'flex', borderRadius: 5, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-          <button
-            onClick={() => setViewMode('kanban')}
-            title="Visualização Kanban"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '5px 11px', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              background: viewMode === 'kanban' ? '#111827' : '#fff',
-              color: viewMode === 'kanban' ? '#fff' : '#6B7280',
-            }}
-          >
-            <ChefHat size={13} /> Kanban
-          </button>
-          <button
-            onClick={() => setViewMode('lista')}
-            title="Lista de pedidos"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              padding: '5px 11px', border: 'none', borderLeft: '1px solid #E5E7EB', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              background: viewMode === 'lista' ? '#111827' : '#fff',
-              color: viewMode === 'lista' ? '#fff' : '#6B7280',
-            }}
-          >
-            <LayoutList size={13} /> Histórico
-          </button>
+          {[
+            { key: 'kanban',  label: 'Kanban',   icon: <ChefHat size={13} /> },
+            { key: 'cozinha', label: 'Cozinha',  icon: <PackageCheck size={13} /> },
+            { key: 'lista',   label: 'Histórico', icon: <LayoutList size={13} /> },
+          ].map((m, i) => (
+            <button key={m.key}
+              onClick={() => setViewMode(m.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 11px', border: 'none', borderLeft: i > 0 ? '1px solid #E5E7EB' : 'none',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                background: viewMode === m.key ? (m.key === 'cozinha' ? '#1C1C1E' : '#111827') : '#fff',
+                color: viewMode === m.key ? (m.key === 'cozinha' ? '#F59E0B' : '#fff') : '#6B7280',
+              }}
+            >
+              {m.icon} {m.label}
+              {m.key === 'cozinha' && preparing_count > 0 && (
+                <span style={{ fontSize: 9, fontWeight: 900, background: '#2563EB', color: '#fff', borderRadius: 8, padding: '1px 5px', marginLeft: 2 }}>
+                  {preparing_count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
         {/* Indicador de data atual */}
@@ -1395,6 +1646,16 @@ export default function KDSBoard({
         </button>
       </div>
 
+      {/* ── Vista Cozinha KDS ─────────────────────────────────────────────── */}
+      {viewMode === 'cozinha' && (
+        <KitchenKDS
+          orders={visible}
+          onMarkReady={id => handleAction(id, 'status', 'ready')}
+          soundOn={soundOn}
+          setSoundOn={setSoundOn}
+        />
+      )}
+
       {/* ── Vista Kanban ──────────────────────────────────────────────────── */}
       {viewMode === 'kanban' && (
         <div
@@ -1409,6 +1670,7 @@ export default function KDSBoard({
               onCardClick={openModal}
               onQuickAction={handleAction}
               newIds={newIds}
+              readyIds={readyIds}
               onDragStart={order => setDragging(order)}
               customerOrderCount={customerOrderCount}
               onDrop={targetStatus => {
@@ -1469,6 +1731,10 @@ export default function KDSBoard({
         @keyframes kdsSpin {
           from { transform: rotate(0deg); }
           to   { transform: rotate(360deg); }
+        }
+        @keyframes kdsReadyPulse {
+          0%, 100% { box-shadow: 0 0 0 2px #F59E0B40, 0 2px 8px rgba(245,158,11,0.25); }
+          50%       { box-shadow: 0 0 0 4px #F59E0B60, 0 2px 12px rgba(245,158,11,0.4); }
         }
       `}</style>
     </div>

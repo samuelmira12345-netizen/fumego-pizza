@@ -12,6 +12,7 @@ const STATUS_TABS = [
   { key: 'scheduled',  label: 'Agendado',    color: '#B794F4', bg: 'rgba(183,148,244,0.15)'   },
   { key: 'confirmed',  label: 'Confirmado',  color: '#60A5FA', bg: 'rgba(96,165,250,0.15)'    },
   { key: 'preparing',  label: 'Preparando',  color: '#F97316', bg: 'rgba(249,115,22,0.15)'    },
+  { key: 'ready',      label: '✅ Pronto',   color: '#F59E0B', bg: 'rgba(245,158,11,0.15)'    },
   { key: 'delivering', label: 'Entregando',  color: '#A78BFA', bg: 'rgba(167,139,250,0.15)'   },
   { key: 'delivered',  label: 'Entregue',    color: '#48BB78', bg: 'rgba(72,187,120,0.15)'    },
   { key: 'cancelled',  label: 'Cancelado',   color: '#E04040', bg: 'rgba(224,64,64,0.15)'     },
@@ -423,6 +424,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
                 <option value="scheduled">Agendado</option>
                 <option value="confirmed">Confirmado</option>
                 <option value="preparing">Preparando</option>
+                <option value="ready">✅ Pronto</option>
                 <option value="delivering">Entregando</option>
                 <option value="delivered">Entregue</option>
                 <option value="cancelled">Cancelado</option>
