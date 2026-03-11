@@ -89,9 +89,7 @@ export default function HomePage() {
 
       if (pData) {
         setAllProducts(pData);
-        const visibleProducts = pData.filter((p: Product) =>
-          !p.is_hidden || p.slug === 'calabresa' || p.slug === 'marguerita'
-        );
+        const visibleProducts = pData.filter((p: Product) => !p.is_hidden);
         setProducts(visibleProducts);
       }
 
@@ -127,6 +125,7 @@ export default function HomePage() {
             try { Object.assign(drinkStockMap, JSON.parse(s.drink_stock_limits)); } catch {}
           }
           const visibleDrinks = dData.filter((d: Drink) => {
+            if (d.is_hidden) return false;
             const sl = drinkStockMap[String(d.id)];
             return !sl || !sl.enabled || sl.qty > 0;
           });

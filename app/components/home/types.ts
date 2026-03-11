@@ -21,6 +21,7 @@ export interface Drink {
   price: number | string;
   size: string;
   is_active: boolean;
+  is_hidden?: boolean;
   promotion_active?: boolean;
   promotional_price?: number | string | null;
   promotion_ends_at?: string | null;
