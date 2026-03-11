@@ -24,6 +24,11 @@ import {
   handleStockMovement, handleGetStockMovements, handleDeleteIngredient, handleSaveRecipe,
   handleGetCompoundRecipes, handleSaveCompoundRecipeV2, handleDeleteCompoundRecipe, handleApplyCompoundRecipe,
 } from '../../../lib/admin-actions/inventory';
+import {
+  handleGetDeliveryPersons, handleSaveDeliveryPerson, handleDeleteDeliveryPerson,
+  handleGetDeliveryHistory, handleGetDeliveryZones, handleSaveDeliveryZone,
+  handleDeleteDeliveryZone, handleAssignDelivery, handleGetDriverLocations,
+} from '../../../lib/admin-actions/delivery';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -102,6 +107,17 @@ export async function POST(request) {
     if (action === 'get_stock_movements')     return handleGetStockMovements(supabase, data);
     if (action === 'delete_ingredient')       return handleDeleteIngredient(supabase, data);
     if (action === 'save_recipe')             return handleSaveRecipe(supabase, data);
+
+    // ── Delivery ─────────────────────────────────────────────────────────────
+    if (action === 'get_delivery_persons')   return handleGetDeliveryPersons(supabase);
+    if (action === 'save_delivery_person')   return handleSaveDeliveryPerson(supabase, data);
+    if (action === 'delete_delivery_person') return handleDeleteDeliveryPerson(supabase, data);
+    if (action === 'get_delivery_history')   return handleGetDeliveryHistory(supabase, data);
+    if (action === 'get_delivery_zones')     return handleGetDeliveryZones(supabase);
+    if (action === 'save_delivery_zone')     return handleSaveDeliveryZone(supabase, data);
+    if (action === 'delete_delivery_zone')   return handleDeleteDeliveryZone(supabase, data);
+    if (action === 'assign_delivery')        return handleAssignDelivery(supabase, data);
+    if (action === 'get_driver_locations')   return handleGetDriverLocations(supabase);
 
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
   } catch (e) {

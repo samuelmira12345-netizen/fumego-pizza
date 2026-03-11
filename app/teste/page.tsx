@@ -16,7 +16,7 @@ import type { UpsellConfig, UpsellItem } from '../components/home/CartDrawer';
 import type { Product, Drink, DrinkSelection, CartItem, CartItemOption, AppSettings, AppUser, StockLimit, ImagePosition } from '../components/home/types';
 import {
   GOLD, GOLD_LIGHT, BG, CARD, BORDER, MUTED, FAINT,
-  PRODUCT_OPTIONS, COMBO_CALABRESA_OPTS, COMBO_MARGUERITA_OPTS, fmt,
+  PRODUCT_OPTIONS, COMBO_CALABRESA_OPTS, COMBO_MARGUERITA_OPTS, fmt, isPromoActive, effectivePrice,
 } from '../components/home/tokens';
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
@@ -224,11 +224,19 @@ export default function HomePage() {
 
   function addToCart() {
     if (!selectedProduct || !selectedProduct.is_active) return;
+    // Use promotional price if active
+    const productWithEffectivePrice = isPromoActive(selectedProduct)
+      ? { ...selectedProduct, price: effectivePrice(selectedProduct) }
+      : selectedProduct;
+    // Use promotional price for drinks if active
+    const drinksWithEffectivePrice = selectedDrinks.map(d =>
+      isPromoActive(d) ? { ...d, price: effectivePrice(d) } : d
+    );
     const item: CartItem = {
       id: Date.now(),
-      product: selectedProduct,
+      product: productWithEffectivePrice,
       observations,
-      drinks: selectedDrinks,
+      drinks: drinksWithEffectivePrice,
       option: selectedOption || null,
       option2: selectedOption2 || null,
     };
@@ -479,7 +487,9 @@ export default function HomePage() {
               <div style={{ flex: 1, textAlign: 'center', padding: '32px 8px 18px', background: 'linear-gradient(to top, rgba(8,6,0,0.95) 0%, rgba(8,6,0,0.55) 60%, transparent 100%)', borderRadius: '0 0 0 150px' }}>
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>Calabresa</p>
                 {calabresa.is_active
-                  ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(calabresa.price)}</p>
+                  ? isPromoActive(calabresa)
+                    ? <><p style={{ fontSize: 11, color: MUTED, textDecoration: 'line-through', marginTop: 2 }}>R$ {fmt(calabresa.price)}</p><p style={{ fontSize: 15, fontWeight: 800, color: '#FB923C', marginTop: 1 }}>R$ {fmt(effectivePrice(calabresa))}</p></>
+                    : <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(calabresa.price)}</p>
                   : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
                 }
                 {(() => { const s = getStock(calabresa); const thr = s?.low_stock_threshold ?? 3; return calabresa.is_active && s && s.qty > 0 && s.qty <= thr ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
@@ -487,7 +497,9 @@ export default function HomePage() {
               <div style={{ flex: 1, textAlign: 'center', padding: '32px 8px 18px', background: 'linear-gradient(to top, rgba(8,6,0,0.95) 0%, rgba(8,6,0,0.55) 60%, transparent 100%)', borderRadius: '0 0 150px 0' }}>
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>Marguerita</p>
                 {marguerita.is_active
-                  ? <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(marguerita.price)}</p>
+                  ? isPromoActive(marguerita)
+                    ? <><p style={{ fontSize: 11, color: MUTED, textDecoration: 'line-through', marginTop: 2 }}>R$ {fmt(marguerita.price)}</p><p style={{ fontSize: 15, fontWeight: 800, color: '#FB923C', marginTop: 1 }}>R$ {fmt(effectivePrice(marguerita))}</p></>
+                    : <p style={{ fontSize: 15, fontWeight: 800, color: GOLD, marginTop: 4 }}>R$ {fmt(marguerita.price)}</p>
                   : <p style={{ fontSize: 11, fontWeight: 800, color: '#E04040', marginTop: 4, letterSpacing: 1.5 }}>ESGOTADO</p>
                 }
                 {(() => { const s = getStock(marguerita); const thr = s?.low_stock_threshold ?? 3; return marguerita.is_active && s && s.qty > 0 && s.qty <= thr ? <p style={{ fontSize: 10, color: '#F6AD55', marginTop: 3, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
@@ -568,9 +580,14 @@ export default function HomePage() {
               {(() => { const s = getStock(combo); const thr = s?.low_stock_threshold ?? 3; return combo.is_active && s && s.qty > 0 && s.qty <= thr ? <p style={{ fontSize: 11, color: '#F6AD55', marginBottom: 8, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  {combo.is_active && <p style={{ color: FAINT, textDecoration: 'line-through', fontSize: 13 }}>R$ 90,00</p>}
-                  <p style={{ color: combo.is_active ? GOLD : '#E04040', fontSize: combo.is_active ? 26 : 16, fontWeight: 800, lineHeight: 1.1 }}>
-                    {combo.is_active ? <>R$&nbsp;{fmt(combo.price)}</> : 'Indisponível no momento'}
+                  {combo.is_active && isPromoActive(combo) && (
+                    <p style={{ color: MUTED, textDecoration: 'line-through', fontSize: 13 }}>R$ {fmt(combo.price)}</p>
+                  )}
+                  {combo.is_active && !isPromoActive(combo) && (
+                    <p style={{ color: FAINT, textDecoration: 'line-through', fontSize: 13 }}>R$ 90,00</p>
+                  )}
+                  <p style={{ color: combo.is_active ? (isPromoActive(combo) ? '#FB923C' : GOLD) : '#E04040', fontSize: combo.is_active ? 26 : 16, fontWeight: 800, lineHeight: 1.1 }}>
+                    {combo.is_active ? <>R$&nbsp;{fmt(effectivePrice(combo))}</> : 'Indisponível no momento'}
                   </p>
                 </div>
                 {combo.is_active && (
@@ -621,8 +638,13 @@ export default function HomePage() {
               </p>
               {(() => { const s = getStock(especial); const thr = s?.low_stock_threshold ?? 3; return especial.is_active && s && s.qty > 0 && s.qty <= thr ? <p style={{ fontSize: 11, color: '#F6AD55', marginTop: 6, fontWeight: 700 }}>Poucas unidades!</p> : null; })()}
               <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: especial.is_active ? GOLD : '#E04040', fontSize: especial.is_active ? 26 : 15, fontWeight: 800 }}>
-                  {especial.is_active ? `R$ ${fmt(especial.price)}` : 'Indisponível no momento'}
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {especial.is_active && isPromoActive(especial) && (
+                    <span style={{ color: MUTED, textDecoration: 'line-through', fontSize: 14 }}>R$ {fmt(especial.price)}</span>
+                  )}
+                  <span style={{ color: especial.is_active ? (isPromoActive(especial) ? '#FB923C' : GOLD) : '#E04040', fontSize: especial.is_active ? 26 : 15, fontWeight: 800 }}>
+                    {especial.is_active ? `R$ ${fmt(effectivePrice(especial))}` : 'Indisponível no momento'}
+                  </span>
                 </span>
                 {especial.is_active && (
                   <button
