@@ -924,9 +924,98 @@ function DreBarChart({ data }) {
 
 // ── DRE TAB ───────────────────────────────────────────────────────────────────
 
+function DreCompareModal({ c, p, dateRange, onClose }) {
+  if (!p) return null;
+  const rows = [
+    { label: '(+) Receita Bruta de Vendas',     cVal: c.grossRevenue,  pVal: p.grossRevenue,  bold: true },
+    { label: 'Vendas (Pedidos)',                 cVal: c.salesRevenue,  pVal: p.salesRevenue,  indent: true },
+    { label: 'Taxas de Entrega',                 cVal: c.deliveryFees,  pVal: p.deliveryFees,  indent: true },
+    { label: '(-) Deduções da Receita',          cVal: -c.deductions,   pVal: -p.deductions,   bold: true, danger: true },
+    { label: '(=) RECEITA LÍQUIDA',             cVal: c.netRevenue,    pVal: p.netRevenue,    result: true },
+    { label: '(-) CMV (~35%)',                   cVal: -c.cmv,          pVal: -p.cmv,          danger: true },
+    { label: '(=) LUCRO BRUTO',                 cVal: c.grossProfit,   pVal: p.grossProfit,   result: true },
+    { label: '(-) Despesas Operacionais',        cVal: -c.expenses,     pVal: -p.expenses,     danger: true },
+    { label: '(=) RESULTADO OPERACIONAL (EBITDA)', cVal: c.ebitda,     pVal: p.ebitda,        result: true },
+    { label: '(=) RESULTADO DO PERÍODO',         cVal: c.netProfit,    pVal: p.netProfit,     result: true },
+  ];
+
+  const fmtPeriodLabel = (from, to) => `${from.split('-').reverse().join('/')} — ${to.split('-').reverse().join('/')}`;
+
+  // Estimate previous period dates
+  const currDays = (new Date(dateRange.to) - new Date(dateRange.from)) / 86400000 + 1;
+  const prevTo   = new Date(new Date(dateRange.from).getTime() - 86400000).toISOString().split('T')[0];
+  const prevFrom = new Date(new Date(dateRange.from).getTime() - currDays * 86400000).toISOString().split('T')[0];
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={onClose}>
+      <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 860, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '18px 24px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Comparativo — DRE</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Período atual vs. período anterior de mesmo tamanho</div>
+          </div>
+          <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', borderRadius: 6, width: 32, height: 32, cursor: 'pointer', fontSize: 18, color: C.muted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: '#F8F9FA' }}>
+              <th style={{ padding: '12px 20px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: C.muted, borderBottom: `1px solid ${C.border}` }}>Linha DRE</th>
+              <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: C.blue, borderBottom: `1px solid ${C.border}` }}>
+                Período Atual<br /><span style={{ fontSize: 10, fontWeight: 400 }}>{fmtPeriodLabel(dateRange.from, dateRange.to)}</span>
+              </th>
+              <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: C.muted, borderBottom: `1px solid ${C.border}` }}>
+                Período Anterior<br /><span style={{ fontSize: 10, fontWeight: 400 }}>{fmtPeriodLabel(prevFrom, prevTo)}</span>
+              </th>
+              <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: C.muted, borderBottom: `1px solid ${C.border}`, width: 90 }}>Var. %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              const chg = pctChange(row.cVal, row.pVal);
+              const positive = row.danger ? chg <= 0 : chg >= 0;
+              const bg = row.result ? (row.cVal >= 0 ? 'rgba(16,185,129,0.04)' : 'rgba(239,68,68,0.04)') : 'transparent';
+              return (
+                <tr key={i} style={{ background: bg, borderBottom: `1px solid ${C.border}` }}>
+                  <td style={{ padding: `${row.result ? 10 : 7}px 20px`, paddingLeft: row.indent ? 36 : 20 }}>
+                    <span style={{ fontSize: row.indent ? 12 : 13, fontWeight: row.bold || row.result ? 700 : 400, color: row.danger ? C.danger : row.result ? C.text : C.muted }}>
+                      {row.label}
+                    </span>
+                  </td>
+                  <td style={{ padding: `${row.result ? 10 : 7}px 16px`, textAlign: 'right' }}>
+                    <span style={{ fontSize: 13, fontWeight: row.bold || row.result ? 700 : 400, color: row.cVal < 0 ? C.danger : row.result ? C.success : C.text }}>
+                      {fmtBRL(row.cVal)}
+                    </span>
+                  </td>
+                  <td style={{ padding: `${row.result ? 10 : 7}px 16px`, textAlign: 'right' }}>
+                    <span style={{ fontSize: 13, fontWeight: row.bold || row.result ? 700 : 400, color: C.muted }}>
+                      {fmtBRL(row.pVal)}
+                    </span>
+                  </td>
+                  <td style={{ padding: `${row.result ? 10 : 7}px 16px`, textAlign: 'right' }}>
+                    {chg !== null && (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: positive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: positive ? C.success : C.danger }}>
+                        {chg > 0 ? '+' : ''}{chg.toFixed(1)}%
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <div style={{ padding: '14px 20px', background: '#FAFAFA', borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.light, borderRadius: '0 0 12px 12px' }}>
+          * CMV estimado em 35% da receita líquida. Período anterior calculado com o mesmo número de dias imediatamente antes do período atual.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DreTab({ adminToken, refreshTick }) {
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [data, setData]           = useState(null);
+  const [loading, setLoading]     = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
+
   const [dateRange, setDateRange] = useState(() => {
     const now = new Date();
     const year = now.getFullYear();
@@ -964,6 +1053,8 @@ function DreTab({ adminToken, refreshTick }) {
   const p = data?.previous;
 
   return (
+    <>
+    {showCompare && <DreCompareModal c={c} p={p} dateRange={dateRange} onClose={() => setShowCompare(false)} />}
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -1013,7 +1104,13 @@ function DreTab({ adminToken, refreshTick }) {
                     {dateRange.from.split('-').reverse().join('/')} — {dateRange.to.split('-').reverse().join('/')}
                   </div>
                 </div>
-                <div style={{ fontSize: 11, color: C.light }}>vs. período anterior</div>
+                <button
+                  onClick={() => setShowCompare(true)}
+                  disabled={!p}
+                  style={{ fontSize: 11, color: p ? C.blue : C.light, fontWeight: p ? 600 : 400, background: p ? '#EFF6FF' : 'transparent', border: p ? '1px solid #BFDBFE' : 'none', borderRadius: 5, padding: p ? '3px 10px' : 0, cursor: p ? 'pointer' : 'default' }}
+                >
+                  {p ? '📊 vs. período anterior' : 'vs. período anterior'}
+                </button>
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <colgroup>
@@ -1161,6 +1258,7 @@ function DreTab({ adminToken, refreshTick }) {
         </>
       )}
     </div>
+    </>
   );
 }
 

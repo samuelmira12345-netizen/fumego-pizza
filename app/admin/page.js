@@ -714,6 +714,15 @@ export default function AdminPage() {
     } catch (e) { alert('Erro ao atualizar'); }
   }
 
+  async function updateOrderPayment(orderId, updates) {
+    try {
+      await adminFetch('update_order', { id: orderId, ...updates });
+      setData(prev => ({
+        ...prev, orders: prev.orders.map(o => o.id === orderId ? { ...o, ...updates } : o),
+      }));
+    } catch (e) { alert('Erro ao atualizar pagamento'); }
+  }
+
   async function loadMoreOrders() {
     setLoadingMore(true);
     try {
@@ -818,6 +827,7 @@ export default function AdminPage() {
             <KDSBoard
               orders={data.orders}
               onUpdateStatus={updateOrderStatus}
+              onUpdatePayment={updateOrderPayment}
               onRefresh={loadData}
               onRefreshOrders={loadOrders}
               adminToken={adminToken}

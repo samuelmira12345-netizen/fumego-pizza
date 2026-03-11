@@ -242,6 +242,7 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
   const existing = recipe?.compound_recipe_items || [];
   const [name, setName]     = useState(recipe?.name || '');
   const [yieldQty, setYieldQty] = useState(String(recipe?.yield_quantity ?? 1));
+  const [yieldUnit, setYieldUnit] = useState(recipe?.yield_unit || compound.unit);
   const [items, setItems]   = useState(existing.map(i => ({ ingredient_id: i.ingredient_id, quantity: String(i.quantity) })));
   const [addIng, setAddIng] = useState('');
   const [addQty, setAddQty] = useState('');
@@ -258,7 +259,9 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
   const available = ingredients.filter(g => g.id !== compound.id && !items.find(i => i.ingredient_id === g.id));
   const enriched  = items.map(i => {
     const sub = ingredients.find(g => g.id === i.ingredient_id);
-    return { ...i, name: sub?.name, unit: sub?.unit, cost_per_unit: parseFloat(sub?.cost_per_unit) || 0 };
+    const rawCost = parseFloat(sub?.cost_per_unit) || 0;
+    const cf = parseFloat(sub?.correction_factor) || 1.0;
+    return { ...i, name: sub?.name, unit: sub?.unit, cost_per_unit: rawCost * cf, raw_cost: rawCost, correction_factor: cf };
   });
   const totalCost = enriched.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
   const yieldNum  = parseFloat(yieldQty) || 1;
@@ -308,6 +311,7 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
           compound_id: compound.id,
           name: name.trim(),
           yield_quantity: parseFloat(yieldQty) || 1,
+          yield_unit: yieldUnit,
           items: items.map(i => ({ ingredient_id: i.ingredient_id, quantity: parseFloat(i.quantity) || 0 })),
         }}),
       });
@@ -320,14 +324,44 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
 
   return (
     <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 8, padding: '12px 14px', marginBottom: 10 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 8, marginBottom: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 90px', gap: 8, marginBottom: 10 }}>
         <div>
           <label style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, display: 'block', marginBottom: 3 }}>NOME DA RECEITA *</label>
           <input value={name} onChange={e => setName(e.target.value)} placeholder="ex: Massa 10kg" style={{ width: '100%', padding: '6px 8px', borderRadius: 5, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', boxSizing: 'border-box', color: C.text }} />
         </div>
         <div>
-          <label style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, display: 'block', marginBottom: 3 }}>RENDIMENTO ({compound.unit})</label>
-          <input type="number" min="0.001" step="0.001" value={yieldQty} onChange={e => setYieldQty(e.target.value)} style={{ width: '100%', padding: '6px 8px', borderRadius: 5, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', boxSizing: 'border-box', color: C.text }} />
+          <label style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, display: 'block', marginBottom: 3 }}>RENDIMENTO</label>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <input type="number" min="0.001" step="0.001" value={yieldQty} onChange={e => setYieldQty(e.target.value)} style={{ flex: 1, padding: '6px 6px', borderRadius: 5, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', boxSizing: 'border-box', color: C.text }} />
+          </div>
+        </div>
+        <div>
+          <label style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, display: 'block', marginBottom: 3 }}>UNIDADE SAÍDA</label>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <select value={yieldUnit} onChange={e => setYieldUnit(e.target.value)} style={{ flex: 1, padding: '6px 4px', borderRadius: 5, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', background: '#fff', color: C.text }}>
+              {['kg', 'g', 'L', 'ml', 'unid', 'cx', 'pct', 'dz'].map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+            <button
+              type="button"
+              title="Auto-calcular rendimento pela soma dos insumos"
+              onClick={() => {
+                // Sum ingredient weights/volumes and convert to selected yieldUnit
+                const toGrams = { kg: 1000, g: 1 };
+                const toMl    = { L: 1000, ml: 1 };
+                let totalG = 0, totalMl = 0;
+                enriched.forEach(item => {
+                  const q = parseFloat(item.quantity) || 0;
+                  if (toGrams[item.unit] !== undefined) totalG += q * toGrams[item.unit];
+                  if (toMl[item.unit] !== undefined)    totalMl += q * toMl[item.unit];
+                });
+                if (yieldUnit === 'kg' && totalG > 0)   setYieldQty(String(+(totalG / 1000).toFixed(3)));
+                else if (yieldUnit === 'g' && totalG > 0) setYieldQty(String(+totalG.toFixed(0)));
+                else if (yieldUnit === 'L' && totalMl > 0)  setYieldQty(String(+(totalMl / 1000).toFixed(3)));
+                else if (yieldUnit === 'ml' && totalMl > 0) setYieldQty(String(+totalMl.toFixed(0)));
+              }}
+              style={{ padding: '4px 7px', borderRadius: 5, border: '1px solid #DDD6FE', background: '#EDE9FE', color: '#7C3AED', fontSize: 10, cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap' }}
+            >∑ Auto</button>
+          </div>
         </div>
       </div>
 
@@ -357,8 +391,9 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
             <p style={{ fontSize: 13, fontWeight: 800, color: '#6D28D9' }}>{fmtBRL(totalCost)}</p>
           </div>
           <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '6px 10px', flex: 1 }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: C.success, marginBottom: 2 }}>CUSTO/{compound.unit.toUpperCase()}</p>
+            <p style={{ fontSize: 10, fontWeight: 700, color: C.success, marginBottom: 2 }}>CUSTO/{yieldUnit.toUpperCase()}</p>
             <p style={{ fontSize: 13, fontWeight: 800, color: '#047857' }}>{fmtBRL(costPerUnit)}</p>
+            <p style={{ fontSize: 9, color: C.muted, marginTop: 1 }}>inclui FC dos insumos</p>
           </div>
         </div>
       )}
@@ -508,7 +543,7 @@ function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onI
                   <div>
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{recipe.name}</span>
                     <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>
-                      Rendimento: {recipe.yield_quantity} {ingredient.unit} · {itemCount} insumo(s)
+                      Rendimento: {recipe.yield_quantity} {recipe.yield_unit || ingredient.unit} · {itemCount} insumo(s)
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -2204,6 +2239,11 @@ export default function Catalog({ adminToken }) {
                             <div>
                               <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Fator de Correção (%)</label>
                               <input type="number" value={Math.round((parseFloat(ing.correction_factor) || 1) * 100)} min="1" max="200" step="1" onChange={e => handleUpdateIngredient(ing.id, 'correction_factor', (parseFloat(e.target.value) || 100) / 100)} placeholder="100" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                              {(parseFloat(ing.correction_factor) || 1) !== 1 && (
+                                <span style={{ fontSize: 10, color: '#DC2626', fontWeight: 600, display: 'block', marginTop: 2 }}>
+                                  Custo real: {fmtBRL(parseFloat(ing.cost_per_unit) * (parseFloat(ing.correction_factor) || 1))}/{ing.unit}
+                                </span>
+                              )}
                             </div>
                             <div>
                               <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Peso/Volume (rendimento)</label>
@@ -2257,7 +2297,14 @@ export default function Catalog({ adminToken }) {
                             )}
                           </div>
                           <span style={{ fontSize: 12, color: C.muted }}>{ing.unit}</span>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', textAlign: 'right' }}>{fmtBRL(ing.cost_per_unit)}</span>
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', display: 'block' }}>{fmtBRL(ing.cost_per_unit)}</span>
+                            {cf !== 1.0 && (
+                              <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', display: 'block' }}>
+                                real: {fmtBRL(parseFloat(ing.cost_per_unit) * cf)}/{ing.unit}
+                              </span>
+                            )}
+                          </div>
                           <div style={{ textAlign: 'right' }}>
                             {variation !== null ? (
                               <span style={{

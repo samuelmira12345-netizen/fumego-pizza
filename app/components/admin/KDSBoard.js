@@ -453,16 +453,49 @@ function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
       .finally(() => setLoading(false));
   }, [phone, adminToken]);
 
-  const orders = profile?.orders || [];
-  const active = orders.filter(o => o.status !== 'cancelled');
+  const orders     = profile?.orders || [];
+  const active     = orders.filter(o => o.status !== 'cancelled');
+  const cancelled  = orders.filter(o => o.status === 'cancelled');
   const totalSpent = active.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
   const avgTicket  = active.length > 0 ? totalSpent / active.length : 0;
   const firstOrder = orders.length > 0 ? orders[orders.length - 1] : null;
   const lastOrder  = orders.length > 0 ? orders[0] : null;
+  const cancelRate = orders.length > 0 ? (cancelled.length / orders.length * 100).toFixed(0) : 0;
+
+  // Average days between orders
+  let avgDays = null;
+  if (active.length >= 2) {
+    const sorted = [...active].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    let totalDiff = 0;
+    for (let i = 1; i < sorted.length; i++) {
+      totalDiff += (new Date(sorted[i].created_at) - new Date(sorted[i-1].created_at)) / 86400000;
+    }
+    avgDays = Math.round(totalDiff / (sorted.length - 1));
+  }
+
+  // Top neighborhood
+  const nbhMap = {};
+  active.forEach(o => { if (o.delivery_neighborhood) nbhMap[o.delivery_neighborhood] = (nbhMap[o.delivery_neighborhood] || 0) + 1; });
+  const topNbh = Object.entries(nbhMap).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+  // Payment method breakdown
+  const pmMap = {};
+  active.forEach(o => { if (o.payment_method) pmMap[o.payment_method] = (pmMap[o.payment_method] || 0) + 1; });
+  const pmLabels = { pix: 'PIX', card: 'Cartão', card_delivery: 'Cartão/Entrega', cash: 'Dinheiro', debit: 'Débito', voucher: 'Vale' };
+
+  const statusCfg = {
+    delivered: { label: 'Entregue', color: '#10B981', bg: '#ECFDF5' },
+    cancelled:  { label: 'Cancelado', color: '#EF4444', bg: '#FEF2F2' },
+    pending:    { label: 'Pendente', color: '#F59E0B', bg: '#FFFBEB' },
+    confirmed:  { label: 'Confirmado', color: '#60A5FA', bg: '#EFF6FF' },
+    preparing:  { label: 'Preparando', color: '#F97316', bg: '#FFF7ED' },
+    delivering: { label: 'Entregando', color: '#A78BFA', bg: '#F5F3FF' },
+    scheduled:  { label: 'Agendado', color: '#B794F4', bg: '#F5F3FF' },
+  };
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#fff', borderRadius: 8, overflowY: 'auto', zIndex: 10, padding: '16px 18px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <User size={18} color="#2563EB" />
@@ -482,64 +515,118 @@ function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
       ) : (
         <>
           {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 10 }}>
             {[
-              { label: 'Total pedidos', value: orders.length, color: '#6366F1' },
-              { label: 'Gasto total', value: `R$${totalSpent.toFixed(0)}`, color: '#10B981' },
+              { label: 'Pedidos ativos', value: active.length, color: '#6366F1' },
+              { label: 'Total gasto', value: `R$${totalSpent.toFixed(0)}`, color: '#10B981' },
               { label: 'Ticket médio', value: `R$${avgTicket.toFixed(0)}`, color: '#F2A800' },
             ].map(s => (
-              <div key={s.label} style={{ background: '#F9FAFB', borderRadius: 6, padding: '10px 8px', textAlign: 'center', border: '1px solid #E5E7EB' }}>
-                <p style={{ fontSize: 16, fontWeight: 800, color: s.color }}>{s.value}</p>
-                <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>{s.label}</p>
+              <div key={s.label} style={{ background: '#F9FAFB', borderRadius: 6, padding: '8px 6px', textAlign: 'center', border: '1px solid #E5E7EB' }}>
+                <p style={{ fontSize: 15, fontWeight: 800, color: s.color }}>{s.value}</p>
+                <p style={{ fontSize: 9, color: '#9CA3AF', marginTop: 1 }}>{s.label}</p>
               </div>
             ))}
           </div>
 
-          {/* Datas */}
+          {/* Extended stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 10 }}>
+            {[
+              { label: 'Cancelamentos', value: `${cancelled.length} (${cancelRate}%)`, color: cancelled.length > 0 ? '#EF4444' : '#9CA3AF' },
+              avgDays !== null && { label: 'Freq. média', value: `${avgDays}d`, color: '#6B7280' },
+              topNbh && { label: 'Bairro fav.', value: topNbh, color: '#6B7280' },
+            ].filter(Boolean).map(s => (
+              <div key={s.label} style={{ background: '#F9FAFB', borderRadius: 6, padding: '8px 6px', textAlign: 'center', border: '1px solid #E5E7EB' }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: s.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.value}</p>
+                <p style={{ fontSize: 9, color: '#9CA3AF', marginTop: 1 }}>{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Dates row */}
           {firstOrder && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
-              <div style={{ background: '#F9FAFB', borderRadius: 6, padding: '9px 10px', border: '1px solid #E5E7EB' }}>
-                <p style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 2 }}>Primeira compra</p>
-                <p style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 10 }}>
+              <div style={{ background: '#F9FAFB', borderRadius: 5, padding: '7px 9px', border: '1px solid #E5E7EB' }}>
+                <p style={{ fontSize: 9, color: '#9CA3AF', marginBottom: 2 }}>PRIMEIRO PEDIDO</p>
+                <p style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>
                   {new Date(firstOrder.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                 </p>
               </div>
-              <div style={{ background: '#F9FAFB', borderRadius: 6, padding: '9px 10px', border: '1px solid #E5E7EB' }}>
-                <p style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 2 }}>Última compra</p>
-                <p style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
+              <div style={{ background: '#F9FAFB', borderRadius: 5, padding: '7px 9px', border: '1px solid #E5E7EB' }}>
+                <p style={{ fontSize: 9, color: '#9CA3AF', marginBottom: 2 }}>ÚLTIMO PEDIDO</p>
+                <p style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>
                   {new Date(lastOrder.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
                 </p>
               </div>
             </div>
           )}
 
+          {/* Pgto favorito */}
+          {Object.keys(pmMap).length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>FORMA DE PAGAMENTO</p>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {Object.entries(pmMap).sort((a, b) => b[1] - a[1]).map(([pm, cnt]) => (
+                  <span key={pm} style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: '#F3F4F6', color: '#374151' }}>
+                    {pmLabels[pm] || pm} {cnt}×
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Produtos favoritos */}
           {profile?.topItems?.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 7 }}>Mais pedido</p>
-              {profile.topItems.slice(0, 3).map((item, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #F3F4F6' }}>
-                  <span style={{ fontSize: 12, color: '#374151' }}>{item.name}</span>
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>MAIS PEDIDO</p>
+              {profile.topItems.slice(0, 4).map((item, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #F3F4F6' }}>
+                  <span style={{ fontSize: 11, color: '#374151', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: i === 0 ? '#F2A800' : '#9CA3AF' }}>#{i+1}</span>
+                    {item.name}
+                  </span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#F2A800' }}>{item.qty}×</span>
                 </div>
               ))}
             </div>
           )}
 
-          {/* Histórico de pedidos */}
-          <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 7 }}>Histórico</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, maxHeight: 200, overflowY: 'auto' }}>
-            {orders.slice(0, 20).map(o => (
-              <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 8px', background: '#F9FAFB', borderRadius: 4, border: '1px solid #E5E7EB' }}>
-                <span style={{ fontSize: 11, color: '#374151' }}>#{o.order_number}</span>
-                <span style={{ fontSize: 11, color: '#9CA3AF' }}>
-                  {new Date(o.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
-                </span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: o.status === 'cancelled' ? '#EF4444' : '#10B981' }}>
-                  {o.status === 'cancelled' ? 'Cancelado' : `R$${Number(o.total).toFixed(0)}`}
-                </span>
-              </div>
-            ))}
+          {/* Histórico completo */}
+          <p style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>HISTÓRICO COMPLETO ({orders.length} pedidos)</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 260, overflowY: 'auto' }}>
+            {orders.map(o => {
+              const sc = statusCfg[o.status] || statusCfg.pending;
+              return (
+                <div key={o.id} style={{ padding: '6px 8px', background: '#F9FAFB', borderRadius: 5, border: '1px solid #E5E7EB' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>#{o.order_number || String(o.id).slice(-4).toUpperCase()}</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 8, background: sc.bg, color: sc.color }}>{sc.label}</span>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: o.status === 'cancelled' ? '#EF4444' : '#111827' }}>
+                      {o.status === 'cancelled' ? '—' : `R$${Number(o.total).toFixed(2).replace('.', ',')}`}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, color: '#9CA3AF' }}>
+                      {new Date(o.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+                      {o.delivery_neighborhood ? ` · ${o.delivery_neighborhood}` : ''}
+                    </span>
+                    <span style={{ fontSize: 10, color: '#9CA3AF' }}>
+                      {pmLabels[o.payment_method] || o.payment_method || '—'}
+                      {o.payment_status === 'approved' ? ' ✓' : ''}
+                    </span>
+                  </div>
+                  {o.payment_status === 'approved' && (
+                    <div style={{ marginTop: 2 }}>
+                      <span style={{ fontSize: 9, color: '#6B7280', fontStyle: 'italic' }}>
+                        {o.fiscal_note ? '📋 NF emitida' : ''}
+                        {o.payment_notes ? ` · ${o.payment_notes}` : ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </>
       )}
@@ -594,9 +681,141 @@ function PrintTypeDialog({ onSelect, onClose }) {
 
 // ── Modal de Detalhes ─────────────────────────────────────────────────────────
 
-function OrderModal({ order, items, itemsLoading, onClose, onAction, onPrint, adminToken, customerOrderCount }) {
+// ── Payment methods available in admin ────────────────────────────────────────
+const PAYMENT_METHODS = [
+  { key: 'pix',          label: 'PIX',            color: '#0066CC', icon: '🔵' },
+  { key: 'card',         label: 'Crédito',         color: '#9333EA', icon: '💳' },
+  { key: 'debit',        label: 'Débito',          color: '#7C3AED', icon: '💳' },
+  { key: 'card_delivery',label: 'Cartão/Entrega',  color: '#0E7490', icon: '🚚' },
+  { key: 'cash',         label: 'Dinheiro',        color: '#059669', icon: '💵' },
+  { key: 'voucher',      label: 'Vale Refeição',   color: '#D97706', icon: '🍽️' },
+];
+
+function PaymentPanel({ order, onSave }) {
+  const [payMethod, setPayMethod]     = useState(order.payment_method || 'pix');
+  const [payStatus, setPayStatus]     = useState(order.payment_status === 'approved' ? 'paid' : 'pending');
+  const [fiscalNote, setFiscalNote]   = useState(order.fiscal_note || false);
+  const [cashReceived, setCashReceived] = useState(String(order.cash_received || ''));
+  const [payNotes, setPayNotes]       = useState(order.payment_notes || '');
+  const [saving, setSaving]           = useState(false);
+
+  const total = parseFloat(order.total) || 0;
+  const cashNum = parseFloat(cashReceived) || 0;
+  const change = cashNum > 0 ? Math.max(0, cashNum - total) : null;
+
+  async function handleSave() {
+    setSaving(true);
+    await onSave({
+      payment_method:  payMethod,
+      payment_status:  payStatus === 'paid' ? 'approved' : 'pending',
+      fiscal_note:     fiscalNote,
+      cash_received:   cashNum > 0 ? cashNum : null,
+      payment_notes:   payNotes.trim() || null,
+    });
+    setSaving(false);
+  }
+
+  return (
+    <div style={{ background: '#F0FDF4', border: '2px solid #BBF7D0', borderRadius: 8, padding: '14px 14px 10px' }}>
+      <p style={{ fontSize: 11, fontWeight: 800, color: '#065F46', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10 }}>
+        💳 Registrar Pagamento
+      </p>
+
+      {/* Método */}
+      <p style={{ fontSize: 10, color: '#6B7280', fontWeight: 600, marginBottom: 5 }}>FORMA DE PAGAMENTO</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
+        {PAYMENT_METHODS.map(m => (
+          <button
+            key={m.key}
+            onClick={() => setPayMethod(m.key)}
+            style={{
+              padding: '5px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              border: payMethod === m.key ? `2px solid ${m.color}` : '2px solid #E5E7EB',
+              background: payMethod === m.key ? m.color + '18' : '#fff',
+              color: payMethod === m.key ? m.color : '#6B7280',
+            }}
+          >
+            {m.icon} {m.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Dinheiro: valor recebido + troco */}
+      {payMethod === 'cash' && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 10, color: '#6B7280', fontWeight: 600, marginBottom: 4 }}>VALOR RECEBIDO (R$)</p>
+            <input
+              type="number" min="0" step="0.01" value={cashReceived}
+              onChange={e => setCashReceived(e.target.value)}
+              placeholder={`Min. ${total.toFixed(2).replace('.', ',')}`}
+              style={{ width: '100%', padding: '6px 8px', borderRadius: 5, border: '1px solid #D1FAE5', fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+          {change !== null && change > 0 && (
+            <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 6, padding: '6px 10px', textAlign: 'center' }}>
+              <p style={{ fontSize: 9, color: '#065F46', fontWeight: 700 }}>TROCO</p>
+              <p style={{ fontSize: 14, fontWeight: 800, color: '#065F46' }}>R${change.toFixed(2).replace('.', ',')}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Status + Nota Fiscal */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 10, color: '#6B7280', fontWeight: 600, marginBottom: 4 }}>STATUS DO PAGAMENTO</p>
+          <div style={{ display: 'flex', gap: 5 }}>
+            {[{ key: 'paid', label: '✓ Pago', color: '#059669' }, { key: 'pending', label: '⏳ Pendente', color: '#D97706' }].map(s => (
+              <button key={s.key} onClick={() => setPayStatus(s.key)} style={{
+                flex: 1, padding: '6px 4px', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                border: payStatus === s.key ? `2px solid ${s.color}` : '2px solid #E5E7EB',
+                background: payStatus === s.key ? s.color + '12' : '#fff',
+                color: payStatus === s.key ? s.color : '#9CA3AF',
+              }}>{s.label}</button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p style={{ fontSize: 10, color: '#6B7280', fontWeight: 600, marginBottom: 4 }}>NOTA FISCAL</p>
+          <button
+            onClick={() => setFiscalNote(v => !v)}
+            style={{
+              padding: '6px 12px', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+              border: fiscalNote ? '2px solid #6366F1' : '2px solid #E5E7EB',
+              background: fiscalNote ? '#EEF2FF' : '#fff',
+              color: fiscalNote ? '#6366F1' : '#9CA3AF',
+            }}
+          >
+            📋 {fiscalNote ? 'Emitir NF' : 'Sem NF'}
+          </button>
+        </div>
+      </div>
+
+      {/* Observações */}
+      <div style={{ marginBottom: 10 }}>
+        <p style={{ fontSize: 10, color: '#6B7280', fontWeight: 600, marginBottom: 4 }}>OBSERVAÇÕES</p>
+        <input
+          type="text" value={payNotes} onChange={e => setPayNotes(e.target.value)}
+          placeholder="Ex: parcelado em 2×, pago via app..."
+          style={{ width: '100%', padding: '6px 8px', borderRadius: 5, border: '1px solid #D1FAE5', fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
+        />
+      </div>
+
+      <button
+        onClick={handleSave} disabled={saving}
+        style={{ width: '100%', padding: '9px', borderRadius: 6, border: 'none', background: saving ? '#9CA3AF' : '#059669', color: '#fff', fontSize: 13, fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer' }}
+      >
+        {saving ? 'Salvando...' : '✓ Salvar Pagamento'}
+      </button>
+    </div>
+  );
+}
+
+function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, adminToken, customerOrderCount }) {
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [showPrintDialog, setShowPrintDialog]         = useState(false);
+  const [editPayment, setEditPayment]                 = useState(false);
 
   if (!order) return null;
   const cfg  = S[order.status] || S.pending;
@@ -767,25 +986,57 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPrint, ad
             )}
 
             {/* Pagamento */}
-            <Section label="Pagamento" icon={<PMIcon size={12} />}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                <PMIcon size={16} color={pm.color} />
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{pm.label}</span>
-                <span style={{
-                  marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 3,
-                  background: order.payment_status === 'paid' ? '#ECFDF5' : '#FFFBEB',
-                  color:      order.payment_status === 'paid' ? '#059669' : '#D97706',
-                  border: `1px solid ${order.payment_status === 'paid' ? '#A7F3D0' : '#FDE68A'}`,
-                }}>
-                  {order.payment_status === 'paid' ? '● Pago' : '● Aguardando'}
-                </span>
+            {editPayment ? (
+              <div>
+                <PaymentPanel
+                  order={order}
+                  onSave={async updates => {
+                    await onPaymentUpdate(updates);
+                    setEditPayment(false);
+                  }}
+                />
+                <button onClick={() => setEditPayment(false)} style={{ marginTop: 6, fontSize: 11, color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                  Cancelar
+                </button>
               </div>
-              {order.coupon_code && (
-                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 5 }}>
-                  🏷️ Cupom: <strong>{order.coupon_code}</strong> (-{fmtBRL(disc)})
-                </p>
-              )}
-            </Section>
+            ) : (
+              <Section label="Pagamento" icon={<PMIcon size={12} />}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <PMIcon size={16} color={pm.color} />
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{pm.label}</span>
+                  <span style={{
+                    marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 3,
+                    background: order.payment_status === 'approved' ? '#ECFDF5' : '#FFFBEB',
+                    color:      order.payment_status === 'approved' ? '#059669' : '#D97706',
+                    border: `1px solid ${order.payment_status === 'approved' ? '#A7F3D0' : '#FDE68A'}`,
+                  }}>
+                    {order.payment_status === 'approved' ? '● Pago' : '● Aguardando'}
+                  </span>
+                </div>
+                {order.fiscal_note && (
+                  <p style={{ fontSize: 11, color: '#6366F1', marginTop: 4 }}>📋 Nota fiscal será emitida</p>
+                )}
+                {order.payment_notes && (
+                  <p style={{ fontSize: 11, color: '#6B7280', marginTop: 3 }}>📝 {order.payment_notes}</p>
+                )}
+                {order.cash_received > 0 && (
+                  <p style={{ fontSize: 11, color: '#6B7280', marginTop: 3 }}>
+                    💵 Recebido: {fmtBRL(order.cash_received)} · Troco: {fmtBRL(Math.max(0, order.cash_received - parseFloat(order.total || 0)))}
+                  </p>
+                )}
+                {order.coupon_code && (
+                  <p style={{ fontSize: 12, color: '#6B7280', marginTop: 5 }}>
+                    🏷️ Cupom: <strong>{order.coupon_code}</strong> (-{fmtBRL(disc)})
+                  </p>
+                )}
+                <button
+                  onClick={() => setEditPayment(true)}
+                  style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 5, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  ✏️ {order.payment_status === 'approved' ? 'Editar pagamento' : 'Registrar pagamento'}
+                </button>
+              </Section>
+            )}
 
             {/* Botões */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 2 }}>
@@ -860,7 +1111,7 @@ function QuickStat({ label, value, color, hidden }) {
 // ── KDS Board Principal ───────────────────────────────────────────────────────
 
 export default function KDSBoard({
-  orders, onUpdateStatus, onRefresh, onRefreshOrders, adminToken, loading,
+  orders, onUpdateStatus, onUpdatePayment, onRefresh, onRefreshOrders, adminToken, loading,
   products, drinks, hasMoreOrders, loadingMore, onLoadMore,
 }) {
   const [modal, setModal]               = useState(null);
@@ -962,6 +1213,18 @@ export default function KDSBoard({
   function handleAction(orderId, field, value) {
     onUpdateStatus(orderId, field, value);
     setModal(prev => prev?.id === orderId ? { ...prev, [field]: value } : prev);
+  }
+
+  async function handlePaymentUpdate(orderId, updates) {
+    if (onUpdatePayment) {
+      await onUpdatePayment(orderId, updates);
+    } else {
+      // fallback: update fields one by one
+      for (const [field, value] of Object.entries(updates)) {
+        onUpdateStatus(orderId, field, value);
+      }
+    }
+    setModal(prev => prev?.id === orderId ? { ...prev, ...updates } : prev);
   }
 
   function handlePrint(type = 'balcao') {
@@ -1180,6 +1443,7 @@ export default function KDSBoard({
           itemsLoading={itemsLoading}
           onClose={() => setModal(null)}
           onAction={handleAction}
+          onPaymentUpdate={(updates) => handlePaymentUpdate(modal.id, updates)}
           onPrint={handlePrint}
           adminToken={adminToken}
           customerOrderCount={customerOrderCount}
