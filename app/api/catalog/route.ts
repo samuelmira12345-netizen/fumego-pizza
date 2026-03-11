@@ -17,7 +17,7 @@ export async function GET() {
 
     const [products, drinks, settings, productStock, drinkStock] = await Promise.all([
       supabase.from('products').select('*').order('sort_order'),
-      supabase.from('drinks').select('*').eq('is_active', true).order('name'),
+      supabase.from('drinks').select('*').order('name'),
       supabase.from('settings').select('*'),
       supabase.from('product_stock').select('product_id, quantity, enabled').eq('enabled', true),
       supabase.from('drink_stock').select('drink_id, quantity, enabled').eq('enabled', true),
@@ -31,11 +31,8 @@ export async function GET() {
       drinkStock:   drinkStock.data   || [],
     });
 
-    // Cache de 60 s na CDN da Vercel / Cloudflare, revalidação transparente por 5 min
-    response.headers.set(
-      'Cache-Control',
-      'public, s-maxage=60, stale-while-revalidate=300'
-    );
+    // Sem cache: mudanças de is_active/is_hidden no admin refletem imediatamente
+    response.headers.set('Cache-Control', 'no-store');
 
     return response;
   } catch (e: unknown) {
