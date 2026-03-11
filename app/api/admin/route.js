@@ -11,7 +11,7 @@ import {
 } from '../../../lib/admin-actions/orders';
 import {
   handleSaveAll, handleSaveSetting, handleAddProduct,
-  handleAddDrink, handleDeleteDrink, handleDuplicateDrink, handleRemoveLogo,
+  handleAddDrink, handleDeleteProduct, handleDeleteDrink, handleDuplicateDrink, handleRemoveLogo,
   handleUpdateProductFlags, handleUpdateDrinkFlags,
 } from '../../../lib/admin-actions/catalog';
 import {
@@ -81,6 +81,7 @@ export async function POST(request) {
     if (action === 'save_setting')      return handleSaveSetting(supabase, data);
     if (action === 'add_product')       return handleAddProduct(supabase, data);
     if (action === 'add_drink')         return handleAddDrink(supabase, data);
+    if (action === 'delete_product')    return handleDeleteProduct(supabase, data);
     if (action === 'delete_drink')      return handleDeleteDrink(supabase, data);
     if (action === 'duplicate_drink')   return handleDuplicateDrink(supabase, data);
     if (action === 'remove_logo')       return handleRemoveLogo(supabase);
