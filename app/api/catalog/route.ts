@@ -4,20 +4,26 @@ import { getSupabaseAdmin } from '../../../lib/supabase';
 /**
  * GET /api/catalog
  *
- * Retorna produtos, bebidas e settings em uma única chamada com cache HTTP.
- * - s-maxage=60: CDN da Vercel mantém por 60 s sem bater no banco
- * - stale-while-revalidate=300: serve cache stale por até 5 min enquanto revalida em background
- *
- * O catálogo raramente muda; com esse cache uma pizzaria com 10 k visitas/dia
- * passa de ~10.000 queries/dia para ~1.440 (1 por minuto).
+ * Retorna produtos visíveis, bebidas ativas e settings.
+ * - Produtos com is_hidden=true são filtrados no banco (nunca chegam ao browser)
+ * - Produtos com is_active=false chegam ao frontend para exibir "ESGOTADO"
+ * - Bebidas com is_hidden=true ou is_active=false são filtradas no banco
+ * - Cache-Control: no-store → mudanças no admin refletem imediatamente
  */
 export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
 
     const [products, drinks, settings, productStock, drinkStock] = await Promise.all([
-      supabase.from('products').select('*').order('sort_order'),
-      supabase.from('drinks').select('*').order('name'),
+      // Filtra produtos ocultos diretamente no banco
+      supabase.from('products').select('*')
+        .or('is_hidden.is.null,is_hidden.eq.false')
+        .order('sort_order'),
+      // Filtra bebidas ocultas e inativas diretamente no banco
+      supabase.from('drinks').select('*')
+        .or('is_hidden.is.null,is_hidden.eq.false')
+        .eq('is_active', true)
+        .order('name'),
       supabase.from('settings').select('*'),
       supabase.from('product_stock').select('product_id, quantity, enabled').eq('enabled', true),
       supabase.from('drink_stock').select('drink_id, quantity, enabled').eq('enabled', true),

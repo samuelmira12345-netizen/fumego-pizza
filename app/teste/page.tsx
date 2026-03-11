@@ -72,6 +72,20 @@ export default function HomePage() {
       }
     } catch {}
     try { const c = localStorage.getItem('fumego_cart'); if (c) setCart(JSON.parse(c)); } catch {}
+
+    // Recarrega dados quando a aba fica ativa novamente (ex: admin mudou algo em outra aba)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) loadData();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Mantém dados frescos a cada 30 s (caso a página fique aberta por muito tempo)
+    const interval = setInterval(loadData, 30000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
   }, []);
 
   function saveCart(newCart: CartItem[]) {
@@ -81,8 +95,6 @@ export default function HomePage() {
 
   async function loadData() {
     try {
-      // /api/catalog é cacheado na CDN por 60 s (s-maxage=60, stale-while-revalidate=300)
-      // → elimina queries ao banco a cada visita; o banco só é consultado 1× por minuto
       const res = await fetch('/api/catalog', { cache: 'no-store' });
       if (!res.ok) throw new Error('Falha ao carregar catálogo');
       const { products: pData, drinks: dData, settings: sData, productStock, drinkStock } = await res.json();
