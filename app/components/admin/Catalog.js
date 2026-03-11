@@ -893,16 +893,16 @@ function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdat
         <span style={{ fontSize: 14, fontWeight: 800, color: C.gold, minWidth: 76, textAlign: 'right', flexShrink: 0 }}>{fmtBRL(drink.price)}</span>
 
         {/* Active toggle */}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
-          <input type="checkbox" checked={!!drink.is_active} onChange={e => onUpdate(idx, 'is_active', e.target.checked)} />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: isSaving ? 'wait' : 'pointer', flexShrink: 0 }}>
+          <input type="checkbox" checked={!!drink.is_active} disabled={isSaving} onChange={async e => { const val = e.target.checked; onUpdate(idx, 'is_active', val); await onSave({ ...drink, is_active: val }); }} />
           <span style={{ fontSize: 11, fontWeight: 600, color: drink.is_active ? C.success : C.light, minWidth: 40 }}>
             {drink.is_active ? 'Ativo' : 'Inativo'}
           </span>
         </label>
 
         {/* Hidden toggle */}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
-          <input type="checkbox" checked={!!drink.is_hidden} onChange={e => onUpdate(idx, 'is_hidden', e.target.checked)} />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: isSaving ? 'wait' : 'pointer', flexShrink: 0 }}>
+          <input type="checkbox" checked={!!drink.is_hidden} disabled={isSaving} onChange={async e => { const val = e.target.checked; onUpdate(idx, 'is_hidden', val); await onSave({ ...drink, is_hidden: val }); }} />
           <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: drink.is_hidden ? '#7C3AED' : C.light }}>
             {drink.is_hidden ? <EyeOff size={11} /> : <Eye size={11} />}
             {drink.is_hidden ? 'Oculto' : 'Visível'}
@@ -1006,7 +1006,7 @@ function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdat
           </div>
 
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <button onClick={onSave} disabled={isSaving} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, border: 'none', background: isSaving ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 12, fontWeight: 700, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
+            <button onClick={() => onSave(drink)} disabled={isSaving} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, border: 'none', background: isSaving ? '#9CA3AF' : '#111827', color: '#fff', fontSize: 12, fontWeight: 700, cursor: isSaving ? 'not-allowed' : 'pointer' }}>
               {isSaving ? <><Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> Salvando...</> : <><Save size={12} /> Salvar Bebida</>}
             </button>
             <button onClick={() => onDelete(drink.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', color: C.danger, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
@@ -1147,16 +1147,16 @@ function ProductRow({
         </div>
 
         {/* Active toggle */}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0 }}>
-          <input type="checkbox" checked={!!product.is_active} onChange={e => onUpdate(idx, 'is_active', e.target.checked)} />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: savingProductId === product.id ? 'wait' : 'pointer', flexShrink: 0 }}>
+          <input type="checkbox" checked={!!product.is_active} disabled={savingProductId === product.id} onChange={async e => { const val = e.target.checked; onUpdate(idx, 'is_active', val); await onSave({ ...product, is_active: val }); }} />
           <span style={{ fontSize: 11, fontWeight: 600, color: product.is_active ? C.success : C.light, minWidth: 40 }}>
             {product.is_active ? 'Ativo' : 'Inativo'}
           </span>
         </label>
 
         {/* Hidden toggle */}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', flexShrink: 0, title: 'Ocultar do cardápio online' }}>
-          <input type="checkbox" checked={!!product.is_hidden} onChange={e => onUpdate(idx, 'is_hidden', e.target.checked)} />
+        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: savingProductId === product.id ? 'wait' : 'pointer', flexShrink: 0, title: 'Ocultar do cardápio online' }}>
+          <input type="checkbox" checked={!!product.is_hidden} disabled={savingProductId === product.id} onChange={async e => { const val = e.target.checked; onUpdate(idx, 'is_hidden', val); await onSave({ ...product, is_hidden: val }); }} />
           <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: product.is_hidden ? '#7C3AED' : C.light }}>
             {product.is_hidden ? <EyeOff size={11} /> : <Eye size={11} />}
             {product.is_hidden ? 'Oculto' : 'Visível'}
@@ -1978,7 +1978,7 @@ export default function Catalog({ adminToken }) {
                       onDelete={handleDeleteDrink}
                       drinkStockLimits={drinkStockLimits}
                       onUpdateDrinkStockLimit={updateDrinkStockLimit}
-                      onSave={() => saveDrink(d)}
+                      onSave={saveDrink}
                       isSaving={savingDrinkId === d.id}
                     />
                   ))}
