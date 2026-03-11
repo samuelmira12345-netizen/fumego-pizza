@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabase';
+import { parseCatalogVisibilityOverrides, applyCatalogVisibilityOverrides } from '../../../lib/catalog-visibility';
 
 /**
  * GET /api/catalog
@@ -23,10 +24,14 @@ export async function GET() {
       supabase.from('drink_stock').select('drink_id, quantity, enabled').eq('enabled', true),
     ]);
 
+    const settingsData = settings.data || [];
+    const overrides = parseCatalogVisibilityOverrides(settingsData);
+    const merged = applyCatalogVisibilityOverrides(products.data || [], drinks.data || [], overrides);
+
     const response = NextResponse.json({
-      products:     products.data     || [],
-      drinks:       drinks.data       || [],
-      settings:     settings.data     || [],
+      products:     merged.products,
+      drinks:       merged.drinks,
+      settings:     settingsData,
       productStock: productStock.data || [],
       drinkStock:   drinkStock.data   || [],
     });
