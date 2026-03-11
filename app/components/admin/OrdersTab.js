@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Loader2, Landmark, CreditCard, Banknote, Clock, Search, X, Calendar, Bookmark, Plus, Trash2 } from 'lucide-react';
 
 const GOLD = '#D4A528';
@@ -97,7 +97,7 @@ function persistSavedFilters(filters) {
   try { localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filters)); } catch {}
 }
 
-export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdateStatus, onLoadMore }) {
+export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdateStatus, onLoadMore, adminToken }) {
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [datePreset, setDatePreset]     = useState('all');
@@ -108,6 +108,35 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
   const [savedFilters, setSavedFilters]       = useState(() => loadSavedFilters());
   const [showSaveDialog, setShowSaveDialog]   = useState(false);
   const [newFilterName, setNewFilterName]     = useState('');
+
+  // Delivery persons (loaded lazily)
+  const [deliveryPersons, setDeliveryPersons] = useState([]);
+  const dpLoadedRef = useMemo(() => ({ current: false }), []);
+
+  async function ensureDeliveryPersons() {
+    if (dpLoadedRef.current || !adminToken) return;
+    dpLoadedRef.current = true;
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'get_delivery_persons', data: {} }),
+      });
+      const j = await res.json();
+      setDeliveryPersons((j.persons || []).filter(p => p.is_active));
+    } catch (e) { console.error(e); }
+  }
+
+  async function assignDeliveryPerson(orderId, personId) {
+    if (!adminToken) return;
+    try {
+      await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'assign_delivery', data: { order_id: orderId, delivery_person_id: personId || null } }),
+      });
+    } catch (e) { console.error(e); }
+  }
 
   useEffect(() => { persistSavedFilters(savedFilters); }, [savedFilters]);
 
@@ -361,7 +390,20 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
             </div>
 
             <p style={{ color: '#fff', fontSize: 14 }}>{o.customer_name} — {o.customer_phone}</p>
-            <p style={{ color: '#aaa', fontSize: 12 }}>{o.delivery_street}, {o.delivery_number} — {o.delivery_neighborhood}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <p style={{ color: '#aaa', fontSize: 12 }}>{o.delivery_street}, {o.delivery_number} — {o.delivery_neighborhood}</p>
+              {(o.delivery_street || o.delivery_neighborhood) && (
+                <a
+                  href={`https://maps.google.com/maps?q=${encodeURIComponent([o.delivery_street, o.delivery_number, o.delivery_neighborhood].filter(Boolean).join(', '))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Ver no mapa"
+                  style={{ fontSize: 10, color: '#60A5FA', textDecoration: 'none', padding: '1px 6px', borderRadius: 5, border: '1px solid rgba(96,165,250,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                >
+                  🗺 Mapa
+                </a>
+              )}
+            </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center' }}>
               <p style={{ color: GOLD, fontWeight: 'bold' }}>
@@ -413,10 +455,27 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
               </div>
             )}
 
+            {o.status === 'delivering' && (
+              <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.3)', borderRadius: 8 }}>
+                <p style={{ fontSize: 11, color: '#A78BFA', fontWeight: 700, marginBottom: 5 }}>Entregador:</p>
+                <select
+                  value={o.delivery_person_id || ''}
+                  onChange={async e => { await assignDeliveryPerson(o.id, e.target.value || null); }}
+                  onFocus={ensureDeliveryPersons}
+                  style={{ background: '#333', color: '#fff', border: '1px solid rgba(124,58,237,0.4)', borderRadius: 6, padding: '5px 8px', fontSize: 12, width: '100%' }}
+                >
+                  <option value="">— Sem entregador —</option>
+                  {deliveryPersons.map(dp => (
+                    <option key={dp.id} value={dp.id}>{dp.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <select
                 value={o.status}
-                onChange={e => onUpdateStatus(o.id, 'status', e.target.value)}
+                onChange={e => { if (e.target.value === 'delivering') ensureDeliveryPersons(); onUpdateStatus(o.id, 'status', e.target.value); }}
                 aria-label={`Status do pedido #${o.order_number}`}
                 style={{ background: '#444', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}
               >

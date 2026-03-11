@@ -23,6 +23,7 @@ import Financial from '../components/admin/Financial';
 import StockMovements from '../components/admin/StockMovements';
 import CouponsTab from '../components/admin/CouponsTab';
 import SettingsTab from '../components/admin/SettingsTab';
+import DeliveryTab from '../components/admin/DeliveryTab';
 
 const SESSION_KEY = 'admin_token';
 
@@ -79,7 +80,7 @@ const NAV_GROUPS = [
       { key: 'catalog',     icon: UtensilsCrossed, label: 'Catálogo' },
       { key: 'coupons',     icon: Tag,             label: 'Cupons' },
       { key: 'cardapioweb', icon: Plug,            label: 'CardápioWeb' },
-      { key: 'deliveries',  icon: Truck,           label: 'Entregas',   soon: true },
+      { key: 'deliveries',  icon: Truck,           label: 'Entregas' },
     ],
   },
   {
@@ -706,12 +707,17 @@ export default function AdminPage() {
   }
 
   async function updateOrderStatus(orderId, field, value) {
+    // Optimistic update first so UI is instant and polling doesn't revert it
+    setData(prev => ({
+      ...prev, orders: prev.orders.map(o => o.id === orderId ? { ...o, [field]: value } : o),
+    }));
     try {
       await adminFetch('update_order', { id: orderId, [field]: value });
-      setData(prev => ({
-        ...prev, orders: prev.orders.map(o => o.id === orderId ? { ...o, [field]: value } : o),
-      }));
-    } catch (e) { alert('Erro ao atualizar'); }
+    } catch (e) {
+      // Revert on error by refreshing from server
+      await loadOrders();
+      alert('Erro ao atualizar pedido');
+    }
   }
 
   async function updateOrderPayment(orderId, updates) {
@@ -1070,8 +1076,15 @@ export default function AdminPage() {
           <StockMovements adminToken={adminToken} />
         )}
 
+        {/* ── ENTREGAS ──────────────────────────────────────────────────── */}
+        {section === 'deliveries' && (
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <DeliveryTab adminToken={adminToken} />
+          </div>
+        )}
+
         {/* ── Coming Soon sections ─────────────────────────────────────── */}
-        {['deliveries', 'marketing'].includes(section) && (
+        {['marketing'].includes(section) && (
           <ComingSoon label={NAV_GROUPS.flatMap(g => g.items).find(i => i.key === section)?.label || section} />
         )}
 

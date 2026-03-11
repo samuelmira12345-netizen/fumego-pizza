@@ -5,7 +5,7 @@ import { X, GlassWater, Minus, Plus } from 'lucide-react';
 import type { Product, Drink, DrinkSelection, CartItemOption } from './types';
 import {
   GOLD, GOLD_LIGHT, BG, BORDER, MUTED,
-  fmt,
+  fmt, isPromoActive, effectivePrice,
   COMBO_CALABRESA_OPTS, COMBO_MARGUERITA_OPTS, PRODUCT_OPTIONS,
 } from './tokens';
 import { useScrollToStep } from '../../../hooks/useScrollToStep';
@@ -171,9 +171,17 @@ export default function ProductModal({
         <p style={{ fontSize: 13, color: MUTED, marginBottom: 14, lineHeight: 1.55 }}>
           {product.description}
         </p>
-        <p style={{ fontSize: 24, fontWeight: 800, color: product.is_active ? GOLD : '#E04040', marginBottom: 22 }}>
-          {product.is_active ? `R$ ${fmt(product.price)}` : 'ESGOTADO'}
-        </p>
+        <div style={{ marginBottom: 22, display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+          {product.is_active && isPromoActive(product) && (
+            <span style={{ fontSize: 16, color: MUTED, textDecoration: 'line-through' }}>R$ {fmt(product.price)}</span>
+          )}
+          {product.is_active && isPromoActive(product) && (
+            <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 10, background: '#EA580C', color: '#fff' }}>PROMO</span>
+          )}
+          <p style={{ fontSize: 24, fontWeight: 800, color: product.is_active ? (isPromoActive(product) ? '#FB923C' : GOLD) : '#E04040', margin: 0 }}>
+            {product.is_active ? `R$ ${fmt(effectivePrice(product))}` : 'ESGOTADO'}
+          </p>
+        </div>
 
         {/* ── Opções — Combo (duas pizzas) ─────────────────────────────── */}
         {product.is_active && isCombo && (
@@ -276,7 +284,14 @@ export default function ProductModal({
                       <p style={{ fontSize: 12, color: MUTED }}>{drink.size}</p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: GOLD }}>R$ {fmt(drink.price)}</span>
+                      {isPromoActive(drink) ? (
+                        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                          <span style={{ fontSize: 11, color: MUTED, textDecoration: 'line-through' }}>R$ {fmt(drink.price)}</span>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: '#FB923C' }}>R$ {fmt(effectivePrice(drink))}</span>
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 14, fontWeight: 700, color: GOLD }}>R$ {fmt(drink.price)}</span>
+                      )}
                       {sel && (
                         <div
                           style={{ display: 'flex', alignItems: 'center', gap: 6 }}

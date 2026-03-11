@@ -688,6 +688,42 @@ function ProductCard({
               </div>
             )}
 
+            {/* Promoção */}
+            <div style={{ background: product.promotion_active ? '#FFF7ED' : '#F9FAFB', border: `1px solid ${product.promotion_active ? '#FED7AA' : C.border}`, borderRadius: 6, padding: '10px 12px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: product.promotion_active ? 10 : 0 }}>
+                <input type="checkbox" checked={!!product.promotion_active} onChange={e => onUpdate(idx, 'promotion_active', e.target.checked)} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: product.promotion_active ? '#EA580C' : C.muted, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  🏷️ Colocar em promoção
+                  {product.promotion_active && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 8, background: '#EA580C', color: '#fff' }}>ATIVO</span>}
+                </span>
+              </label>
+              {product.promotion_active && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+                    <div>
+                      <label style={labelStyle}>Preço Promocional (R$)</label>
+                      <input type="number" step="0.01" placeholder="0,00" value={product.promotional_price || ''}
+                        onChange={e => onUpdate(idx, 'promotional_price', e.target.value)}
+                        style={{ ...inputStyle, border: '1px solid #FB923C', background: '#FFF7ED' }} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Válido até (opcional)</label>
+                      <input type="datetime-local" value={product.promotion_ends_at ? product.promotion_ends_at.slice(0, 16) : ''}
+                        onChange={e => onUpdate(idx, 'promotion_ends_at', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                        style={{ ...inputStyle }} />
+                    </div>
+                  </div>
+                  {product.promotional_price && parseFloat(product.promotional_price) > 0 && parseFloat(product.price) > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: '#FEF3C7', borderRadius: 5 }}>
+                      <span style={{ fontSize: 11, color: '#92400E', fontWeight: 600 }}>
+                        Desconto de <strong>{Math.round((1 - parseFloat(product.promotional_price) / parseFloat(product.price)) * 100)}%</strong> · De <s>{fmtBRL(product.price)}</s> por <strong style={{ color: '#EA580C' }}>{fmtBRL(product.promotional_price)}</strong>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Descrição */}
             <div>
               <label style={labelStyle}>Descrição</label>
@@ -916,6 +952,40 @@ function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdat
             <input className="input-field" placeholder="Preço" type="number" step="0.01" value={drink.price || ''}
               onChange={e => onUpdate(idx, 'price', e.target.value)}
               style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+          </div>
+
+          {/* Promoção */}
+          <div style={{ marginBottom: 8, background: drink.promotion_active ? '#FFF7ED' : '#F9FAFB', border: `1px solid ${drink.promotion_active ? '#FED7AA' : C.border}`, borderRadius: 8, padding: '10px 12px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', marginBottom: drink.promotion_active ? 10 : 0 }}>
+              <input type="checkbox" checked={!!drink.promotion_active} onChange={e => onUpdate(idx, 'promotion_active', e.target.checked)} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: drink.promotion_active ? '#EA580C' : C.muted, display: 'flex', alignItems: 'center', gap: 5 }}>
+                🏷️ Colocar em promoção
+                {drink.promotion_active && <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 8, background: '#EA580C', color: '#fff' }}>ATIVO</span>}
+              </span>
+            </label>
+            {drink.promotion_active && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Preço Promocional (R$)</label>
+                    <input className="input-field" type="number" step="0.01" placeholder="0,00" value={drink.promotional_price || ''}
+                      onChange={e => onUpdate(idx, 'promotional_price', e.target.value)}
+                      style={{ background: '#FFF7ED', color: C.text, borderColor: '#FB923C' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Válido até (opcional)</label>
+                    <input className="input-field" type="datetime-local" value={drink.promotion_ends_at ? drink.promotion_ends_at.slice(0, 16) : ''}
+                      onChange={e => onUpdate(idx, 'promotion_ends_at', e.target.value ? new Date(e.target.value).toISOString() : null)}
+                      style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                  </div>
+                </div>
+                {drink.promotional_price && parseFloat(drink.promotional_price) > 0 && parseFloat(drink.price) > 0 && (
+                  <div style={{ padding: '6px 10px', background: '#FEF3C7', borderRadius: 5, fontSize: 11, color: '#92400E', fontWeight: 600 }}>
+                    Desconto de <strong>{Math.round((1 - parseFloat(drink.promotional_price) / parseFloat(drink.price)) * 100)}%</strong> · De <s>{fmtBRL(drink.price)}</s> por <strong style={{ color: '#EA580C' }}>{fmtBRL(drink.promotional_price)}</strong>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ padding: '10px 12px', background: '#F9FAFB', borderRadius: 8, border: '1px solid ' + C.border }}>

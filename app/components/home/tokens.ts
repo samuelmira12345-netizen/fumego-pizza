@@ -13,6 +13,20 @@ export function fmt(price: number | string): string {
   return Number(price).toFixed(2).replace('.', ',');
 }
 
+/** Retorna true se o item está em promoção válida (com preço e sem validade expirada) */
+export function isPromoActive(item: { promotion_active?: boolean; promotional_price?: number | string | null; promotion_ends_at?: string | null }): boolean {
+  if (!item.promotion_active) return false;
+  if (!item.promotional_price || Number(item.promotional_price) <= 0) return false;
+  if (item.promotion_ends_at && new Date(item.promotion_ends_at) < new Date()) return false;
+  return true;
+}
+
+/** Retorna o preço efetivo (promocional se ativo, senão normal) */
+export function effectivePrice(item: { price: number | string; promotional_price?: number | string | null; promotion_active?: boolean; promotion_ends_at?: string | null }): number {
+  if (isPromoActive(item)) return Number(item.promotional_price);
+  return Number(item.price);
+}
+
 // ── Opções de personalização por produto ───────────────────────────────────────
 
 import type { CartItemOption } from './types';

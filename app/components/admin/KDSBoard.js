@@ -1157,181 +1157,201 @@ function QuickStat({ label, value, color, hidden }) {
 
 function KitchenOrderCard({ order, onMarkReady }) {
   const [marking, setMarking] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const mins = elapsedMins(order.created_at);
-  const urgentColor = mins >= 30 ? '#EF4444' : mins >= 20 ? '#F59E0B' : '#10B981';
+  const urgentColor = mins >= 30 ? '#EF4444' : mins >= 20 ? '#D97706' : '#10B981';
+  const urgentBg    = mins >= 30 ? '#FEF2F2' : mins >= 20 ? '#FFFBEB' : '#ECFDF5';
+
+  async function confirmReady() {
+    setShowConfirm(false);
+    setMarking(true);
+    await onMarkReady();
+    setMarking(false);
+  }
 
   return (
     <div style={{
-      background: '#1C1C1E', borderRadius: 12,
-      border: `2px solid ${urgentColor}40`,
+      background: '#fff', borderRadius: 12,
+      border: `1px solid ${urgentColor}35`,
       borderLeft: `5px solid ${urgentColor}`,
       padding: '16px 18px',
       display: 'flex', flexDirection: 'column', gap: 10,
+      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
     }}>
       {/* Número + timer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 36, fontWeight: 900, color: '#fff', fontFamily: 'monospace', letterSpacing: -1 }}>
+        <span style={{ fontSize: 32, fontWeight: 900, color: '#111827', fontFamily: 'monospace', letterSpacing: -1 }}>
           #{order.order_number || String(order.id).slice(-4).toUpperCase()}
         </span>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: urgentColor, fontFamily: 'monospace' }}>
-            {fmtElapsed(mins)}
+          <div style={{
+            fontSize: 20, fontWeight: 800, fontFamily: 'monospace',
+            color: urgentColor,
+            background: urgentBg,
+            padding: '4px 10px', borderRadius: 6,
+            border: `1px solid ${urgentColor}25`,
+          }}>
+            ⏱ {fmtElapsed(mins)}
           </div>
-          <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 3 }}>
             Chegou: {fmtTime(order.created_at)}
           </div>
         </div>
       </div>
 
+      {/* Cliente */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: '#374151' }}>{order.customer_name}</span>
+        {order.delivery_neighborhood && (
+          <span style={{ fontSize: 12, color: '#6B7280', background: '#F3F4F6', padding: '2px 7px', borderRadius: 4 }}>
+            📍 {order.delivery_neighborhood}
+          </span>
+        )}
+      </div>
+
       {/* Itens / sabores */}
       {order.order_items && order.order_items.length > 0 ? (
-        <div style={{ background: '#2C2C2E', borderRadius: 8, padding: '10px 12px' }}>
+        <div style={{ background: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px' }}>
           {order.order_items.map((item, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: i < order.order_items.length - 1 ? 6 : 0 }}>
-              <span style={{ fontSize: 20, fontWeight: 900, color: '#F59E0B', minWidth: 28 }}>{item.quantity}×</span>
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#F3F4F6', lineHeight: 1.3 }}>{item.product_name}</span>
+            <div key={i} style={{ marginBottom: i < order.order_items.length - 1 ? 8 : 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: '#D97706', minWidth: 28, fontFamily: 'monospace' }}>{item.quantity}×</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#111827', lineHeight: 1.3 }}>{item.product_name}</span>
+              </div>
+              {item.observations && (
+                <p style={{ fontSize: 12, color: '#B45309', background: '#FFFBEB', padding: '3px 8px', borderRadius: 4, marginTop: 3, border: '1px solid #FDE68A', marginLeft: 26 }}>
+                  ⚠️ {item.observations}
+                </p>
+              )}
             </div>
           ))}
-          {(order.order_items || []).some(i => i.observations) && (
-            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #3C3C3E' }}>
-              {order.order_items.filter(i => i.observations).map((item, i) => (
-                <p key={i} style={{ fontSize: 12, color: '#FBBF24', fontStyle: 'italic' }}>
-                  ⚠️ {item.product_name}: {item.observations}
-                </p>
-              ))}
-            </div>
-          )}
         </div>
       ) : (
-        <div style={{ background: '#2C2C2E', borderRadius: 8, padding: '10px 12px' }}>
-          <p style={{ fontSize: 13, color: '#6B7280' }}>Sem itens carregados</p>
+        <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px' }}>
+          <p style={{ fontSize: 13, color: '#9CA3AF' }}>Aguardando itens...</p>
         </div>
       )}
 
       {/* Observações do pedido */}
       {order.observations && (
-        <div style={{ background: '#3B2B00', border: '1px solid #7C5A00', borderRadius: 8, padding: '8px 12px' }}>
-          <p style={{ fontSize: 13, color: '#FDE68A' }}>⚠️ {order.observations}</p>
+        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 12px' }}>
+          <p style={{ fontSize: 13, color: '#92400E', fontWeight: 600 }}>⚠️ {order.observations}</p>
         </div>
       )}
 
-      {/* Bairro */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ fontSize: 13, color: '#9CA3AF' }}>📍 {order.delivery_neighborhood || '—'}</span>
-      </div>
-
-      {/* Botão PRONTO */}
-      <button
-        disabled={marking || order.status === 'ready'}
-        onClick={async () => {
-          setMarking(true);
-          await onMarkReady();
-          setMarking(false);
-        }}
-        style={{
-          width: '100%', padding: '16px', borderRadius: 10, border: 'none',
-          fontSize: 20, fontWeight: 900, cursor: marking || order.status === 'ready' ? 'not-allowed' : 'pointer',
-          background: order.status === 'ready' ? '#065F46' : marking ? '#374151' : '#10B981',
-          color: '#fff', letterSpacing: 1, transition: 'background 0.15s',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-        }}
-      >
-        {order.status === 'ready'
-          ? <><PackageCheck size={22} /> PRONTO ✓</>
-          : marking
-          ? 'Aguarde...'
-          : <><PackageCheck size={22} /> MARCAR PRONTO</>
-        }
-      </button>
+      {/* Confirmação */}
+      {showConfirm ? (
+        <div style={{ background: '#F0FDF4', border: '2px solid #86EFAC', borderRadius: 10, padding: '14px', textAlign: 'center' }}>
+          <p style={{ fontSize: 15, fontWeight: 700, color: '#15803D', marginBottom: 12 }}>
+            ✅ Confirmar que o pedido está pronto?
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={confirmReady}
+              style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#16A34A', color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer' }}
+            >
+              Sim, está pronto!
+            </button>
+            <button
+              onClick={() => setShowConfirm(false)}
+              style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #D1D5DB', background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Botão PRONTO */
+        <button
+          disabled={marking}
+          onClick={() => setShowConfirm(true)}
+          style={{
+            width: '100%', padding: '14px', borderRadius: 10, border: 'none',
+            fontSize: 16, fontWeight: 900, cursor: marking ? 'not-allowed' : 'pointer',
+            background: marking ? '#9CA3AF' : '#10B981',
+            color: '#fff', letterSpacing: 0.5, transition: 'background 0.15s',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+          }}
+        >
+          {marking
+            ? 'Registrando...'
+            : <><PackageCheck size={20} /> MARCAR PRONTO</>
+          }
+        </button>
+      )}
     </div>
   );
 }
 
 function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
+  const [clockTick, setClockTick] = useState(0);
+  useEffect(() => {
+    const iv = setInterval(() => setClockTick(t => t + 1), 30000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Only show orders that need kitchen action (not 'ready' — they disappear after marking)
   const kitchenOrders = orders
-    .filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status))
+    .filter(o => ['confirmed', 'preparing'].includes(o.status))
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  const preparing = kitchenOrders.filter(o => o.status !== 'ready');
-  const ready     = kitchenOrders.filter(o => o.status === 'ready');
-
   return (
-    <div style={{ flex: 1, background: '#111111', overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+    <div style={{ flex: 1, background: '#F8FAFC', overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {/* Header da cozinha */}
-      <div style={{ background: '#1C1C1E', borderBottom: '1px solid #2C2C2E', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-        <ChefHat size={26} color="#F59E0B" />
-        <div>
-          <span style={{ fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: 0.5 }}>COZINHA — KDS</span>
-          <div style={{ fontSize: 12, color: '#6B7280', marginTop: 1 }}>
-            {preparing.length} em preparo · {ready.length} prontos
+      <div style={{ background: '#fff', borderBottom: '2px solid #E5E7EB', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ background: '#FEF3C7', borderRadius: 8, padding: '6px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ChefHat size={22} color="#D97706" />
+          </div>
+          <div>
+            <span style={{ fontSize: 17, fontWeight: 900, color: '#111827', letterSpacing: 0.3 }}>COZINHA — KDS</span>
+            <div style={{ fontSize: 12, color: '#6B7280', marginTop: 1 }}>
+              {kitchenOrders.length === 0 ? 'Nenhum pedido em preparo' : `${kitchenOrders.length} pedido${kitchenOrders.length !== 1 ? 's' : ''} em preparo`}
+            </div>
           </div>
         </div>
         <div style={{ flex: 1 }} />
         {/* Clock */}
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: '#F59E0B', fontFamily: 'monospace' }}>
+        <div style={{ textAlign: 'right', padding: '4px 12px', background: '#F3F4F6', borderRadius: 8 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', fontFamily: 'monospace' }}>
             {new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}
           </div>
-          <div style={{ fontSize: 11, color: '#6B7280' }}>
+          <div style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1 }}>
             {new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: '2-digit' })}
           </div>
         </div>
         <button onClick={() => setSoundOn(s => !s)}
-          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, border: '1px solid ' + (soundOn ? '#065F46' : '#374151'), background: soundOn ? '#064E3B' : '#1C1C1E', color: soundOn ? '#34D399' : '#6B7280', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, border: '1px solid ' + (soundOn ? '#A7F3D0' : '#E5E7EB'), background: soundOn ? '#ECFDF5' : '#F9FAFB', color: soundOn ? '#059669' : '#9CA3AF', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
           {soundOn ? <Volume2 size={14} /> : <VolumeX size={14} />} Som
         </button>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
         {kitchenOrders.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '100px 0', color: '#4B5563' }}>
-            <ChefHat size={56} style={{ margin: '0 auto 16px', display: 'block', opacity: 0.2 }} />
-            <p style={{ fontSize: 18, fontWeight: 600 }}>Nenhum pedido em preparo</p>
-            <p style={{ fontSize: 14, marginTop: 6, opacity: 0.6 }}>Aguardando pedidos da cozinha...</p>
+          <div style={{ textAlign: 'center', padding: '80px 0', color: '#9CA3AF' }}>
+            <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <ChefHat size={40} color="#D1D5DB" />
+            </div>
+            <p style={{ fontSize: 18, fontWeight: 700, color: '#374151', marginBottom: 6 }}>Cozinha liberada!</p>
+            <p style={{ fontSize: 14, color: '#9CA3AF' }}>Nenhum pedido aguardando preparo.</p>
           </div>
         ) : (
           <>
-            {/* Em preparo */}
-            {preparing.length > 0 && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <ChefHat size={16} color="#60A5FA" />
-                  <span style={{ fontSize: 11, fontWeight: 800, color: '#60A5FA', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                    Em Preparo ({preparing.length})
-                  </span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, marginBottom: 24 }}>
-                  {preparing.map(o => (
-                    <KitchenOrderCard
-                      key={o.id}
-                      order={o}
-                      onMarkReady={() => onMarkReady(o.id)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* Prontos aguardando entrega */}
-            {ready.length > 0 && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <PackageCheck size={16} color="#F59E0B" />
-                  <span style={{ fontSize: 11, fontWeight: 800, color: '#F59E0B', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                    Prontos — Aguardando Retirada ({ready.length})
-                  </span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-                  {ready.map(o => (
-                    <KitchenOrderCard
-                      key={o.id}
-                      order={o}
-                      onMarkReady={() => onMarkReady(o.id)}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <ChefHat size={16} color="#2563EB" />
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#2563EB', letterSpacing: 1.2, textTransform: 'uppercase' }}>
+                Em Preparo ({kitchenOrders.length})
+              </span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+              {kitchenOrders.map(o => (
+                <KitchenOrderCard
+                  key={o.id}
+                  order={o}
+                  onMarkReady={() => onMarkReady(o.id)}
+                />
+              ))}
+            </div>
           </>
         )}
       </div>
@@ -1693,6 +1713,7 @@ export default function KDSBoard({
             loadingMore={loadingMore}
             onUpdateStatus={handleAction}
             onLoadMore={onLoadMore}
+            adminToken={adminToken}
           />
         </div>
       )}
