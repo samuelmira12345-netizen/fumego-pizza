@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
+import { resolveMenuProducts } from '../../lib/menu-products';
 
 // ── Componentes extraídos ─────────────────────────────────────────────────────
 import StoreHeader from '../components/home/StoreHeader';
@@ -185,10 +186,6 @@ export default function HomePage() {
     finally { setLoading(false); }
   }
 
-  function getProduct(slug: string): Product | undefined {
-    return products.find(p => p.slug === slug);
-  }
-
   function openProductModal(product: Product) {
     if (!storeOpen) return;
     setSelectedProduct(product);
@@ -333,10 +330,13 @@ export default function HomePage() {
     setShowUserMenu(false);
   }
 
-  const marguerita  = getProduct('marguerita');
-  const calabresa   = getProduct('calabresa');
-  const combo       = getProduct('combo-classico');
-  const especial    = getProduct('especial-do-mes') ?? getProduct('capricho');
+  const {
+    marguerita,
+    calabresa,
+    combo,
+    especial,
+    remaining: remainingProducts,
+  } = resolveMenuProducts(products);
   const logoUrl     = settings.logo_url || null;
   const logoSize    = parseInt(settings.logo_size || '36');
   const deliveryTime = settings.delivery_time || '40–60 min';
@@ -546,6 +546,43 @@ export default function HomePage() {
             <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: MUTED, fontSize: 12 }}>
               <Clock size={13} color={MUTED} /> {deliveryTime}
             </span>
+          </div>
+        </section>
+      )}
+
+      {/* ── MAIS SABORES (fallback dinâmico para itens não destacados) ── */}
+      {remainingProducts.length > 0 && (
+        <section style={{ margin: '0 16px 20px' }}>
+          <p style={{ color: MUTED, fontSize: 10, textTransform: 'uppercase', letterSpacing: 4, fontWeight: 700, marginBottom: 12 }}>
+            Mais sabores
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+            {remainingProducts.map((product) => (
+              <div
+                key={product.id}
+                onClick={() => openProductModal(product)}
+                style={{
+                  borderRadius: 14,
+                  border: `1px solid ${BORDER}`,
+                  background: CARD,
+                  padding: 14,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 12,
+                  opacity: product.is_active ? 1 : 0.75,
+                  cursor: storeOpen ? 'pointer' : 'default',
+                }}
+              >
+                <div>
+                  <p style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{product.name}</p>
+                  {product.description && <p style={{ color: MUTED, fontSize: 12, marginTop: 3 }}>{product.description}</p>}
+                </div>
+                <p style={{ color: product.is_active ? GOLD : '#E04040', fontWeight: 800, fontSize: 14, whiteSpace: 'nowrap' }}>
+                  {product.is_active ? `R$ ${fmt(effectivePrice(product))}` : 'Indisponível'}
+                </p>
+              </div>
+            ))}
           </div>
         </section>
       )}
