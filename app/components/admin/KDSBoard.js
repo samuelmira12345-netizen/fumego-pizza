@@ -106,6 +106,16 @@ function fmtDateFull(isoStr) {
   });
 }
 
+function buildAddress(order) {
+  return [
+    order.delivery_street,
+    order.delivery_number,
+    order.delivery_complement,
+    order.delivery_neighborhood,
+    order.delivery_city,
+  ].filter(Boolean).join(', ');
+}
+
 function todaySP() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
@@ -856,7 +866,7 @@ function PaymentPanel({ order, onSave }) {
   );
 }
 
-function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, adminToken, customerOrderCount }) {
+function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, adminToken, customerOrderCount, deliveryPersons, onAssignDeliveryPerson, onEnsureDeliveryPersons }) {
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [showPrintDialog, setShowPrintDialog]         = useState(false);
   const [editPayment, setEditPayment]                 = useState(false);
@@ -963,15 +973,62 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
 
             {/* Endereço */}
             <Section label="Endereço" icon={<MapPin size={12} />}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
+              <a
+                href={`https://maps.google.com/maps?q=${encodeURIComponent(buildAddress(order))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 13, fontWeight: 700, color: '#2563EB', marginBottom: 2, textDecoration: 'underline' }}
+              >
                 {order.delivery_street}, {order.delivery_number}
                 {order.delivery_complement ? ` — ${order.delivery_complement}` : ''}
-              </p>
+              </a>
               <p style={{ fontSize: 12, color: '#6B7280' }}>
                 {order.delivery_neighborhood}{order.delivery_city ? `, ${order.delivery_city}` : ''}
                 {order.delivery_zipcode ? ` · ${order.delivery_zipcode}` : ''}
               </p>
+              <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                <a
+                  href={`https://maps.google.com/maps?q=${encodeURIComponent(buildAddress(order))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: 11, color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: 5, padding: '3px 8px', textDecoration: 'none', background: '#EFF6FF' }}
+                >
+                  Google Maps
+                </a>
+                <a
+                  href={`https://waze.com/ul?q=${encodeURIComponent(buildAddress(order))}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: 11, color: '#7C3AED', border: '1px solid #DDD6FE', borderRadius: 5, padding: '3px 8px', textDecoration: 'none', background: '#F5F3FF' }}
+                >
+                  Waze
+                </a>
+              </div>
             </Section>
+
+            {['ready', 'delivering'].includes(order.status) && (
+              <Section label="Entregador" icon={<Truck size={12} />}>
+                <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>
+                  Se necessário, altere o entregador responsável por este pedido.
+                </p>
+                <select
+                  value={order.delivery_person_id || ''}
+                  onFocus={onEnsureDeliveryPersons}
+                  onChange={async e => {
+                    const nextDeliveryPersonId = e.target.value || null;
+                    const ok = await onAssignDeliveryPerson(order.id, nextDeliveryPersonId, order.status === 'delivering');
+                    if (!ok) return;
+                    onAction(order.id, 'delivery_person_id', nextDeliveryPersonId);
+                  }}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 13, background: '#fff' }}
+                >
+                  <option value="">— Selecione o entregador —</option>
+                  {(deliveryPersons || []).map(dp => (
+                    <option key={dp.id} value={dp.id}>{dp.name}</option>
+                  ))}
+                </select>
+              </Section>
+            )}
 
             {/* Timeline */}
             <Section label="Timeline do pedido" icon={<Timer size={12} />}>
@@ -1247,13 +1304,13 @@ function KitchenOrderCard({ order, onMarkReady }) {
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={confirmReady}
+              onClick={e => { e.stopPropagation(); confirmReady(); }}
               style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#16A34A', color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer' }}
             >
               Sim, está pronto!
             </button>
             <button
-              onClick={() => setShowConfirm(false)}
+              onClick={e => { e.stopPropagation(); setShowConfirm(false); }}
               style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #D1D5DB', background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
             >
               Cancelar
@@ -1264,7 +1321,7 @@ function KitchenOrderCard({ order, onMarkReady }) {
         /* Botão PRONTO */
         <button
           disabled={marking}
-          onClick={() => setShowConfirm(true)}
+          onClick={e => { e.stopPropagation(); setShowConfirm(true); }}
           style={{
             width: '100%', padding: '14px', borderRadius: 10, border: 'none',
             fontSize: 16, fontWeight: 900, cursor: marking ? 'not-allowed' : 'pointer',
@@ -1283,8 +1340,63 @@ function KitchenOrderCard({ order, onMarkReady }) {
   );
 }
 
+function KitchenOrderModal({ order, onClose }) {
+  if (!order) return null;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 1300, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ width: '100%', maxWidth: 560, maxHeight: '88vh', overflowY: 'auto', background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', padding: 16 }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <h3 style={{ fontSize: 20, fontWeight: 900, color: '#111827', fontFamily: 'monospace' }}>
+            #{order.order_number || String(order.id).slice(-4).toUpperCase()} · Cozinha
+          </h3>
+          <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', borderRadius: 6, width: 30, height: 30, cursor: 'pointer' }}>
+            <X size={14} color="#6B7280" />
+          </button>
+        </div>
+
+        <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>
+          Cliente: <strong>{order.customer_name}</strong>{order.delivery_neighborhood ? ` · ${order.delivery_neighborhood}` : ''}
+        </p>
+
+        <div style={{ background: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 10, padding: 12 }}>
+          <p style={{ fontSize: 11, fontWeight: 800, color: '#6B7280', marginBottom: 8, letterSpacing: 1 }}>ITENS RELEVANTES PARA PREPARO</p>
+          {order.order_items?.length ? order.order_items.map((item, i) => (
+            <div key={i} style={{ borderBottom: i < order.order_items.length - 1 ? '1px solid #E5E7EB' : 'none', paddingBottom: 9, marginBottom: 9 }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: '#D97706', minWidth: 26 }}>{item.quantity}×</span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>{item.product_name}</span>
+              </div>
+              {item.observations && (
+                <p style={{ marginTop: 4, marginLeft: 34, fontSize: 12, color: '#92400E', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 6, padding: '4px 7px' }}>
+                  ⚠️ {item.observations}
+                </p>
+              )}
+            </div>
+          )) : (
+            <p style={{ fontSize: 13, color: '#9CA3AF' }}>Itens não carregados para este pedido.</p>
+          )}
+        </div>
+
+        {order.observations && (
+          <div style={{ marginTop: 10, background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, padding: '8px 10px' }}>
+            <p style={{ fontSize: 12, color: '#92400E' }}>Observação do pedido: {order.observations}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
   const [clockTick, setClockTick] = useState(0);
+  const [selectedOrder, setSelectedOrder] = useState(null);
   useEffect(() => {
     const iv = setInterval(() => setClockTick(t => t + 1), 30000);
     return () => clearInterval(iv);
@@ -1345,16 +1457,24 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
               {kitchenOrders.map(o => (
-                <KitchenOrderCard
-                  key={o.id}
-                  order={o}
-                  onMarkReady={() => onMarkReady(o.id)}
-                />
+                <div key={o.id} onClick={() => setSelectedOrder(o)} style={{ cursor: 'pointer' }}>
+                  <KitchenOrderCard
+                    order={o}
+                    onMarkReady={() => onMarkReady(o.id)}
+                  />
+                </div>
               ))}
             </div>
           </>
         )}
       </div>
+
+      {selectedOrder && (
+        <KitchenOrderModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1376,6 +1496,10 @@ export default function KDSBoard({
   const [dragging, setDragging]         = useState(null);
   const [showDrawer, setShowDrawer]     = useState(false);
   const [viewMode, setViewMode]         = useState('kanban'); // 'kanban' | 'lista' | 'cozinha'
+  const [deliveryPersons, setDeliveryPersons] = useState([]);
+  const [deliveryPrompt, setDeliveryPrompt] = useState({ open: false, orderId: null, deliveryPersonId: '' });
+  const [assigningDelivery, setAssigningDelivery] = useState(false);
+  const deliveryPersonsLoadedRef         = useRef(false);
   const seenIdsRef                      = useRef(null);
   const prevStatusRef                   = useRef({});
   const onUpdateRef                     = useRef(onUpdateStatus);
@@ -1481,9 +1605,69 @@ export default function KDSBoard({
     finally { setItemsLoading(false); }
   }
 
-  function handleAction(orderId, field, value) {
+  async function ensureDeliveryPersons() {
+    if (deliveryPersonsLoadedRef.current || !adminToken) return;
+    deliveryPersonsLoadedRef.current = true;
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'get_delivery_persons', data: {} }),
+      });
+      const d = await res.json();
+      setDeliveryPersons((d.persons || []).filter(p => p.is_active));
+    } catch (e) {
+      console.error(e);
+      deliveryPersonsLoadedRef.current = false;
+    }
+  }
+
+  async function assignDeliveryPerson(orderId, personId, startDelivery = false) {
+    if (!adminToken || !orderId) return false;
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'assign_delivery', data: { order_id: orderId, delivery_person_id: personId || null, start_delivery: startDelivery } }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || 'Erro ao atribuir entregador');
+      return true;
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao atribuir entregador: ' + (e.message || 'erro desconhecido'));
+      return false;
+    }
+  }
+
+  async function handleAction(orderId, field, value) {
+    if (field === 'status' && value === 'delivering') {
+      const order = orders.find(o => o.id === orderId);
+      await ensureDeliveryPersons();
+      setDeliveryPrompt({
+        open: true,
+        orderId,
+        deliveryPersonId: order?.delivery_person_id || '',
+      });
+      return;
+    }
     onUpdateStatus(orderId, field, value);
     setModal(prev => prev?.id === orderId ? { ...prev, [field]: value } : prev);
+  }
+
+  async function confirmStartDelivery() {
+    if (!deliveryPrompt.orderId || !deliveryPrompt.deliveryPersonId || assigningDelivery) return;
+    setAssigningDelivery(true);
+    const ok = await assignDeliveryPerson(deliveryPrompt.orderId, deliveryPrompt.deliveryPersonId, true);
+    if (ok) {
+      onUpdateStatus(deliveryPrompt.orderId, 'delivery_person_id', deliveryPrompt.deliveryPersonId);
+      onUpdateStatus(deliveryPrompt.orderId, 'status', 'delivering');
+      setModal(prev => prev?.id === deliveryPrompt.orderId
+        ? { ...prev, delivery_person_id: deliveryPrompt.deliveryPersonId, status: 'delivering' }
+        : prev);
+      setDeliveryPrompt({ open: false, orderId: null, deliveryPersonId: '' });
+    }
+    setAssigningDelivery(false);
   }
 
   async function handlePaymentUpdate(orderId, updates) {
@@ -1730,7 +1914,46 @@ export default function KDSBoard({
           onPrint={handlePrint}
           adminToken={adminToken}
           customerOrderCount={customerOrderCount}
+          deliveryPersons={deliveryPersons}
+          onAssignDeliveryPerson={assignDeliveryPerson}
+          onEnsureDeliveryPersons={ensureDeliveryPersons}
         />
+      )}
+
+      {deliveryPrompt.open && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(15,23,42,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: '100%', maxWidth: 430, background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 16 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#111827', marginBottom: 6 }}>Atribuição obrigatória de entregador</h3>
+            <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>
+              Para mover o pedido para <strong>Em entrega</strong>, selecione quem saiu para entrega.
+            </p>
+            <select
+              value={deliveryPrompt.deliveryPersonId}
+              onChange={e => setDeliveryPrompt(prev => ({ ...prev, deliveryPersonId: e.target.value }))}
+              style={{ width: '100%', padding: '9px 10px', borderRadius: 7, border: '1px solid #D1D5DB', fontSize: 13, marginBottom: 12 }}
+            >
+              <option value="">— Selecione o entregador —</option>
+              {deliveryPersons.map(dp => (
+                <option key={dp.id} value={dp.id}>{dp.name}</option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setDeliveryPrompt({ open: false, orderId: null, deliveryPersonId: '' })}
+                style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #D1D5DB', background: '#fff', color: '#6B7280', cursor: 'pointer', fontSize: 12 }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmStartDelivery}
+                disabled={!deliveryPrompt.deliveryPersonId || assigningDelivery}
+                style={{ padding: '8px 12px', borderRadius: 7, border: 'none', background: (!deliveryPrompt.deliveryPersonId || assigningDelivery) ? '#9CA3AF' : '#7C3AED', color: '#fff', cursor: (!deliveryPrompt.deliveryPersonId || assigningDelivery) ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 700 }}
+              >
+                {assigningDelivery ? 'Confirmando...' : 'Confirmar saída para entrega'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Drawer novo pedido manual ─────────────────────────────────────── */}

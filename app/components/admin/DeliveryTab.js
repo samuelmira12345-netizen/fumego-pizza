@@ -7,6 +7,7 @@ import {
   DollarSign, ChevronDown, ChevronUp, Check, Eye, EyeOff,
   Navigation, AlertTriangle,
 } from 'lucide-react';
+import DateRangePicker from './DateRangePicker';
 
 const C = {
   bg: '#F4F5F7', card: '#fff', border: '#E5E7EB',
@@ -49,6 +50,7 @@ const TABS = [
   { key: 'persons', label: 'Entregadores', icon: User },
   { key: 'zones',   label: 'Zonas',        icon: MapPin },
   { key: 'tracking',label: 'Localização',  icon: Navigation },
+  { key: 'metrics', label: 'Métricas',     icon: DollarSign },
 ];
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -579,6 +581,111 @@ function TrackingTab({ adminToken }) {
   );
 }
 
+function fmtMins(mins) {
+  if (!Number.isFinite(mins)) return '—';
+  if (mins < 60) return `${mins} min`;
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+}
+
+function MetricsTab({ adminToken }) {
+  const [dateRange, setDateRange] = useState({
+    from: new Date(Date.now() - 29 * 24 * 3600 * 1000).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }),
+    to: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }),
+    fromTime: '00:00',
+    toTime: '23:59',
+  });
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState(null);
+  const [rows, setRows] = useState([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const j = await adminPost('get_delivery_metrics', {
+        from: dateRange.from,
+        to: dateRange.to,
+      }, adminToken);
+      setSummary(j.summary || null);
+      setRows(j.persons || []);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao carregar métricas de entrega');
+    } finally {
+      setLoading(false);
+    }
+  }, [adminToken, dateRange.from, dateRange.to]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const maxDelivered = Math.max(...rows.map(r => r.delivered_count || 0), 1);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 8, flexWrap: 'wrap' }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Métricas de Entrega</h3>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
+          <button onClick={load} style={btnGhost}><RefreshCw size={14} /> Atualizar</button>
+        </div>
+      </div>
+
+      {summary && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 14 }}>
+          <MetricCard label="Entregas concluídas" value={summary.total_delivered} color={C.success} />
+          <MetricCard label="Em andamento" value={summary.total_in_progress} color={C.purple} />
+          <MetricCard label="Taxas (entregadores)" value={fmtBRL(summary.total_delivery_fees)} color={C.gold} />
+          <MetricCard label="Valor dos pedidos" value={fmtBRL(summary.total_orders_value)} color={C.blue} />
+          <MetricCard label="Tempo médio" value={fmtMins(summary.avg_delivery_minutes)} color={C.text} />
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 34 }}>
+          <Loader2 size={22} color={C.gold} style={{ animation: 'spin 1s linear infinite' }} />
+        </div>
+      ) : rows.length === 0 ? (
+        <p style={{ color: C.muted, textAlign: 'center', padding: '24px 0' }}>Sem dados no período selecionado.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {rows.map((r, idx) => {
+            const width = `${Math.max(10, Math.round(((r.delivered_count || 0) / maxDelivered) * 100))}%`;
+            return (
+              <div key={r.delivery_person_id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{idx + 1}. {r.name}</p>
+                    <p style={{ fontSize: 11, color: C.muted }}>Última entrega: {fmtDate(r.last_delivery_at)}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12, color: C.text }}>✅ {r.delivered_count} entregas</span>
+                    <span style={{ fontSize: 12, color: C.gold }}>💰 {fmtBRL(r.delivery_fees_total)}</span>
+                    <span style={{ fontSize: 12, color: C.blue }}>🧾 {fmtBRL(r.orders_total_value)}</span>
+                    <span style={{ fontSize: 12, color: C.purple }}>⏱ {fmtMins(r.avg_delivery_minutes)}</span>
+                  </div>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ height: 8, background: '#EEF2F7', borderRadius: 999, overflow: 'hidden' }}>
+                    <div style={{ width, height: '100%', background: 'linear-gradient(90deg,#7C3AED,#2563EB)' }} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({ label, value, color }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 12px' }}>
+      <p style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{label}</p>
+      <p style={{ fontSize: 19, fontWeight: 800, color }}>{value}</p>
+    </div>
+  );
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Main DeliveryTab
 // ═════════════════════════════════════════════════════════════════════════════
@@ -616,6 +723,7 @@ export default function DeliveryTab({ adminToken }) {
       {activeTab === 'persons'  && <PersonsTab  adminToken={adminToken} />}
       {activeTab === 'zones'    && <ZonesTab    adminToken={adminToken} />}
       {activeTab === 'tracking' && <TrackingTab adminToken={adminToken} />}
+      {activeTab === 'metrics'  && <MetricsTab  adminToken={adminToken} />}
     </div>
   );
 }
