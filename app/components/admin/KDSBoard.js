@@ -325,7 +325,7 @@ function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, on
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexShrink: 0, borderRadius: isDragOver ? '4px 4px 0 0' : '5px 5px 0 0',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
           <Icon size={14} color="#fff" />
           <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: 0.8 }}>{col.cfg.label}</span>
         </div>
@@ -1920,7 +1920,7 @@ export default function KDSBoard({
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: '#F1F3F5', overflow: 'hidden' }}>
 
       {/* ── Barra superior ────────────────────────────────────────────────── */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '9px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '9px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', overflowX: 'auto' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <ShoppingBag size={18} color="#D97706" />
@@ -1928,7 +1928,7 @@ export default function KDSBoard({
         </div>
 
         {/* Stats */}
-        <div style={{ display: 'flex', gap: 7, marginLeft: 6 }}>
+        <div style={{ display: 'flex', gap: 7, marginLeft: 6, flexShrink: 0 }}>
           <QuickStat label="Ativos"      value={activeToday}          color="#D97706" />
           <QuickStat label="Finalizados" value={doneToday}            color="#059669" />
           <QuickStat label="Faturado"    value={fmtBRL(revenueToday)} color="#2563EB" hidden={!showRevenue} />
@@ -1944,7 +1944,7 @@ export default function KDSBoard({
         <div style={{ flex: 1 }} />
 
         {/* Toggle Kanban / Cozinha / Lista */}
-        <div style={{ display: 'flex', borderRadius: 5, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+        <div style={{ display: 'flex', borderRadius: 5, overflow: 'hidden', border: '1px solid #E5E7EB', flexShrink: 0 }}>
           {[
             { key: 'kanban',  label: 'Kanban',   icon: <ChefHat size={13} /> },
             { key: 'cozinha', label: 'Cozinha',  icon: <PackageCheck size={13} /> },
@@ -1972,7 +1972,7 @@ export default function KDSBoard({
 
         {/* Indicador de data atual */}
         {viewMode === 'kanban' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: '#F3F4F6', borderRadius: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: '#F3F4F6', borderRadius: 4, flexShrink: 0, whiteSpace: 'nowrap' }}>
             <Calendar size={12} color="#6B7280" />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>
               {new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' })}
@@ -1982,28 +1982,28 @@ export default function KDSBoard({
         )}
 
         {/* Countdown */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#9CA3AF' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#9CA3AF', minWidth: 52, justifyContent: 'flex-end', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: loading ? '#F59E0B' : '#10B981' }} />
           {countdown}s
         </div>
 
         {/* Refresh */}
         <button onClick={() => { onRefresh(); setCountdown(10); }} disabled={loading}
-          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 4, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 4, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontSize: 12, cursor: 'pointer', fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>
           <RefreshCw size={12} style={loading ? { animation: 'kdsSpin 1s linear infinite' } : {}} />
           Atualizar
         </button>
 
         {/* Som */}
         <button onClick={() => setSoundOn(s => !s)}
-          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 4, border: '1px solid ' + (soundOn ? '#A7F3D0' : '#E5E7EB'), background: soundOn ? '#ECFDF5' : '#F9FAFB', color: soundOn ? '#059669' : '#9CA3AF', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 4, border: '1px solid ' + (soundOn ? '#A7F3D0' : '#E5E7EB'), background: soundOn ? '#ECFDF5' : '#F9FAFB', color: soundOn ? '#059669' : '#9CA3AF', fontSize: 12, cursor: 'pointer', fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>
           {soundOn ? <Volume2 size={13} /> : <VolumeX size={13} />}
           {soundOn ? 'Som' : 'Mudo'}
         </button>
 
         {/* Novo Pedido */}
         <button onClick={() => setShowDrawer(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 4, border: 'none', background: '#111827', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 4, border: 'none', background: '#111827', color: '#fff', fontSize: 12, cursor: 'pointer', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap' }}>
           <Plus size={13} /> Novo Pedido
         </button>
       </div>
