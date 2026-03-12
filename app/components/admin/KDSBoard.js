@@ -1362,28 +1362,9 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails }) {
         )}
       </div>
 
-      {/* Itens / sabores */}
-      {order.order_items && order.order_items.length > 0 ? (
-        <div style={{ background: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px' }}>
-          {order.order_items.map((item, i) => (
-            <div key={i} style={{ marginBottom: i < order.order_items.length - 1 ? 8 : 0 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span style={{ fontSize: 18, fontWeight: 900, color: '#D97706', minWidth: 28, fontFamily: 'monospace' }}>{item.quantity}×</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#111827', lineHeight: 1.3 }}>{item.product_name}</span>
-              </div>
-              {item.observations && (
-                <p style={{ fontSize: 12, color: '#B45309', background: '#FFFBEB', padding: '3px 8px', borderRadius: 4, marginTop: 3, border: '1px solid #FDE68A', marginLeft: 26 }}>
-                  ⚠️ {item.observations}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px' }}>
-          <p style={{ fontSize: 13, color: '#9CA3AF' }}>Aguardando itens...</p>
-        </div>
-      )}
+      <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '8px 12px' }}>
+        <p style={{ fontSize: 12, color: '#6B7280' }}>Toque no card para ver os itens e detalhes.</p>
+      </div>
 
       {/* Observações do pedido */}
       {order.observations && (
