@@ -89,6 +89,41 @@ export default function HomePage() {
     };
   }, []);
 
+  useEffect(() => {
+    const shouldLockBackground = showModal || showCartDrawer;
+    if (!shouldLockBackground || typeof window === 'undefined') return;
+
+    const body = document.body;
+    const html = document.documentElement;
+    const scrollY = window.scrollY;
+
+    const previous = {
+      bodyOverflow: body.style.overflow,
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyWidth: body.style.width,
+      bodyTouchAction: body.style.touchAction,
+      htmlOverscrollBehavior: html.style.overscrollBehavior,
+    };
+
+    body.style.overflow = 'hidden';
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.width = '100%';
+    body.style.touchAction = 'none';
+    html.style.overscrollBehavior = 'none';
+
+    return () => {
+      body.style.overflow = previous.bodyOverflow;
+      body.style.position = previous.bodyPosition;
+      body.style.top = previous.bodyTop;
+      body.style.width = previous.bodyWidth;
+      body.style.touchAction = previous.bodyTouchAction;
+      html.style.overscrollBehavior = previous.htmlOverscrollBehavior;
+      window.scrollTo(0, scrollY);
+    };
+  }, [showModal, showCartDrawer]);
+
   function saveCart(newCart: CartItem[]) {
     setCart(newCart);
     localStorage.setItem('fumego_cart', JSON.stringify(newCart));
