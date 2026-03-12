@@ -856,7 +856,7 @@ function PaymentPanel({ order, onSave }) {
   );
 }
 
-function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, adminToken, customerOrderCount }) {
+function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, adminToken, customerOrderCount, deliveryPersons, onAssignDeliveryPerson, onEnsureDeliveryPersons }) {
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [showPrintDialog, setShowPrintDialog]         = useState(false);
   const [editPayment, setEditPayment]                 = useState(false);
@@ -972,6 +972,30 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                 {order.delivery_zipcode ? ` · ${order.delivery_zipcode}` : ''}
               </p>
             </Section>
+
+            {['ready', 'delivering'].includes(order.status) && (
+              <Section label="Entregador" icon={<Truck size={12} />}>
+                <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>
+                  Se necessário, altere o entregador responsável por este pedido.
+                </p>
+                <select
+                  value={order.delivery_person_id || ''}
+                  onFocus={onEnsureDeliveryPersons}
+                  onChange={async e => {
+                    const nextDeliveryPersonId = e.target.value || null;
+                    const ok = await onAssignDeliveryPerson(order.id, nextDeliveryPersonId, order.status === 'delivering');
+                    if (!ok) return;
+                    onAction(order.id, 'delivery_person_id', nextDeliveryPersonId);
+                  }}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 13, background: '#fff' }}
+                >
+                  <option value="">— Selecione o entregador —</option>
+                  {(deliveryPersons || []).map(dp => (
+                    <option key={dp.id} value={dp.id}>{dp.name}</option>
+                  ))}
+                </select>
+              </Section>
+            )}
 
             {/* Timeline */}
             <Section label="Timeline do pedido" icon={<Timer size={12} />}>
@@ -1376,6 +1400,10 @@ export default function KDSBoard({
   const [dragging, setDragging]         = useState(null);
   const [showDrawer, setShowDrawer]     = useState(false);
   const [viewMode, setViewMode]         = useState('kanban'); // 'kanban' | 'lista' | 'cozinha'
+  const [deliveryPersons, setDeliveryPersons] = useState([]);
+  const [deliveryPrompt, setDeliveryPrompt] = useState({ open: false, orderId: null, deliveryPersonId: '' });
+  const [assigningDelivery, setAssigningDelivery] = useState(false);
+  const deliveryPersonsLoadedRef         = useRef(false);
   const seenIdsRef                      = useRef(null);
   const prevStatusRef                   = useRef({});
   const onUpdateRef                     = useRef(onUpdateStatus);
@@ -1481,9 +1509,69 @@ export default function KDSBoard({
     finally { setItemsLoading(false); }
   }
 
-  function handleAction(orderId, field, value) {
+  async function ensureDeliveryPersons() {
+    if (deliveryPersonsLoadedRef.current || !adminToken) return;
+    deliveryPersonsLoadedRef.current = true;
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'get_delivery_persons', data: {} }),
+      });
+      const d = await res.json();
+      setDeliveryPersons((d.persons || []).filter(p => p.is_active));
+    } catch (e) {
+      console.error(e);
+      deliveryPersonsLoadedRef.current = false;
+    }
+  }
+
+  async function assignDeliveryPerson(orderId, personId, startDelivery = false) {
+    if (!adminToken || !orderId) return false;
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'assign_delivery', data: { order_id: orderId, delivery_person_id: personId || null, start_delivery: startDelivery } }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || 'Erro ao atribuir entregador');
+      return true;
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao atribuir entregador: ' + (e.message || 'erro desconhecido'));
+      return false;
+    }
+  }
+
+  async function handleAction(orderId, field, value) {
+    if (field === 'status' && value === 'delivering') {
+      const order = orders.find(o => o.id === orderId);
+      await ensureDeliveryPersons();
+      setDeliveryPrompt({
+        open: true,
+        orderId,
+        deliveryPersonId: order?.delivery_person_id || '',
+      });
+      return;
+    }
     onUpdateStatus(orderId, field, value);
     setModal(prev => prev?.id === orderId ? { ...prev, [field]: value } : prev);
+  }
+
+  async function confirmStartDelivery() {
+    if (!deliveryPrompt.orderId || !deliveryPrompt.deliveryPersonId || assigningDelivery) return;
+    setAssigningDelivery(true);
+    const ok = await assignDeliveryPerson(deliveryPrompt.orderId, deliveryPrompt.deliveryPersonId, true);
+    if (ok) {
+      onUpdateStatus(deliveryPrompt.orderId, 'delivery_person_id', deliveryPrompt.deliveryPersonId);
+      onUpdateStatus(deliveryPrompt.orderId, 'status', 'delivering');
+      setModal(prev => prev?.id === deliveryPrompt.orderId
+        ? { ...prev, delivery_person_id: deliveryPrompt.deliveryPersonId, status: 'delivering' }
+        : prev);
+      setDeliveryPrompt({ open: false, orderId: null, deliveryPersonId: '' });
+    }
+    setAssigningDelivery(false);
   }
 
   async function handlePaymentUpdate(orderId, updates) {
@@ -1730,7 +1818,46 @@ export default function KDSBoard({
           onPrint={handlePrint}
           adminToken={adminToken}
           customerOrderCount={customerOrderCount}
+          deliveryPersons={deliveryPersons}
+          onAssignDeliveryPerson={assignDeliveryPerson}
+          onEnsureDeliveryPersons={ensureDeliveryPersons}
         />
+      )}
+
+      {deliveryPrompt.open && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(15,23,42,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: '100%', maxWidth: 430, background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 16 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#111827', marginBottom: 6 }}>Atribuição obrigatória de entregador</h3>
+            <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>
+              Para mover o pedido para <strong>Em entrega</strong>, selecione quem saiu para entrega.
+            </p>
+            <select
+              value={deliveryPrompt.deliveryPersonId}
+              onChange={e => setDeliveryPrompt(prev => ({ ...prev, deliveryPersonId: e.target.value }))}
+              style={{ width: '100%', padding: '9px 10px', borderRadius: 7, border: '1px solid #D1D5DB', fontSize: 13, marginBottom: 12 }}
+            >
+              <option value="">— Selecione o entregador —</option>
+              {deliveryPersons.map(dp => (
+                <option key={dp.id} value={dp.id}>{dp.name}</option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setDeliveryPrompt({ open: false, orderId: null, deliveryPersonId: '' })}
+                style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #D1D5DB', background: '#fff', color: '#6B7280', cursor: 'pointer', fontSize: 12 }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmStartDelivery}
+                disabled={!deliveryPrompt.deliveryPersonId || assigningDelivery}
+                style={{ padding: '8px 12px', borderRadius: 7, border: 'none', background: (!deliveryPrompt.deliveryPersonId || assigningDelivery) ? '#9CA3AF' : '#7C3AED', color: '#fff', cursor: (!deliveryPrompt.deliveryPersonId || assigningDelivery) ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 700 }}
+              >
+                {assigningDelivery ? 'Confirmando...' : 'Confirmar saída para entrega'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Drawer novo pedido manual ─────────────────────────────────────── */}

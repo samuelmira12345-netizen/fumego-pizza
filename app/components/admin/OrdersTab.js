@@ -122,6 +122,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
   // Delivery persons (loaded lazily)
   const [deliveryPersons, setDeliveryPersons] = useState([]);
+  const [deliveryModal, setDeliveryModal] = useState({ open: false, orderId: null, deliveryPersonId: '' });
   const dpLoadedRef = useMemo(() => ({ current: false }), []);
 
   async function ensureDeliveryPersons() {
@@ -154,6 +155,33 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
       alert('Erro ao atribuir entregador: ' + (e.message || 'erro desconhecido'));
       return false;
     }
+  }
+
+  function openAddressOnMap(order, provider = 'google') {
+    const address = buildAddress(order);
+    if (!address) return;
+    const url = provider === 'waze'
+      ? `https://waze.com/ul?q=${encodeURIComponent(address)}`
+      : `https://maps.google.com/maps?q=${encodeURIComponent(address)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  async function startDeliveringWithModal(order) {
+    await ensureDeliveryPersons();
+    setDeliveryModal({
+      open: true,
+      orderId: order.id,
+      deliveryPersonId: order.delivery_person_id || '',
+    });
+  }
+
+  async function confirmStartDelivery() {
+    if (!deliveryModal.deliveryPersonId || !deliveryModal.orderId) return;
+    const assigned = await assignDeliveryPerson(deliveryModal.orderId, deliveryModal.deliveryPersonId, true);
+    if (!assigned) return;
+    onUpdateStatus(deliveryModal.orderId, 'delivery_person_id', deliveryModal.deliveryPersonId);
+    onUpdateStatus(deliveryModal.orderId, 'status', 'delivering');
+    setDeliveryModal({ open: false, orderId: null, deliveryPersonId: '' });
   }
 
   useEffect(() => { persistSavedFilters(savedFilters); }, [savedFilters]);
@@ -409,7 +437,14 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
             <p style={{ color: '#fff', fontSize: 14 }}>{o.customer_name} — {o.customer_phone}</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <p style={{ color: '#aaa', fontSize: 12 }}>{o.delivery_street}, {o.delivery_number} — {o.delivery_neighborhood}</p>
+              <button
+                type="button"
+                onClick={() => openAddressOnMap(o, 'google')}
+                style={{ color: '#aaa', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                title="Abrir endereço no mapa"
+              >
+                {o.delivery_street}, {o.delivery_number} — {o.delivery_neighborhood}
+              </button>
               {(o.delivery_street || o.delivery_neighborhood) && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <a
@@ -489,7 +524,12 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
                 <p style={{ fontSize: 11, color: '#A78BFA', fontWeight: 700, marginBottom: 5 }}>Entregador responsável:</p>
                 <select
                   value={o.delivery_person_id || ''}
-                  onChange={async e => { await assignDeliveryPerson(o.id, e.target.value || null, o.status === 'delivering'); }}
+                  onChange={async e => {
+                    const nextDeliveryPersonId = e.target.value || null;
+                    const assigned = await assignDeliveryPerson(o.id, nextDeliveryPersonId, o.status === 'delivering');
+                    if (!assigned) return;
+                    onUpdateStatus(o.id, 'delivery_person_id', nextDeliveryPersonId);
+                  }}
                   onFocus={ensureDeliveryPersons}
                   style={{ background: '#333', color: '#fff', border: '1px solid rgba(124,58,237,0.4)', borderRadius: 6, padding: '5px 8px', fontSize: 12, width: '100%' }}
                 >
@@ -510,13 +550,8 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
                 onChange={async e => {
                   const nextStatus = e.target.value;
                   if (nextStatus === 'delivering') {
-                    ensureDeliveryPersons();
-                    if (!o.delivery_person_id) {
-                      alert('Selecione um entregador antes de colocar o pedido em entrega.');
-                      return;
-                    }
-                    const assigned = await assignDeliveryPerson(o.id, o.delivery_person_id, true);
-                    if (!assigned) return;
+                    await startDeliveringWithModal(o);
+                    return;
                   }
                   onUpdateStatus(o.id, 'status', nextStatus);
                 }}
@@ -570,6 +605,44 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
         <p style={{ color: '#666', fontSize: 12, textAlign: 'center', marginTop: 8 }}>
           Filtros ativos. Limpe os filtros e clique em "Carregar mais" para ver pedidos anteriores.
         </p>
+      )}
+
+      {deliveryModal.open && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
+          <div style={{ width: '100%', maxWidth: 420, background: '#232323', border: '1px solid #4A4A4A', borderRadius: 12, padding: 16 }}>
+            <h4 style={{ color: '#fff', fontSize: 16, marginBottom: 6 }}>Atribuir entregador obrigatório</h4>
+            <p style={{ color: '#aaa', fontSize: 12, marginBottom: 10 }}>
+              Selecione quem saiu para entrega deste pedido antes de confirmar o status <strong style={{ color: '#C4B5FD' }}>Entregando</strong>.
+            </p>
+            <select
+              value={deliveryModal.deliveryPersonId}
+              onChange={e => setDeliveryModal(m => ({ ...m, deliveryPersonId: e.target.value }))}
+              style={{ width: '100%', background: '#333', color: '#fff', border: '1px solid rgba(124,58,237,0.45)', borderRadius: 8, padding: '9px 10px', fontSize: 13, marginBottom: 12 }}
+            >
+              <option value="">— Selecione o entregador —</option>
+              {deliveryPersons.map(dp => (
+                <option key={dp.id} value={dp.id}>{dp.name}</option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setDeliveryModal({ open: false, orderId: null, deliveryPersonId: '' })}
+                style={{ border: '1px solid #555', background: 'transparent', color: '#aaa', borderRadius: 8, padding: '8px 10px', cursor: 'pointer', fontSize: 12 }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmStartDelivery}
+                disabled={!deliveryModal.deliveryPersonId}
+                style={{ border: 'none', background: !deliveryModal.deliveryPersonId ? '#5B5B5B' : '#7C3AED', color: '#fff', borderRadius: 8, padding: '8px 12px', cursor: !deliveryModal.deliveryPersonId ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 700 }}
+              >
+                Confirmar saída para entrega
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
