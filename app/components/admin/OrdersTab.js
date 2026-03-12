@@ -88,6 +88,17 @@ function resolveDateRange(preset, customFrom, customTo) {
 
 // ── Filtros salvos ─────────────────────────────────────────────────────────────
 
+
+function buildAddress(order) {
+  return [
+    order.delivery_street,
+    order.delivery_number,
+    order.delivery_complement,
+    order.delivery_neighborhood,
+    order.delivery_city,
+  ].filter(Boolean).join(', ');
+}
+
 function loadSavedFilters() {
   try {
     return JSON.parse(localStorage.getItem(SAVED_FILTERS_KEY) || '[]');
@@ -127,15 +138,22 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
     } catch (e) { console.error(e); }
   }
 
-  async function assignDeliveryPerson(orderId, personId) {
-    if (!adminToken) return;
+  async function assignDeliveryPerson(orderId, personId, startDelivery = false) {
+    if (!adminToken) return false;
     try {
-      await fetch('/api/admin', {
+      const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-        body: JSON.stringify({ action: 'assign_delivery', data: { order_id: orderId, delivery_person_id: personId || null } }),
+        body: JSON.stringify({ action: 'assign_delivery', data: { order_id: orderId, delivery_person_id: personId || null, start_delivery: startDelivery } }),
       });
-    } catch (e) { console.error(e); }
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || 'Erro ao atribuir entregador');
+      return true;
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao atribuir entregador: ' + (e.message || 'erro desconhecido'));
+      return false;
+    }
   }
 
   useEffect(() => { persistSavedFilters(savedFilters); }, [savedFilters]);
@@ -393,15 +411,26 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
               <p style={{ color: '#aaa', fontSize: 12 }}>{o.delivery_street}, {o.delivery_number} — {o.delivery_neighborhood}</p>
               {(o.delivery_street || o.delivery_neighborhood) && (
-                <a
-                  href={`https://maps.google.com/maps?q=${encodeURIComponent([o.delivery_street, o.delivery_number, o.delivery_neighborhood].filter(Boolean).join(', '))}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Ver no mapa"
-                  style={{ fontSize: 10, color: '#60A5FA', textDecoration: 'none', padding: '1px 6px', borderRadius: 5, border: '1px solid rgba(96,165,250,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}
-                >
-                  🗺 Mapa
-                </a>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <a
+                    href={`https://maps.google.com/maps?q=${encodeURIComponent(buildAddress(o))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Abrir no Google Maps"
+                    style={{ fontSize: 10, color: '#60A5FA', textDecoration: 'none', padding: '1px 6px', borderRadius: 5, border: '1px solid rgba(96,165,250,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                  >
+                    🗺 Google Maps
+                  </a>
+                  <a
+                    href={`https://waze.com/ul?q=${encodeURIComponent(buildAddress(o))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Abrir no Waze"
+                    style={{ fontSize: 10, color: '#A78BFA', textDecoration: 'none', padding: '1px 6px', borderRadius: 5, border: '1px solid rgba(167,139,250,0.4)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                  >
+                    📍 Waze
+                  </a>
+                </div>
               )}
             </div>
 
@@ -455,27 +484,42 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
               </div>
             )}
 
-            {o.status === 'delivering' && (
+            {['ready', 'delivering'].includes(o.status) && (
               <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.3)', borderRadius: 8 }}>
-                <p style={{ fontSize: 11, color: '#A78BFA', fontWeight: 700, marginBottom: 5 }}>Entregador:</p>
+                <p style={{ fontSize: 11, color: '#A78BFA', fontWeight: 700, marginBottom: 5 }}>Entregador responsável:</p>
                 <select
                   value={o.delivery_person_id || ''}
-                  onChange={async e => { await assignDeliveryPerson(o.id, e.target.value || null); }}
+                  onChange={async e => { await assignDeliveryPerson(o.id, e.target.value || null, o.status === 'delivering'); }}
                   onFocus={ensureDeliveryPersons}
                   style={{ background: '#333', color: '#fff', border: '1px solid rgba(124,58,237,0.4)', borderRadius: 6, padding: '5px 8px', fontSize: 12, width: '100%' }}
                 >
-                  <option value="">— Sem entregador —</option>
+                  <option value="">— Selecione o entregador —</option>
                   {deliveryPersons.map(dp => (
                     <option key={dp.id} value={dp.id}>{dp.name}</option>
                   ))}
                 </select>
+                <p style={{ marginTop: 6, fontSize: 11, color: '#C4B5FD' }}>
+                  Taxa da entrega: {Number(o.delivery_fee || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </p>
               </div>
             )}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <select
                 value={o.status}
-                onChange={e => { if (e.target.value === 'delivering') ensureDeliveryPersons(); onUpdateStatus(o.id, 'status', e.target.value); }}
+                onChange={async e => {
+                  const nextStatus = e.target.value;
+                  if (nextStatus === 'delivering') {
+                    ensureDeliveryPersons();
+                    if (!o.delivery_person_id) {
+                      alert('Selecione um entregador antes de colocar o pedido em entrega.');
+                      return;
+                    }
+                    const assigned = await assignDeliveryPerson(o.id, o.delivery_person_id, true);
+                    if (!assigned) return;
+                  }
+                  onUpdateStatus(o.id, 'status', nextStatus);
+                }}
                 aria-label={`Status do pedido #${o.order_number}`}
                 style={{ background: '#444', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}
               >

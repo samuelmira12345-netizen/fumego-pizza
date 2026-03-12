@@ -23,14 +23,14 @@ export async function GET(request) {
     if (!person) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const supabase = getSupabaseAdmin();
-    const since24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const since48h = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
 
     const { data: orders, error } = await supabase
       .from('orders')
       .select('*, delivery_persons(name, phone)')
       .eq('delivery_person_id', person.id)
-      .in('status', ['ready', 'delivering'])
-      .gte('created_at', since24h)
+      .in('status', ['ready', 'delivering', 'delivered'])
+      .gte('created_at', since48h)
       .order('created_at', { ascending: false });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -79,19 +79,28 @@ export async function POST(request) {
       }).eq('id', order_id).eq('delivery_person_id', person.id);
 
     } else if (action === 'update_location') {
-      if (!lat || !lng) return NextResponse.json({ error: 'lat/lng são obrigatórios' }, { status: 400 });
-      // Update driver's current location
-      await supabase.from('orders')
-        .update({ driver_location_lat: lat, driver_location_lng: lng, driver_location_at: now })
-        .eq('id', order_id)
-        .eq('delivery_person_id', person.id);
+      if (lat === undefined || lng === undefined) {
+        return NextResponse.json({ error: 'lat/lng são obrigatórios' }, { status: 400 });
+      }
 
-      // Also log to history
+      const parsedLat = parseFloat(lat);
+      const parsedLng = parseFloat(lng);
+      if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) {
+        return NextResponse.json({ error: 'lat/lng inválidos' }, { status: 400 });
+      }
+
+      // Update current position on all active deliveries for this driver
+      await supabase.from('orders')
+        .update({ driver_location_lat: parsedLat, driver_location_lng: parsedLng, driver_location_at: now })
+        .eq('delivery_person_id', person.id)
+        .in('status', ['ready', 'delivering']);
+
+      // Always persist heartbeat so admin can track rider even between orders
       await supabase.from('delivery_locations').insert({
         delivery_person_id: person.id,
-        order_id,
-        lat,
-        lng,
+        order_id: order_id || null,
+        lat: parsedLat,
+        lng: parsedLng,
         recorded_at: now,
       });
     } else {

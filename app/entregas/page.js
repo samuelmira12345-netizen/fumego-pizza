@@ -140,13 +140,19 @@ function OrderCard({ order, token, onStatusUpdate }) {
     finally { setUpdating(false); }
   }
 
+  const addr = [
+    order.delivery_street, order.delivery_number,
+    order.delivery_complement, order.delivery_neighborhood,
+    order.delivery_city,
+  ].filter(Boolean).join(', ');
+
   function openMapAddress() {
-    const addr = [
-      order.delivery_street, order.delivery_number,
-      order.delivery_complement, order.delivery_neighborhood,
-      order.delivery_city,
-    ].filter(Boolean).join(', ');
     const url = `https://maps.google.com/maps?q=${encodeURIComponent(addr)}`;
+    window.open(url, '_blank');
+  }
+
+  function openWazeAddress() {
+    const url = `https://waze.com/ul?q=${encodeURIComponent(addr)}`;
     window.open(url, '_blank');
   }
 
@@ -185,10 +191,7 @@ function OrderCard({ order, token, onStatusUpdate }) {
 
       {/* Quick info */}
       <div style={{ padding: '0 16px 12px', borderTop: '1px solid #374151' }}>
-        <button
-          onClick={openMapAddress}
-          style={{ display: 'flex', alignItems: 'flex-start', gap: 7, background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0', textAlign: 'left', width: '100%' }}
-        >
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, padding: '10px 0', textAlign: 'left', width: '100%' }}>
           <MapPin size={16} color="#F59E0B" style={{ marginTop: 2, flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#F3F4F6', lineHeight: 1.4 }}>
@@ -198,9 +201,23 @@ function OrderCard({ order, token, onStatusUpdate }) {
             <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>
               {order.delivery_neighborhood}{order.delivery_city ? `, ${order.delivery_city}` : ''}
             </div>
-            <div style={{ fontSize: 11, color: '#F59E0B', marginTop: 3, fontWeight: 600 }}>📍 Toque para abrir no mapa</div>
+            <div style={{ fontSize: 11, color: '#F59E0B', marginTop: 3, fontWeight: 600 }}>📍 Abrir rota no mapa</div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <button
+                onClick={openMapAddress}
+                style={{ border: '1px solid #60A5FA55', background: '#111827', color: '#60A5FA', borderRadius: 6, fontSize: 11, padding: '4px 8px', cursor: 'pointer' }}
+              >
+                Google Maps
+              </button>
+              <button
+                onClick={openWazeAddress}
+                style={{ border: '1px solid #A78BFA55', background: '#111827', color: '#C4B5FD', borderRadius: 6, fontSize: 11, padding: '4px 8px', cursor: 'pointer' }}
+              >
+                Waze
+              </button>
+            </div>
           </div>
-        </button>
+        </div>
       </div>
 
       {/* Expandable details */}
@@ -385,22 +402,20 @@ export default function EntregasPage() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [isLoggedIn]);
 
-  // Send location updates to active orders every 60s
+  // Send location heartbeat every 60s while logged in
   useEffect(() => {
     if (!isLoggedIn) return;
     const iv = setInterval(async () => {
       const loc = locationRef.current;
       if (!loc) return;
-      const activeOrders = orders.filter(o => o.status === 'delivering' && !o.driver_delivered_at);
-      for (const order of activeOrders) {
-        try {
-          await fetch('/api/delivery/orders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ order_id: order.id, action: 'update_location', lat: loc.lat, lng: loc.lng }),
-          });
-        } catch {}
-      }
+      const firstActive = orders.find(o => ['ready', 'delivering'].includes(o.status) && !o.driver_delivered_at);
+      try {
+        await fetch('/api/delivery/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ order_id: firstActive?.id || null, action: 'update_location', lat: loc.lat, lng: loc.lng }),
+        });
+      } catch {}
     }, 60000);
     return () => clearInterval(iv);
   }, [isLoggedIn, orders, token]);
@@ -421,6 +436,8 @@ export default function EntregasPage() {
 
   const activeOrders    = orders.filter(o => !o.driver_delivered_at && o.status !== 'delivered');
   const completedOrders = orders.filter(o => !!o.driver_delivered_at || o.status === 'delivered');
+  const deliveredCount = completedOrders.length;
+  const deliveredFees = completedOrders.reduce((sum, o) => sum + (parseFloat(o.delivery_fee) || 0), 0);
 
   return (
     <div style={{ minHeight: '100dvh', background: '#111827', display: 'flex', flexDirection: 'column' }}>
@@ -455,6 +472,16 @@ export default function EntregasPage() {
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+          <div style={{ background: '#1F2937', border: '1px solid #374151', borderRadius: 10, padding: '10px 12px' }}>
+            <p style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', fontWeight: 700 }}>Entregues (período)</p>
+            <p style={{ fontSize: 18, color: '#34D399', fontWeight: 800, marginTop: 4 }}>{deliveredCount}</p>
+          </div>
+          <div style={{ background: '#1F2937', border: '1px solid #374151', borderRadius: 10, padding: '10px 12px' }}>
+            <p style={{ fontSize: 10, color: '#9CA3AF', textTransform: 'uppercase', fontWeight: 700 }}>Ganhos em taxa</p>
+            <p style={{ fontSize: 18, color: '#F59E0B', fontWeight: 800, marginTop: 4 }}>{fmtBRL(deliveredFees)}</p>
+          </div>
+        </div>
         {loading && orders.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 0', color: '#6B7280' }}>
             <Loader2 size={36} style={{ animation: 'spin 1s linear infinite', display: 'block', margin: '0 auto 12px' }} />
