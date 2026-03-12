@@ -80,8 +80,8 @@ export default function HomePage() {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    // Mantém dados frescos a cada 30 s (caso a página fique aberta por muito tempo)
-    const interval = setInterval(loadData, 30000);
+    // Mantém dados frescos com baixa latência para refletir mudanças do admin rapidamente
+    const interval = setInterval(loadData, 5000);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -96,7 +96,10 @@ export default function HomePage() {
 
   async function loadData() {
     try {
-      const res = await fetch('/api/catalog', { cache: 'no-store' });
+      const res = await fetch(`/api/catalog?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache, no-store, max-age=0, must-revalidate', Pragma: 'no-cache' },
+      });
       if (!res.ok) throw new Error('Falha ao carregar catálogo');
       const { products: pData, drinks: dData, settings: sData, productStock, drinkStock } = await res.json();
 
