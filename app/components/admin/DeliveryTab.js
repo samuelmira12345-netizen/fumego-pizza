@@ -7,6 +7,7 @@ import {
   DollarSign, ChevronDown, ChevronUp, Check, Eye, EyeOff,
   Navigation, AlertTriangle,
 } from 'lucide-react';
+import DateRangePicker from './DateRangePicker';
 
 const C = {
   bg: '#F4F5F7', card: '#fff', border: '#E5E7EB',
@@ -25,6 +26,16 @@ function fmtDate(iso) {
     day: '2-digit', month: '2-digit', year: '2-digit',
     hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
   });
+}
+
+function todaySP() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
+function daysAgoSP(n) {
+  const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  d.setDate(d.getDate() - n);
+  return d.toLocaleDateString('en-CA');
 }
 
 const BLANK_PERSON = { name: '', phone: '', email: '', password: '', is_active: true };
@@ -587,7 +598,7 @@ function fmtMins(mins) {
 }
 
 function MetricsTab({ adminToken }) {
-  const [days, setDays] = useState(30);
+  const [periodRange, setPeriodRange] = useState(() => ({ from: daysAgoSP(30), to: todaySP() }));
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(null);
   const [rows, setRows] = useState([]);
@@ -595,7 +606,10 @@ function MetricsTab({ adminToken }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const j = await adminPost('get_delivery_metrics', { days }, adminToken);
+      const j = await adminPost('get_delivery_metrics', {
+        from: periodRange?.from,
+        to: periodRange?.to,
+      }, adminToken);
       setSummary(j.summary || null);
       setRows(j.persons || []);
     } catch (e) {
@@ -604,7 +618,7 @@ function MetricsTab({ adminToken }) {
     } finally {
       setLoading(false);
     }
-  }, [adminToken, days]);
+  }, [adminToken, periodRange?.from, periodRange?.to]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -615,13 +629,7 @@ function MetricsTab({ adminToken }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 8, flexWrap: 'wrap' }}>
         <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Métricas de Entrega</h3>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select value={days} onChange={e => setDays(Number(e.target.value))} style={{ ...inputStyle, width: 130, padding: '7px 9px' }}>
-            <option value={7}>Últimos 7 dias</option>
-            <option value={15}>Últimos 15 dias</option>
-            <option value={30}>Últimos 30 dias</option>
-            <option value={60}>Últimos 60 dias</option>
-            <option value={90}>Últimos 90 dias</option>
-          </select>
+          <DateRangePicker value={periodRange} onChange={setPeriodRange} />
           <button onClick={load} style={btnGhost}><RefreshCw size={14} /> Atualizar</button>
         </div>
       </div>
