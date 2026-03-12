@@ -1920,7 +1920,7 @@ export default function KDSBoard({
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: '#F1F3F5', overflow: 'hidden' }}>
 
       {/* ── Barra superior ────────────────────────────────────────────────── */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '9px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', rowGap: 8 }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '9px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', rowGap: 8, overflowX: 'auto' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <ShoppingBag size={18} color="#D97706" />
@@ -2019,7 +2019,7 @@ export default function KDSBoard({
       {/* ── Vista Kanban ──────────────────────────────────────────────────── */}
       {viewMode === 'kanban' && (
         <div
-          style={{ flex: 1, overflowX: 'hidden', overflowY: 'hidden', padding: '12px 16px', display: 'flex', gap: 11, alignItems: 'stretch' }}
+          style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', padding: '12px 16px', display: 'flex', gap: 11, alignItems: 'stretch' }}
           onDragEnd={() => setDragging(null)}
         >
           {cols.map(col => (
