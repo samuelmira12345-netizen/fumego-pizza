@@ -9,6 +9,7 @@ import {
   Star,
 } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
+import { costWithFC } from '@/lib/correction-factor';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -563,7 +564,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
     for (const [productIdStr, recipeItems] of Object.entries(recipes)) {
       const cmv = recipeItems.reduce((s, ri) => {
         const ing = ingredients.find(g => g.id === ri.ingredient_id || String(g.id) === String(ri.ingredient_id));
-        return s + (parseFloat(ri.quantity) || 0) * (parseFloat(ing?.cost_per_unit) || 0);
+        return s + (parseFloat(ri.quantity) || 0) * costWithFC((parseFloat(ing?.cost_per_unit) || 0), ing?.correction_factor);
       }, 0);
       if (cmv <= 0) continue;
 

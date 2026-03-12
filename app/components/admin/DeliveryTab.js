@@ -5,7 +5,7 @@ import {
   Plus, Loader2, X, Trash2, RefreshCw, Save, Edit2,
   User, Phone, Mail, Lock, MapPin, Clock, Truck,
   DollarSign, ChevronDown, ChevronUp, Check, Eye, EyeOff,
-  Navigation, AlertTriangle,
+  Navigation, AlertTriangle, BarChart2,
 } from 'lucide-react';
 
 const C = {
@@ -49,6 +49,7 @@ const TABS = [
   { key: 'persons', label: 'Entregadores', icon: User },
   { key: 'zones',   label: 'Zonas',        icon: MapPin },
   { key: 'tracking',label: 'Localização',  icon: Navigation },
+  { key: 'analytics',label: 'Métricas', icon: BarChart2 },
 ];
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -264,7 +265,7 @@ function PersonsTab({ adminToken }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>Últimas entregas</span>
                         <span style={{ fontSize: 13, fontWeight: 700, color: C.success }}>
-                          Total entregue: {fmtBRL(history.filter(o => o.status === 'delivered').reduce((s, o) => s + parseFloat(o.total || 0), 0))}
+                          Ganho em taxas: {fmtBRL(history.filter(o => o.status === 'delivered').reduce((sum, o) => sum + parseFloat(o.delivery_fee || 0), 0))}
                         </span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -283,7 +284,8 @@ function PersonsTab({ adminToken }) {
                               }}>
                                 {o.status === 'delivered' ? 'Entregue' : 'Em andamento'}
                               </span>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: C.gold }}>{fmtBRL(o.total)}</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>Pedido {fmtBRL(o.total)}</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: C.gold }}>Taxa {fmtBRL(o.delivery_fee)}</span>
                             </div>
                           </div>
                         ))}
@@ -578,6 +580,100 @@ function TrackingTab({ adminToken }) {
   );
 }
 
+
+function AnalyticsTab({ adminToken }) {
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const personsRes = await adminPost('get_delivery_persons', {}, adminToken);
+      const persons = (personsRes.persons || []).filter(p => p.is_active);
+      const now = new Date();
+      const from = new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString();
+
+      const metrics = await Promise.all(persons.map(async (p) => {
+        const hist = await adminPost('get_delivery_history', { person_id: p.id, from }, adminToken);
+        const delivered = (hist.orders || []).filter(o => o.status === 'delivered');
+        const count = delivered.length;
+        const feeTotal = delivered.reduce((sum, o) => sum + (parseFloat(o.delivery_fee) || 0), 0);
+        const avgMins = delivered.length
+          ? Math.round(delivered.reduce((sum, o) => {
+              const start = o.driver_collected_at || o.delivering_at;
+              const end = o.driver_delivered_at || o.delivered_at;
+              if (!start || !end) return sum;
+              return sum + Math.max(0, (new Date(end) - new Date(start)) / 60000);
+            }, 0) / delivered.length)
+          : 0;
+        return { person: p, count, feeTotal, avgMins };
+      }));
+
+      setRows(metrics.sort((a,b)=> b.count - a.count));
+    } catch (e) {
+      console.error(e);
+      setRows([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [adminToken]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const maxCount = Math.max(1, ...rows.map(r => r.count));
+  const totalCount = rows.reduce((s, r) => s + r.count, 0);
+  const totalFee = rows.reduce((s, r) => s + r.feeTotal, 0);
+  const avgTimeAll = totalCount > 0 ? Math.round(rows.reduce((s, r) => s + (r.avgMins * r.count), 0) / totalCount) : 0;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Métricas de Entregas (30 dias)</h3>
+        <button onClick={load} style={btnGhost}><RefreshCw size={14} /> Atualizar</button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+          <p style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase' }}>Total entregas</p>
+          <p style={{ fontSize: 24, fontWeight: 800, color: C.text, marginTop: 6 }}>{totalCount}</p>
+        </div>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+          <p style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase' }}>Total taxas</p>
+          <p style={{ fontSize: 24, fontWeight: 800, color: C.gold, marginTop: 6 }}>{fmtBRL(totalFee)}</p>
+        </div>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>
+          <p style={{ fontSize: 11, color: C.muted, fontWeight: 700, textTransform: 'uppercase' }}>Tempo médio</p>
+          <p style={{ fontSize: 24, fontWeight: 800, color: C.blue, marginTop: 6 }}>{avgTimeAll} min</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 28 }}><Loader2 size={22} color={C.gold} style={{ animation: 'spin 1s linear infinite' }} /></div>
+      ) : rows.length === 0 ? (
+        <p style={{ fontSize: 13, color: C.muted }}>Sem dados suficientes no período.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {rows.map(r => (
+            <div key={r.person.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{r.person.name}</span>
+                <span style={{ fontSize: 12, color: C.muted }}>{r.avgMins} min méd.</span>
+              </div>
+              <div style={{ height: 8, borderRadius: 6, background: '#EEF2FF', overflow: 'hidden', marginBottom: 8 }}>
+                <div style={{ width: `${(r.count / maxCount) * 100}%`, height: '100%', background: '#6366F1' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span style={{ color: C.text, fontWeight: 700 }}>{r.count} entregas</span>
+                <span style={{ color: C.gold, fontWeight: 700 }}>{fmtBRL(r.feeTotal)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Main DeliveryTab
 // ═════════════════════════════════════════════════════════════════════════════
@@ -615,6 +711,7 @@ export default function DeliveryTab({ adminToken }) {
       {activeTab === 'persons'  && <PersonsTab  adminToken={adminToken} />}
       {activeTab === 'zones'    && <ZonesTab    adminToken={adminToken} />}
       {activeTab === 'tracking' && <TrackingTab adminToken={adminToken} />}
+      {activeTab === 'analytics' && <AnalyticsTab adminToken={adminToken} />}
     </div>
   );
 }

@@ -88,6 +88,17 @@ function resolveDateRange(preset, customFrom, customTo) {
 
 // ── Filtros salvos ─────────────────────────────────────────────────────────────
 
+
+function buildAddress(order) {
+  return [
+    order.delivery_street,
+    order.delivery_number,
+    order.delivery_complement,
+    order.delivery_neighborhood,
+    order.delivery_city,
+  ].filter(Boolean).join(', ');
+}
+
 function loadSavedFilters() {
   try {
     return JSON.parse(localStorage.getItem(SAVED_FILTERS_KEY) || '[]');
@@ -108,6 +119,9 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
   const [savedFilters, setSavedFilters]       = useState(() => loadSavedFilters());
   const [showSaveDialog, setShowSaveDialog]   = useState(false);
   const [newFilterName, setNewFilterName]     = useState('');
+  const [assignModalOrder, setAssignModalOrder] = useState(null);
+  const [assigningDelivery, setAssigningDelivery] = useState(false);
+  const [assignPersonId, setAssignPersonId] = useState('');
 
   // Delivery persons (loaded lazily)
   const [deliveryPersons, setDeliveryPersons] = useState([]);
@@ -127,18 +141,47 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
     } catch (e) { console.error(e); }
   }
 
-  async function assignDeliveryPerson(orderId, personId) {
-    if (!adminToken) return;
+  async function assignDeliveryPerson(orderId, personId, startDelivery = false) {
+    if (!adminToken) return false;
     try {
-      await fetch('/api/admin', {
+      const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-        body: JSON.stringify({ action: 'assign_delivery', data: { order_id: orderId, delivery_person_id: personId || null } }),
+        body: JSON.stringify({ action: 'assign_delivery', data: { order_id: orderId, delivery_person_id: personId || null, start_delivery: startDelivery } }),
       });
-    } catch (e) { console.error(e); }
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || 'Erro ao atribuir entregador');
+      return true;
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao atribuir entregador: ' + (e.message || 'erro desconhecido'));
+      return false;
+    }
   }
 
   useEffect(() => { persistSavedFilters(savedFilters); }, [savedFilters]);
+
+
+  function openOrderMap(order) {
+    const addr = buildAddress(order);
+    if (!addr) return;
+    window.open(`https://maps.google.com/maps?q=${encodeURIComponent(addr)}`, '_blank');
+  }
+
+  async function confirmAssignDelivery() {
+    if (!assignModalOrder || !assignPersonId) {
+      alert('Selecione o entregador para continuar.');
+      return;
+    }
+    setAssigningDelivery(true);
+    const assigned = await assignDeliveryPerson(assignModalOrder.id, assignPersonId, true);
+    setAssigningDelivery(false);
+    if (!assigned) return;
+    onUpdateStatus(assignModalOrder.id, 'status', 'delivering');
+    setAssignModalOrder(null);
+    setAssignPersonId('');
+  }
+
 
   function applyFilter(f) {
     setSearch(f.search || '');
@@ -391,17 +434,34 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
             <p style={{ color: '#fff', fontSize: 14 }}>{o.customer_name} — {o.customer_phone}</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-              <p style={{ color: '#aaa', fontSize: 12 }}>{o.delivery_street}, {o.delivery_number} — {o.delivery_neighborhood}</p>
+              <button
+                onClick={() => openOrderMap(o)}
+                style={{ color: '#aaa', fontSize: 12, background: 'none', border: 'none', padding: 0, margin: 0, cursor: 'pointer', textAlign: 'left' }}
+                title="Abrir endereço no mapa"
+              >
+                {o.delivery_street}, {o.delivery_number} — {o.delivery_neighborhood}
+              </button>
               {(o.delivery_street || o.delivery_neighborhood) && (
-                <a
-                  href={`https://maps.google.com/maps?q=${encodeURIComponent([o.delivery_street, o.delivery_number, o.delivery_neighborhood].filter(Boolean).join(', '))}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Ver no mapa"
-                  style={{ fontSize: 10, color: '#60A5FA', textDecoration: 'none', padding: '1px 6px', borderRadius: 5, border: '1px solid rgba(96,165,250,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}
-                >
-                  🗺 Mapa
-                </a>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <a
+                    href={`https://maps.google.com/maps?q=${encodeURIComponent(buildAddress(o))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Abrir no Google Maps"
+                    style={{ fontSize: 10, color: '#60A5FA', textDecoration: 'none', padding: '1px 6px', borderRadius: 5, border: '1px solid rgba(96,165,250,0.3)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                  >
+                    🗺 Google Maps
+                  </a>
+                  <a
+                    href={`https://waze.com/ul?q=${encodeURIComponent(buildAddress(o))}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Abrir no Waze"
+                    style={{ fontSize: 10, color: '#A78BFA', textDecoration: 'none', padding: '1px 6px', borderRadius: 5, border: '1px solid rgba(167,139,250,0.4)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                  >
+                    📍 Waze
+                  </a>
+                </div>
               )}
             </div>
 
@@ -455,27 +515,39 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
               </div>
             )}
 
-            {o.status === 'delivering' && (
+            {['ready', 'delivering'].includes(o.status) && (
               <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.3)', borderRadius: 8 }}>
-                <p style={{ fontSize: 11, color: '#A78BFA', fontWeight: 700, marginBottom: 5 }}>Entregador:</p>
+                <p style={{ fontSize: 11, color: '#A78BFA', fontWeight: 700, marginBottom: 5 }}>Entregador responsável:</p>
                 <select
                   value={o.delivery_person_id || ''}
-                  onChange={async e => { await assignDeliveryPerson(o.id, e.target.value || null); }}
+                  onChange={async e => { await assignDeliveryPerson(o.id, e.target.value || null, o.status === 'delivering' || o.status === 'ready'); }}
                   onFocus={ensureDeliveryPersons}
                   style={{ background: '#333', color: '#fff', border: '1px solid rgba(124,58,237,0.4)', borderRadius: 6, padding: '5px 8px', fontSize: 12, width: '100%' }}
                 >
-                  <option value="">— Sem entregador —</option>
+                  <option value="">— Selecione o entregador —</option>
                   {deliveryPersons.map(dp => (
                     <option key={dp.id} value={dp.id}>{dp.name}</option>
                   ))}
                 </select>
+                <p style={{ marginTop: 6, fontSize: 11, color: '#C4B5FD' }}>
+                  Taxa da entrega: {Number(o.delivery_fee || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </p>
               </div>
             )}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <select
                 value={o.status}
-                onChange={e => { if (e.target.value === 'delivering') ensureDeliveryPersons(); onUpdateStatus(o.id, 'status', e.target.value); }}
+                onChange={async e => {
+                  const nextStatus = e.target.value;
+                  if (nextStatus === 'delivering') {
+                    await ensureDeliveryPersons();
+                    setAssignModalOrder(o);
+                    setAssignPersonId(o.delivery_person_id || '');
+                    return;
+                  }
+                  onUpdateStatus(o.id, 'status', nextStatus);
+                }}
                 aria-label={`Status do pedido #${o.order_number}`}
                 style={{ background: '#444', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}
               >
@@ -502,6 +574,32 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
           </div>
         );
       })}
+
+
+      {assignModalOrder && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ width: '100%', maxWidth: 420, background: '#1F2937', border: '1px solid #4B5563', borderRadius: 12, padding: 16 }}>
+            <h4 style={{ color: '#fff', fontSize: 15, fontWeight: 800, marginBottom: 6 }}>Selecione o entregador (obrigatório)</h4>
+            <p style={{ color: '#9CA3AF', fontSize: 12, marginBottom: 10 }}>Pedido #{assignModalOrder.order_number}</p>
+            <select
+              value={assignPersonId}
+              onChange={e => setAssignPersonId(e.target.value)}
+              style={{ width: '100%', background: '#111827', color: '#fff', border: '1px solid #4B5563', borderRadius: 8, padding: '9px 10px', fontSize: 13 }}
+            >
+              <option value="">— Escolha o entregador —</option>
+              {deliveryPersons.map(dp => <option key={dp.id} value={dp.id}>{dp.name}</option>)}
+            </select>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button onClick={confirmAssignDelivery} disabled={assigningDelivery || !assignPersonId} style={{ flex: 1, background: GOLD, color: '#000', border: 'none', borderRadius: 8, padding: '10px 12px', fontWeight: 800, cursor: 'pointer', opacity: (assigningDelivery || !assignPersonId) ? 0.6 : 1 }}>
+                {assigningDelivery ? 'Atribuindo...' : 'Confirmar e enviar para entrega'}
+              </button>
+              <button onClick={() => { setAssignModalOrder(null); setAssignPersonId(''); }} style={{ background: 'transparent', color: '#9CA3AF', border: '1px solid #4B5563', borderRadius: 8, padding: '10px 12px', fontWeight: 700, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Carregar mais ── */}
       {hasMoreOrders && !hasFilter && (

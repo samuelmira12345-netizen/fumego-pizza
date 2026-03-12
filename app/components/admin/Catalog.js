@@ -7,6 +7,7 @@ import {
   DollarSign, TrendingDown, BookOpen, X, Eye, EyeOff, Copy,
   BarChart2, TrendingUp, Layers, ArrowDownUp, Warehouse, Star,
 } from 'lucide-react';
+import { parseCorrectionLoss, costWithFC } from '@/lib/correction-factor';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,11 @@ function fmtBRL(v) {
   return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+function formatCorrectionPercent(rawValue) {
+  const loss = parseCorrectionLoss(rawValue);
+  return (loss * 100).toFixed(2);
+}
+
 // ── Ficha Técnica Panel ───────────────────────────────────────────────────────
 
 // Unit sub-conversion map: base unit → { sub unit, conversion factor to base }
@@ -68,7 +74,7 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
 
   const enriched = items.map(i => {
     const ing = ingredients.find(g => g.id === i.ingredient_id);
-    return { ...i, name: ing?.name, unit: ing?.unit, cost_per_unit: parseFloat(ing?.cost_per_unit) || 0 };
+    return { ...i, name: ing?.name, unit: ing?.unit, cost_per_unit: costWithFC(parseFloat(ing?.cost_per_unit) || 0, ing?.correction_factor) };
   });
 
   const calcCost = enriched.reduce((s, i) => {
@@ -260,8 +266,8 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
   const enriched  = items.map(i => {
     const sub = ingredients.find(g => g.id === i.ingredient_id);
     const rawCost = parseFloat(sub?.cost_per_unit) || 0;
-    const cf = parseFloat(sub?.correction_factor) || 1.0;
-    return { ...i, name: sub?.name, unit: sub?.unit, cost_per_unit: rawCost * cf, raw_cost: rawCost, correction_factor: cf };
+    const cf = sub?.correction_factor;
+    return { ...i, name: sub?.name, unit: sub?.unit, cost_per_unit: costWithFC(rawCost, cf), raw_cost: rawCost, correction_factor: cf };
   });
   const totalCost = enriched.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
   const yieldNum  = parseFloat(yieldQty) || 1;
@@ -283,7 +289,7 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
         body: JSON.stringify({ action: 'save_ingredient', data: {
           name: newSubName.trim(), unit: newSubUnit,
           cost_per_unit: parseFloat(newSubCost) || 0,
-          ingredient_type: 'simple', correction_factor: 1.0,
+          ingredient_type: 'simple', correction_factor: 0,
           min_stock: 0, max_stock: 0, weight_volume: 1.0,
         }}),
       });
@@ -1104,7 +1110,7 @@ function ProductRow({
     if (!recipe?.length) return null;
     return recipe.reduce((s, item) => {
       const ing = ingredients.find(g => g.id === item.ingredient_id);
-      return s + (parseFloat(item.quantity) || 0) * (parseFloat(ing?.cost_per_unit) || 0);
+      return s + (parseFloat(item.quantity) || 0) * costWithFC((parseFloat(ing?.cost_per_unit) || 0), ing?.correction_factor);
     }, 0);
   })();
 
@@ -1289,7 +1295,7 @@ export default function Catalog({ adminToken }) {
   const [expandedDrinkId, setExpandedDrinkId] = useState(null);
 
   // New ingredient form
-  const [newIng, setNewIng]       = useState({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '1.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
+  const [newIng, setNewIng]       = useState({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '0.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
   const [addingIng, setAddingIng] = useState(false);
   const [showNewIngModal, setShowNewIngModal] = useState(false);
 
@@ -1660,7 +1666,7 @@ export default function Catalog({ adminToken }) {
         unit: newIng.unit,
         cost_per_unit: parseFloat(newIng.cost_per_unit) || 0,
         ingredient_type: newIng.ingredient_type || 'simple',
-        correction_factor: parseFloat(newIng.correction_factor) || 1.0,
+        correction_factor: parseCorrectionLoss(newIng.correction_factor),
         min_stock: parseFloat(newIng.min_stock) || 0,
         max_stock: parseFloat(newIng.max_stock) || 0,
         purchase_origin: newIng.purchase_origin || '',
@@ -1669,7 +1675,7 @@ export default function Catalog({ adminToken }) {
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
       if (d.ingredient) setIngredients(prev => [...prev, d.ingredient].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
-      setNewIng({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '1.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
+      setNewIng({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '0.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
       setShowNewIngModal(false);
     } catch (e) { alert('Erro: ' + e.message); }
     finally { setAddingIng(false); }
@@ -2354,9 +2360,6 @@ export default function Catalog({ adminToken }) {
                 // Is compound type
                 const isCompound = ing.ingredient_type === 'compound';
 
-                // Correction factor display
-                const cf = parseFloat(ing.correction_factor) || 1.0;
-
                 const hasAnyPanelOpen = isStockOpen || isCompoundOpen || selectedIngForHistory === ing.id;
 
                 // Border color per active mode
@@ -2395,14 +2398,25 @@ export default function Catalog({ adminToken }) {
                               </select>
                             </div>
                             <div>
-                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Fator de Correção (%)</label>
-                              <input type="number" value={Math.round((parseFloat(ing.correction_factor) || 1) * 100)} min="1" max="200" step="1" onChange={e => handleUpdateIngredient(ing.id, 'correction_factor', (parseFloat(e.target.value) || 100) / 100)} placeholder="100" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Perda / FC (%)</label>
+                              <input
+                                type="number"
+                                value={ing.correction_factor ?? ''}
+                                min="0"
+                                max="99.99"
+                                step="0.01"
+                                onChange={e => handleUpdateIngredient(ing.id, 'correction_factor', e.target.value)}
+                                placeholder="0.00"
+                                style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
+                              />
                               <span style={{ fontSize: 10, color: '#059669', fontWeight: 700, display: 'block', marginTop: 2 }}>
-                                Custo com FC: {fmtBRL((parseFloat(ing.cost_per_unit) || 0) * (parseFloat(ing.correction_factor) || 1))}/{ing.unit}
+                                Custo com FC: {fmtBRL(costWithFC(parseFloat(ing.cost_per_unit) || 0, ing.correction_factor))}/{ing.unit}
                               </span>
-                              <span style={{ fontSize: 10, color: '#DC2626', fontWeight: 700, display: 'block', marginTop: 1 }}>
-                                Valor sem FC: {fmtBRL(parseFloat(ing.cost_per_unit) || 0)}/{ing.unit}
-                              </span>
+                              {parseCorrectionLoss(ing.correction_factor) > 0 && (
+                                <span style={{ fontSize: 10, color: '#DC2626', fontWeight: 700, display: 'block', marginTop: 1 }}>
+                                  Valor sem FC: {fmtBRL(parseFloat(ing.cost_per_unit) || 0)}/{ing.unit}
+                                </span>
+                              )}
                             </div>
                             <div>
                               <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Peso/Volume (rendimento)</label>
@@ -2443,7 +2457,7 @@ export default function Catalog({ adminToken }) {
                               ) : (
                                 <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4, background: '#F3F4F6', color: C.muted }}>Simples</span>
                               )}
-                              <span style={{ fontSize: 10, color: C.muted }}>FC: {Math.round(cf * 100)}%</span>
+                              <span style={{ fontSize: 10, color: C.muted }}>FC: {formatCorrectionPercent(ing.correction_factor)}%</span>
                             </div>
                             {stockConfigured && (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -2457,10 +2471,12 @@ export default function Catalog({ adminToken }) {
                           </div>
                           <span style={{ fontSize: 12, color: C.muted }}>{ing.unit}</span>
                           <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', display: 'block' }}>{fmtBRL((parseFloat(ing.cost_per_unit) || 0) * cf)}</span>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', display: 'block' }}>
-                              Valor sem FC: {fmtBRL(parseFloat(ing.cost_per_unit) || 0)}/{ing.unit}
-                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', display: 'block' }}>{fmtBRL(costWithFC(parseFloat(ing.cost_per_unit) || 0, ing.correction_factor))}</span>
+                            {parseCorrectionLoss(ing.correction_factor) > 0 && (
+                              <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', display: 'block' }}>
+                                Valor sem FC: {fmtBRL(parseFloat(ing.cost_per_unit) || 0)}/{ing.unit}
+                              </span>
+                            )}
                           </div>
                           <div style={{ textAlign: 'right' }}>
                             {variation !== null ? (
@@ -2707,8 +2723,8 @@ export default function Catalog({ adminToken }) {
                     </select>
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Fator de Correção (%)</label>
-                    <input className="input-field" type="number" min="1" max="200" step="1" placeholder="100" value={Math.round((parseFloat(newIng.correction_factor) || 1) * 100)} onChange={e => setNewIng(p => ({ ...p, correction_factor: (parseFloat(e.target.value) || 100) / 100 }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
+                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Perda / FC (%)</label>
+                    <input className="input-field" type="number" min="0" max="99.99" step="0.01" placeholder="0.00" value={newIng.correction_factor} onChange={e => setNewIng(p => ({ ...p, correction_factor: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
                   </div>
                   <div>
                     <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Peso/Volume (rendimento)</label>
