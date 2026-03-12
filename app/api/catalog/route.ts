@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { parseCatalogVisibilityOverrides, applyCatalogVisibilityOverrides } from '../../../lib/catalog-visibility';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /**
  * GET /api/catalog
  *

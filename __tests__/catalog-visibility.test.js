@@ -26,4 +26,19 @@ describe('catalog visibility overrides', () => {
     expect(merged.drinks[0].is_active).toBe(false);
     expect(merged.drinks[0].is_hidden).toBe(false);
   });
+
+  test('coerces legacy string booleans from db/settings', () => {
+    const products = [{ id: 'p1', is_active: 'true', is_hidden: 'false' }];
+    const drinks = [{ id: 'd1', is_active: '1', is_hidden: '0' }];
+    const overrides = {
+      products: { p1: { is_hidden: 'true' } },
+      drinks: { d1: { is_active: 'false', is_hidden: 'true' } },
+    };
+
+    const merged = applyCatalogVisibilityOverrides(products, drinks, overrides);
+    expect(merged.products[0].is_active).toBe(true);
+    expect(merged.products[0].is_hidden).toBe(true);
+    expect(merged.drinks[0].is_active).toBe(false);
+    expect(merged.drinks[0].is_hidden).toBe(true);
+  });
 });

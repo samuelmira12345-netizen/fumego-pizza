@@ -48,6 +48,7 @@ export default function CartDrawer({
           backdropFilter: 'blur(3px)',
           zIndex: 50,
           animation: 'fadeIn 0.18s ease-out',
+          touchAction: 'none',
         }}
       />
 
@@ -106,7 +107,7 @@ export default function CartDrawer({
         </div>
 
         {/* Itens — scrollável */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 18px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 18px', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
 
           {/* Lista de itens */}
           <div style={{ paddingTop: 14 }}>
