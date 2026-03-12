@@ -101,15 +101,25 @@ export default function HomePage() {
       bodyOverflow: body.style.overflow,
       bodyPosition: body.style.position,
       bodyTop: body.style.top,
+      bodyLeft: body.style.left,
+      bodyRight: body.style.right,
       bodyWidth: body.style.width,
+      bodyPaddingRight: body.style.paddingRight,
       bodyTouchAction: body.style.touchAction,
       htmlOverscrollBehavior: html.style.overscrollBehavior,
     };
 
+    const scrollbarWidth = window.innerWidth - html.clientWidth;
+
     body.style.overflow = 'hidden';
     body.style.position = 'fixed';
     body.style.top = `-${scrollY}px`;
-    body.style.width = '100%';
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = 'auto';
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${scrollbarWidth}px`;
+    }
     body.style.touchAction = 'none';
     html.style.overscrollBehavior = 'none';
 
@@ -117,7 +127,10 @@ export default function HomePage() {
       body.style.overflow = previous.bodyOverflow;
       body.style.position = previous.bodyPosition;
       body.style.top = previous.bodyTop;
+      body.style.left = previous.bodyLeft;
+      body.style.right = previous.bodyRight;
       body.style.width = previous.bodyWidth;
+      body.style.paddingRight = previous.bodyPaddingRight;
       body.style.touchAction = previous.bodyTouchAction;
       html.style.overscrollBehavior = previous.htmlOverscrollBehavior;
       window.scrollTo(0, scrollY);
