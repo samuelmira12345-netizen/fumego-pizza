@@ -122,8 +122,9 @@ export default function ProductModal({
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)',
-        backdropFilter: 'blur(6px)', zIndex: 50,
+        backdropFilter: 'blur(6px)', zIndex: 300,
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        touchAction: 'none',
       }}
     >
       {/* Container com scroll — ref necessária para scroll interno */}
@@ -138,6 +139,8 @@ export default function ProductModal({
           border: `1px solid ${BORDER}`, borderBottom: 'none',
           width: '100%', maxWidth: 480,
           maxHeight: '88vh', overflowY: 'auto', padding: '0 20px 36px',
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch',
           animation: 'slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
           boxShadow: `0 -4px 50px rgba(242,168,0,0.07)`,
         }}
