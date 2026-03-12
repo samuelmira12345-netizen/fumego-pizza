@@ -1347,28 +1347,9 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails }) {
         )}
       </div>
 
-      {/* Itens / sabores */}
-      {order.order_items && order.order_items.length > 0 ? (
-        <div style={{ background: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px' }}>
-          {order.order_items.map((item, i) => (
-            <div key={i} style={{ marginBottom: i < order.order_items.length - 1 ? 8 : 0 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span style={{ fontSize: 18, fontWeight: 900, color: '#D97706', minWidth: 28, fontFamily: 'monospace' }}>{item.quantity}×</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: '#111827', lineHeight: 1.3 }}>{item.product_name}</span>
-              </div>
-              {item.observations && (
-                <p style={{ fontSize: 12, color: '#B45309', background: '#FFFBEB', padding: '3px 8px', borderRadius: 4, marginTop: 3, border: '1px solid #FDE68A', marginLeft: 26 }}>
-                  ⚠️ {item.observations}
-                </p>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px' }}>
-          <p style={{ fontSize: 13, color: '#9CA3AF' }}>Aguardando itens...</p>
-        </div>
-      )}
+      <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '8px 12px' }}>
+        <p style={{ fontSize: 12, color: '#6B7280' }}>Toque no card para ver os itens e detalhes.</p>
+      </div>
 
       {/* Observações do pedido */}
       {order.observations && (
@@ -1432,7 +1413,7 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails }) {
 
 function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
   const [clockTick, setClockTick] = useState(0);
-  const [detailOrder, setDetailOrder] = useState(null);
+  const [detailOrderId, setDetailOrderId] = useState(null);
   useEffect(() => {
     const iv = setInterval(() => setClockTick(t => t + 1), 30000);
     return () => clearInterval(iv);
@@ -1442,6 +1423,7 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
   const kitchenOrders = orders
     .filter(o => ['confirmed', 'preparing'].includes(o.status))
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const detailOrder = kitchenOrders.find(o => o.id === detailOrderId) || null;
 
   return (
     <div style={{ flex: 1, background: '#F8FAFC', overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -1497,7 +1479,7 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
                   key={o.id}
                   order={o}
                   onMarkReady={() => onMarkReady(o.id)}
-                  onOpenDetails={() => setDetailOrder(o)}
+                  onOpenDetails={() => setDetailOrderId(o.id)}
                 />
               ))}
             </div>
@@ -1508,7 +1490,7 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
       {detailOrder && (
         <KitchenOrderDetailsModal
           order={detailOrder}
-          onClose={() => setDetailOrder(null)}
+          onClose={() => setDetailOrderId(null)}
         />
       )}
     </div>
@@ -1523,6 +1505,7 @@ export default function KDSBoard({
 }) {
   const [modal, setModal]               = useState(null);
   const [items, setItems]               = useState([]);
+  const [itemsByOrder, setItemsByOrder] = useState({});
   const [itemsLoading, setItemsLoading] = useState(false);
   const [soundOn, setSoundOn]           = useState(true);
   const [newIds, setNewIds]             = useState(new Set());
@@ -1536,6 +1519,7 @@ export default function KDSBoard({
   const [deliveryPrompt, setDeliveryPrompt] = useState({ open: false, orderId: null, deliveryPersonId: '' });
   const [assigningDelivery, setAssigningDelivery] = useState(false);
   const deliveryPersonsLoadedRef         = useRef(false);
+  const fetchingItemsRef                = useRef(new Set());
   const seenIdsRef                      = useRef(null);
   const prevStatusRef                   = useRef({});
   const onUpdateRef                     = useRef(onUpdateStatus);
@@ -1568,6 +1552,47 @@ export default function KDSBoard({
     const isOpenRecent = !['cancelled', 'delivered'].includes(o.status) && o.created_at >= cutoff24h;
     return isToday || isOpenRecent;
   });
+
+  const fetchOrderItems = useCallback(async (orderId) => {
+    if (!orderId || fetchingItemsRef.current.has(orderId)) return null;
+    fetchingItemsRef.current.add(orderId);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'get_order_items', data: { order_id: orderId } }),
+      });
+      const d = await res.json();
+      const nextItems = Array.isArray(d.items) ? d.items : [];
+      setItemsByOrder(prev => ({ ...prev, [orderId]: nextItems }));
+      return nextItems;
+    } catch {
+      setItemsByOrder(prev => ({ ...prev, [orderId]: [] }));
+      return [];
+    } finally {
+      fetchingItemsRef.current.delete(orderId);
+    }
+  }, [adminToken]);
+
+  function getOrderItems(order) {
+    const cached = itemsByOrder[order.id];
+    if (Array.isArray(cached) && cached.length > 0) return cached;
+    if (Array.isArray(order.order_items) && order.order_items.length > 0) return order.order_items;
+    return Array.isArray(cached) ? cached : [];
+  }
+
+  useEffect(() => {
+    const ids = visible
+      .filter(o => ['pending', 'scheduled', 'confirmed', 'preparing', 'ready'].includes(o.status))
+      .filter(o => !Object.prototype.hasOwnProperty.call(itemsByOrder, o.id))
+      .map(o => o.id)
+      .slice(0, 10);
+
+    if (ids.length === 0) return;
+    ids.forEach(id => { fetchOrderItems(id); });
+  }, [visible, itemsByOrder, fetchOrderItems]);
+
+  const visibleWithItems = visible.map(o => ({ ...o, order_items: getOrderItems(o) }));
 
   const todayOrders  = orders.filter(o => orderDateSP(o.created_at) === today);
   const activeToday  = todayOrders.filter(o => !['cancelled','delivered'].includes(o.status)).length;
@@ -1627,18 +1652,14 @@ export default function KDSBoard({
 
   async function openModal(order) {
     setModal(order);
-    setItems([]);
+    setItems(getOrderItems(order));
     setItemsLoading(true);
     try {
-      const res = await fetch('/api/admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
-        body: JSON.stringify({ action: 'get_order_items', data: { order_id: order.id } }),
-      });
-      const d = await res.json();
-      setItems(d.items || []);
-    } catch { setItems([]); }
-    finally { setItemsLoading(false); }
+      const fresh = await fetchOrderItems(order.id);
+      setItems(Array.isArray(fresh) ? fresh : []);
+    } finally {
+      setItemsLoading(false);
+    }
   }
 
   async function ensureDeliveryPersons() {
@@ -1889,7 +1910,7 @@ export default function KDSBoard({
       {/* ── Vista Cozinha KDS ─────────────────────────────────────────────── */}
       {viewMode === 'cozinha' && (
         <KitchenKDS
-          orders={visible}
+          orders={visibleWithItems}
           onMarkReady={id => handleAction(id, 'status', 'ready')}
           soundOn={soundOn}
           setSoundOn={setSoundOn}
@@ -1906,7 +1927,7 @@ export default function KDSBoard({
             <KDSColumn
               key={col.id}
               col={col}
-              orders={visible}
+              orders={visibleWithItems}
               onCardClick={openModal}
               onQuickAction={handleAction}
               newIds={newIds}
