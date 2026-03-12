@@ -894,7 +894,16 @@ function PaymentPanel({ order, onSave }) {
 function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, adminToken, customerOrderCount, deliveryPersons, onAssignDeliveryPerson, onEnsureDeliveryPersons }) {
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [showPrintDialog, setShowPrintDialog]         = useState(false);
-  const [editPayment, setEditPayment]                 = useState(false);
+  const [showPaymentFlow, setShowPaymentFlow]         = useState(false);
+  const [paymentStep, setPaymentStep]                 = useState('method');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(order?.payment_method || 'pix');
+  const [selectedFiscalNote, setSelectedFiscalNote]   = useState(order?.fiscal_note || false);
+  const [savingPaymentFlow, setSavingPaymentFlow]     = useState(false);
+
+  const [showDangerDialog, setShowDangerDialog]       = useState(false);
+  const [dangerAction, setDangerAction]               = useState('cancel');
+  const [adminPassword, setAdminPassword]             = useState('');
+  const [dangerSaving, setDangerSaving]               = useState(false);
 
   if (!order) return null;
   const cfg  = S[order.status] || S.pending;
@@ -920,6 +929,48 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
   const fee   = parseFloat(order.delivery_fee) || 0;
   const total = parseFloat(order.total)        || 0;
   const maps = getMapsLinks(order);
+
+  const paymentOptions = [
+    { key: 'pix', label: 'PIX', icon: Zap, color: '#2563EB' },
+    { key: 'cash', label: 'Dinheiro', icon: Banknote, color: '#059669' },
+    { key: 'card_delivery', label: 'Cartão', icon: CreditCard, color: '#7C3AED' },
+  ];
+
+  function openPaymentFlow() {
+    setSelectedPaymentMethod(order.payment_method || 'pix');
+    setSelectedFiscalNote(!!order.fiscal_note);
+    setPaymentStep('method');
+    setShowPaymentFlow(true);
+  }
+
+  async function confirmPaymentFlow() {
+    setSavingPaymentFlow(true);
+    try {
+      await onPaymentUpdate({
+        payment_method: selectedPaymentMethod,
+        payment_status: 'approved',
+        fiscal_note: selectedFiscalNote,
+      });
+      setShowPaymentFlow(false);
+    } finally {
+      setSavingPaymentFlow(false);
+    }
+  }
+
+  async function submitDangerAction() {
+    if (!adminPassword.trim()) {
+      alert('Digite a senha de admin para confirmar.');
+      return;
+    }
+    setDangerSaving(true);
+    const ok = await onAction(order.id, dangerAction, adminPassword);
+    setDangerSaving(false);
+    if (ok) {
+      setAdminPassword('');
+      setShowDangerDialog(false);
+      onClose();
+    }
+  }
 
   return (
     <>
@@ -1123,57 +1174,42 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
             )}
 
             {/* Pagamento */}
-            {editPayment ? (
-              <div>
-                <PaymentPanel
-                  order={order}
-                  onSave={async updates => {
-                    await onPaymentUpdate(updates);
-                    setEditPayment(false);
-                  }}
-                />
-                <button onClick={() => setEditPayment(false)} style={{ marginTop: 6, fontSize: 11, color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
-                  Cancelar
-                </button>
+            <Section label="Pagamento" icon={<PMIcon size={12} />}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <PMIcon size={16} color={pm.color} />
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{pm.label}</span>
+                <span style={{
+                  marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 3,
+                  background: order.payment_status === 'approved' ? '#ECFDF5' : '#FFFBEB',
+                  color:      order.payment_status === 'approved' ? '#059669' : '#D97706',
+                  border: `1px solid ${order.payment_status === 'approved' ? '#A7F3D0' : '#FDE68A'}`,
+                }}>
+                  {order.payment_status === 'approved' ? '● Pago' : '● Aguardando'}
+                </span>
               </div>
-            ) : (
-              <Section label="Pagamento" icon={<PMIcon size={12} />}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                  <PMIcon size={16} color={pm.color} />
-                  <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{pm.label}</span>
-                  <span style={{
-                    marginLeft: 'auto', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 3,
-                    background: order.payment_status === 'approved' ? '#ECFDF5' : '#FFFBEB',
-                    color:      order.payment_status === 'approved' ? '#059669' : '#D97706',
-                    border: `1px solid ${order.payment_status === 'approved' ? '#A7F3D0' : '#FDE68A'}`,
-                  }}>
-                    {order.payment_status === 'approved' ? '● Pago' : '● Aguardando'}
-                  </span>
-                </div>
-                {order.fiscal_note && (
-                  <p style={{ fontSize: 11, color: '#6366F1', marginTop: 4 }}>📋 Nota fiscal será emitida</p>
-                )}
-                {order.payment_notes && (
-                  <p style={{ fontSize: 11, color: '#6B7280', marginTop: 3 }}>📝 {order.payment_notes}</p>
-                )}
-                {order.cash_received > 0 && (
-                  <p style={{ fontSize: 11, color: '#6B7280', marginTop: 3 }}>
-                    💵 Recebido: {fmtBRL(order.cash_received)} · Troco: {fmtBRL(Math.max(0, order.cash_received - parseFloat(order.total || 0)))}
-                  </p>
-                )}
-                {order.coupon_code && (
-                  <p style={{ fontSize: 12, color: '#6B7280', marginTop: 5 }}>
-                    🏷️ Cupom: <strong>{order.coupon_code}</strong> (-{fmtBRL(disc)})
-                  </p>
-                )}
-                <button
-                  onClick={() => setEditPayment(true)}
-                  style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 5, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
-                >
-                  ✏️ {order.payment_status === 'approved' ? 'Editar pagamento' : 'Registrar pagamento'}
-                </button>
-              </Section>
-            )}
+              {order.fiscal_note && (
+                <p style={{ fontSize: 11, color: '#6366F1', marginTop: 4 }}>📋 Nota fiscal será emitida</p>
+              )}
+              {order.payment_notes && (
+                <p style={{ fontSize: 11, color: '#6B7280', marginTop: 3 }}>📝 {order.payment_notes}</p>
+              )}
+              {order.cash_received > 0 && (
+                <p style={{ fontSize: 11, color: '#6B7280', marginTop: 3 }}>
+                  💵 Recebido: {fmtBRL(order.cash_received)} · Troco: {fmtBRL(Math.max(0, order.cash_received - parseFloat(order.total || 0)))}
+                </p>
+              )}
+              {order.coupon_code && (
+                <p style={{ fontSize: 12, color: '#6B7280', marginTop: 5 }}>
+                  🏷️ Cupom: <strong>{order.coupon_code}</strong> (-{fmtBRL(disc)})
+                </p>
+              )}
+              <button
+                onClick={openPaymentFlow}
+                style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 5, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
+              >
+                ✏️ {order.payment_status === 'approved' ? 'Editar pagamento' : 'Registrar pagamento'}
+              </button>
+            </Section>
 
             {/* Botões */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 2 }}>
@@ -1191,11 +1227,19 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                   <Printer size={13} /> Reimprimir
                 </button>
                 {actionButtons.filter(a => !a.primary).map(a => (
-                  <button key={a.next} onClick={() => { onAction(order.id, 'status', a.next); onClose(); }}
+                  <button key={a.next} onClick={() => { setDangerAction('cancel'); setShowDangerDialog(true); }}
                     style={{ flex: 1, padding: '9px', borderRadius: 5, border: `1px solid ${a.bg}40`, background: a.bg + '10', color: a.bg, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     {a.label}
                   </button>
                 ))}
+                {!['delivered', 'cancelled'].includes(order.status) && (
+                  <button
+                    onClick={() => { setDangerAction('delete'); setShowDangerDialog(true); }}
+                    style={{ flex: 1, padding: '9px', borderRadius: 5, border: '1px solid #7F1D1D40', background: '#7F1D1D10', color: '#991B1B', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    🗑️ Deletar
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1208,6 +1252,79 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
           onSelect={type => { setShowPrintDialog(false); onPrint(type); }}
           onClose={() => setShowPrintDialog(false)}
         />
+      )}
+
+      {showPaymentFlow && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2200, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowPaymentFlow(false)}>
+          <div style={{ width: '100%', maxWidth: 420, background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 16 }} onClick={e => e.stopPropagation()}>
+            {paymentStep === 'method' ? (
+              <>
+                <p style={{ fontSize: 16, fontWeight: 800, color: '#111827', marginBottom: 6 }}>Confirmar forma de pagamento</p>
+                <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>Qual foi a forma de pagamento correta deste pedido?</p>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {paymentOptions.map(opt => {
+                    const Icon = opt.icon;
+                    const selected = selectedPaymentMethod === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        onClick={() => setSelectedPaymentMethod(opt.key)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, borderRadius: 7, border: selected ? `2px solid ${opt.color}` : '1px solid #E5E7EB', background: selected ? `${opt.color}14` : '#fff', color: selected ? opt.color : '#374151', padding: '9px 11px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        <Icon size={15} /> {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+                  <button onClick={() => setShowPaymentFlow(false)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', color: '#6B7280', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+                  <button onClick={() => setPaymentStep('invoice')} style={{ padding: '8px 10px', borderRadius: 6, border: 'none', background: '#111827', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Continuar</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 16, fontWeight: 800, color: '#111827', marginBottom: 6 }}>Emitir nota fiscal?</p>
+                <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>Deseja emitir nota fiscal para este pedido?</p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setSelectedFiscalNote(true)} style={{ flex: 1, padding: '10px', borderRadius: 7, border: selectedFiscalNote ? '2px solid #4F46E5' : '1px solid #E5E7EB', background: selectedFiscalNote ? '#EEF2FF' : '#fff', color: selectedFiscalNote ? '#4338CA' : '#6B7280', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Sim, emitir NF</button>
+                  <button onClick={() => setSelectedFiscalNote(false)} style={{ flex: 1, padding: '10px', borderRadius: 7, border: !selectedFiscalNote ? '2px solid #9CA3AF' : '1px solid #E5E7EB', background: !selectedFiscalNote ? '#F3F4F6' : '#fff', color: '#374151', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Não emitir</button>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 12 }}>
+                  <button onClick={() => setPaymentStep('method')} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', color: '#6B7280', fontSize: 12, cursor: 'pointer' }}>Voltar</button>
+                  <button onClick={confirmPaymentFlow} disabled={savingPaymentFlow} style={{ padding: '8px 10px', borderRadius: 6, border: 'none', background: savingPaymentFlow ? '#9CA3AF' : '#059669', color: '#fff', fontSize: 12, fontWeight: 700, cursor: savingPaymentFlow ? 'not-allowed' : 'pointer' }}>{savingPaymentFlow ? 'Salvando...' : 'Confirmar pagamento'}</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showDangerDialog && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2200, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowDangerDialog(false)}>
+          <div style={{ width: '100%', maxWidth: 430, background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 16 }} onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: 16, fontWeight: 800, color: dangerAction === 'delete' ? '#991B1B' : '#B91C1C', marginBottom: 6 }}>
+              {dangerAction === 'delete' ? 'Deletar pedido' : 'Cancelar pedido'}
+            </p>
+            <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>
+              {dangerAction === 'delete'
+                ? 'Esta ação remove o pedido do banco de dados. Digite a senha de admin para confirmar.'
+                : 'Esta ação altera o status para cancelado. Digite a senha de admin para confirmar.'}
+            </p>
+            <input
+              type="password"
+              value={adminPassword}
+              onChange={e => setAdminPassword(e.target.value)}
+              placeholder="Senha de admin"
+              style={{ width: '100%', padding: '9px 10px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 13, marginBottom: 12 }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setShowDangerDialog(false)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', color: '#6B7280', fontSize: 12, cursor: 'pointer' }}>Voltar</button>
+              <button onClick={submitDangerAction} disabled={dangerSaving} style={{ padding: '8px 10px', borderRadius: 6, border: 'none', background: dangerSaving ? '#9CA3AF' : (dangerAction === 'delete' ? '#991B1B' : '#DC2626'), color: '#fff', fontSize: 12, fontWeight: 700, cursor: dangerSaving ? 'not-allowed' : 'pointer' }}>
+                {dangerSaving ? 'Confirmando...' : (dangerAction === 'delete' ? 'Confirmar deleção' : 'Confirmar cancelamento')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
@@ -1712,7 +1829,51 @@ export default function KDSBoard({
     }
   }
 
+  async function verifyAdminPassword(password) {
+    try {
+      const res = await fetch('/api/admin/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) return false;
+      const d = await res.json();
+      return !!d.token;
+    } catch {
+      return false;
+    }
+  }
+
   async function handleAction(orderId, field, value) {
+    if (field === 'cancel' || field === 'delete') {
+      const validPass = await verifyAdminPassword(value);
+      if (!validPass) {
+        alert('Senha de admin inválida.');
+        return false;
+      }
+
+      if (field === 'cancel') {
+        onUpdateStatus(orderId, 'status', 'cancelled');
+        setModal(prev => prev?.id === orderId ? { ...prev, status: 'cancelled' } : prev);
+        return true;
+      }
+
+      try {
+        const res = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+          body: JSON.stringify({ action: 'delete_order', data: { id: orderId } }),
+        });
+        const d = await res.json();
+        if (!res.ok || d.error) throw new Error(d.error || 'Erro ao deletar pedido');
+        await refreshOrders();
+        return true;
+      } catch (e) {
+        alert('Erro ao deletar pedido: ' + (e.message || 'erro desconhecido'));
+        return false;
+      }
+    }
+
     if (field === 'status' && value === 'delivering') {
       const order = orders.find(o => o.id === orderId);
       await ensureDeliveryPersons();
@@ -1721,10 +1882,11 @@ export default function KDSBoard({
         orderId,
         deliveryPersonId: order?.delivery_person_id || '',
       });
-      return;
+      return true;
     }
     onUpdateStatus(orderId, field, value);
     setModal(prev => prev?.id === orderId ? { ...prev, [field]: value } : prev);
+    return true;
   }
 
   async function confirmStartDelivery() {
