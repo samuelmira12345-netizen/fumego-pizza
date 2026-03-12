@@ -448,7 +448,6 @@ function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onI
   const [loadingRec, setLoadingRec]   = useState(true);
   const [editingRecipe, setEditingRecipe] = useState(null); // null | 'new' | recipe_object
   const [applyingId, setApplyingId]   = useState(null);
-  const [batches, setBatches]         = useState(1);
   const [confirmDelete, setConfirmDelete] = useState(null); // recipe id to confirm
 
   useEffect(() => { loadRecipes(); }, [ingredient.id]);
@@ -473,7 +472,7 @@ function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onI
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
-        body: JSON.stringify({ action: 'apply_compound_recipe', data: { recipe_id: recipe.id, batches } }),
+        body: JSON.stringify({ action: 'apply_compound_recipe', data: { recipe_id: recipe.id, batches: 1 } }),
       });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
@@ -506,12 +505,9 @@ function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onI
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted, fontSize: 18, lineHeight: 1 }}>×</button>
       </div>
 
-      {/* Batch count selector */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '8px 12px', background: '#EDE9FE', borderRadius: 6 }}>
-        <span style={{ fontSize: 11, color: '#7C3AED', fontWeight: 700 }}>LOTES P/ PRODUÇÃO:</span>
-        <input type="number" min="1" step="1" value={batches} onChange={e => setBatches(Math.max(1, parseInt(e.target.value) || 1))} style={{ width: 60, padding: '4px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, textAlign: 'center', outline: 'none', color: C.text }} />
-        <span style={{ fontSize: 11, color: C.muted }}>lote(s)</span>
-      </div>
+
+      {/* Produção unitária: 1 lote por clique */}
+
 
       {/* Recipe form (new or editing) */}
       {editingRecipe !== null && (
@@ -553,7 +549,7 @@ function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onI
                       style={{ padding: '4px 10px', borderRadius: 4, border: 'none', background: isApplying ? '#9CA3AF' : '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: isApplying ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
                     >
                       {isApplying ? <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={11} />}
-                      Produzir
+                      Produzir 1 lote
                     </button>
                     <button onClick={() => { setEditingRecipe(recipe); setConfirmDelete(null); }} style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #DDD6FE', background: '#fff', color: C.muted, fontSize: 11, cursor: 'pointer' }}>Editar</button>
                     {isConfirming ? (
@@ -2401,11 +2397,12 @@ export default function Catalog({ adminToken }) {
                             <div>
                               <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Fator de Correção (%)</label>
                               <input type="number" value={Math.round((parseFloat(ing.correction_factor) || 1) * 100)} min="1" max="200" step="1" onChange={e => handleUpdateIngredient(ing.id, 'correction_factor', (parseFloat(e.target.value) || 100) / 100)} placeholder="100" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
-                              {(parseFloat(ing.correction_factor) || 1) !== 1 && (
-                                <span style={{ fontSize: 10, color: '#DC2626', fontWeight: 600, display: 'block', marginTop: 2 }}>
-                                  Custo real: {fmtBRL(parseFloat(ing.cost_per_unit) * (parseFloat(ing.correction_factor) || 1))}/{ing.unit}
-                                </span>
-                              )}
+                              <span style={{ fontSize: 10, color: '#059669', fontWeight: 700, display: 'block', marginTop: 2 }}>
+                                Custo com FC: {fmtBRL((parseFloat(ing.cost_per_unit) || 0) * (parseFloat(ing.correction_factor) || 1))}/{ing.unit}
+                              </span>
+                              <span style={{ fontSize: 10, color: '#DC2626', fontWeight: 700, display: 'block', marginTop: 1 }}>
+                                Valor sem FC: {fmtBRL(parseFloat(ing.cost_per_unit) || 0)}/{ing.unit}
+                              </span>
                             </div>
                             <div>
                               <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Peso/Volume (rendimento)</label>
@@ -2446,7 +2443,7 @@ export default function Catalog({ adminToken }) {
                               ) : (
                                 <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4, background: '#F3F4F6', color: C.muted }}>Simples</span>
                               )}
-                              {cf !== 1.0 && <span style={{ fontSize: 10, color: C.muted }}>FC: {Math.round(cf * 100)}%</span>}
+                              <span style={{ fontSize: 10, color: C.muted }}>FC: {Math.round(cf * 100)}%</span>
                             </div>
                             {stockConfigured && (
                               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -2460,12 +2457,10 @@ export default function Catalog({ adminToken }) {
                           </div>
                           <span style={{ fontSize: 12, color: C.muted }}>{ing.unit}</span>
                           <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', display: 'block' }}>{fmtBRL(ing.cost_per_unit)}</span>
-                            {cf !== 1.0 && (
-                              <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', display: 'block' }}>
-                                real: {fmtBRL(parseFloat(ing.cost_per_unit) * cf)}/{ing.unit}
-                              </span>
-                            )}
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#059669', display: 'block' }}>{fmtBRL((parseFloat(ing.cost_per_unit) || 0) * cf)}</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', display: 'block' }}>
+                              Valor sem FC: {fmtBRL(parseFloat(ing.cost_per_unit) || 0)}/{ing.unit}
+                            </span>
                           </div>
                           <div style={{ textAlign: 'right' }}>
                             {variation !== null ? (
