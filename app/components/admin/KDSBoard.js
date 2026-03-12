@@ -77,6 +77,26 @@ function fmtPhone(p) {
   return p;
 }
 
+function buildAddress(order) {
+  return [
+    `${order?.delivery_street || ''} ${order?.delivery_number || ''}`.trim(),
+    order?.delivery_neighborhood || '',
+    order?.delivery_city || '',
+    order?.delivery_zipcode || '',
+  ].filter(Boolean).join(', ');
+}
+
+function getMapsLinks(order) {
+  const address = buildAddress(order);
+  if (!address) return { address: '', googleMaps: '', waze: '' };
+  const encoded = encodeURIComponent(address);
+  return {
+    address,
+    googleMaps: `https://www.google.com/maps/search/?api=1&query=${encoded}`,
+    waze: `https://waze.com/ul?q=${encoded}&navigate=yes`,
+  };
+}
+
 function elapsedMins(isoStr) {
   return Math.floor((Date.now() - new Date(isoStr).getTime()) / 60000);
 }
@@ -884,6 +904,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
   const disc  = parseFloat(order.discount)     || 0;
   const fee   = parseFloat(order.delivery_fee) || 0;
   const total = parseFloat(order.total)        || 0;
+  const maps = getMapsLinks(order);
 
   return (
     <>
@@ -963,14 +984,46 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
 
             {/* Endereço */}
             <Section label="Endereço" icon={<MapPin size={12} />}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
-                {order.delivery_street}, {order.delivery_number}
-                {order.delivery_complement ? ` — ${order.delivery_complement}` : ''}
-              </p>
+              {maps.googleMaps ? (
+                <a
+                  href={maps.googleMaps}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'inline-block', fontSize: 13, fontWeight: 700, color: '#2563EB', marginBottom: 2, textDecoration: 'underline' }}
+                >
+                  {order.delivery_street}, {order.delivery_number}
+                  {order.delivery_complement ? ` — ${order.delivery_complement}` : ''}
+                </a>
+              ) : (
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
+                  {order.delivery_street}, {order.delivery_number}
+                  {order.delivery_complement ? ` — ${order.delivery_complement}` : ''}
+                </p>
+              )}
               <p style={{ fontSize: 12, color: '#6B7280' }}>
                 {order.delivery_neighborhood}{order.delivery_city ? `, ${order.delivery_city}` : ''}
                 {order.delivery_zipcode ? ` · ${order.delivery_zipcode}` : ''}
               </p>
+              {maps.googleMaps && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  <a
+                    href={maps.googleMaps}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 6, padding: '4px 8px', textDecoration: 'none' }}
+                  >
+                    Google Maps
+                  </a>
+                  <a
+                    href={maps.waze}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 11, fontWeight: 700, color: '#0C4A6E', background: '#ECFEFF', border: '1px solid #A5F3FC', borderRadius: 6, padding: '4px 8px', textDecoration: 'none' }}
+                  >
+                    Waze
+                  </a>
+                </div>
+              )}
             </Section>
 
             {['ready', 'delivering'].includes(order.status) && (
@@ -1179,7 +1232,67 @@ function QuickStat({ label, value, color, hidden }) {
 
 // ── Kitchen KDS (tablet/iPad de cozinha) ─────────────────────────────────────
 
-function KitchenOrderCard({ order, onMarkReady }) {
+function KitchenOrderDetailsModal({ order, items, itemsLoading, onClose }) {
+  if (!order) return null;
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ width: 'min(640px, 100%)', maxHeight: 'calc(100vh - 32px)', overflowY: 'auto', background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB', boxShadow: '0 20px 50px rgba(0,0,0,0.25)', padding: 18 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 800, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 1 }}>Detalhes para cozinha</p>
+            <p style={{ fontSize: 24, fontWeight: 900, color: '#111827', fontFamily: 'monospace' }}>#{order.order_number || String(order.id).slice(-4).toUpperCase()}</p>
+          </div>
+          <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', borderRadius: 6, width: 32, height: 32, cursor: 'pointer' }}>
+            <X size={15} color="#6B7280" />
+          </button>
+        </div>
+
+        <div style={{ background: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{order.customer_name}</p>
+          <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+            ⏱ {fmtElapsed(elapsedMins(order.created_at))} · entrou às {fmtTime(order.created_at)}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {itemsLoading ? (
+            <p style={{ fontSize: 13, color: '#6B7280' }}>Carregando itens...</p>
+          ) : items.length > 0 ? items.map((item, i) => (
+            <div key={`${order.id}-kitchen-item-${i}`} style={{ border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', background: '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <span style={{ fontSize: 18, fontWeight: 900, color: '#D97706', minWidth: 28, fontFamily: 'monospace' }}>{item.quantity}×</span>
+                <span style={{ fontSize: 15, fontWeight: 800, color: '#111827' }}>{item.product_name}</span>
+              </div>
+              {item.observations && (
+                <p style={{ fontSize: 12, color: '#B45309', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 6, padding: '4px 8px', marginTop: 6, marginLeft: 26 }}>
+                  ⚠️ {item.observations}
+                </p>
+              )}
+            </div>
+          )) : (
+            <p style={{ fontSize: 13, color: '#9CA3AF' }}>Itens não disponíveis.</p>
+          )}
+        </div>
+
+        {order.observations && (
+          <div style={{ marginTop: 12, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 12px' }}>
+            <p style={{ fontSize: 12, fontWeight: 800, color: '#B91C1C', textTransform: 'uppercase', letterSpacing: 0.8 }}>Observações gerais</p>
+            <p style={{ fontSize: 13, color: '#7F1D1D', marginTop: 4 }}>{order.observations}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function KitchenOrderCard({ order, items, itemsLoading, onMarkReady, onOpenDetails }) {
   const [marking, setMarking] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const mins = elapsedMins(order.created_at);
@@ -1194,13 +1307,16 @@ function KitchenOrderCard({ order, onMarkReady }) {
   }
 
   return (
-    <div style={{
+    <div
+      onClick={onOpenDetails}
+      style={{
       background: '#fff', borderRadius: 12,
       border: `1px solid ${urgentColor}35`,
       borderLeft: `5px solid ${urgentColor}`,
       padding: '16px 18px',
       display: 'flex', flexDirection: 'column', gap: 10,
       boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+      cursor: 'pointer',
     }}>
       {/* Número + timer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1234,10 +1350,14 @@ function KitchenOrderCard({ order, onMarkReady }) {
       </div>
 
       {/* Itens / sabores */}
-      {order.order_items && order.order_items.length > 0 ? (
+      {itemsLoading ? (
+        <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px' }}>
+          <p style={{ fontSize: 13, color: '#6B7280' }}>Carregando preview...</p>
+        </div>
+      ) : items.length > 0 ? (
         <div style={{ background: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px' }}>
-          {order.order_items.map((item, i) => (
-            <div key={i} style={{ marginBottom: i < order.order_items.length - 1 ? 8 : 0 }}>
+          {items.slice(0, 3).map((item, i) => (
+            <div key={i} style={{ marginBottom: i < items.length - 1 ? 8 : 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{ fontSize: 18, fontWeight: 900, color: '#D97706', minWidth: 28, fontFamily: 'monospace' }}>{item.quantity}×</span>
                 <span style={{ fontSize: 14, fontWeight: 700, color: '#111827', lineHeight: 1.3 }}>{item.product_name}</span>
@@ -1249,6 +1369,9 @@ function KitchenOrderCard({ order, onMarkReady }) {
               )}
             </div>
           ))}
+          {items.length > 3 && (
+            <p style={{ fontSize: 11, color: '#6B7280', marginTop: 6, fontWeight: 600 }}>+ {items.length - 3} item(ns)</p>
+          )}
         </div>
       ) : (
         <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px' }}>
@@ -1271,13 +1394,19 @@ function KitchenOrderCard({ order, onMarkReady }) {
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={confirmReady}
+              onClick={e => {
+                e.stopPropagation();
+                confirmReady();
+              }}
               style={{ flex: 1, padding: '11px', borderRadius: 8, border: 'none', background: '#16A34A', color: '#fff', fontSize: 15, fontWeight: 800, cursor: 'pointer' }}
             >
               Sim, está pronto!
             </button>
             <button
-              onClick={() => setShowConfirm(false)}
+              onClick={e => {
+                e.stopPropagation();
+                setShowConfirm(false);
+              }}
               style={{ flex: 1, padding: '11px', borderRadius: 8, border: '1px solid #D1D5DB', background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
             >
               Cancelar
@@ -1288,7 +1417,10 @@ function KitchenOrderCard({ order, onMarkReady }) {
         /* Botão PRONTO */
         <button
           disabled={marking}
-          onClick={() => setShowConfirm(true)}
+          onClick={e => {
+            e.stopPropagation();
+            setShowConfirm(true);
+          }}
           style={{
             width: '100%', padding: '14px', borderRadius: 10, border: 'none',
             fontSize: 16, fontWeight: 900, cursor: marking ? 'not-allowed' : 'pointer',
@@ -1307,8 +1439,9 @@ function KitchenOrderCard({ order, onMarkReady }) {
   );
 }
 
-function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
+function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn, kitchenItemsByOrder, kitchenItemsLoadingByOrder, onLoadKitchenOrderItems }) {
   const [clockTick, setClockTick] = useState(0);
+  const [detailOrder, setDetailOrder] = useState(null);
   useEffect(() => {
     const iv = setInterval(() => setClockTick(t => t + 1), 30000);
     return () => clearInterval(iv);
@@ -1372,13 +1505,28 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
                 <KitchenOrderCard
                   key={o.id}
                   order={o}
+                  items={kitchenItemsByOrder[o.id] || []}
+                  itemsLoading={!!kitchenItemsLoadingByOrder[o.id]}
                   onMarkReady={() => onMarkReady(o.id)}
+                  onOpenDetails={() => {
+                    onLoadKitchenOrderItems(o.id);
+                    setDetailOrder(o);
+                  }}
                 />
               ))}
             </div>
           </>
         )}
       </div>
+
+      {detailOrder && (
+        <KitchenOrderDetailsModal
+          order={detailOrder}
+          items={kitchenItemsByOrder[detailOrder.id] || []}
+          itemsLoading={!!kitchenItemsLoadingByOrder[detailOrder.id]}
+          onClose={() => setDetailOrder(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1392,6 +1540,8 @@ export default function KDSBoard({
   const [modal, setModal]               = useState(null);
   const [items, setItems]               = useState([]);
   const [itemsLoading, setItemsLoading] = useState(false);
+  const [kitchenItemsByOrder, setKitchenItemsByOrder] = useState({});
+  const [kitchenItemsLoadingByOrder, setKitchenItemsLoadingByOrder] = useState({});
   const [soundOn, setSoundOn]           = useState(true);
   const [newIds, setNewIds]             = useState(new Set());
   const [readyIds, setReadyIds]         = useState(new Set());
@@ -1492,6 +1642,36 @@ export default function KDSBoard({
     }, 1000);
     return () => clearInterval(iv);
   }, [refreshOrders]);
+
+  async function loadKitchenOrderItems(orderId) {
+    if (!adminToken || !orderId) return;
+    if (Object.prototype.hasOwnProperty.call(kitchenItemsByOrder, orderId) || kitchenItemsLoadingByOrder[orderId]) return;
+
+    setKitchenItemsLoadingByOrder(prev => ({ ...prev, [orderId]: true }));
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'get_order_items', data: { order_id: orderId } }),
+      });
+      const d = await res.json();
+      setKitchenItemsByOrder(prev => ({ ...prev, [orderId]: d.items || [] }));
+    } catch {
+      setKitchenItemsByOrder(prev => ({ ...prev, [orderId]: [] }));
+    } finally {
+      setKitchenItemsLoadingByOrder(prev => ({ ...prev, [orderId]: false }));
+    }
+  }
+
+  useEffect(() => {
+    visible
+      .filter(o => ['confirmed', 'preparing'].includes(o.status))
+      .forEach(o => {
+        if (!Object.prototype.hasOwnProperty.call(kitchenItemsByOrder, o.id) && !kitchenItemsLoadingByOrder[o.id]) {
+          loadKitchenOrderItems(o.id);
+        }
+      });
+  }, [visible, adminToken]);
 
   async function openModal(order) {
     setModal(order);
@@ -1761,6 +1941,9 @@ export default function KDSBoard({
           onMarkReady={id => handleAction(id, 'status', 'ready')}
           soundOn={soundOn}
           setSoundOn={setSoundOn}
+          kitchenItemsByOrder={kitchenItemsByOrder}
+          kitchenItemsLoadingByOrder={kitchenItemsLoadingByOrder}
+          onLoadKitchenOrderItems={loadKitchenOrderItems}
         />
       )}
 
