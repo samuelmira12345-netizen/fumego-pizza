@@ -264,7 +264,7 @@ function PersonsTab({ adminToken }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>Últimas entregas</span>
                         <span style={{ fontSize: 13, fontWeight: 700, color: C.success }}>
-                          Total entregue: {fmtBRL(history.filter(o => o.status === 'delivered').reduce((s, o) => s + parseFloat(o.total || 0), 0))}
+                          Ganho em taxas: {fmtBRL(history.filter(o => o.status === 'delivered').reduce((sum, o) => sum + parseFloat(o.delivery_fee || 0), 0))}
                         </span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -283,7 +283,8 @@ function PersonsTab({ adminToken }) {
                               }}>
                                 {o.status === 'delivered' ? 'Entregue' : 'Em andamento'}
                               </span>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: C.gold }}>{fmtBRL(o.total)}</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>Pedido {fmtBRL(o.total)}</span>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: C.gold }}>Taxa {fmtBRL(o.delivery_fee)}</span>
                             </div>
                           </div>
                         ))}
