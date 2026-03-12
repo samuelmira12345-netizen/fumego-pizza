@@ -202,21 +202,9 @@ function useSecondTick() {
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onClick, onQuickAction, isNew, isReady, onDragStart, customerOrderCount }) {
+function OrderCard({ order, onClick, isNew, isReady, onDragStart }) {
   const cfg  = S[order.status] || S.pending;
   const mins = elapsedMins(order.created_at);
-  const pm   = PM[order.payment_method];
-
-  const totalOrders = customerOrderCount?.[order.customer_phone || order.customer_name] ?? 1;
-  const isNewCustomer = totalOrders === 1;
-
-  const quickAction = {
-    scheduled:  { label: '→ Preparo',   next: 'confirmed',  bg: S.confirmed.headerBg },
-    confirmed:  { label: '✓ Pronto',    next: 'ready',      bg: S.ready.headerBg },
-    preparing:  { label: '✓ Pronto',    next: 'ready',      bg: S.ready.headerBg },
-    ready:      { label: '→ Entrega',   next: 'delivering', bg: S.delivering.headerBg },
-    delivering: { label: '✓ Finalizar', next: 'delivered',  bg: S.delivered.headerBg },
-  }[order.status];
 
   const borderColor = isReady ? '#F59E0B' : isNew ? cfg.color : '#D1D5DB';
   const shadow = isReady
@@ -284,73 +272,11 @@ function OrderCard({ order, onClick, onQuickAction, isNew, isReady, onDragStart,
         </span>
       </div>
 
-      {/* Cliente + contagem de pedidos */}
-      <div style={{ marginBottom: 2 }}>
+      {/* Cliente */}
+      <div>
         <p style={{ fontSize: 13, fontWeight: 700, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {order.customer_name}
         </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-          {isNewCustomer ? (
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 3, padding: '1px 6px' }}>
-              🔵 Cliente Novo
-            </span>
-          ) : (
-            <span style={{ fontSize: 10, color: '#6B7280' }}>
-              🛍 {totalOrders} pedido{totalOrders !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Bairro */}
-      <p style={{ fontSize: 11, color: '#6B7280', marginBottom: 7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        📍 {order.delivery_neighborhood || '—'}
-      </p>
-
-      {(order.order_items || []).length > 0 && (
-        <div style={{ background: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 4, padding: '5px 7px', marginBottom: 7 }}>
-          {(order.order_items || []).slice(0, 2).map((item, i) => (
-            <p key={`${order.id}-preview-${i}`} style={{ fontSize: 11, color: '#374151', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              <span style={{ fontWeight: 800, color: '#D97706' }}>{item.quantity}×</span> {item.product_name}
-            </p>
-          ))}
-          {(order.order_items || []).length > 2 && (
-            <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>
-              +{order.order_items.length - 2} item(ns)
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Obs */}
-      {order.observations && (
-        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 3, padding: '4px 7px', marginBottom: 7 }}>
-          <p style={{ fontSize: 11, color: '#92400E', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            ⚠️ {order.observations}
-          </p>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          {pm && <pm.icon size={12} color={pm.color} />}
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>{fmtBRL(order.total)}</span>
-          <span style={{ fontSize: 11, color: '#9CA3AF' }}>· {fmtTime(order.created_at)}</span>
-        </div>
-        {quickAction && (
-          <button
-            onClick={e => { e.stopPropagation(); onQuickAction(order.id, 'status', quickAction.next); }}
-            style={{
-              padding: '4px 10px', borderRadius: 3, border: 'none',
-              background: quickAction.bg, color: '#fff',
-              fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {quickAction.label}
-          </button>
-        )}
       </div>
     </div>
   );
@@ -367,7 +293,7 @@ const DROP_TARGET_STATUS = {
   finalizados: 'delivered',
 };
 
-function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, readyIds, onDragStart, onDrop, customerOrderCount }) {
+function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, onDrop }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const cards = orders
     .filter(o => col.statuses.includes(o.status))
@@ -438,11 +364,9 @@ function KDSColumn({ col, orders, onCardClick, onQuickAction, newIds, readyIds, 
                 key={o.id}
                 order={o}
                 onClick={() => onCardClick(o)}
-                onQuickAction={onQuickAction}
                 isNew={newIds.has(o.id)}
                 isReady={readyIds ? readyIds.has(o.id) : false}
                 onDragStart={onDragStart}
-                customerOrderCount={customerOrderCount}
               />
             ))}
           </>
@@ -2106,11 +2030,9 @@ export default function KDSBoard({
               col={col}
               orders={visibleWithItems}
               onCardClick={openModal}
-              onQuickAction={handleAction}
               newIds={newIds}
               readyIds={readyIds}
               onDragStart={order => setDragging(order)}
-              customerOrderCount={customerOrderCount}
               onDrop={targetStatus => {
                 if (dragging && dragging.status !== targetStatus) {
                   handleAction(dragging.id, 'status', targetStatus);
