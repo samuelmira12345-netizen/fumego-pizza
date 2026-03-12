@@ -1920,7 +1920,7 @@ export default function KDSBoard({
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: '#F1F3F5', overflow: 'hidden' }}>
 
       {/* ── Barra superior ────────────────────────────────────────────────── */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '9px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'nowrap', overflowX: 'auto' }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '9px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', rowGap: 8 }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <ShoppingBag size={18} color="#D97706" />
@@ -1941,10 +1941,8 @@ export default function KDSBoard({
           </button>
         </div>
 
-        <div style={{ flex: 1 }} />
-
         {/* Toggle Kanban / Cozinha / Lista */}
-        <div style={{ display: 'flex', borderRadius: 5, overflow: 'hidden', border: '1px solid #E5E7EB', flexShrink: 0 }}>
+        <div style={{ display: 'flex', borderRadius: 5, overflow: 'hidden', border: '1px solid #E5E7EB', flexShrink: 0, marginLeft: 'auto' }}>
           {[
             { key: 'kanban',  label: 'Kanban',   icon: <ChefHat size={13} /> },
             { key: 'cozinha', label: 'Cozinha',  icon: <PackageCheck size={13} /> },
