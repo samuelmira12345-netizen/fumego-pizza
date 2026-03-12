@@ -122,7 +122,7 @@ export default function ProductModal({
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)',
-        backdropFilter: 'blur(6px)', zIndex: 50,
+        backdropFilter: 'blur(6px)', zIndex: 300,
         display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
         touchAction: 'none',
       }}
