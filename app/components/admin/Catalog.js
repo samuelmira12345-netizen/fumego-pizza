@@ -920,6 +920,13 @@ function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdat
           }}>
             <Copy size={12} /> Duplicar
           </button>
+          <button onClick={() => onDelete(drink.id)} title="Excluir bebida" style={{
+            padding: '5px 9px', borderRadius: 4, border: '1px solid rgba(239,68,68,0.3)',
+            background: 'rgba(239,68,68,0.06)', color: C.danger, fontSize: 12, fontWeight: 600,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            <Trash2 size={12} /> Excluir
+          </button>
           <button onClick={onToggleExpand} style={{
             padding: '5px 12px', borderRadius: 4, border: 'none',
             background: isExpanded ? '#111827' : '#EFF6FF',
