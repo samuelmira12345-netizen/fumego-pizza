@@ -20,6 +20,15 @@ const DeliveryZoneMap = dynamic(() => import('./DeliveryZoneMap'), {
   ),
 });
 
+const DriverTrackingMap = dynamic(() => import('./DriverTrackingMap'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 480, background: '#EEF8FF' }}>
+      <Loader2 size={24} color="#2563EB" style={{ animation: 'spin 1s linear infinite' }} />
+    </div>
+  ),
+});
+
 const C = {
   bg: '#F4F5F7', card: '#fff', border: '#E5E7EB',
   text: '#111827', muted: '#6B7280', light: '#9CA3AF',
@@ -752,9 +761,12 @@ function TrackingTab({ adminToken }) {
     return () => clearInterval(iv);
   }, [load]);
 
+  const DRIVER_COLORS = ['#2563EB', '#7C3AED', '#059669', '#DC2626', '#D97706', '#0891B2', '#BE185D'];
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Localização dos Entregadores</h3>
           {lastUpdate && (
@@ -773,47 +785,86 @@ function TrackingTab({ adminToken }) {
           <Loader2 size={22} color={C.gold} style={{ animation: 'spin 1s linear infinite' }} />
         </div>
       ) : locations.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: C.muted }}>
-          <Navigation size={32} color={C.light} style={{ marginBottom: 12 }} />
-          <p style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Nenhum entregador ativo no momento</p>
-          <p style={{ fontSize: 12, marginTop: 4 }}>As localizações aparecem aqui quando há pedidos em entrega com GPS ativo.</p>
+        /* Empty state — still show map as placeholder */
+        <div>
+          <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 14, height: 480 }}>
+            <DriverTrackingMap locations={[]} />
+          </div>
+          <div style={{ textAlign: 'center', padding: '20px 0', color: C.muted }}>
+            <Navigation size={28} color={C.light} style={{ marginBottom: 8 }} />
+            <p style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Nenhum entregador ativo no momento</p>
+            <p style={{ fontSize: 12, marginTop: 4 }}>As localizações aparecem quando há pedidos em entrega com GPS ativo.</p>
+          </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {locations.map(loc => {
-            const mapsUrl = `https://maps.google.com/maps?q=${loc.driver_location_lat},${loc.driver_location_lng}`;
-            const age = loc.driver_location_at
-              ? Math.floor((Date.now() - new Date(loc.driver_location_at)) / 60000)
-              : null;
-            return (
-              <div key={loc.delivery_person_id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Truck size={20} color={C.blue} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{loc.delivery_persons?.name || 'Entregador'}</p>
-                  <div style={{ display: 'flex', gap: 12, marginTop: 3, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, color: C.muted, display: 'flex', alignItems: 'center', gap: 3 }}>
-                      <MapPin size={10} /> {Number(loc.driver_location_lat).toFixed(5)}, {Number(loc.driver_location_lng).toFixed(5)}
-                    </span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 0, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', minHeight: 480 }}>
+
+          {/* Mapa */}
+          <div style={{ position: 'relative', minHeight: 480 }}>
+            <DriverTrackingMap locations={locations} />
+            {/* Legenda sobreposta */}
+            <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {locations.map((loc, idx) => {
+                const name  = loc.delivery_persons?.name || 'Entregador';
+                const age   = loc.driver_location_at
+                  ? Math.floor((Date.now() - new Date(loc.driver_location_at)) / 60000)
+                  : null;
+                const color = DRIVER_COLORS[idx % DRIVER_COLORS.length];
+                return (
+                  <div key={loc.delivery_person_id} style={{ background: 'rgba(255,255,255,0.93)', borderRadius: 20, padding: '4px 10px 4px 6px', display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 1px 6px rgba(0,0,0,0.18)' }}>
+                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: '#fff' }}>{name[0].toUpperCase()}</span>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{name.split(' ')[0]}</span>
                     {age !== null && (
-                      <span style={{ fontSize: 11, color: age < 5 ? C.success : age < 15 ? C.gold : C.danger, display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <Clock size={10} /> {age < 1 ? 'agora' : `há ${age} min`}
+                      <span style={{ fontSize: 10, color: age < 5 ? C.success : age < 15 ? C.gold : C.danger, fontWeight: 600 }}>
+                        · {age < 1 ? 'agora' : `${age}min`}
                       </span>
                     )}
                   </div>
-                </div>
-                <a
-                  href={mapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#EFF6FF', border: `1px solid #BFDBFE`, borderRadius: 8, fontSize: 12, fontWeight: 700, color: C.blue, textDecoration: 'none' }}
-                >
-                  <MapPin size={13} /> Ver no mapa
-                </a>
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Painel lateral — cards dos entregadores */}
+          <div style={{ borderLeft: `1px solid ${C.border}`, background: '#fff', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: '#F9FAFB' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Em campo</p>
+              <p style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{locations.length} entregador(es) ativo(s)</p>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {locations.map((loc, idx) => {
+                const name  = loc.delivery_persons?.name || 'Entregador';
+                const age   = loc.driver_location_at
+                  ? Math.floor((Date.now() - new Date(loc.driver_location_at)) / 60000)
+                  : null;
+                const color = DRIVER_COLORS[idx % DRIVER_COLORS.length];
+                const statusColor = age === null ? C.muted : age < 5 ? C.success : age < 15 ? C.gold : C.danger;
+                const ageLabel    = age === null ? '—' : age < 1 ? 'agora' : `há ${age} min`;
+
+                return (
+                  <div key={loc.delivery_person_id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 12px', background: '#FAFAFA' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '2px solid #fff', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>{name[0].toUpperCase()}</span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</p>
+                        <p style={{ fontSize: 10, color: statusColor, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3, marginTop: 1 }}>
+                          <Clock size={9} /> {ageLabel}
+                        </p>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: 10, color: C.muted, fontFamily: 'monospace', letterSpacing: 0.2 }}>
+                      {Number(loc.driver_location_lat).toFixed(5)}, {Number(loc.driver_location_lng).toFixed(5)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>
