@@ -28,6 +28,8 @@ export default function CheckoutPage() {
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryTime, setDeliveryTime] = useState('40–60 min');
   const [deliveryQuoteError, setDeliveryQuoteError] = useState('');
+  const [deliveryCalculating, setDeliveryCalculating] = useState(false);
+  const [deliveryFeeReady, setDeliveryFeeReady] = useState(false);
   const [instagramUrl, setInstagramUrl] = useState('');
   const [pixData, setPixData] = useState(null);
   const [orderCreated, setOrderCreated] = useState(false);
@@ -88,7 +90,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     const hasLocation = form.neighborhood || form.zipcode;
     if (!hasLocation) return;
-    const t = setTimeout(() => { recalculateDeliveryFee(); }, 600);
+    const t = setTimeout(() => { recalculateDeliveryFee(); }, 300);
     return () => clearTimeout(t);
   }, [form.street, form.number, form.neighborhood, form.city, form.state, form.zipcode]);
 
@@ -123,6 +125,18 @@ export default function CheckoutPage() {
         complement: u.address_complement || '', neighborhood: u.address_neighborhood || '',
         city: u.address_city || '', state: u.address_state || '', zipcode: u.address_zipcode || '',
       }));
+      // Se o usuário já tem endereço salvo, calcula a entrega imediatamente (sem debounce)
+      // Passa os dados diretamente para evitar estado stale do form (setForm é assíncrono)
+      if (u.address_neighborhood || u.address_zipcode) {
+        recalculateDeliveryFee({
+          street:       u.address_street       || '',
+          number:       u.address_number       || '',
+          neighborhood: u.address_neighborhood || '',
+          city:         u.address_city         || '',
+          state:        u.address_state        || '',
+          zipcode:      u.address_zipcode      || '',
+        });
+      }
       // Busca saldo de cashback do usuário
       if (u.id) {
         fetch(`/api/cashback/balance?user_id=${u.id}`)
@@ -169,8 +183,11 @@ export default function CheckoutPage() {
     };
     if (!payload.neighborhood && !payload.zipcode) return;
 
+    setDeliveryCalculating(true);
+    setDeliveryFeeReady(false);
+    setDeliveryQuoteError('');
+
     try {
-      setDeliveryQuoteError('');
       const res = await fetch('/api/delivery/quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,8 +201,11 @@ export default function CheckoutPage() {
       }
       setDeliveryFee(Number(data.fee) || 0);
       if (data.estimated_mins) setDeliveryTime(`${data.estimated_mins}–${Number(data.estimated_mins) + 20} min`);
+      setDeliveryFeeReady(true);
     } catch {
       setDeliveryQuoteError('Não foi possível calcular a taxa de entrega no momento');
+    } finally {
+      setDeliveryCalculating(false);
     }
   }
 
@@ -370,6 +390,13 @@ export default function CheckoutPage() {
 
   /** Valida o formulário e, se válido, abre o modal de confirmação. */
   function handleSubmitOrder() {
+    // Bloqueia enquanto a taxa de entrega ainda está sendo calculada
+    if (deliveryCalculating) {
+      setFormError('Identificando o local de entrega para calcular a taxa... Aguarde um momento.');
+      scrollToStep('checkout-address');
+      return;
+    }
+
     if (!isFormValid()) {
       const missing = [];
       if (!form.name.trim())         missing.push('Nome completo');
@@ -389,6 +416,14 @@ export default function CheckoutPage() {
       }
       return;
     }
+
+    // Bloqueia se o endereço foi preenchido mas o frete ainda não foi calculado com sucesso
+    if ((form.neighborhood || form.zipcode) && !deliveryFeeReady && !deliveryQuoteError) {
+      setFormError('Aguardando o cálculo da taxa de entrega. Por favor, aguarde.');
+      scrollToStep('checkout-address');
+      return;
+    }
+
     setFormError('');
     setShowConfirmModal(true);
   }
@@ -984,12 +1019,26 @@ export default function CheckoutPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: MUTED, marginBottom: 8 }}>
             <span>Subtotal</span><span style={{ color: '#fff' }}>R$ {calcSubtotal().toFixed(2).replace('.', ',')}</span>
           </div>
-          {deliveryFee > 0 && (
+          {deliveryCalculating && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: MUTED, marginBottom: 8, alignItems: 'center' }}>
+              <span>Entrega</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: GOLD }}>
+                <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                Calculando...
+              </span>
+            </div>
+          )}
+          {!deliveryCalculating && deliveryFeeReady && deliveryFee > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: MUTED, marginBottom: 8 }}>
               <span>Entrega</span><span style={{ color: '#fff' }}>R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
             </div>
           )}
-          {deliveryQuoteError && (
+          {!deliveryCalculating && deliveryFeeReady && deliveryFee === 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: MUTED, marginBottom: 8 }}>
+              <span>Entrega</span><span style={{ color: GREEN, fontWeight: 600 }}>Grátis</span>
+            </div>
+          )}
+          {!deliveryCalculating && deliveryQuoteError && (
             <p style={{ fontSize: 12, color: RED, marginBottom: 8 }}>{deliveryQuoteError}</p>
           )}
           {calcDiscount() > 0 && (
@@ -1028,17 +1077,19 @@ export default function CheckoutPage() {
 
         {/* BOTÃO — alvo do scroll após forma de pagamento selecionada */}
         <div id="checkout-submit">
-          <button className="btn-primary" onClick={handleSubmitOrder} disabled={loading || !isFormValid()}
-            style={{ padding: 16, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <button className="btn-primary" onClick={handleSubmitOrder} disabled={loading}
+            style={{ padding: 16, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: (loading || deliveryCalculating) ? 0.75 : 1 }}>
             {loading
               ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Processando...</>
-              : paymentMethod === 'pix'
-                ? <><Landmark size={18} /> Pagar com PIX</>
-                : paymentMethod === 'card'
-                  ? <><CreditCard size={18} /> Pagar com Cartão (online)</>
-                  : paymentMethod === 'card_delivery'
-                    ? <><CreditCard size={18} /> Finalizar (Cartão na Entrega)</>
-                    : <><Banknote size={18} /> Finalizar Pedido (Dinheiro)</>}
+              : deliveryCalculating
+                ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Identificando local de entrega...</>
+                : paymentMethod === 'pix'
+                  ? <><Landmark size={18} /> Pagar com PIX</>
+                  : paymentMethod === 'card'
+                    ? <><CreditCard size={18} /> Pagar com Cartão (online)</>
+                    : paymentMethod === 'card_delivery'
+                      ? <><CreditCard size={18} /> Finalizar (Cartão na Entrega)</>
+                      : <><Banknote size={18} /> Finalizar Pedido (Dinheiro)</>}
           </button>
         </div>
 
