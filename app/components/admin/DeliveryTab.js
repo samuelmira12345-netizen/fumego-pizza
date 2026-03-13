@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Plus, Loader2, X, Trash2, RefreshCw, Save, Edit2,
   User, Phone, Mail, Lock, MapPin, Clock, Truck,
@@ -8,6 +9,16 @@ import {
   Navigation, AlertTriangle,
 } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
+
+// Leaflet requires browser APIs — load only on client side
+const DeliveryZoneMap = dynamic(() => import('./DeliveryZoneMap'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 420, background: '#EEF4EE' }}>
+      <Loader2 size={24} color="#22C55E" style={{ animation: 'spin 1s linear infinite' }} />
+    </div>
+  ),
+});
 
 const C = {
   bg: '#F4F5F7', card: '#fff', border: '#E5E7EB',
@@ -317,125 +328,7 @@ function PersonsTab({ adminToken }) {
 // Zones Tab
 // ═════════════════════════════════════════════════════════════════════════════
 
-// ── RadiusMapPreview ──────────────────────────────────────────────────────────
-
-const RING_COLORS = ['#16A34A', '#22C55E', '#4ADE80', '#86EFAC', '#BBF7D0'];
-
-function RadiusMapPreview({ rules, originCoords }) {
-  const SIZE   = 500;
-  const CX     = SIZE / 2;
-  const CY     = SIZE / 2;
-  const MARGIN = 50;
-
-  const active = [...rules]
-    .filter(r => parseFloat(r.radius_km) > 0)
-    .sort((a, b) => parseFloat(a.radius_km) - parseFloat(b.radius_km));
-
-  if (active.length === 0) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#EEF4EE', gap: 8 }}>
-        <MapPin size={28} color='#86EFAC' />
-        <p style={{ fontSize: 13, color: '#6B7280', textAlign: 'center', maxWidth: 200 }}>Adicione raios na lista ao lado para visualizar as zonas</p>
-      </div>
-    );
-  }
-
-  const maxKm = Math.max(...active.map(r => parseFloat(r.radius_km)));
-  const scale = (SIZE / 2 - MARGIN) / maxKm;
-
-  const hasCoords = originCoords
-    && Number.isFinite(parseFloat(originCoords.lat))
-    && parseFloat(originCoords.lat) !== 0;
-
-  // Grid spacing: aim for ~6-8 grid lines based on maxKm
-  const gridStep = maxKm <= 2 ? 0.5 : maxKm <= 5 ? 1 : maxKm <= 10 ? 2 : 5;
-  const gridLines = [];
-  for (let d = gridStep; d <= maxKm * 1.05; d += gridStep) {
-    gridLines.push(d);
-  }
-
-  return (
-    <svg viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ width: '100%', height: '100%', display: 'block' }}>
-      {/* Background */}
-      <rect width={SIZE} height={SIZE} fill="#EEF4EE" />
-
-      {/* Subtle grid (concentric km rings as reference) */}
-      {gridLines.map(d => {
-        const r = d * scale;
-        return (
-          <circle key={`grid-${d}`} cx={CX} cy={CY} r={r}
-            fill="none" stroke="#C6DEC6" strokeWidth={0.6} strokeDasharray="3 5" />
-        );
-      })}
-      {/* Cardinal lines */}
-      <line x1={CX} y1={MARGIN / 2} x2={CX} y2={SIZE - MARGIN / 2} stroke="#C6DEC6" strokeWidth={0.6} />
-      <line x1={MARGIN / 2} y1={CY} x2={SIZE - MARGIN / 2} y2={CY} stroke="#C6DEC6" strokeWidth={0.6} />
-
-      {/* Delivery zone circles — largest first so smaller ones render on top */}
-      {[...active].reverse().map((rule, revIdx) => {
-        const idx     = active.length - 1 - revIdx;
-        const r       = parseFloat(rule.radius_km) * scale;
-        const color   = RING_COLORS[idx % RING_COLORS.length];
-        const inactive = rule.is_active === false;
-        return (
-          <circle key={`zone-${idx}`}
-            cx={CX} cy={CY} r={r}
-            fill={inactive ? '#D1D5DB22' : `${color}35`}
-            stroke={inactive ? '#9CA3AF' : color}
-            strokeWidth={1.8}
-            strokeDasharray={inactive ? '6 4' : undefined}
-          />
-        );
-      })}
-
-      {/* Radius labels at top of each circle */}
-      {active.map((rule, idx) => {
-        const r     = parseFloat(rule.radius_km) * scale;
-        const lx    = CX;
-        const ly    = CY - r;
-        const color = RING_COLORS[idx % RING_COLORS.length];
-        const label = `${rule.radius_km}km`;
-        const w     = label.length * 6.5 + 10;
-        return (
-          <g key={`lbl-${idx}`}>
-            <rect x={lx - w / 2} y={ly - 11} width={w} height={16} rx={4}
-              fill="white" opacity={0.88} />
-            <text x={lx} y={ly + 1} textAnchor="middle" dominantBaseline="middle"
-              fontSize={10} fontWeight="700" fill={color}>
-              {label}
-            </text>
-          </g>
-        );
-      })}
-
-      {/* Store center */}
-      <circle cx={CX} cy={CY} r={16} fill="#F2A800" stroke="white" strokeWidth={2.5} />
-      <text x={CX} y={CY} textAnchor="middle" dominantBaseline="middle" fontSize={14}>🍕</text>
-
-      {/* Coords badge */}
-      {hasCoords && (
-        <g>
-          <rect x={8} y={SIZE - 24} width={160} height={18} rx={4} fill="rgba(255,255,255,0.85)" />
-          <text x={14} y={SIZE - 12} fontSize={9} fill="#374151">
-            📍 {parseFloat(originCoords.lat).toFixed(5)}, {parseFloat(originCoords.lng).toFixed(5)}
-          </text>
-        </g>
-      )}
-
-      {/* Scale indicator bottom-right */}
-      <g>
-        <line x1={SIZE - 8 - 60} y1={SIZE - 12} x2={SIZE - 8} y2={SIZE - 12} stroke="#6B7280" strokeWidth={1.5} />
-        <line x1={SIZE - 8 - 60} y1={SIZE - 16} x2={SIZE - 8 - 60} y2={SIZE - 8} stroke="#6B7280" strokeWidth={1.5} />
-        <line x1={SIZE - 8}      y1={SIZE - 16} x2={SIZE - 8}      y2={SIZE - 8} stroke="#6B7280" strokeWidth={1.5} />
-        <text x={SIZE - 8 - 30} y={SIZE - 16} textAnchor="middle" fontSize={9} fill="#6B7280">
-          {(60 / scale).toFixed(1)}km
-        </text>
-      </g>
-    </svg>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
+const RING_COLORS = ['#15803D', '#22C55E', '#4ADE80', '#86EFAC', '#BBF7D0'];
 
 function ZonesTab({ adminToken }) {
   const [originAddress, setOriginAddress] = useState({
@@ -654,11 +547,13 @@ function ZonesTab({ adminToken }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 14, minHeight: 420 }}>
 
             {/* Map side */}
-            <div style={{ background: '#EEF4EE', position: 'relative', minHeight: 420 }}>
-              <RadiusMapPreview rules={rules} originCoords={originCoords} />
-              <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(255,255,255,0.9)', borderRadius: 8, padding: '4px 10px', fontSize: 11, color: C.muted, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <MapPin size={11} color={C.gold} /> Visualização das zonas de entrega
-              </div>
+            <div style={{ position: 'relative', minHeight: 420 }}>
+              <DeliveryZoneMap rules={rules} originCoords={originCoords} />
+              {!manualCoordsValid && (
+                <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.92)', borderRadius: 8, padding: '6px 14px', fontSize: 11, color: '#92400E', fontWeight: 600, zIndex: 1000, whiteSpace: 'nowrap', border: '1px solid #FDE68A', pointerEvents: 'none' }}>
+                  ⚠ Configure as coordenadas da loja para ver os raios no mapa correto
+                </div>
+              )}
             </div>
 
             {/* Zone list side */}
