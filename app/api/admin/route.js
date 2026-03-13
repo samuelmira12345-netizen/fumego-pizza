@@ -29,6 +29,7 @@ import {
   handleGetDeliveryPersons, handleSaveDeliveryPerson, handleDeleteDeliveryPerson,
   handleGetDeliveryHistory, handleGetDeliveryZones, handleSaveDeliveryZone,
   handleDeleteDeliveryZone, handleAssignDelivery, handleGetDriverLocations, handleGetDeliveryMetrics,
+  handleGetDeliveryQueue, handleSetDeliveryPriority,
 } from '../../../lib/admin-actions/delivery';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -126,6 +127,8 @@ export async function POST(request) {
     if (action === 'assign_delivery')        return handleAssignDelivery(supabase, data);
     if (action === 'get_driver_locations')   return handleGetDriverLocations(supabase);
     if (action === 'get_delivery_metrics')   return handleGetDeliveryMetrics(supabase, data);
+    if (action === 'get_delivery_queue')     return handleGetDeliveryQueue(supabase, data);
+    if (action === 'set_delivery_priority')  return handleSetDeliveryPriority(supabase, data);
 
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
   } catch (e) {
