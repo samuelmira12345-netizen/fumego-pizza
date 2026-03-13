@@ -23,17 +23,24 @@ function buildPresets(today) {
   const ref = new Date(today + 'T12:00:00');
   const yest = addDays(today, -1);
 
-  const dow = ref.getDay(); // 0=Sun
+  // Week is Sunday–Saturday (dow 0=Sun, 6=Sat)
+  const dow = ref.getDay();
   const weekStart = new Date(ref);
-  weekStart.setDate(ref.getDate() - (dow === 0 ? 6 : dow - 1));
-  const lastWeekStart = new Date(weekStart);
-  lastWeekStart.setDate(weekStart.getDate() - 7);
-  const lastWeekEnd = new Date(lastWeekStart);
-  lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+  weekStart.setDate(ref.getDate() - dow);           // recua até domingo
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);         // sábado da mesma semana
 
+  const lastWeekStart = new Date(weekStart);
+  lastWeekStart.setDate(weekStart.getDate() - 7);   // domingo da semana passada
+  const lastWeekEnd = new Date(lastWeekStart);
+  lastWeekEnd.setDate(lastWeekStart.getDate() + 6); // sábado da semana passada
+
+  // Month: 1st → last day (full month, including future days)
   const monthStart = new Date(ref.getFullYear(), ref.getMonth(), 1);
+  const monthEnd   = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
+
   const lastMonthStart = new Date(ref.getFullYear(), ref.getMonth() - 1, 1);
-  const lastMonthEnd = new Date(ref.getFullYear(), ref.getMonth(), 0);
+  const lastMonthEnd   = new Date(ref.getFullYear(), ref.getMonth(), 0);
 
   const recentMonths = [];
   for (let i = 0; i < 3; i++) {
@@ -45,14 +52,14 @@ function buildPresets(today) {
   }
 
   return [
-    { label: 'Hoje',             from: today,                   to: today                },
-    { label: 'Ontem',            from: yest,                    to: yest                 },
-    { label: 'Últimos 7 dias',   from: addDays(today, -6),      to: today                },
-    { label: 'Últimos 30 dias',  from: addDays(today, -29),     to: today                },
-    { label: 'Esta semana',      from: yyyymmdd(weekStart),     to: today                },
-    { label: 'Semana passada',   from: yyyymmdd(lastWeekStart), to: yyyymmdd(lastWeekEnd) },
-    { label: 'Este mês',         from: yyyymmdd(monthStart),    to: today                },
-    { label: 'Mês passado',      from: yyyymmdd(lastMonthStart), to: yyyymmdd(lastMonthEnd) },
+    { label: 'Hoje',             from: today,                    to: today                 },
+    { label: 'Ontem',            from: yest,                     to: yest                  },
+    { label: 'Últimos 7 dias',   from: addDays(today, -6),       to: today                 },
+    { label: 'Últimos 30 dias',  from: addDays(today, -29),      to: today                 },
+    { label: 'Esta semana',      from: yyyymmdd(weekStart),      to: yyyymmdd(weekEnd)     },
+    { label: 'Semana passada',   from: yyyymmdd(lastWeekStart),  to: yyyymmdd(lastWeekEnd) },
+    { label: 'Este mês',         from: yyyymmdd(monthStart),     to: yyyymmdd(monthEnd)    },
+    { label: 'Mês passado',      from: yyyymmdd(lastMonthStart), to: yyyymmdd(lastMonthEnd)},
     ...recentMonths,
     { label: 'Últimos 2 meses', from: yyyymmdd(new Date(ref.getFullYear(), ref.getMonth() - 2, 1)), to: today },
     { label: 'Últimos 3 meses', from: yyyymmdd(new Date(ref.getFullYear(), ref.getMonth() - 3, 1)), to: today },
