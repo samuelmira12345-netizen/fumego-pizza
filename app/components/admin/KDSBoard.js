@@ -213,7 +213,7 @@ function useSecondTick() {
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPersonName, minCardHeight }) {
+function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPersonName }) {
   const cfg  = S[order.status] || S.pending;
   const mins = elapsedMins(order.created_at);
   const initials = getNameInitials(deliveryPersonName);
@@ -237,7 +237,6 @@ function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPerson
         border: `1px solid ${borderColor}`,
         borderLeft: `4px solid ${cfg.color}`,
         padding: '11px 12px 10px',
-        minHeight: minCardHeight || 0,
         cursor: 'grab',
         boxShadow: shadow,
         transition: 'box-shadow 0.12s, transform 0.1s, opacity 0.1s',
@@ -299,30 +298,6 @@ function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPerson
         )}
       </div>
 
-      {/* Preview completo dos itens */}
-      <div style={{ marginTop: 8, borderTop: '1px dashed #E5E7EB', paddingTop: 7, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {(order.order_items || []).length === 0 ? (
-          <p style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>Itens carregando...</p>
-        ) : (
-          order.order_items.map((item, idx) => (
-            <div key={`${order.id}-preview-item-${idx}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#D97706', minWidth: 22, fontFamily: 'monospace' }}>
-                {parseInt(item.quantity, 10) || 1}x
-              </span>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{ fontSize: 11, color: '#374151', lineHeight: 1.25, fontWeight: 600, wordBreak: 'break-word' }}>
-                  {item.product_name || 'Item'}
-                </p>
-                {item.observations && (
-                  <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1, lineHeight: 1.2, wordBreak: 'break-word' }}>
-                    Obs: {item.observations}
-                  </p>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
     </div>
   );
 }
@@ -347,9 +322,6 @@ function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, on
   const Icon = col.cfg.icon;
   const isFinalized = col.id === 'finalizados';
   const visible = isFinalized ? cards.slice(-8) : cards;
-  const maxItemsInColumn = Math.max(1, ...visible.map(o => (o.order_items || []).length || 1));
-  const minCardHeight = 96 + (maxItemsInColumn * 26);
-
   return (
     <div
       onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setIsDragOver(true); }}
@@ -415,7 +387,6 @@ function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, on
                 isReady={readyIds ? readyIds.has(o.id) : false}
                 onDragStart={onDragStart}
                 deliveryPersonName={deliveryPersonsById[String(o.delivery_person_id)] || o.delivery_person_name || ''}
-                minCardHeight={minCardHeight}
               />
             ))}
           </>
@@ -1395,7 +1366,7 @@ function KitchenOrderDetailsModal({ order, onClose }) {
   );
 }
 
-function KitchenOrderCard({ order, onMarkReady, onOpenDetails }) {
+function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) {
   const [marking, setMarking] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const mins = elapsedMins(order.created_at);
@@ -1418,6 +1389,7 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails }) {
       borderLeft: `5px solid ${urgentColor}`,
       padding: '16px 18px',
       display: 'flex', flexDirection: 'column', gap: 10,
+      minHeight: minCardHeight || 0,
       boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
       cursor: 'pointer',
     }}>
@@ -1452,8 +1424,29 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails }) {
         )}
       </div>
 
-      <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '8px 12px' }}>
-        <p style={{ fontSize: 12, color: '#6B7280' }}>Toque no card para ver os itens e detalhes.</p>
+      {/* Preview de itens para cozinha */}
+      <div style={{ marginTop: 4, borderTop: '1px dashed #E5E7EB', paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {(order.order_items || []).length === 0 ? (
+          <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>Itens carregando...</p>
+        ) : (
+          order.order_items.map((item, idx) => (
+            <div key={`${order.id}-kitchen-preview-item-${idx}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <span style={{ fontSize: 15, fontWeight: 900, color: '#D97706', minWidth: 26, fontFamily: 'monospace' }}>
+                {parseInt(item.quantity, 10) || 1}x
+              </span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p style={{ fontSize: 14, color: '#111827', lineHeight: 1.3, fontWeight: 800, wordBreak: 'break-word' }}>
+                  {item.product_name || 'Item'}
+                </p>
+                {item.observations && (
+                  <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2, lineHeight: 1.25, wordBreak: 'break-word' }}>
+                    Obs: {item.observations}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Observações do pedido */}
@@ -1528,6 +1521,8 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
   const kitchenOrders = orders
     .filter(o => ['confirmed', 'preparing'].includes(o.status))
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const maxItemsInKitchen = Math.max(1, ...kitchenOrders.map(o => (o.order_items || []).length || 1));
+  const minKitchenCardHeight = 180 + (maxItemsInKitchen * 28);
   const detailOrder = kitchenOrders.find(o => o.id === detailOrderId) || null;
 
   return (
@@ -1585,6 +1580,7 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
                   order={o}
                   onMarkReady={() => onMarkReady(o.id)}
                   onOpenDetails={() => setDetailOrderId(o.id)}
+                  minCardHeight={minKitchenCardHeight}
                 />
               ))}
             </div>
