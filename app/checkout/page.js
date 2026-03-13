@@ -167,7 +167,7 @@ export default function CheckoutPage() {
       zipcode: form.zipcode,
       ...extra,
     };
-    if (!payload.street || !payload.number || !payload.zipcode) return;
+    if (!payload.street || !payload.number || !payload.neighborhood || !payload.zipcode) return;
 
     try {
       setDeliveryQuoteError('');
