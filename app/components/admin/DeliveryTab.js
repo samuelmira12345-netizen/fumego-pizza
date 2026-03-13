@@ -318,7 +318,15 @@ function PersonsTab({ adminToken }) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 function ZonesTab({ adminToken }) {
-  const [originAddress, setOriginAddress] = useState('');
+  const [originAddress, setOriginAddress] = useState({
+    zipcode: '',
+    street: '',
+    number: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    complement: '',
+  });
   const [rules, setRules] = useState([{ radius_km: '3', fee: '5', estimated_mins: '35', is_active: true }]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -330,7 +338,26 @@ function ZonesTab({ adminToken }) {
       const j = await adminPost('get_data', {}, adminToken);
       const settings = j.settings || [];
       const map = Object.fromEntries(settings.map(s => [s.key, s.value]));
-      setOriginAddress(map.delivery_origin_address || '');
+      let details = null;
+      if (map.delivery_origin_address_details) {
+        try {
+          const parsed = JSON.parse(map.delivery_origin_address_details);
+          if (parsed && typeof parsed === 'object') details = parsed;
+        } catch {}
+      }
+      if (!details && map.delivery_origin_address) {
+        const parts = String(map.delivery_origin_address).split(',').map(p => p.trim()).filter(Boolean);
+        details = {
+          street: parts[0] || '',
+          number: parts[1] || '',
+          neighborhood: parts[2] || '',
+          city: parts[3] || '',
+          state: '',
+          zipcode: '',
+          complement: '',
+        };
+      }
+      setOriginAddress(prev => ({ ...prev, ...(details || {}) }));
       if (map.delivery_radius_rules) {
         try {
           const parsed = JSON.parse(map.delivery_radius_rules);
@@ -354,6 +381,21 @@ function ZonesTab({ adminToken }) {
     setRules(prev => [...prev, { radius_km: '', fee: '', estimated_mins: '40', is_active: true }]);
   }
 
+  function updateOrigin(field, value) {
+    setOriginAddress(prev => ({ ...prev, [field]: value }));
+  }
+
+  function buildOriginAddressLine(address) {
+    return [
+      `${address.street || ''}${address.number ? `, ${address.number}` : ''}`,
+      address.complement,
+      address.neighborhood,
+      address.city,
+      address.state,
+      address.zipcode,
+    ].filter(Boolean).join(', ');
+  }
+
   function updateRule(index, patch) {
     setRules(prev => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   }
@@ -363,7 +405,21 @@ function ZonesTab({ adminToken }) {
   }
 
   async function saveRadiusConfig() {
-    if (!originAddress.trim()) { setMsg('Informe o endereço de origem da loja'); return; }
+    const requiredStoreFields = [
+      ['zipcode', 'CEP'],
+      ['street', 'Rua/Avenida'],
+      ['number', 'Número'],
+      ['neighborhood', 'Bairro'],
+      ['city', 'Cidade'],
+      ['state', 'UF'],
+    ];
+    const missing = requiredStoreFields
+      .filter(([field]) => !String(originAddress[field] || '').trim())
+      .map(([, label]) => label);
+    if (missing.length > 0) {
+      setMsg(`Preencha o endereço completo da loja: ${missing.join(', ')}`);
+      return;
+    }
     const cleaned = rules
       .map(r => ({
         radius_km: parseFloat(r.radius_km),
@@ -380,7 +436,13 @@ function ZonesTab({ adminToken }) {
     setSaving(true);
     setMsg('');
     try {
-      await adminPost('save_setting', { key: 'delivery_origin_address', value: originAddress.trim() }, adminToken);
+      const normalizedStoreAddress = {
+        ...originAddress,
+        zipcode: String(originAddress.zipcode || '').replace(/\D/g, ''),
+        state: String(originAddress.state || '').trim().toUpperCase(),
+      };
+      await adminPost('save_setting', { key: 'delivery_origin_address_details', value: JSON.stringify(normalizedStoreAddress) }, adminToken);
+      await adminPost('save_setting', { key: 'delivery_origin_address', value: buildOriginAddressLine(normalizedStoreAddress) }, adminToken);
       await adminPost('save_setting', { key: 'delivery_radius_rules', value: JSON.stringify(cleaned) }, adminToken);
       setMsg('✅ Configuração de entrega por raio salva com sucesso!');
     } catch (e) {
@@ -404,17 +466,38 @@ function ZonesTab({ adminToken }) {
       ) : (
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
           <p style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>
-            Defina o endereço da loja e as faixas de raio. O sistema calculará a distância e aplicará automaticamente a taxa no checkout.
+            Defina o endereço completo da loja e as faixas de raio. O sistema calculará a distância e aplicará automaticamente a taxa no checkout.
           </p>
 
-          <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Endereço de origem da loja *</label>
-            <input
-              style={inputStyle}
-              placeholder="Ex: Rua X, 123, Centro, Cidade - UF"
-              value={originAddress}
-              onChange={e => setOriginAddress(e.target.value)}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+            <div>
+              <label style={labelStyle}>CEP *</label>
+              <input style={inputStyle} placeholder="00000-000" value={originAddress.zipcode} onChange={e => updateOrigin('zipcode', e.target.value)} />
+            </div>
+            <div>
+              <label style={labelStyle}>UF *</label>
+              <input style={inputStyle} placeholder="MG" maxLength={2} value={originAddress.state} onChange={e => updateOrigin('state', e.target.value.toUpperCase())} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Rua / Avenida *</label>
+              <input style={inputStyle} placeholder="Ex: Av. Brasil" value={originAddress.street} onChange={e => updateOrigin('street', e.target.value)} />
+            </div>
+            <div>
+              <label style={labelStyle}>Número *</label>
+              <input style={inputStyle} placeholder="Ex: 123" value={originAddress.number} onChange={e => updateOrigin('number', e.target.value)} />
+            </div>
+            <div>
+              <label style={labelStyle}>Complemento</label>
+              <input style={inputStyle} placeholder="Sala, loja, referência" value={originAddress.complement} onChange={e => updateOrigin('complement', e.target.value)} />
+            </div>
+            <div>
+              <label style={labelStyle}>Bairro *</label>
+              <input style={inputStyle} placeholder="Ex: Centro" value={originAddress.neighborhood} onChange={e => updateOrigin('neighborhood', e.target.value)} />
+            </div>
+            <div>
+              <label style={labelStyle}>Cidade *</label>
+              <input style={inputStyle} placeholder="Ex: Belo Horizonte" value={originAddress.city} onChange={e => updateOrigin('city', e.target.value)} />
+            </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
