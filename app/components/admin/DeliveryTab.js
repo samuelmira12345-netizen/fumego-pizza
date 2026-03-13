@@ -317,6 +317,126 @@ function PersonsTab({ adminToken }) {
 // Zones Tab
 // ═════════════════════════════════════════════════════════════════════════════
 
+// ── RadiusMapPreview ──────────────────────────────────────────────────────────
+
+const RING_COLORS = ['#16A34A', '#22C55E', '#4ADE80', '#86EFAC', '#BBF7D0'];
+
+function RadiusMapPreview({ rules, originCoords }) {
+  const SIZE   = 500;
+  const CX     = SIZE / 2;
+  const CY     = SIZE / 2;
+  const MARGIN = 50;
+
+  const active = [...rules]
+    .filter(r => parseFloat(r.radius_km) > 0)
+    .sort((a, b) => parseFloat(a.radius_km) - parseFloat(b.radius_km));
+
+  if (active.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#EEF4EE', gap: 8 }}>
+        <MapPin size={28} color='#86EFAC' />
+        <p style={{ fontSize: 13, color: '#6B7280', textAlign: 'center', maxWidth: 200 }}>Adicione raios na lista ao lado para visualizar as zonas</p>
+      </div>
+    );
+  }
+
+  const maxKm = Math.max(...active.map(r => parseFloat(r.radius_km)));
+  const scale = (SIZE / 2 - MARGIN) / maxKm;
+
+  const hasCoords = originCoords
+    && Number.isFinite(parseFloat(originCoords.lat))
+    && parseFloat(originCoords.lat) !== 0;
+
+  // Grid spacing: aim for ~6-8 grid lines based on maxKm
+  const gridStep = maxKm <= 2 ? 0.5 : maxKm <= 5 ? 1 : maxKm <= 10 ? 2 : 5;
+  const gridLines = [];
+  for (let d = gridStep; d <= maxKm * 1.05; d += gridStep) {
+    gridLines.push(d);
+  }
+
+  return (
+    <svg viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ width: '100%', height: '100%', display: 'block' }}>
+      {/* Background */}
+      <rect width={SIZE} height={SIZE} fill="#EEF4EE" />
+
+      {/* Subtle grid (concentric km rings as reference) */}
+      {gridLines.map(d => {
+        const r = d * scale;
+        return (
+          <circle key={`grid-${d}`} cx={CX} cy={CY} r={r}
+            fill="none" stroke="#C6DEC6" strokeWidth={0.6} strokeDasharray="3 5" />
+        );
+      })}
+      {/* Cardinal lines */}
+      <line x1={CX} y1={MARGIN / 2} x2={CX} y2={SIZE - MARGIN / 2} stroke="#C6DEC6" strokeWidth={0.6} />
+      <line x1={MARGIN / 2} y1={CY} x2={SIZE - MARGIN / 2} y2={CY} stroke="#C6DEC6" strokeWidth={0.6} />
+
+      {/* Delivery zone circles — largest first so smaller ones render on top */}
+      {[...active].reverse().map((rule, revIdx) => {
+        const idx     = active.length - 1 - revIdx;
+        const r       = parseFloat(rule.radius_km) * scale;
+        const color   = RING_COLORS[idx % RING_COLORS.length];
+        const inactive = rule.is_active === false;
+        return (
+          <circle key={`zone-${idx}`}
+            cx={CX} cy={CY} r={r}
+            fill={inactive ? '#D1D5DB22' : `${color}35`}
+            stroke={inactive ? '#9CA3AF' : color}
+            strokeWidth={1.8}
+            strokeDasharray={inactive ? '6 4' : undefined}
+          />
+        );
+      })}
+
+      {/* Radius labels at top of each circle */}
+      {active.map((rule, idx) => {
+        const r     = parseFloat(rule.radius_km) * scale;
+        const lx    = CX;
+        const ly    = CY - r;
+        const color = RING_COLORS[idx % RING_COLORS.length];
+        const label = `${rule.radius_km}km`;
+        const w     = label.length * 6.5 + 10;
+        return (
+          <g key={`lbl-${idx}`}>
+            <rect x={lx - w / 2} y={ly - 11} width={w} height={16} rx={4}
+              fill="white" opacity={0.88} />
+            <text x={lx} y={ly + 1} textAnchor="middle" dominantBaseline="middle"
+              fontSize={10} fontWeight="700" fill={color}>
+              {label}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* Store center */}
+      <circle cx={CX} cy={CY} r={16} fill="#F2A800" stroke="white" strokeWidth={2.5} />
+      <text x={CX} y={CY} textAnchor="middle" dominantBaseline="middle" fontSize={14}>🍕</text>
+
+      {/* Coords badge */}
+      {hasCoords && (
+        <g>
+          <rect x={8} y={SIZE - 24} width={160} height={18} rx={4} fill="rgba(255,255,255,0.85)" />
+          <text x={14} y={SIZE - 12} fontSize={9} fill="#374151">
+            📍 {parseFloat(originCoords.lat).toFixed(5)}, {parseFloat(originCoords.lng).toFixed(5)}
+          </text>
+        </g>
+      )}
+
+      {/* Scale indicator bottom-right */}
+      <g>
+        <line x1={SIZE - 8 - 60} y1={SIZE - 12} x2={SIZE - 8} y2={SIZE - 12} stroke="#6B7280" strokeWidth={1.5} />
+        <line x1={SIZE - 8 - 60} y1={SIZE - 16} x2={SIZE - 8 - 60} y2={SIZE - 8} stroke="#6B7280" strokeWidth={1.5} />
+        <line x1={SIZE - 8}      y1={SIZE - 16} x2={SIZE - 8}      y2={SIZE - 8} stroke="#6B7280" strokeWidth={1.5} />
+        <text x={SIZE - 8 - 30} y={SIZE - 16} textAnchor="middle" fontSize={9} fill="#6B7280">
+          {(60 / scale).toFixed(1)}km
+        </text>
+      </g>
+    </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function ZonesTab({ adminToken }) {
   const [originAddress, setOriginAddress] = useState({
     zipcode: '',
@@ -503,134 +623,210 @@ function ZonesTab({ adminToken }) {
     }
   }
 
+  const [addressOpen, setAddressOpen] = useState(!manualCoordsValid);
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Zonas por Raio</h3>
-        <button onClick={load} style={btnGhost}><RefreshCw size={14} /> Atualizar</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={load} style={btnGhost}><RefreshCw size={14} /> Atualizar</button>
+          <button onClick={saveRadiusConfig} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>
+            {saving ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Salvando…</> : <><Save size={13} /> Salvar</>}
+          </button>
+        </div>
       </div>
 
+      {msg && (
+        <div style={{ marginBottom: 12, padding: '10px 14px', borderRadius: 8, background: msg.startsWith('✅') ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${msg.startsWith('✅') ? '#86EFAC' : '#FECACA'}`, fontSize: 12, color: msg.startsWith('✅') ? '#15803D' : C.danger }}>
+          {msg}
+        </div>
+      )}
+
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
-          <Loader2 size={22} color={C.gold} style={{ animation: 'spin 1s linear infinite' }} />
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+          <Loader2 size={24} color={C.gold} style={{ animation: 'spin 1s linear infinite' }} />
         </div>
       ) : (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
-          <p style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>
-            Defina o endereço completo da loja e as faixas de raio. O sistema calculará a distância e aplicará automaticamente a taxa no checkout.
-          </p>
+        <>
+          {/* ── Main panel: map + zone list ─────────────────────────────── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 14, minHeight: 420 }}>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
-            <div>
-              <label style={labelStyle}>CEP *</label>
-              <input style={inputStyle} placeholder="00000-000" value={originAddress.zipcode} onChange={e => updateOrigin('zipcode', e.target.value)} />
+            {/* Map side */}
+            <div style={{ background: '#EEF4EE', position: 'relative', minHeight: 420 }}>
+              <RadiusMapPreview rules={rules} originCoords={originCoords} />
+              <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(255,255,255,0.9)', borderRadius: 8, padding: '4px 10px', fontSize: 11, color: C.muted, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                <MapPin size={11} color={C.gold} /> Visualização das zonas de entrega
+              </div>
             </div>
-            <div>
-              <label style={labelStyle}>UF *</label>
-              <input style={inputStyle} placeholder="MG" maxLength={2} value={originAddress.state} onChange={e => updateOrigin('state', e.target.value.toUpperCase())} />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Rua / Avenida *</label>
-              <input style={inputStyle} placeholder="Ex: Av. Brasil" value={originAddress.street} onChange={e => updateOrigin('street', e.target.value)} />
-            </div>
-            <div>
-              <label style={labelStyle}>Número *</label>
-              <input style={inputStyle} placeholder="Ex: 123" value={originAddress.number} onChange={e => updateOrigin('number', e.target.value)} />
-            </div>
-            <div>
-              <label style={labelStyle}>Complemento</label>
-              <input style={inputStyle} placeholder="Sala, loja, referência" value={originAddress.complement} onChange={e => updateOrigin('complement', e.target.value)} />
-            </div>
-            <div>
-              <label style={labelStyle}>Bairro *</label>
-              <input style={inputStyle} placeholder="Ex: Centro" value={originAddress.neighborhood} onChange={e => updateOrigin('neighborhood', e.target.value)} />
-            </div>
-            <div>
-              <label style={labelStyle}>Cidade *</label>
-              <input style={inputStyle} placeholder="Ex: Belo Horizonte" value={originAddress.city} onChange={e => updateOrigin('city', e.target.value)} />
+
+            {/* Zone list side */}
+            <div style={{ borderLeft: `1px solid ${C.border}`, background: '#fff', display: 'flex', flexDirection: 'column' }}>
+              {/* Panel header */}
+              <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: '#F9FAFB' }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Zonas de entrega</p>
+                <p style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{rules.filter(r => r.is_active !== false && parseFloat(r.radius_km) > 0).length} zona(s) ativa(s)</p>
+              </div>
+
+              {/* Zone cards */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {rules.length === 0 ? (
+                  <p style={{ fontSize: 12, color: C.light, textAlign: 'center', padding: '20px 0' }}>Nenhuma zona cadastrada</p>
+                ) : (
+                  rules.map((r, i) => {
+                    const km     = parseFloat(r.radius_km);
+                    const active = r.is_active !== false;
+                    const color  = RING_COLORS[i % RING_COLORS.length];
+                    return (
+                      <div key={`zone-${i}`} style={{ border: `1px solid ${active ? '#D1FAE5' : C.border}`, borderRadius: 10, padding: '10px 12px', background: active ? '#F0FDF4' : '#F9FAFB' }}>
+                        {/* Top: indicator + radius + toggle + delete */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: active ? color : '#D1D5DB', border: `2px solid ${active ? color : '#9CA3AF'}`, flexShrink: 0 }} />
+                          <input
+                            type="number" min="0.1" step="0.1"
+                            value={r.radius_km}
+                            onChange={e => updateRule(i, { radius_km: e.target.value })}
+                            placeholder="km"
+                            style={{ ...inputStyle, padding: '5px 7px', fontSize: 13, fontWeight: 700, width: 60, textAlign: 'center', flexShrink: 0 }}
+                          />
+                          <span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>km</span>
+                          <div style={{ flex: 1 }} />
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: C.muted, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={active} onChange={e => updateRule(i, { is_active: e.target.checked })} style={{ width: 13, height: 13 }} />
+                            Ativa
+                          </label>
+                          <button onClick={() => removeRule(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#FCA5A5', padding: '2px 4px', display: 'flex', alignItems: 'center' }}>
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                        {/* Bottom: fee + time */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                          <div>
+                            <label style={{ ...labelStyle, marginBottom: 3, fontSize: 9 }}>Taxa R$</label>
+                            <input
+                              type="number" min="0" step="0.5"
+                              value={r.fee}
+                              onChange={e => updateRule(i, { fee: e.target.value })}
+                              placeholder="0,00"
+                              style={{ ...inputStyle, padding: '5px 7px', fontSize: 12 }}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ ...labelStyle, marginBottom: 3, fontSize: 9 }}>Tempo (min)</label>
+                            <input
+                              type="number" min="5" step="5"
+                              value={r.estimated_mins}
+                              onChange={e => updateRule(i, { estimated_mins: e.target.value })}
+                              placeholder="30"
+                              style={{ ...inputStyle, padding: '5px 7px', fontSize: 12 }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Add zone button */}
+              <div style={{ padding: '10px 12px', borderTop: `1px solid ${C.border}` }}>
+                <button onClick={addRule} style={{ ...btnGhost, width: '100%', justifyContent: 'center', background: '#F0FDF4', borderColor: '#86EFAC', color: '#15803D', fontWeight: 700 }}>
+                  <Plus size={14} /> Nova zona
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Manual coordinates */}
-          <div style={{ background: manualCoordsValid ? '#F0FDF4' : '#F9FAFB', border: `1px solid ${manualCoordsValid ? '#86EFAC' : C.border}`, borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: manualCoordsValid ? '#15803D' : C.text, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <MapPin size={13} />
-                  Coordenadas da loja (opcional)
-                  {manualCoordsValid && <span style={{ fontSize: 10, background: '#DCFCE7', color: '#15803D', padding: '1px 7px', borderRadius: 10, fontWeight: 700 }}>ATIVAS — prioridade sobre endereço</span>}
-                </p>
-                <p style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                  {manualCoordsValid
-                    ? 'As coordenadas manuais estão sendo usadas para calcular a distância de entrega.'
-                    : 'Se preenchidas, têm prioridade total sobre o endereço. Útil para corrigir imprecisões do geocodificador.'}
-                </p>
-              </div>
+          {/* ── Address / coords config — collapsible ───────────────────── */}
+          <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', marginBottom: 8 }}>
+            <button
+              onClick={() => setAddressOpen(v => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '12px 16px', background: '#F9FAFB', border: 'none', cursor: 'pointer', borderBottom: addressOpen ? `1px solid ${C.border}` : 'none' }}
+            >
+              <MapPin size={14} color={C.gold} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: C.text, flex: 1, textAlign: 'left' }}>
+                Endereço e coordenadas da loja
+              </span>
               {manualCoordsValid && (
-                <button onClick={clearCoords} style={{ ...btnGhost, fontSize: 11, padding: '5px 10px', color: C.danger, borderColor: '#FECACA', flexShrink: 0 }}>
-                  <X size={12} /> Limpar
-                </button>
+                <span style={{ fontSize: 10, background: '#DCFCE7', color: '#15803D', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
+                  Coordenadas ativas
+                </span>
               )}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label style={labelStyle}>Latitude</label>
-                <input
-                  style={{ ...inputStyle, borderColor: manualCoordsValid ? '#86EFAC' : C.border }}
-                  type="number"
-                  step="any"
-                  placeholder="Ex: -19.920557"
-                  value={originCoords.lat}
-                  onChange={e => setOriginCoords(prev => ({ ...prev, lat: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Longitude</label>
-                <input
-                  style={{ ...inputStyle, borderColor: manualCoordsValid ? '#86EFAC' : C.border }}
-                  type="number"
-                  step="any"
-                  placeholder="Ex: -43.938545"
-                  value={originCoords.lng}
-                  onChange={e => setOriginCoords(prev => ({ ...prev, lng: e.target.value }))}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
-            {rules.map((r, i) => (
-              <div key={`radius-rule-${i}`} style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1fr auto auto', gap: 8, alignItems: 'end', background: '#F9FAFB', border: `1px solid ${C.border}`, borderRadius: 10, padding: 10 }}>
-                <div>
-                  <label style={labelStyle}>Raio até (km)</label>
-                  <input style={inputStyle} type="number" min="0.1" step="0.1" value={r.radius_km} onChange={e => updateRule(i, { radius_km: e.target.value })} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Taxa (R$)</label>
-                  <input style={inputStyle} type="number" min="0" step="0.5" value={r.fee} onChange={e => updateRule(i, { fee: e.target.value })} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Tempo (min)</label>
-                  <input style={inputStyle} type="number" min="5" step="5" value={r.estimated_mins} onChange={e => updateRule(i, { estimated_mins: e.target.value })} />
-                </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.text, marginBottom: 8 }}>
-                  <input type="checkbox" checked={!!r.is_active} onChange={e => updateRule(i, { is_active: e.target.checked })} /> Ativa
-                </label>
-                <button onClick={() => removeRule(i)} style={{ ...btnGhost, color: C.danger, borderColor: '#FECACA', padding: '7px 10px' }}>
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button onClick={addRule} style={btnGhost}><Plus size={14} /> Adicionar raio</button>
-            <button onClick={saveRadiusConfig} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>
-              {saving ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Salvando…</> : <><Save size={13} /> Salvar configuração</>}
+              {addressOpen ? <ChevronUp size={14} color={C.muted} /> : <ChevronDown size={14} color={C.muted} />}
             </button>
+
+            {addressOpen && (
+              <div style={{ padding: 16, background: C.card }}>
+                <p style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>
+                  O sistema calcula a distância do pedido a partir deste endereço e aplica a taxa da zona correspondente no checkout.
+                </p>
+
+                {/* Address fields */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+                  <div>
+                    <label style={labelStyle}>CEP *</label>
+                    <input style={inputStyle} placeholder="00000-000" value={originAddress.zipcode} onChange={e => updateOrigin('zipcode', e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>UF *</label>
+                    <input style={inputStyle} placeholder="MG" maxLength={2} value={originAddress.state} onChange={e => updateOrigin('state', e.target.value.toUpperCase())} />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>Rua / Avenida *</label>
+                    <input style={inputStyle} placeholder="Ex: Av. Brasil" value={originAddress.street} onChange={e => updateOrigin('street', e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Número *</label>
+                    <input style={inputStyle} placeholder="Ex: 123" value={originAddress.number} onChange={e => updateOrigin('number', e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Complemento</label>
+                    <input style={inputStyle} placeholder="Sala, loja, referência" value={originAddress.complement} onChange={e => updateOrigin('complement', e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Bairro *</label>
+                    <input style={inputStyle} placeholder="Ex: Centro" value={originAddress.neighborhood} onChange={e => updateOrigin('neighborhood', e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Cidade *</label>
+                    <input style={inputStyle} placeholder="Ex: Belo Horizonte" value={originAddress.city} onChange={e => updateOrigin('city', e.target.value)} />
+                  </div>
+                </div>
+
+                {/* Manual coordinates */}
+                <div style={{ background: manualCoordsValid ? '#F0FDF4' : '#F9FAFB', border: `1px solid ${manualCoordsValid ? '#86EFAC' : C.border}`, borderRadius: 10, padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <div>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: manualCoordsValid ? '#15803D' : C.text }}>
+                        Coordenadas manuais (opcional)
+                        {manualCoordsValid && <span style={{ marginLeft: 8, fontSize: 10, background: '#DCFCE7', color: '#15803D', padding: '1px 7px', borderRadius: 10 }}>PRIORIDADE ATIVA</span>}
+                      </p>
+                      <p style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                        {manualCoordsValid ? 'Usadas no cálculo de distância.' : 'Se preenchidas, têm prioridade sobre o endereço.'}
+                      </p>
+                    </div>
+                    {manualCoordsValid && (
+                      <button onClick={clearCoords} style={{ ...btnGhost, fontSize: 11, padding: '5px 10px', color: C.danger, borderColor: '#FECACA' }}>
+                        <X size={12} /> Limpar
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={labelStyle}>Latitude</label>
+                      <input style={{ ...inputStyle, borderColor: manualCoordsValid ? '#86EFAC' : C.border }} type="number" step="any" placeholder="Ex: -19.920557" value={originCoords.lat} onChange={e => setOriginCoords(prev => ({ ...prev, lat: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Longitude</label>
+                      <input style={{ ...inputStyle, borderColor: manualCoordsValid ? '#86EFAC' : C.border }} type="number" step="any" placeholder="Ex: -43.938545" value={originCoords.lng} onChange={e => setOriginCoords(prev => ({ ...prev, lng: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          {msg && <p style={{ marginTop: 10, fontSize: 12, color: msg.includes('Erro') ? C.danger : C.success }}>{msg}</p>}
-        </div>
+        </>
       )}
     </div>
   );
