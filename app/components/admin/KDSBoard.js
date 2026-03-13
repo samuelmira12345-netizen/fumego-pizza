@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Phone, MapPin, Clock, ChefHat, Truck, CheckCircle, XCircle,
+  Phone, MapPin, Clock, ChefHat, Truck, Bike, CheckCircle, XCircle,
   Printer, RefreshCw, Volume2, VolumeX, X, Bell, Calendar,
   CreditCard, Zap, Banknote, AlertTriangle, User, List,
   EyeOff, Eye, ChevronDown, Plus, ShoppingBag, Star,
@@ -75,6 +75,17 @@ function fmtPhone(p) {
   if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
   if (d.length === 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
   return p;
+}
+
+function getNameInitials(name) {
+  if (!name || typeof name !== 'string') return '';
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  return `${parts[0].slice(0, 1)}${parts[1].slice(0, 1)}`.toUpperCase();
 }
 
 function buildAddress(order) {
@@ -202,9 +213,11 @@ function useSecondTick() {
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onClick, isNew, isReady, onDragStart }) {
+function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPersonName, minCardHeight }) {
   const cfg  = S[order.status] || S.pending;
   const mins = elapsedMins(order.created_at);
+  const initials = getNameInitials(deliveryPersonName);
+  const isDelivering = order.status === 'delivering';
 
   const borderColor = isReady ? '#F59E0B' : isNew ? cfg.color : '#D1D5DB';
   const shadow = isReady
@@ -224,6 +237,7 @@ function OrderCard({ order, onClick, isNew, isReady, onDragStart }) {
         border: `1px solid ${borderColor}`,
         borderLeft: `4px solid ${cfg.color}`,
         padding: '11px 12px 10px',
+        minHeight: minCardHeight || 0,
         cursor: 'grab',
         boxShadow: shadow,
         transition: 'box-shadow 0.12s, transform 0.1s, opacity 0.1s',
@@ -277,6 +291,37 @@ function OrderCard({ order, onClick, isNew, isReady, onDragStart }) {
         <p style={{ fontSize: 13, fontWeight: 700, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {order.customer_name}
         </p>
+        {isDelivering && initials && (
+          <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5, background: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 800 }}>
+            <Bike size={12} />
+            <span>{initials}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Preview completo dos itens */}
+      <div style={{ marginTop: 8, borderTop: '1px dashed #E5E7EB', paddingTop: 7, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {(order.order_items || []).length === 0 ? (
+          <p style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>Itens carregando...</p>
+        ) : (
+          order.order_items.map((item, idx) => (
+            <div key={`${order.id}-preview-item-${idx}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: '#D97706', minWidth: 22, fontFamily: 'monospace' }}>
+                {parseInt(item.quantity, 10) || 1}x
+              </span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p style={{ fontSize: 11, color: '#374151', lineHeight: 1.25, fontWeight: 600, wordBreak: 'break-word' }}>
+                  {item.product_name || 'Item'}
+                </p>
+                {item.observations && (
+                  <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1, lineHeight: 1.2, wordBreak: 'break-word' }}>
+                    Obs: {item.observations}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
@@ -293,7 +338,7 @@ const DROP_TARGET_STATUS = {
   finalizados: 'delivered',
 };
 
-function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, onDrop }) {
+function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, onDrop, deliveryPersonsById }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const cards = orders
     .filter(o => col.statuses.includes(o.status))
@@ -302,6 +347,8 @@ function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, on
   const Icon = col.cfg.icon;
   const isFinalized = col.id === 'finalizados';
   const visible = isFinalized ? cards.slice(-8) : cards;
+  const maxItemsInColumn = Math.max(1, ...visible.map(o => (o.order_items || []).length || 1));
+  const minCardHeight = 96 + (maxItemsInColumn * 26);
 
   return (
     <div
@@ -367,6 +414,8 @@ function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, on
                 isNew={newIds.has(o.id)}
                 isReady={readyIds ? readyIds.has(o.id) : false}
                 onDragStart={onDragStart}
+                deliveryPersonName={deliveryPersonsById[String(o.delivery_person_id)] || o.delivery_person_name || ''}
+                minCardHeight={minCardHeight}
               />
             ))}
           </>
@@ -1639,7 +1688,6 @@ export default function KDSBoard({
 
   useEffect(() => {
     const ids = visible
-      .filter(o => ['pending', 'scheduled', 'confirmed', 'preparing', 'ready'].includes(o.status))
       .filter(o => !Object.prototype.hasOwnProperty.call(itemsByOrder, o.id))
       .map(o => o.id)
       .slice(0, 10);
@@ -1649,6 +1697,16 @@ export default function KDSBoard({
   }, [visible, itemsByOrder, fetchOrderItems]);
 
   const visibleWithItems = visible.map(o => ({ ...o, order_items: getOrderItems(o) }));
+
+  const deliveryPersonsById = deliveryPersons.reduce((acc, person) => {
+    acc[String(person.id)] = person.name || '';
+    return acc;
+  }, {});
+
+  useEffect(() => {
+    if (!adminToken || deliveryPersonsLoadedRef.current) return;
+    ensureDeliveryPersons();
+  }, [adminToken]);
 
   const todayOrders  = orders.filter(o => orderDateSP(o.created_at) === today);
   const activeToday  = todayOrders.filter(o => !['cancelled','delivered'].includes(o.status)).length;
@@ -1920,7 +1978,7 @@ export default function KDSBoard({
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: '#F1F3F5', overflow: 'hidden' }}>
 
       {/* ── Barra superior ────────────────────────────────────────────────── */}
-      <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '9px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', rowGap: 8 }}>
+      <div style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '9px 20px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', rowGap: 8, overflowX: 'auto' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
           <ShoppingBag size={18} color="#D97706" />
@@ -2019,7 +2077,7 @@ export default function KDSBoard({
       {/* ── Vista Kanban ──────────────────────────────────────────────────── */}
       {viewMode === 'kanban' && (
         <div
-          style={{ flex: 1, overflowX: 'hidden', overflowY: 'hidden', padding: '12px 16px', display: 'flex', gap: 11, alignItems: 'stretch' }}
+          style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden', padding: '12px 16px', display: 'flex', gap: 11, alignItems: 'stretch' }}
           onDragEnd={() => setDragging(null)}
         >
           {cols.map(col => (
@@ -2031,6 +2089,7 @@ export default function KDSBoard({
               newIds={newIds}
               readyIds={readyIds}
               onDragStart={order => setDragging(order)}
+              deliveryPersonsById={deliveryPersonsById}
               onDrop={targetStatus => {
                 if (dragging && dragging.status !== targetStatus) {
                   handleAction(dragging.id, 'status', targetStatus);
