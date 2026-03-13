@@ -6,7 +6,7 @@ import {
   Printer, RefreshCw, Volume2, VolumeX, X, Bell, Calendar,
   CreditCard, Zap, Banknote, AlertTriangle, User, List,
   EyeOff, Eye, ChevronDown, Plus, ShoppingBag, Star,
-  ArrowRight, PackageCheck, Timer, LayoutList,
+  ArrowRight, PackageCheck, Timer, LayoutList, FilePenLine,
 } from 'lucide-react';
 import ManualOrderDrawer from './ManualOrderDrawer';
 import OrdersTab from './OrdersTab';
@@ -835,7 +835,7 @@ function PaymentPanel({ order, onSave }) {
   );
 }
 
-function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, adminToken, customerOrderCount, deliveryPersons, onAssignDeliveryPerson, onEnsureDeliveryPersons }) {
+function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, onAddressUpdate, onItemsUpdate, adminToken, customerOrderCount, deliveryPersons, onAssignDeliveryPerson, onEnsureDeliveryPersons }) {
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [showPrintDialog, setShowPrintDialog]         = useState(false);
   const [showPaymentFlow, setShowPaymentFlow]         = useState(false);
@@ -848,6 +848,47 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
   const [dangerAction, setDangerAction]               = useState('cancel');
   const [adminPassword, setAdminPassword]             = useState('');
   const [dangerSaving, setDangerSaving]               = useState(false);
+  const [editingAddress, setEditingAddress]             = useState(false);
+  const [savingAddress, setSavingAddress]               = useState(false);
+  const [addressDraft, setAddressDraft]                 = useState({
+    delivery_street: order?.delivery_street || '',
+    delivery_number: order?.delivery_number || '',
+    delivery_complement: order?.delivery_complement || '',
+    delivery_neighborhood: order?.delivery_neighborhood || '',
+    delivery_city: order?.delivery_city || '',
+    delivery_zipcode: order?.delivery_zipcode || '',
+  });
+  const [editingItems, setEditingItems]                 = useState(false);
+  const [savingItems, setSavingItems]                   = useState(false);
+  const [itemsDraft, setItemsDraft]                     = useState([]);
+
+  useEffect(() => {
+    setAddressDraft({
+      delivery_street: order?.delivery_street || '',
+      delivery_number: order?.delivery_number || '',
+      delivery_complement: order?.delivery_complement || '',
+      delivery_neighborhood: order?.delivery_neighborhood || '',
+      delivery_city: order?.delivery_city || '',
+      delivery_zipcode: order?.delivery_zipcode || '',
+    });
+  }, [
+    order?.id,
+    order?.delivery_street,
+    order?.delivery_number,
+    order?.delivery_complement,
+    order?.delivery_neighborhood,
+    order?.delivery_city,
+    order?.delivery_zipcode,
+  ]);
+
+  useEffect(() => {
+    setItemsDraft((items || []).map(item => ({
+      product_name: item.product_name || '',
+      quantity: item.quantity || 1,
+      unit_price: item.unit_price || 0,
+      observations: item.observations || '',
+    })));
+  }, [order?.id, items]);
 
   if (!order) return null;
   const cfg  = S[order.status] || S.pending;
@@ -898,6 +939,50 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
       setShowPaymentFlow(false);
     } finally {
       setSavingPaymentFlow(false);
+    }
+  }
+
+  async function saveAddress() {
+    setSavingAddress(true);
+    try {
+      await onAddressUpdate(addressDraft);
+      setEditingAddress(false);
+    } finally {
+      setSavingAddress(false);
+    }
+  }
+
+  function updateItemDraft(index, field, value) {
+    setItemsDraft(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+  }
+
+  function addItemDraft() {
+    setItemsDraft(prev => ([...prev, { product_name: '', quantity: 1, unit_price: 0, observations: '' }]));
+  }
+
+  function removeItemDraft(index) {
+    setItemsDraft(prev => prev.filter((_, i) => i !== index));
+  }
+
+  async function saveItems() {
+    setSavingItems(true);
+    try {
+      const cleaned = itemsDraft
+        .map(item => ({
+          product_name: String(item.product_name || '').trim(),
+          quantity: Math.max(1, parseInt(item.quantity, 10) || 1),
+          unit_price: Math.max(0, parseFloat(item.unit_price) || 0),
+          observations: String(item.observations || '').trim(),
+        }))
+        .filter(item => item.product_name);
+      if (cleaned.length === 0) {
+        alert('Adicione pelo menos um item com nome.');
+        return;
+      }
+      await onItemsUpdate(cleaned);
+      setEditingItems(false);
+    } finally {
+      setSavingItems(false);
     }
   }
 
@@ -994,13 +1079,8 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
 
             {/* Endereço */}
             <Section label="Endereço" icon={<MapPin size={12} />}>
-              {maps.googleMaps ? (
-                <a
-                  href={maps.googleMaps}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ display: 'inline-block', fontSize: 13, fontWeight: 700, color: '#2563EB', marginBottom: 2, textDecoration: 'underline' }}
-                >
+              {!editingAddress && (maps.googleMaps ? (
+                <a href={maps.googleMaps} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', fontSize: 13, fontWeight: 700, color: '#2563EB', marginBottom: 2, textDecoration: 'underline' }}>
                   {order.delivery_street}, {order.delivery_number}
                   {order.delivery_complement ? ` — ${order.delivery_complement}` : ''}
                 </a>
@@ -1009,35 +1089,43 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                   {order.delivery_street}, {order.delivery_number}
                   {order.delivery_complement ? ` — ${order.delivery_complement}` : ''}
                 </p>
+              ))}
+              {!editingAddress && (
+                <p style={{ fontSize: 12, color: '#6B7280' }}>
+                  {order.delivery_neighborhood}{order.delivery_city ? `, ${order.delivery_city}` : ''}
+                  {order.delivery_zipcode ? ` · ${order.delivery_zipcode}` : ''}
+                </p>
               )}
-              <p style={{ fontSize: 12, color: '#6B7280' }}>
-                {order.delivery_neighborhood}{order.delivery_city ? `, ${order.delivery_city}` : ''}
-                {order.delivery_zipcode ? ` · ${order.delivery_zipcode}` : ''}
-              </p>
-              {maps.googleMaps && (
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                  <a
-                    href={maps.googleMaps}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 6, padding: '4px 8px', textDecoration: 'none' }}
-                  >
-                    Google Maps
-                  </a>
-                  <a
-                    href={maps.waze}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: 11, fontWeight: 700, color: '#0C4A6E', background: '#ECFEFF', border: '1px solid #A5F3FC', borderRadius: 6, padding: '4px 8px', textDecoration: 'none' }}
-                  >
-                    Waze
-                  </a>
+              {editingAddress && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 8 }}>
+                  <input value={addressDraft.delivery_street} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_street: e.target.value }))} placeholder="Rua" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                  <input value={addressDraft.delivery_number} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_number: e.target.value }))} placeholder="Número" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                  <input value={addressDraft.delivery_complement} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_complement: e.target.value }))} placeholder="Complemento" style={{ gridColumn: '1 / -1', padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                  <input value={addressDraft.delivery_neighborhood} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_neighborhood: e.target.value }))} placeholder="Bairro" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                  <input value={addressDraft.delivery_zipcode} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_zipcode: e.target.value }))} placeholder="CEP" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                  <input value={addressDraft.delivery_city} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_city: e.target.value }))} placeholder="Cidade" style={{ gridColumn: '1 / -1', padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
                 </div>
               )}
+              {maps.googleMaps && !editingAddress && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                  <a href={maps.googleMaps} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 6, padding: '4px 8px', textDecoration: 'none' }}>Google Maps</a>
+                  <a href={maps.waze} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 700, color: '#0C4A6E', background: '#ECFEFF', border: '1px solid #A5F3FC', borderRadius: 6, padding: '4px 8px', textDecoration: 'none' }}>Waze</a>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                {!editingAddress ? (
+                  <button onClick={() => setEditingAddress(true)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', fontSize: 11, fontWeight: 700, color: '#374151', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}><FilePenLine size={12} /> Editar endereço</button>
+                ) : (
+                  <>
+                    <button onClick={() => { setEditingAddress(false); setAddressDraft({ delivery_street: order?.delivery_street || '', delivery_number: order?.delivery_number || '', delivery_complement: order?.delivery_complement || '', delivery_neighborhood: order?.delivery_neighborhood || '', delivery_city: order?.delivery_city || '', delivery_zipcode: order?.delivery_zipcode || '' }); }} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', fontSize: 11, fontWeight: 700, color: '#6B7280', cursor: 'pointer' }}>Cancelar</button>
+                    <button onClick={saveAddress} disabled={savingAddress} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: savingAddress ? '#9CA3AF' : '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: savingAddress ? 'not-allowed' : 'pointer' }}>{savingAddress ? 'Salvando...' : 'Salvar endereço'}</button>
+                  </>
+                )}
+              </div>
             </Section>
 
             {['ready', 'delivering'].includes(order.status) && (
-              <Section label="Entregador" icon={<Truck size={12} />}>
+              <Section label="Entregador" icon={<Truck size={12} />} collapsible defaultExpanded={false}>
                 <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>
                   Se necessário, altere o entregador responsável por este pedido.
                 </p>
@@ -1061,13 +1149,36 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
             )}
 
             {/* Timeline */}
-            <Section label="Timeline do pedido" icon={<Timer size={12} />}>
+            <Section label="Timeline do pedido" icon={<Timer size={12} />} collapsible defaultExpanded={false}>
               <OrderTimeline order={order} />
             </Section>
 
             {/* Itens */}
-            <Section label="Itens do Pedido" icon={<List size={12} />}>
-              {itemsLoading ? (
+            <Section label="Itens do Pedido" icon={<List size={12} />} collapsible defaultExpanded={false}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                {!editingItems ? (
+                  <button onClick={() => setEditingItems(true)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', fontSize: 11, fontWeight: 700, color: '#374151', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}><FilePenLine size={12} /> Editar itens</button>
+                ) : (
+                  <>
+                    <button onClick={addItemDraft} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #BFDBFE', background: '#EFF6FF', fontSize: 11, fontWeight: 700, color: '#2563EB', cursor: 'pointer' }}>+ Item</button>
+                    <button onClick={() => { setEditingItems(false); setItemsDraft((items || []).map(item => ({ product_name: item.product_name || '', quantity: item.quantity || 1, unit_price: item.unit_price || 0, observations: item.observations || '' }))); }} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', fontSize: 11, fontWeight: 700, color: '#6B7280', cursor: 'pointer' }}>Cancelar</button>
+                    <button onClick={saveItems} disabled={savingItems} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: savingItems ? '#9CA3AF' : '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: savingItems ? 'not-allowed' : 'pointer' }}>{savingItems ? 'Salvando...' : 'Salvar itens'}</button>
+                  </>
+                )}
+              </div>
+              {editingItems ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {itemsDraft.map((item, i) => (
+                    <div key={`item-draft-${i}`} style={{ border: '1px solid #E5E7EB', borderRadius: 6, padding: 8, display: 'grid', gridTemplateColumns: '1fr 78px 92px', gap: 6 }}>
+                      <input value={item.product_name} onChange={e => updateItemDraft(i, 'product_name', e.target.value)} placeholder="Nome do item" style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                      <input type="number" min="1" value={item.quantity} onChange={e => updateItemDraft(i, 'quantity', e.target.value)} placeholder="Qtd" style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                      <input type="number" min="0" step="0.01" value={item.unit_price} onChange={e => updateItemDraft(i, 'unit_price', e.target.value)} placeholder="Unitário" style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                      <input value={item.observations} onChange={e => updateItemDraft(i, 'observations', e.target.value)} placeholder="Observações" style={{ gridColumn: '1 / span 2', padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                      <button onClick={() => removeItemDraft(i)} style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #FECACA', background: '#FEF2F2', color: '#B91C1C', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Remover</button>
+                    </div>
+                  ))}
+                </div>
+              ) : itemsLoading ? (
                 <div style={{ display: 'flex', gap: 7, alignItems: 'center', color: '#9CA3AF', fontSize: 13 }}>
                   <div style={{ width: 13, height: 13, border: '2px solid #E5E7EB', borderTopColor: '#6B7280', borderRadius: '50%', animation: 'kdsSpin 0.8s linear infinite' }} />
                   Carregando...
@@ -1103,7 +1214,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                   </div>
                 </div>
               ) : (
-                <p style={{ fontSize: 13, color: '#9CA3AF' }}>Nenhum item encontrado</p>
+                <p style={{ fontSize: 13, color: '#9CA3AF' }}>Sem itens para este pedido.</p>
               )}
             </Section>
 
@@ -1276,14 +1387,40 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function Section({ label, icon, children }) {
+function Section({ label, icon, children, collapsible = false, defaultExpanded = true }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+
   return (
     <div style={{ background: '#F9FAFB', borderRadius: 5, padding: '11px 13px', border: '1px solid #E5E7EB' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
-        <span style={{ color: '#6B7280' }}>{icon}</span>
-        <span style={{ fontSize: 10, fontWeight: 800, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase' }}>{label}</span>
-      </div>
-      {children}
+      <button
+        type="button"
+        onClick={() => collapsible && setExpanded(prev => !prev)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+          marginBottom: expanded ? 8 : 0,
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
+          cursor: collapsible ? 'pointer' : 'default',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ color: '#6B7280' }}>{icon}</span>
+          <span style={{ fontSize: 10, fontWeight: 800, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase' }}>{label}</span>
+        </span>
+        {collapsible && (
+          <ChevronDown
+            size={14}
+            color="#6B7280"
+            style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s ease' }}
+          />
+        )}
+      </button>
+      {(!collapsible || expanded) && children}
     </div>
   );
 }
@@ -1367,6 +1504,7 @@ function KitchenOrderDetailsModal({ order, onClose }) {
 }
 
 function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) {
+  const isItemsLoading = !!order.order_items_loading;
   const [marking, setMarking] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const mins = elapsedMins(order.created_at);
@@ -1426,8 +1564,10 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) 
 
       {/* Preview de itens para cozinha */}
       <div style={{ marginTop: 4, borderTop: '1px dashed #E5E7EB', paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {(order.order_items || []).length === 0 ? (
-          <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>Itens carregando...</p>
+        {isItemsLoading ? (
+          <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>Carregando itens...</p>
+        ) : (order.order_items || []).length === 0 ? (
+          <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>Sem itens para este pedido.</p>
         ) : (
           order.order_items.map((item, idx) => (
             <div key={`${order.id}-kitchen-preview-item-${idx}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -1608,6 +1748,7 @@ export default function KDSBoard({
   const [items, setItems]               = useState([]);
   const [itemsByOrder, setItemsByOrder] = useState({});
   const [itemsLoading, setItemsLoading] = useState(false);
+  const [itemsLoadingByOrder, setItemsLoadingByOrder] = useState({});
   const [soundOn, setSoundOn]           = useState(true);
   const [newIds, setNewIds]             = useState(new Set());
   const [readyIds, setReadyIds]         = useState(new Set());
@@ -1657,6 +1798,7 @@ export default function KDSBoard({
   const fetchOrderItems = useCallback(async (orderId) => {
     if (!orderId || fetchingItemsRef.current.has(orderId)) return null;
     fetchingItemsRef.current.add(orderId);
+    setItemsLoadingByOrder(prev => ({ ...prev, [orderId]: true }));
     try {
       const res = await fetch('/api/admin', {
         method: 'POST',
@@ -1672,6 +1814,7 @@ export default function KDSBoard({
       return [];
     } finally {
       fetchingItemsRef.current.delete(orderId);
+      setItemsLoadingByOrder(prev => ({ ...prev, [orderId]: false }));
     }
   }, [adminToken]);
 
@@ -1692,7 +1835,11 @@ export default function KDSBoard({
     ids.forEach(id => { fetchOrderItems(id); });
   }, [visible, itemsByOrder, fetchOrderItems]);
 
-  const visibleWithItems = visible.map(o => ({ ...o, order_items: getOrderItems(o) }));
+  const visibleWithItems = visible.map(o => ({
+    ...o,
+    order_items: getOrderItems(o),
+    order_items_loading: !!itemsLoadingByOrder[o.id],
+  }));
 
   const deliveryPersonsById = deliveryPersons.reduce((acc, person) => {
     acc[String(person.id)] = person.name || '';
@@ -1892,6 +2039,42 @@ export default function KDSBoard({
       }
     }
     setModal(prev => prev?.id === orderId ? { ...prev, ...updates } : prev);
+  }
+
+  async function handleAddressUpdate(orderId, updates) {
+    onUpdateStatus(orderId, 'delivery_street', updates.delivery_street || null);
+    onUpdateStatus(orderId, 'delivery_number', updates.delivery_number || null);
+    onUpdateStatus(orderId, 'delivery_complement', updates.delivery_complement || null);
+    onUpdateStatus(orderId, 'delivery_neighborhood', updates.delivery_neighborhood || null);
+    onUpdateStatus(orderId, 'delivery_city', updates.delivery_city || null);
+    onUpdateStatus(orderId, 'delivery_zipcode', updates.delivery_zipcode || null);
+    setModal(prev => prev?.id === orderId ? { ...prev, ...updates } : prev);
+  }
+
+  async function handleItemsUpdate(orderId, nextItems) {
+    const res = await fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ action: 'update_order_items', data: { id: orderId, items: nextItems } }),
+    });
+    const d = await res.json();
+    if (!res.ok || d.error) {
+      throw new Error(d.error || 'Erro ao atualizar itens');
+    }
+
+    const refreshedItems = Array.isArray(d.items) ? d.items : [];
+    setItems(refreshedItems);
+    setItemsByOrder(prev => ({ ...prev, [orderId]: refreshedItems }));
+
+    const totalsUpdate = {
+      subtotal: d.subtotal,
+      total: d.total,
+    };
+    onUpdateStatus(orderId, 'subtotal', d.subtotal);
+    onUpdateStatus(orderId, 'total', d.total);
+    setModal(prev => prev?.id === orderId ? { ...prev, ...totalsUpdate } : prev);
+
+    if (onRefreshOrders) onRefreshOrders();
   }
 
   function handlePrint(type = 'balcao') {
@@ -2120,6 +2303,8 @@ export default function KDSBoard({
           onClose={() => setModal(null)}
           onAction={handleAction}
           onPaymentUpdate={(updates) => handlePaymentUpdate(modal.id, updates)}
+          onAddressUpdate={(updates) => handleAddressUpdate(modal.id, updates)}
+          onItemsUpdate={(nextItems) => handleItemsUpdate(modal.id, nextItems)}
           onPrint={handlePrint}
           adminToken={adminToken}
           customerOrderCount={customerOrderCount}
