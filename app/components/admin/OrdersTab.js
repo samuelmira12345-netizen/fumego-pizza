@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Loader2, Landmark, CreditCard, Banknote, Clock, Search, X, Calendar, Bookmark, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Landmark, CreditCard, Banknote, Clock, Search, X, Calendar, Bookmark, Plus, Trash2, ListOrdered } from 'lucide-react';
+import DeliveryQueueTab from './DeliveryQueueTab';
 
 const GOLD = '#D4A528';
 const SAVED_FILTERS_KEY = 'fumego_saved_filters';
@@ -109,6 +110,8 @@ function persistSavedFilters(filters) {
 }
 
 export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdateStatus, onLoadMore, adminToken }) {
+  const [mainTab, setMainTab] = useState('orders'); // 'orders' | 'queue'
+
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [datePreset, setDatePreset]     = useState('all');
@@ -253,6 +256,34 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
   return (
     <div>
+      {/* ── Sub-tabs: Pedidos / Gestão de Entregas ── */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 18, borderBottom: '2px solid #333', width: 'fit-content' }}>
+        {[
+          { key: 'orders', label: 'Pedidos' },
+          { key: 'queue',  label: '🚴 Gestão de Entregas', icon: <ListOrdered size={13} style={{ marginRight: 5 }} /> },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setMainTab(t.key)}
+            style={{
+              padding: '8px 18px', background: 'none', border: 'none',
+              borderBottom: mainTab === t.key ? `2px solid ${GOLD}` : '2px solid transparent',
+              marginBottom: -2,
+              fontSize: 13, fontWeight: mainTab === t.key ? 800 : 600,
+              color: mainTab === t.key ? GOLD : '#888',
+              cursor: 'pointer', display: 'flex', alignItems: 'center',
+            }}
+          >
+            {t.icon}{t.label}
+          </button>
+        ))}
+      </div>
+
+      {mainTab === 'queue' && (
+        <DeliveryQueueTab adminToken={adminToken} />
+      )}
+
+      {mainTab === 'orders' && <>
       {/* ── Filtros salvos ── */}
       {savedFilters.length > 0 && (
         <div style={{ marginBottom: 10 }}>
@@ -644,6 +675,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
           </div>
         </div>
       )}
+      </>}
     </div>
   );
 }

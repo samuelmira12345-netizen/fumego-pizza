@@ -114,7 +114,7 @@ function LoginScreen({ onLogin }) {
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, token, onStatusUpdate }) {
+function OrderCard({ order, token, onStatusUpdate, isBlocked, queuePosition }) {
   const [expanded, setExpanded] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [showConfirm, setShowConfirm] = useState(null); // 'collected' | 'delivered'
@@ -168,16 +168,22 @@ function OrderCard({ order, token, onStatusUpdate }) {
           <div style={{
             width: 44, height: 44, borderRadius: 10,
             background: isDelivered ? '#064E3B' : isCollected ? '#4C1D95' : '#374151',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
           }}>
             {isDelivered ? <CheckCircle size={22} color="#34D399" /> : isCollected ? <Truck size={22} color="#A78BFA" /> : <Package size={22} color="#9CA3AF" />}
+            {isBlocked && (
+              <div style={{ position: 'absolute', top: -5, right: -5, width: 16, height: 16, borderRadius: '50%', background: '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9 }}>🔒</div>
+            )}
+            {!isDelivered && !isBlocked && queuePosition && (
+              <div style={{ position: 'absolute', top: -5, right: -5, width: 18, height: 18, borderRadius: '50%', background: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff' }}>{queuePosition}</div>
+            )}
           </div>
           <div>
             <div style={{ fontSize: 18, fontWeight: 900, color: '#fff', fontFamily: 'monospace' }}>
               #{order.order_number || String(order.id).slice(-4).toUpperCase()}
             </div>
             <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 1 }}>
-              {isDelivered ? '✅ Entregue' : isCollected ? '🏍️ Em rota' : '📦 Aguardando retirada'}
+              {isDelivered ? '✅ Entregue' : isBlocked ? '🔒 Aguardando anterior' : isCollected ? '🏍️ Em rota' : '📦 Aguardando retirada'}
             </div>
           </div>
         </div>
@@ -221,6 +227,15 @@ function OrderCard({ order, token, onStatusUpdate }) {
       </div>
 
       {/* Expandable details */}
+      {isBlocked ? (
+        <div style={{ padding: '10px 16px', background: '#111827', borderTop: '1px solid #374151', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 18 }}>🔒</span>
+          <span style={{ fontSize: 13, color: '#6B7280' }}>
+            Complete o {queuePosition === 2 ? '1°' : `pedido anterior`} primeiro para desbloquear este pedido
+          </span>
+        </div>
+      ) : (
+        <>
       <button
         onClick={() => setExpanded(v => !v)}
         style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', background: '#111827', border: 'none', borderTop: '1px solid #374151', cursor: 'pointer', color: '#9CA3AF', fontSize: 13 }}
@@ -236,8 +251,13 @@ function OrderCard({ order, token, onStatusUpdate }) {
             <p style={{ fontSize: 10, color: '#6B7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 5 }}>CLIENTE</p>
             <p style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{order.customer_name}</p>
             {order.customer_phone && (
-              <a href={`tel:${order.customer_phone}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5, color: '#60A5FA', fontSize: 13, textDecoration: 'none' }}>
-                <Phone size={13} /> {fmtPhone(order.customer_phone)}
+              <a
+                href={`https://wa.me/55${order.customer_phone.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 5, color: '#4ADE80', fontSize: 13, textDecoration: 'none' }}
+              >
+                <Phone size={13} /> {fmtPhone(order.customer_phone)} · WhatsApp
               </a>
             )}
           </div>
@@ -330,6 +350,8 @@ function OrderCard({ order, token, onStatusUpdate }) {
             </div>
           )}
         </div>
+      )}
+        </>
       )}
     </div>
   );
@@ -439,6 +461,15 @@ export default function EntregasPage() {
   const deliveredCount = completedOrders.length;
   const deliveredFees = completedOrders.reduce((sum, o) => sum + (parseFloat(o.delivery_fee) || 0), 0);
 
+  // Compute blocking: only the first undelivered active order is unlocked
+  // (orders are already sorted by delivery_sort_order from the server)
+  let foundFirstActive = false;
+  const activeWithBlocking = activeOrders.map((order, idx) => {
+    const isBlocked = foundFirstActive; // blocked if a previous active exists
+    foundFirstActive = true;
+    return { order, isBlocked, queuePosition: idx + 1 };
+  });
+
   return (
     <div style={{ minHeight: '100dvh', background: '#111827', display: 'flex', flexDirection: 'column' }}>
       <style>{`
@@ -496,20 +527,22 @@ export default function EntregasPage() {
         ) : (
           <>
             {/* Active orders */}
-            {activeOrders.length > 0 && (
+            {activeWithBlocking.length > 0 && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
                   <Truck size={14} color="#F59E0B" />
                   <span style={{ fontSize: 11, fontWeight: 800, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: 1 }}>
-                    Para Entregar ({activeOrders.length})
+                    Para Entregar ({activeWithBlocking.length})
                   </span>
                 </div>
-                {activeOrders.map(order => (
+                {activeWithBlocking.map(({ order, isBlocked, queuePosition }) => (
                   <OrderCard
                     key={order.id}
                     order={order}
                     token={token}
                     onStatusUpdate={handleStatusUpdate}
+                    isBlocked={isBlocked}
+                    queuePosition={queuePosition}
                   />
                 ))}
               </>

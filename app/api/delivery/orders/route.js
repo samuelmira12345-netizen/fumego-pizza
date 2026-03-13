@@ -23,20 +23,42 @@ export async function GET(request) {
     if (!person) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const supabase = getSupabaseAdmin();
-    const since48h = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
 
-    const { data: orders, error } = await supabase
-      .from('orders')
-      .select('*, delivery_persons(name, phone)')
-      .eq('delivery_person_id', person.id)
-      .in('status', ['ready', 'delivering', 'delivered'])
-      .gte('created_at', since48h)
-      .order('created_at', { ascending: false });
+    // Today's start in São Paulo (UTC-3, fixed — Brazil abolished DST in 2019)
+    const todaySP = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    const todayStartISO = new Date(`${todaySP}T00:00:00-03:00`).toISOString();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // Fetch: today's orders (any status) OR still-open orders from any date
+    const [{ data: todayOrders, error: e1 }, { data: openOrders, error: e2 }] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('*, delivery_persons(name, phone)')
+        .eq('delivery_person_id', person.id)
+        .in('status', ['ready', 'delivering', 'delivered'])
+        .gte('created_at', todayStartISO),
+      supabase
+        .from('orders')
+        .select('*, delivery_persons(name, phone)')
+        .eq('delivery_person_id', person.id)
+        .in('status', ['ready', 'delivering']),
+    ]);
+
+    if (e1 || e2) return NextResponse.json({ error: (e1 || e2).message }, { status: 500 });
+
+    // Merge, deduplicate and sort by delivery_sort_order → created_at
+    const orderMap = new Map();
+    [...(todayOrders || []), ...(openOrders || [])].forEach(o => orderMap.set(o.id, o));
+    const orders = Array.from(orderMap.values()).sort((a, b) => {
+      const as = a.delivery_sort_order ?? 999999;
+      const bs = b.delivery_sort_order ?? 999999;
+      if (as !== bs) return as - bs;
+      return new Date(a.created_at) - new Date(b.created_at);
+    });
+
+    if (!orders.length) return NextResponse.json({ orders: [] });
 
     // Get order items for each order
-    const ordersWithItems = await Promise.all((orders || []).map(async order => {
+    const ordersWithItems = await Promise.all(orders.map(async order => {
       const { data: items } = await supabase
         .from('order_items')
         .select('product_name, quantity, unit_price, total_price, observations')
