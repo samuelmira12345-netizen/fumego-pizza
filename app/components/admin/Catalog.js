@@ -243,11 +243,28 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
 
 const UNITS_COMPOUND = ['unid', 'kg', 'g', 'L', 'ml', 'cx', 'pct', 'dz', 'ft', 'Bag', 'UN', 'KG'];
 
+/** Calcula automaticamente o rendimento de uma receita somando as quantidades dos insumos. */
+function autoCalcYield(enrichedItems, unit) {
+  const toGrams = { kg: 1000, g: 1 };
+  const toMl    = { L: 1000, ml: 1 };
+  let totalG = 0, totalMl = 0, totalCount = 0;
+  enrichedItems.forEach(item => {
+    const q = parseFloat(item.quantity) || 0;
+    if (toGrams[item.unit] !== undefined)  totalG     += q * toGrams[item.unit];
+    else if (toMl[item.unit] !== undefined) totalMl   += q * toMl[item.unit];
+    else                                    totalCount += q;
+  });
+  if (unit === 'kg')  return totalG   > 0 ? +(totalG   / 1000).toFixed(3) : null;
+  if (unit === 'g')   return totalG   > 0 ? +totalG.toFixed(0)            : null;
+  if (unit === 'L')   return totalMl  > 0 ? +(totalMl  / 1000).toFixed(3) : null;
+  if (unit === 'ml')  return totalMl  > 0 ? +totalMl.toFixed(0)           : null;
+  return totalCount > 0 ? +totalCount.toFixed(3) : null;
+}
+
 // ── RecipeItemsEditor: edit ingredients of a single named recipe ──────────────
 function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved, onCancel, onIngredientCreated }) {
   const existing = recipe?.compound_recipe_items || [];
-  const [name, setName]     = useState(recipe?.name || '');
-  const [yieldQty, setYieldQty] = useState(String(recipe?.yield_quantity ?? 1));
+  const [name, setName]         = useState(recipe?.name || '');
   const [yieldUnit, setYieldUnit] = useState(recipe?.yield_unit || compound.unit);
   const [items, setItems]   = useState(existing.map(i => ({ ingredient_id: i.ingredient_id, quantity: String(i.quantity) })));
   const [addIng, setAddIng] = useState('');
@@ -269,9 +286,9 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
     const cf = sub?.correction_factor;
     return { ...i, name: sub?.name, unit: sub?.unit, cost_per_unit: costWithFC(rawCost, cf), raw_cost: rawCost, correction_factor: cf };
   });
-  const totalCost = enriched.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
-  const yieldNum  = parseFloat(yieldQty) || 1;
-  const costPerUnit = yieldNum > 0 ? totalCost / yieldNum : 0;
+  const totalCost   = enriched.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
+  const yieldNum    = autoCalcYield(enriched, yieldUnit);
+  const costPerUnit = yieldNum ? totalCost / yieldNum : 0;
 
   function addItem() {
     if (!addIng || !addQty) return;
@@ -316,7 +333,7 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
           id: recipe?.id || null,
           compound_id: compound.id,
           name: name.trim(),
-          yield_quantity: parseFloat(yieldQty) || 1,
+          yield_quantity: yieldNum || 0,
           yield_unit: yieldUnit,
           items: items.map(i => ({ ingredient_id: i.ingredient_id, quantity: parseFloat(i.quantity) || 0 })),
         }}),
@@ -330,44 +347,21 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
 
   return (
     <div style={{ background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 8, padding: '12px 14px', marginBottom: 10 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 90px', gap: 8, marginBottom: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 8, marginBottom: 10 }}>
         <div>
           <label style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, display: 'block', marginBottom: 3 }}>NOME DA RECEITA *</label>
           <input value={name} onChange={e => setName(e.target.value)} placeholder="ex: Massa 10kg" style={{ width: '100%', padding: '6px 8px', borderRadius: 5, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', boxSizing: 'border-box', color: C.text }} />
         </div>
         <div>
-          <label style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, display: 'block', marginBottom: 3 }}>RENDIMENTO</label>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <input type="number" min="0.001" step="0.001" value={yieldQty} onChange={e => setYieldQty(e.target.value)} style={{ flex: 1, padding: '6px 6px', borderRadius: 5, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', boxSizing: 'border-box', color: C.text }} />
-          </div>
-        </div>
-        <div>
           <label style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, display: 'block', marginBottom: 3 }}>UNIDADE SAÍDA</label>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <select value={yieldUnit} onChange={e => setYieldUnit(e.target.value)} style={{ flex: 1, padding: '6px 4px', borderRadius: 5, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', background: '#fff', color: C.text }}>
-              {['kg', 'g', 'L', 'ml', 'unid', 'cx', 'pct', 'dz'].map(u => <option key={u} value={u}>{u}</option>)}
-            </select>
-            <button
-              type="button"
-              title="Auto-calcular rendimento pela soma dos insumos"
-              onClick={() => {
-                // Sum ingredient weights/volumes and convert to selected yieldUnit
-                const toGrams = { kg: 1000, g: 1 };
-                const toMl    = { L: 1000, ml: 1 };
-                let totalG = 0, totalMl = 0;
-                enriched.forEach(item => {
-                  const q = parseFloat(item.quantity) || 0;
-                  if (toGrams[item.unit] !== undefined) totalG += q * toGrams[item.unit];
-                  if (toMl[item.unit] !== undefined)    totalMl += q * toMl[item.unit];
-                });
-                if (yieldUnit === 'kg' && totalG > 0)   setYieldQty(String(+(totalG / 1000).toFixed(3)));
-                else if (yieldUnit === 'g' && totalG > 0) setYieldQty(String(+totalG.toFixed(0)));
-                else if (yieldUnit === 'L' && totalMl > 0)  setYieldQty(String(+(totalMl / 1000).toFixed(3)));
-                else if (yieldUnit === 'ml' && totalMl > 0) setYieldQty(String(+totalMl.toFixed(0)));
-              }}
-              style={{ padding: '4px 7px', borderRadius: 5, border: '1px solid #DDD6FE', background: '#EDE9FE', color: '#7C3AED', fontSize: 10, cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap' }}
-            >∑ Auto</button>
-          </div>
+          <select value={yieldUnit} onChange={e => setYieldUnit(e.target.value)} style={{ width: '100%', padding: '6px 8px', borderRadius: 5, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', background: '#fff', color: C.text }}>
+            {['kg', 'g', 'L', 'ml', 'unid', 'cx', 'pct', 'dz'].map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
+          {yieldNum !== null ? (
+            <p style={{ fontSize: 9, color: '#7C3AED', marginTop: 3, fontWeight: 700 }}>≈ {yieldNum} {yieldUnit} (auto-calculado)</p>
+          ) : (
+            <p style={{ fontSize: 9, color: C.muted, marginTop: 3 }}>Adicione insumos para calcular</p>
+          )}
         </div>
       </div>
 
@@ -392,15 +386,18 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
 
       {totalCost > 0 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-          <div style={{ background: '#EDE9FE', borderRadius: 6, padding: '6px 10px', flex: 1 }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 2 }}>CUSTO TOTAL</p>
-            <p style={{ fontSize: 13, fontWeight: 800, color: '#6D28D9' }}>{fmtBRL(totalCost)}</p>
+          <div style={{ background: '#EDE9FE', borderRadius: 6, padding: '8px 12px', flex: 1 }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.3 }}>Custo Total com Fator de Correção</p>
+            <p style={{ fontSize: 14, fontWeight: 800, color: '#6D28D9' }}>{fmtBRL(totalCost)}</p>
+            <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>FC de todos os insumos já incluído</p>
           </div>
-          <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '6px 10px', flex: 1 }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: C.success, marginBottom: 2 }}>CUSTO/{yieldUnit.toUpperCase()}</p>
-            <p style={{ fontSize: 13, fontWeight: 800, color: '#047857' }}>{fmtBRL(costPerUnit)}</p>
-            <p style={{ fontSize: 9, color: C.muted, marginTop: 1 }}>inclui FC dos insumos</p>
-          </div>
+          {yieldNum !== null && (
+            <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '8px 12px', flex: 1 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: C.success, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.3 }}>Custo por {yieldUnit}</p>
+              <p style={{ fontSize: 14, fontWeight: 800, color: '#047857' }}>{fmtBRL(costPerUnit)}</p>
+              <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>rendimento: {yieldNum} {yieldUnit}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -2386,26 +2383,72 @@ export default function Catalog({ adminToken }) {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 130px 100px 180px', gap: 0, borderBottom: (hasAnyPanelOpen || isEditing) ? '1px solid ' + (activeBorderColor ? activeBorderColor + '40' : C.border) : '1px solid ' + C.border, padding: '10px 16px', alignItems: 'center', background: activeBorderColor ? activeBorderColor + '08' : 'transparent' }}>
                       {isEditing ? (
                         /* ── EDIT MODE ── */
-                        <div style={{ gridColumn: '1 / -1' }}>
-                          {/* Row 1: Name, Unit, Cost */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '2fr 90px 130px', gap: 8, marginBottom: 8 }}>
-                            <input value={ing.name} onChange={e => handleUpdateIngredient(ing.id, 'name', e.target.value)} placeholder="Nome" style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 13, outline: 'none' }} />
-                            <select value={ing.unit} onChange={e => handleUpdateIngredient(ing.id, 'unit', e.target.value)} style={{ padding: '5px 6px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none' }}>
+                        <div style={{
+                          gridColumn: '1 / -1',
+                          background: isCompound ? '#F5F3FF' : '#F0F9FF',
+                          borderRadius: 10,
+                          padding: '16px 18px',
+                          border: `1px solid ${isCompound ? '#C4B5FD' : '#7DD3FC'}`,
+                        }}>
+                          {/* Header */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: isCompound ? '#7C3AED' : '#0369A1', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                              {isCompound ? '⬡ Insumo Composto' : '● Insumo Simples'}
+                            </span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: isCompound ? '#6D28D9' : '#0284C7' }}>— {ing.name}</span>
+                          </div>
+
+                          {/* Seção: Identificação */}
+                          <p style={{ fontSize: 10, fontWeight: 700, color: isCompound ? '#7C3AED' : '#0369A1', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Identificação</p>
+                          <div style={{ display: 'grid', gridTemplateColumns: '2fr 90px 140px', gap: 8, marginBottom: 14 }}>
+                            <input
+                              value={ing.name}
+                              onChange={e => handleUpdateIngredient(ing.id, 'name', e.target.value)}
+                              placeholder="Nome"
+                              style={{ padding: '7px 10px', borderRadius: 6, border: `1px solid ${isCompound ? '#C4B5FD' : '#7DD3FC'}`, fontSize: 13, outline: 'none', background: '#fff', color: C.text }}
+                            />
+                            <select
+                              value={ing.unit}
+                              onChange={e => handleUpdateIngredient(ing.id, 'unit', e.target.value)}
+                              style={{ padding: '7px 8px', borderRadius: 6, border: `1px solid ${isCompound ? '#C4B5FD' : '#7DD3FC'}`, fontSize: 12, outline: 'none', background: '#fff', color: C.text }}
+                            >
                               {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                             </select>
-                            <input type="number" value={ing.cost_per_unit} min="0" step="0.0001" onChange={e => handleUpdateIngredient(ing.id, 'cost_per_unit', e.target.value)} placeholder="Custo/unid" style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', textAlign: 'right' }} />
+                            {isCompound ? (
+                              /* Custo do composto é somente leitura — calculado pela receita */
+                              <div style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #C4B5FD', background: '#EDE9FE', textAlign: 'right' }}>
+                                <span style={{ fontSize: 13, fontWeight: 800, color: '#7C3AED', display: 'block' }}>{fmtBRL(parseFloat(ing.cost_per_unit) || 0)}</span>
+                                <span style={{ fontSize: 9, color: '#9CA3AF', display: 'block', marginTop: 2 }}>🔒 calculado pela receita</span>
+                              </div>
+                            ) : (
+                              <input
+                                type="number"
+                                value={ing.cost_per_unit}
+                                min="0"
+                                step="0.0001"
+                                onChange={e => handleUpdateIngredient(ing.id, 'cost_per_unit', e.target.value)}
+                                placeholder="Custo/unid"
+                                style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #7DD3FC', fontSize: 13, outline: 'none', textAlign: 'right', background: '#fff', color: C.text }}
+                              />
+                            )}
                           </div>
-                          {/* Row 2: Type, Correction Factor, Weight/Volume */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+
+                          {/* Seção: Configuração */}
+                          <p style={{ fontSize: 10, fontWeight: 700, color: isCompound ? '#7C3AED' : '#0369A1', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Configuração</p>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
                             <div>
-                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Tipo</label>
-                              <select value={ing.ingredient_type || 'simple'} onChange={e => handleUpdateIngredient(ing.id, 'ingredient_type', e.target.value)} style={{ width: '100%', padding: '5px 6px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none' }}>
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tipo</label>
+                              <select
+                                value={ing.ingredient_type || 'simple'}
+                                onChange={e => handleUpdateIngredient(ing.id, 'ingredient_type', e.target.value)}
+                                style={{ width: '100%', padding: '7px 8px', borderRadius: 6, border: `1px solid ${isCompound ? '#C4B5FD' : '#7DD3FC'}`, fontSize: 12, outline: 'none', background: '#fff', color: C.text }}
+                              >
                                 <option value="simple">Simples</option>
                                 <option value="compound">Composto</option>
                               </select>
                             </div>
                             <div>
-                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Perda / FC (%)</label>
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>FC — Fator de Correção (%)</label>
                               <input
                                 type="number"
                                 value={ing.correction_factor ?? ''}
@@ -2414,41 +2457,85 @@ export default function Catalog({ adminToken }) {
                                 step="0.01"
                                 onChange={e => handleUpdateIngredient(ing.id, 'correction_factor', e.target.value)}
                                 placeholder="0.00"
-                                style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }}
+                                style={{ width: '100%', padding: '7px 8px', borderRadius: 6, border: `1px solid ${isCompound ? '#C4B5FD' : '#7DD3FC'}`, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
                               />
-                              <span style={{ fontSize: 10, color: '#059669', fontWeight: 700, display: 'block', marginTop: 2 }}>
-                                Custo com FC: {fmtBRL(costWithFC(parseFloat(ing.cost_per_unit) || 0, ing.correction_factor))}/{ing.unit}
-                              </span>
-                              {parseCorrectionLoss(ing.correction_factor) > 0 && (
-                                <span style={{ fontSize: 10, color: '#DC2626', fontWeight: 700, display: 'block', marginTop: 1 }}>
-                                  Valor sem FC: {fmtBRL(parseFloat(ing.cost_per_unit) || 0)}/{ing.unit}
-                                </span>
+                              {parseFloat(ing.correction_factor) > 0 && (
+                                <>
+                                  <span style={{ fontSize: 10, color: '#059669', fontWeight: 700, display: 'block', marginTop: 3 }}>
+                                    Com FC: {fmtBRL(costWithFC(parseFloat(ing.cost_per_unit) || 0, ing.correction_factor))}/{ing.unit}
+                                  </span>
+                                  <span style={{ fontSize: 9, color: '#DC2626', display: 'block', marginTop: 1 }}>
+                                    Base: {fmtBRL(parseFloat(ing.cost_per_unit) || 0)}/{ing.unit}
+                                  </span>
+                                </>
                               )}
                             </div>
                             <div>
-                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Peso/Volume (rendimento)</label>
-                              <input type="number" value={ing.weight_volume || 1} min="0" step="0.001" onChange={e => handleUpdateIngredient(ing.id, 'weight_volume', e.target.value)} placeholder="1.000" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Peso/Volume (rendimento)</label>
+                              <input
+                                type="number"
+                                value={ing.weight_volume || 1}
+                                min="0"
+                                step="0.001"
+                                onChange={e => handleUpdateIngredient(ing.id, 'weight_volume', e.target.value)}
+                                placeholder="1.000"
+                                style={{ width: '100%', padding: '7px 8px', borderRadius: 6, border: `1px solid ${isCompound ? '#C4B5FD' : '#7DD3FC'}`, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
+                              />
                             </div>
                           </div>
-                          {/* Row 3: Stock min/max, purchase origin */}
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 8, marginBottom: 10 }}>
+
+                          {/* Seção: Estoque */}
+                          <p style={{ fontSize: 10, fontWeight: 700, color: isCompound ? '#7C3AED' : '#0369A1', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Estoque & Origem</p>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 8, marginBottom: 14 }}>
                             <div>
-                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Estoque Mín.</label>
-                              <input type="number" value={ing.min_stock || ''} min="0" step="0.001" onChange={e => handleUpdateIngredient(ing.id, 'min_stock', e.target.value)} placeholder="0" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Estoque Mín.</label>
+                              <input
+                                type="number"
+                                value={ing.min_stock || ''}
+                                min="0"
+                                step="0.001"
+                                onChange={e => handleUpdateIngredient(ing.id, 'min_stock', e.target.value)}
+                                placeholder="0"
+                                style={{ width: '100%', padding: '7px 8px', borderRadius: 6, border: `1px solid ${isCompound ? '#C4B5FD' : '#7DD3FC'}`, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
+                              />
                             </div>
                             <div>
-                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Estoque Máx.</label>
-                              <input type="number" value={ing.max_stock || ''} min="0" step="0.001" onChange={e => handleUpdateIngredient(ing.id, 'max_stock', e.target.value)} placeholder="0" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Estoque Máx.</label>
+                              <input
+                                type="number"
+                                value={ing.max_stock || ''}
+                                min="0"
+                                step="0.001"
+                                onChange={e => handleUpdateIngredient(ing.id, 'max_stock', e.target.value)}
+                                placeholder="0"
+                                style={{ width: '100%', padding: '7px 8px', borderRadius: 6, border: `1px solid ${isCompound ? '#C4B5FD' : '#7DD3FC'}`, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
+                              />
                             </div>
                             <div>
-                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 2 }}>Origem de Compra</label>
-                              <input value={ing.purchase_origin || ''} onChange={e => handleUpdateIngredient(ing.id, 'purchase_origin', e.target.value)} placeholder="Fornecedor / loja" style={{ width: '100%', padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Origem de Compra</label>
+                              <input
+                                value={ing.purchase_origin || ''}
+                                onChange={e => handleUpdateIngredient(ing.id, 'purchase_origin', e.target.value)}
+                                placeholder="Fornecedor / loja"
+                                style={{ width: '100%', padding: '7px 8px', borderRadius: 6, border: `1px solid ${isCompound ? '#C4B5FD' : '#7DD3FC'}`, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
+                              />
                             </div>
                           </div>
+
                           {/* Actions */}
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <button onClick={() => handleSaveIngredient(ing)} style={{ padding: '5px 14px', borderRadius: 4, border: 'none', background: '#111827', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Salvar</button>
-                            <button onClick={() => setEditingIng(null)} style={{ padding: '5px 8px', borderRadius: 4, border: '1px solid ' + C.border, background: '#fff', color: C.text, fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              onClick={() => handleSaveIngredient(ing)}
+                              style={{ padding: '7px 18px', borderRadius: 6, border: 'none', background: isCompound ? '#7C3AED' : '#0369A1', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+                            >
+                              <Check size={13} /> Salvar
+                            </button>
+                            <button
+                              onClick={() => setEditingIng(null)}
+                              style={{ padding: '7px 12px', borderRadius: 6, border: `1px solid ${isCompound ? '#C4B5FD' : '#7DD3FC'}`, background: '#fff', color: C.text, fontSize: 12, cursor: 'pointer' }}
+                            >
+                              Cancelar
+                            </button>
                           </div>
                         </div>
                       ) : (
