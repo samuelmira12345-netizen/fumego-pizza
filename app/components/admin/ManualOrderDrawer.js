@@ -81,7 +81,7 @@ function OptionRow({ opt, selected, onSelect }) {
 
 // ── Sub-component: Product picker modal (inline) ───────────────────────────────
 
-function ProductPicker({ products, drinks, onAdd, onClose }) {
+export function ProductPicker({ products, drinks, onAdd, onClose }) {
   const [step, setStep]       = useState('products'); // 'products' | 'configure'
   const [selected, setSelected] = useState(null);
   const [option, setOption]   = useState(null);
