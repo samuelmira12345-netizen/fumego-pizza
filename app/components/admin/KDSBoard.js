@@ -213,7 +213,7 @@ function useSecondTick() {
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPersonName, minCardHeight }) {
+function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPersonName }) {
   const cfg  = S[order.status] || S.pending;
   const mins = elapsedMins(order.created_at);
   const initials = getNameInitials(deliveryPersonName);
@@ -237,7 +237,6 @@ function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPerson
         border: `1px solid ${borderColor}`,
         borderLeft: `4px solid ${cfg.color}`,
         padding: '11px 12px 10px',
-        minHeight: minCardHeight || 0,
         cursor: 'grab',
         boxShadow: shadow,
         transition: 'box-shadow 0.12s, transform 0.1s, opacity 0.1s',
@@ -299,30 +298,6 @@ function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPerson
         )}
       </div>
 
-      {/* Preview completo dos itens */}
-      <div style={{ marginTop: 8, borderTop: '1px dashed #E5E7EB', paddingTop: 7, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {(order.order_items || []).length === 0 ? (
-          <p style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>Itens carregando...</p>
-        ) : (
-          order.order_items.map((item, idx) => (
-            <div key={`${order.id}-preview-item-${idx}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#D97706', minWidth: 22, fontFamily: 'monospace' }}>
-                {parseInt(item.quantity, 10) || 1}x
-              </span>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{ fontSize: 11, color: '#374151', lineHeight: 1.25, fontWeight: 600, wordBreak: 'break-word' }}>
-                  {item.product_name || 'Item'}
-                </p>
-                {item.observations && (
-                  <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1, lineHeight: 1.2, wordBreak: 'break-word' }}>
-                    Obs: {item.observations}
-                  </p>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
     </div>
   );
 }
@@ -347,9 +322,6 @@ function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, on
   const Icon = col.cfg.icon;
   const isFinalized = col.id === 'finalizados';
   const visible = isFinalized ? cards.slice(-8) : cards;
-  const maxItemsInColumn = Math.max(1, ...visible.map(o => (o.order_items || []).length || 1));
-  const minCardHeight = 96 + (maxItemsInColumn * 26);
-
   return (
     <div
       onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setIsDragOver(true); }}
@@ -415,7 +387,6 @@ function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, on
                 isReady={readyIds ? readyIds.has(o.id) : false}
                 onDragStart={onDragStart}
                 deliveryPersonName={deliveryPersonsById[String(o.delivery_person_id)] || o.delivery_person_name || ''}
-                minCardHeight={minCardHeight}
               />
             ))}
           </>
@@ -864,7 +835,7 @@ function PaymentPanel({ order, onSave }) {
   );
 }
 
-function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, adminToken, customerOrderCount, deliveryPersons, onAssignDeliveryPerson, onEnsureDeliveryPersons }) {
+function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, adminToken, customerOrderCount, deliveryPersons, onAssignDeliveryPerson, onEnsureDeliveryPersons, onSaveAddress, onSaveItems }) {
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [showPrintDialog, setShowPrintDialog]         = useState(false);
   const [showPaymentFlow, setShowPaymentFlow]         = useState(false);
@@ -877,6 +848,40 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
   const [dangerAction, setDangerAction]               = useState('cancel');
   const [adminPassword, setAdminPassword]             = useState('');
   const [dangerSaving, setDangerSaving]               = useState(false);
+  const [addressForm, setAddressForm] = useState({
+    delivery_street: order?.delivery_street || '',
+    delivery_number: order?.delivery_number || '',
+    delivery_complement: order?.delivery_complement || '',
+    delivery_neighborhood: order?.delivery_neighborhood || '',
+    delivery_city: order?.delivery_city || '',
+    delivery_zipcode: order?.delivery_zipcode || '',
+  });
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [editingItems, setEditingItems] = useState(false);
+  const [savingItems, setSavingItems] = useState(false);
+  const [itemsDraft, setItemsDraft] = useState([]);
+
+  useEffect(() => {
+    setAddressForm({
+      delivery_street: order?.delivery_street || '',
+      delivery_number: order?.delivery_number || '',
+      delivery_complement: order?.delivery_complement || '',
+      delivery_neighborhood: order?.delivery_neighborhood || '',
+      delivery_city: order?.delivery_city || '',
+      delivery_zipcode: order?.delivery_zipcode || '',
+    });
+  }, [order?.id]);
+
+  useEffect(() => {
+    setItemsDraft((items || []).map(item => ({
+      product_name: item.product_name || '',
+      quantity: parseInt(item.quantity, 10) || 1,
+      unit_price: parseFloat(item.unit_price) || 0,
+      observations: item.observations || '',
+      product_id: item.product_id || null,
+      drink_id: item.drink_id || null,
+    })));
+  }, [order?.id, items]);
 
   if (!order) return null;
   const cfg  = S[order.status] || S.pending;
@@ -942,6 +947,35 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
       setAdminPassword('');
       setShowDangerDialog(false);
       onClose();
+    }
+  }
+
+  async function saveAddress() {
+    setSavingAddress(true);
+    const ok = await onSaveAddress(order.id, addressForm);
+    setSavingAddress(false);
+    if (ok) alert('Endereço atualizado com sucesso.');
+  }
+
+  function updateDraftItem(index, field, value) {
+    setItemsDraft(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+  }
+
+  function addDraftItem() {
+    setItemsDraft(prev => [...prev, { product_name: '', quantity: 1, unit_price: 0, observations: '' }]);
+  }
+
+  function removeDraftItem(index) {
+    setItemsDraft(prev => prev.filter((_, i) => i !== index));
+  }
+
+  async function saveItemsEdit() {
+    setSavingItems(true);
+    const ok = await onSaveItems(order.id, itemsDraft);
+    setSavingItems(false);
+    if (ok) {
+      setEditingItems(false);
+      alert('Itens do pedido atualizados com sucesso.');
     }
   }
 
@@ -1023,50 +1057,33 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
 
             {/* Endereço */}
             <Section label="Endereço" icon={<MapPin size={12} />}>
-              {maps.googleMaps ? (
-                <a
-                  href={maps.googleMaps}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ display: 'inline-block', fontSize: 13, fontWeight: 700, color: '#2563EB', marginBottom: 2, textDecoration: 'underline' }}
-                >
-                  {order.delivery_street}, {order.delivery_number}
-                  {order.delivery_complement ? ` — ${order.delivery_complement}` : ''}
-                </a>
-              ) : (
-                <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', marginBottom: 2 }}>
-                  {order.delivery_street}, {order.delivery_number}
-                  {order.delivery_complement ? ` — ${order.delivery_complement}` : ''}
-                </p>
-              )}
-              <p style={{ fontSize: 12, color: '#6B7280' }}>
-                {order.delivery_neighborhood}{order.delivery_city ? `, ${order.delivery_city}` : ''}
-                {order.delivery_zipcode ? ` · ${order.delivery_zipcode}` : ''}
-              </p>
-              {maps.googleMaps && (
-                <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                  <a
-                    href={maps.googleMaps}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 6, padding: '4px 8px', textDecoration: 'none' }}
-                  >
-                    Google Maps
-                  </a>
-                  <a
-                    href={maps.waze}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: 11, fontWeight: 700, color: '#0C4A6E', background: '#ECFEFF', border: '1px solid #A5F3FC', borderRadius: 6, padding: '4px 8px', textDecoration: 'none' }}
-                  >
-                    Waze
-                  </a>
-                </div>
-              )}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 8 }}>
+                <input value={addressForm.delivery_street} onChange={e => setAddressForm(prev => ({ ...prev, delivery_street: e.target.value }))} placeholder="Rua" style={{ padding: '7px 9px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                <input value={addressForm.delivery_number} onChange={e => setAddressForm(prev => ({ ...prev, delivery_number: e.target.value }))} placeholder="Número" style={{ padding: '7px 9px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                <input value={addressForm.delivery_complement} onChange={e => setAddressForm(prev => ({ ...prev, delivery_complement: e.target.value }))} placeholder="Complemento" style={{ padding: '7px 9px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12, gridColumn: '1 / -1' }} />
+                <input value={addressForm.delivery_neighborhood} onChange={e => setAddressForm(prev => ({ ...prev, delivery_neighborhood: e.target.value }))} placeholder="Bairro" style={{ padding: '7px 9px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                <input value={addressForm.delivery_zipcode} onChange={e => setAddressForm(prev => ({ ...prev, delivery_zipcode: e.target.value }))} placeholder="CEP" style={{ padding: '7px 9px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                <input value={addressForm.delivery_city} onChange={e => setAddressForm(prev => ({ ...prev, delivery_city: e.target.value }))} placeholder="Cidade" style={{ padding: '7px 9px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12, gridColumn: '1 / -1' }} />
+              </div>
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={saveAddress} disabled={savingAddress} style={{ padding: '6px 11px', borderRadius: 6, border: 'none', background: savingAddress ? '#9CA3AF' : '#2563EB', color: '#fff', fontSize: 11, fontWeight: 700, cursor: savingAddress ? 'not-allowed' : 'pointer' }}>
+                  {savingAddress ? 'Salvando...' : 'Salvar endereço'}
+                </button>
+                {maps.googleMaps && (
+                  <>
+                    <a href={maps.googleMaps} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 6, padding: '4px 8px', textDecoration: 'none' }}>
+                      Google Maps
+                    </a>
+                    <a href={maps.waze} target="_blank" rel="noopener noreferrer" style={{ fontSize: 11, fontWeight: 700, color: '#0C4A6E', background: '#ECFEFF', border: '1px solid #A5F3FC', borderRadius: 6, padding: '4px 8px', textDecoration: 'none' }}>
+                      Waze
+                    </a>
+                  </>
+                )}
+              </div>
             </Section>
 
             {['ready', 'delivering'].includes(order.status) && (
-              <Section label="Entregador" icon={<Truck size={12} />}>
+              <Section label="Entregador" icon={<Truck size={12} />} collapsible defaultOpen={false}>
                 <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>
                   Se necessário, altere o entregador responsável por este pedido.
                 </p>
@@ -1090,12 +1107,17 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
             )}
 
             {/* Timeline */}
-            <Section label="Timeline do pedido" icon={<Timer size={12} />}>
+            <Section label="Timeline do pedido" icon={<Timer size={12} />} collapsible defaultOpen={false}>
               <OrderTimeline order={order} />
             </Section>
 
             {/* Itens */}
-            <Section label="Itens do Pedido" icon={<List size={12} />}>
+            <Section label="Itens do Pedido" icon={<List size={12} />} collapsible defaultOpen={false}>
+              <div style={{ marginBottom: 8 }}>
+                <button onClick={() => setEditingItems(v => !v)} style={{ padding: '5px 10px', borderRadius: 5, border: '1px solid #D1D5DB', background: '#fff', color: '#374151', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  {editingItems ? 'Fechar edição' : 'Editar pedido'}
+                </button>
+              </div>
               {itemsLoading ? (
                 <div style={{ display: 'flex', gap: 7, alignItems: 'center', color: '#9CA3AF', fontSize: 13 }}>
                   <div style={{ width: 13, height: 13, border: '2px solid #E5E7EB', borderTopColor: '#6B7280', borderRadius: '50%', animation: 'kdsSpin 0.8s linear infinite' }} />
@@ -1103,33 +1125,61 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                 </div>
               ) : items.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {items.map((item, i) => (
-                    <div key={i}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
-                          {item.quantity}× {item.product_name}
-                          <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 400, marginLeft: 5 }}>({fmtBRL(item.unit_price)} un.)</span>
-                        </span>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap', marginLeft: 8 }}>
-                          {fmtBRL(item.total_price)}
-                        </span>
-                      </div>
-                      {item.observations && (
-                        <p style={{ fontSize: 11, color: '#B45309', background: '#FFFBEB', padding: '2px 7px', borderRadius: 3, marginTop: 2, border: '1px solid #FDE68A' }}>
-                          ⚠️ {item.observations}
-                        </p>
+                  {(editingItems ? itemsDraft : items).map((item, i) => (
+                    <div key={i} style={{ border: editingItems ? '1px solid #E5E7EB' : 'none', borderRadius: 6, padding: editingItems ? 8 : 0 }}>
+                      {editingItems ? (
+                        <>
+                          <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr 90px', gap: 6 }}>
+                            <input type="number" min="1" value={item.quantity} onChange={e => updateDraftItem(i, 'quantity', e.target.value)} style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                            <input value={item.product_name} onChange={e => updateDraftItem(i, 'product_name', e.target.value)} style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                            <input type="number" min="0" step="0.01" value={item.unit_price} onChange={e => updateDraftItem(i, 'unit_price', e.target.value)} style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                          </div>
+                          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                            <input value={item.observations || ''} onChange={e => updateDraftItem(i, 'observations', e.target.value)} placeholder="Observações" style={{ flex: 1, padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                            <button onClick={() => removeDraftItem(i)} style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#B91C1C', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                              Remover
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
+                              {item.quantity}× {item.product_name}
+                              <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 400, marginLeft: 5 }}>({fmtBRL(item.unit_price)} un.)</span>
+                            </span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: '#374151', whiteSpace: 'nowrap', marginLeft: 8 }}>
+                              {fmtBRL(item.total_price)}
+                            </span>
+                          </div>
+                          {item.observations && (
+                            <p style={{ fontSize: 11, color: '#B45309', background: '#FFFBEB', padding: '2px 7px', borderRadius: 3, marginTop: 2, border: '1px solid #FDE68A' }}>
+                              ⚠️ {item.observations}
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
                   ))}
-                  <div style={{ marginTop: 5, paddingTop: 8, borderTop: '1px dashed #E5E7EB', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    <Row label="Subtotal" value={fmtBRL(sub)} />
-                    {disc > 0 && <Row label="Desconto" value={`-${fmtBRL(disc)}`} valueColor="#EF4444" />}
-                    {fee > 0  && <Row label="Taxa de entrega" value={fmtBRL(fee)} />}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 5, borderTop: '1px solid #E5E7EB', marginTop: 2 }}>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Total</span>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>{fmtBRL(total)}</span>
+
+                  {editingItems && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                      <button onClick={addDraftItem} style={{ padding: '6px 10px', borderRadius: 5, border: '1px solid #BFDBFE', background: '#EFF6FF', color: '#1D4ED8', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>+ Adicionar item</button>
+                      <button onClick={saveItemsEdit} disabled={savingItems} style={{ padding: '6px 10px', borderRadius: 5, border: 'none', background: savingItems ? '#9CA3AF' : '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: savingItems ? 'not-allowed' : 'pointer' }}>{savingItems ? 'Salvando...' : 'Salvar itens'}</button>
                     </div>
-                  </div>
+                  )}
+
+                  {!editingItems && (
+                    <div style={{ marginTop: 5, paddingTop: 8, borderTop: '1px dashed #E5E7EB', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <Row label="Subtotal" value={fmtBRL(sub)} />
+                      {disc > 0 && <Row label="Desconto" value={`-${fmtBRL(disc)}`} valueColor="#EF4444" />}
+                      {fee > 0  && <Row label="Taxa de entrega" value={fmtBRL(fee)} />}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 5, borderTop: '1px solid #E5E7EB', marginTop: 2 }}>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>Total</span>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: '#111827' }}>{fmtBRL(total)}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p style={{ fontSize: 13, color: '#9CA3AF' }}>Nenhum item encontrado</p>
@@ -1305,14 +1355,22 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function Section({ label, icon, children }) {
+function Section({ label, icon, children, collapsible = false, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
+
   return (
     <div style={{ background: '#F9FAFB', borderRadius: 5, padding: '11px 13px', border: '1px solid #E5E7EB' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+      <div
+        style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: open ? 8 : 0, cursor: collapsible ? 'pointer' : 'default' }}
+        onClick={collapsible ? () => setOpen(v => !v) : undefined}
+      >
         <span style={{ color: '#6B7280' }}>{icon}</span>
         <span style={{ fontSize: 10, fontWeight: 800, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase' }}>{label}</span>
+        {collapsible && (
+          <ChevronDown size={14} color="#9CA3AF" style={{ marginLeft: 'auto', transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s ease' }} />
+        )}
       </div>
-      {children}
+      {(!collapsible || open) && children}
     </div>
   );
 }
@@ -1395,7 +1453,7 @@ function KitchenOrderDetailsModal({ order, onClose }) {
   );
 }
 
-function KitchenOrderCard({ order, onMarkReady, onOpenDetails }) {
+function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) {
   const [marking, setMarking] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const mins = elapsedMins(order.created_at);
@@ -1418,6 +1476,7 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails }) {
       borderLeft: `5px solid ${urgentColor}`,
       padding: '16px 18px',
       display: 'flex', flexDirection: 'column', gap: 10,
+      minHeight: minCardHeight || 0,
       boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
       cursor: 'pointer',
     }}>
@@ -1452,8 +1511,31 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails }) {
         )}
       </div>
 
-      <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 8, padding: '8px 12px' }}>
-        <p style={{ fontSize: 12, color: '#6B7280' }}>Toque no card para ver os itens e detalhes.</p>
+      {/* Preview de itens para cozinha */}
+      <div style={{ marginTop: 4, borderTop: '1px dashed #E5E7EB', paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {order.order_items_loading ? (
+          <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>Itens carregando...</p>
+        ) : (order.order_items || []).length === 0 ? (
+          <p style={{ fontSize: 12, color: '#9CA3AF' }}>Sem itens para este pedido.</p>
+        ) : (
+          order.order_items.map((item, idx) => (
+            <div key={`${order.id}-kitchen-preview-item-${idx}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <span style={{ fontSize: 15, fontWeight: 900, color: '#D97706', minWidth: 26, fontFamily: 'monospace' }}>
+                {parseInt(item.quantity, 10) || 1}x
+              </span>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p style={{ fontSize: 14, color: '#111827', lineHeight: 1.3, fontWeight: 800, wordBreak: 'break-word' }}>
+                  {item.product_name || 'Item'}
+                </p>
+                {item.observations && (
+                  <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2, lineHeight: 1.25, wordBreak: 'break-word' }}>
+                    Obs: {item.observations}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Observações do pedido */}
@@ -1528,6 +1610,8 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
   const kitchenOrders = orders
     .filter(o => ['confirmed', 'preparing'].includes(o.status))
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const maxItemsInKitchen = Math.max(1, ...kitchenOrders.map(o => (o.order_items || []).length || 1));
+  const minKitchenCardHeight = 180 + (maxItemsInKitchen * 28);
   const detailOrder = kitchenOrders.find(o => o.id === detailOrderId) || null;
 
   return (
@@ -1585,6 +1669,7 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
                   order={o}
                   onMarkReady={() => onMarkReady(o.id)}
                   onOpenDetails={() => setDetailOrderId(o.id)}
+                  minCardHeight={minKitchenCardHeight}
                 />
               ))}
             </div>
@@ -1611,6 +1696,7 @@ export default function KDSBoard({
   const [modal, setModal]               = useState(null);
   const [items, setItems]               = useState([]);
   const [itemsByOrder, setItemsByOrder] = useState({});
+  const [itemsLoadingByOrder, setItemsLoadingByOrder] = useState({});
   const [itemsLoading, setItemsLoading] = useState(false);
   const [soundOn, setSoundOn]           = useState(true);
   const [newIds, setNewIds]             = useState(new Set());
@@ -1661,6 +1747,7 @@ export default function KDSBoard({
   const fetchOrderItems = useCallback(async (orderId) => {
     if (!orderId || fetchingItemsRef.current.has(orderId)) return null;
     fetchingItemsRef.current.add(orderId);
+    setItemsLoadingByOrder(prev => ({ ...prev, [orderId]: true }));
     try {
       const res = await fetch('/api/admin', {
         method: 'POST',
@@ -1676,14 +1763,20 @@ export default function KDSBoard({
       return [];
     } finally {
       fetchingItemsRef.current.delete(orderId);
+      setItemsLoadingByOrder(prev => ({ ...prev, [orderId]: false }));
     }
   }, [adminToken]);
 
   function getOrderItems(order) {
     const cached = itemsByOrder[order.id];
-    if (Array.isArray(cached) && cached.length > 0) return cached;
+    if (Array.isArray(cached)) return cached;
     if (Array.isArray(order.order_items) && order.order_items.length > 0) return order.order_items;
-    return Array.isArray(cached) ? cached : [];
+    return [];
+  }
+
+  function isOrderItemsLoaded(order) {
+    if (Object.prototype.hasOwnProperty.call(itemsByOrder, order.id)) return true;
+    return Array.isArray(order.order_items) && order.order_items.length > 0;
   }
 
   useEffect(() => {
@@ -1696,7 +1789,11 @@ export default function KDSBoard({
     ids.forEach(id => { fetchOrderItems(id); });
   }, [visible, itemsByOrder, fetchOrderItems]);
 
-  const visibleWithItems = visible.map(o => ({ ...o, order_items: getOrderItems(o) }));
+  const visibleWithItems = visible.map(o => ({
+    ...o,
+    order_items: getOrderItems(o),
+    order_items_loading: !!itemsLoadingByOrder[o.id] || !isOrderItemsLoaded(o),
+  }));
 
   const deliveryPersonsById = deliveryPersons.reduce((acc, person) => {
     acc[String(person.id)] = person.name || '';
@@ -1773,6 +1870,57 @@ export default function KDSBoard({
       setItems(Array.isArray(fresh) ? fresh : []);
     } finally {
       setItemsLoading(false);
+    }
+  }
+
+  async function saveOrderAddress(orderId, addressUpdates) {
+    if (!orderId) return false;
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'update_order', data: { id: orderId, ...addressUpdates } }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || 'Erro ao salvar endereço');
+      setModal(prev => prev?.id === orderId ? { ...prev, ...addressUpdates } : prev);
+      onRefresh();
+      return true;
+    } catch (e) {
+      alert('Erro ao atualizar endereço: ' + (e.message || 'erro desconhecido'));
+      return false;
+    }
+  }
+
+  async function saveOrderItems(orderId, draftItems) {
+    if (!orderId) return false;
+    try {
+      const payloadItems = (draftItems || []).map(item => ({
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        observations: item.observations,
+        product_id: item.product_id,
+        drink_id: item.drink_id,
+      }));
+
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'update_order_items', data: { id: orderId, items: payloadItems } }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || 'Erro ao salvar itens');
+
+      const updatedItems = Array.isArray(d.items) ? d.items : [];
+      setItemsByOrder(prev => ({ ...prev, [orderId]: updatedItems }));
+      setItems(updatedItems);
+      setModal(prev => prev?.id === orderId ? { ...prev, subtotal: d.subtotal, total: d.total, order_items: updatedItems } : prev);
+      onRefresh();
+      return true;
+    } catch (e) {
+      alert('Erro ao atualizar itens do pedido: ' + (e.message || 'erro desconhecido'));
+      return false;
     }
   }
 
@@ -2130,6 +2278,8 @@ export default function KDSBoard({
           deliveryPersons={deliveryPersons}
           onAssignDeliveryPerson={assignDeliveryPerson}
           onEnsureDeliveryPersons={ensureDeliveryPersons}
+          onSaveAddress={saveOrderAddress}
+          onSaveItems={saveOrderItems}
         />
       )}
 
