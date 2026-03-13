@@ -86,9 +86,9 @@ export default function CheckoutPage() {
   });
 
   useEffect(() => {
-    const ready = form.street && form.number && form.zipcode;
-    if (!ready) return;
-    const t = setTimeout(() => { recalculateDeliveryFee(); }, 450);
+    const hasLocation = form.neighborhood || form.zipcode;
+    if (!hasLocation) return;
+    const t = setTimeout(() => { recalculateDeliveryFee(); }, 600);
     return () => clearTimeout(t);
   }, [form.street, form.number, form.neighborhood, form.city, form.state, form.zipcode]);
 
@@ -167,7 +167,7 @@ export default function CheckoutPage() {
       zipcode: form.zipcode,
       ...extra,
     };
-    if (!payload.street || !payload.number || !payload.neighborhood || !payload.zipcode) return;
+    if (!payload.neighborhood && !payload.zipcode) return;
 
     try {
       setDeliveryQuoteError('');
@@ -223,22 +223,26 @@ export default function CheckoutPage() {
     const cep = rawValue.replace(/\D/g, '');
     if (cep.length !== 8) return;
     setCepLoading(true);
+    // Monta os dados extras do ViaCEP para passar diretamente ao recalculateDeliveryFee,
+    // evitando o bug de estado stale (setForm é assíncrono)
+    let viaCepExtra = { zipcode: cep };
     try {
       const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
       const data = await res.json();
       if (!data.erro) {
-        setForm(prev => ({
-          ...prev,
-          street:       data.logradouro  || prev.street,
-          neighborhood: data.bairro      || prev.neighborhood,
-          city:         data.localidade  || prev.city,
-          state:        data.uf          || prev.state,
-        }));
+        const filledFields = {
+          street:       data.logradouro  || form.street,
+          neighborhood: data.bairro      || form.neighborhood,
+          city:         data.localidade  || form.city,
+          state:        data.uf          || form.state,
+        };
+        setForm(prev => ({ ...prev, ...filledFields }));
+        viaCepExtra = { ...viaCepExtra, ...filledFields };
       }
     } catch (e) { console.error('Erro CEP:', e); }
     finally { setCepLoading(false); }
 
-    recalculateDeliveryFee({ zipcode: cep });
+    recalculateDeliveryFee(viaCepExtra);
   }
 
   function calcSubtotal() {

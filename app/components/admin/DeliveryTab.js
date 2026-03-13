@@ -327,6 +327,7 @@ function ZonesTab({ adminToken }) {
     state: '',
     complement: '',
   });
+  const [originCoords, setOriginCoords] = useState({ lat: '', lng: '' });
   const [rules, setRules] = useState([{ radius_km: '3', fee: '5', estimated_mins: '35', is_active: true }]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -358,6 +359,9 @@ function ZonesTab({ adminToken }) {
         };
       }
       setOriginAddress(prev => ({ ...prev, ...(details || {}) }));
+      if (map.delivery_origin_lat && map.delivery_origin_lng) {
+        setOriginCoords({ lat: map.delivery_origin_lat, lng: map.delivery_origin_lng });
+      }
       if (map.delivery_radius_rules) {
         try {
           const parsed = JSON.parse(map.delivery_radius_rules);
@@ -444,7 +448,27 @@ function ZonesTab({ adminToken }) {
       await adminPost('save_setting', { key: 'delivery_origin_address_details', value: JSON.stringify(normalizedStoreAddress) }, adminToken);
       await adminPost('save_setting', { key: 'delivery_origin_address', value: buildOriginAddressLine(normalizedStoreAddress) }, adminToken);
       await adminPost('save_setting', { key: 'delivery_radius_rules', value: JSON.stringify(cleaned) }, adminToken);
-      setMsg('✅ Configuração de entrega por raio salva com sucesso!');
+
+      // Geocode store address and save lat/lng for fast delivery calculations
+      setMsg('Salvando... Geocodificando endereço da loja...');
+      try {
+        const geoRes = await fetch('/api/delivery/geocode-store', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(normalizedStoreAddress),
+        });
+        const geoData = await geoRes.json();
+        if (geoData.lat && geoData.lng) {
+          await adminPost('save_setting', { key: 'delivery_origin_lat', value: String(geoData.lat) }, adminToken);
+          await adminPost('save_setting', { key: 'delivery_origin_lng', value: String(geoData.lng) }, adminToken);
+          setOriginCoords({ lat: String(geoData.lat), lng: String(geoData.lng) });
+          setMsg('Configuracao de entrega salva! Coordenadas da loja: ' + geoData.lat.toFixed(6) + ', ' + geoData.lng.toFixed(6));
+        } else {
+          setMsg('Configuracao salva, mas nao foi possivel geocodificar o endereco. O sistema tentara novamente no proximo calculo de frete.');
+        }
+      } catch {
+        setMsg('Configuracao salva, mas erro ao geocodificar. O sistema tentara novamente no proximo calculo de frete.');
+      }
     } catch (e) {
       setMsg('Erro: ' + e.message);
     } finally {
@@ -525,13 +549,20 @@ function ZonesTab({ adminToken }) {
             ))}
           </div>
 
+          {originCoords.lat && originCoords.lng && (
+            <p style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>
+              <MapPin size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
+              Coordenadas da loja: {Number(originCoords.lat).toFixed(6)}, {Number(originCoords.lng).toFixed(6)}
+            </p>
+          )}
+
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button onClick={addRule} style={btnGhost}><Plus size={14} /> Adicionar raio</button>
             <button onClick={saveRadiusConfig} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>
               {saving ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Salvando…</> : <><Save size={13} /> Salvar configuração</>}
             </button>
           </div>
-          {msg && <p style={{ marginTop: 10, fontSize: 12, color: msg.startsWith('✅') ? C.success : C.danger }}>{msg}</p>}
+          {msg && <p style={{ marginTop: 10, fontSize: 12, color: msg.includes('Erro') ? C.danger : C.success }}>{msg}</p>}
         </div>
       )}
     </div>
