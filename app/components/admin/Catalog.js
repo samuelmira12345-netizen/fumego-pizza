@@ -288,7 +288,9 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
   });
   const totalCost   = enriched.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
   const yieldNum    = autoCalcYield(enriched, yieldUnit);
-  const costPerUnit = yieldNum ? totalCost / yieldNum : 0;
+  const compoundFC  = parseFloat(compound.correction_factor) || 0;
+  const netYield    = (yieldNum !== null && compoundFC > 0) ? +(yieldNum * (1 - compoundFC / 100)).toFixed(3) : yieldNum;
+  const costPerUnit = netYield ? totalCost / netYield : 0;
 
   function addItem() {
     if (!addIng || !addQty) return;
@@ -358,7 +360,13 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
             {['kg', 'g', 'L', 'ml', 'unid', 'cx', 'pct', 'dz'].map(u => <option key={u} value={u}>{u}</option>)}
           </select>
           {yieldNum !== null ? (
-            <p style={{ fontSize: 9, color: '#7C3AED', marginTop: 3, fontWeight: 700 }}>≈ {yieldNum} {yieldUnit} (auto-calculado)</p>
+            compoundFC > 0 ? (
+              <p style={{ fontSize: 9, color: '#7C3AED', marginTop: 3, fontWeight: 700 }}>
+                {yieldNum} {yieldUnit} bruto → <span style={{ color: '#059669' }}>{netYield} {yieldUnit} líquido</span> (FC {compoundFC}%)
+              </p>
+            ) : (
+              <p style={{ fontSize: 9, color: '#7C3AED', marginTop: 3, fontWeight: 700 }}>≈ {yieldNum} {yieldUnit} (auto-calculado)</p>
+            )
           ) : (
             <p style={{ fontSize: 9, color: C.muted, marginTop: 3 }}>Adicione insumos para calcular</p>
           )}
@@ -391,11 +399,13 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
             <p style={{ fontSize: 14, fontWeight: 800, color: '#6D28D9' }}>{fmtBRL(totalCost)}</p>
             <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>FC de todos os insumos já incluído</p>
           </div>
-          {yieldNum !== null && (
+          {netYield !== null && (
             <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '8px 12px', flex: 1 }}>
               <p style={{ fontSize: 10, fontWeight: 700, color: C.success, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.3 }}>Custo por {yieldUnit}</p>
               <p style={{ fontSize: 14, fontWeight: 800, color: '#047857' }}>{fmtBRL(costPerUnit)}</p>
-              <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>rendimento: {yieldNum} {yieldUnit}</p>
+              <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>
+                rendimento: {netYield} {yieldUnit}{compoundFC > 0 ? ` líquido (${yieldNum} bruto)` : ''}
+              </p>
             </div>
           )}
         </div>
@@ -536,13 +546,19 @@ function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onI
             const itemCount = recipe.compound_recipe_items?.length || 0;
             const isApplying = applyingId === recipe.id;
             const isConfirming = confirmDelete === recipe.id;
+            const recipeFC = parseFloat(ingredient.correction_factor) || 0;
+            const grossQty = parseFloat(recipe.yield_quantity) || 0;
+            const netQty   = recipeFC > 0 ? +(grossQty * (1 - recipeFC / 100)).toFixed(3) : grossQty;
+            const yieldUnit = recipe.yield_unit || ingredient.unit;
             return (
               <div key={recipe.id} style={{ background: '#fff', borderRadius: 8, border: '1px solid #DDD6FE', padding: '10px 12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isConfirming ? 8 : 0 }}>
                   <div>
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{recipe.name}</span>
                     <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>
-                      Rendimento: {recipe.yield_quantity} {recipe.yield_unit || ingredient.unit} · {itemCount} insumo(s)
+                      Rendimento: {netQty} {yieldUnit}
+                      {recipeFC > 0 && <span style={{ color: '#DC2626', marginLeft: 4 }}>({grossQty} bruto, FC {recipeFC}%)</span>}
+                      {' '}· {itemCount} insumo(s)
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -2435,7 +2451,7 @@ export default function Catalog({ adminToken }) {
 
                           {/* Seção: Configuração */}
                           <p style={{ fontSize: 10, fontWeight: 700, color: isCompound ? '#7C3AED' : '#0369A1', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Configuração</p>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
                             <div>
                               <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tipo</label>
                               <select
@@ -2469,18 +2485,6 @@ export default function Catalog({ adminToken }) {
                                   </span>
                                 </>
                               )}
-                            </div>
-                            <div>
-                              <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Peso/Volume (rendimento)</label>
-                              <input
-                                type="number"
-                                value={ing.weight_volume || 1}
-                                min="0"
-                                step="0.001"
-                                onChange={e => handleUpdateIngredient(ing.id, 'weight_volume', e.target.value)}
-                                placeholder="1.000"
-                                style={{ width: '100%', padding: '7px 8px', borderRadius: 6, border: `1px solid ${isCompound ? '#C4B5FD' : '#7DD3FC'}`, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff', color: C.text }}
-                              />
                             </div>
                           </div>
 
@@ -2808,7 +2812,7 @@ export default function Catalog({ adminToken }) {
                     <input className="input-field" type="number" min="0" step="0.0001" placeholder="0,00" value={newIng.cost_per_unit} onChange={e => setNewIng(p => ({ ...p, cost_per_unit: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                   <div>
                     <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tipo</label>
                     <select value={newIng.ingredient_type} onChange={e => setNewIng(p => ({ ...p, ingredient_type: e.target.value }))} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#F9FAFB', color: C.text }}>
@@ -2819,10 +2823,6 @@ export default function Catalog({ adminToken }) {
                   <div>
                     <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Perda / FC (%)</label>
                     <input className="input-field" type="number" min="0" max="99.99" step="0.01" placeholder="0.00" value={newIng.correction_factor} onChange={e => setNewIng(p => ({ ...p, correction_factor: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Peso/Volume (rendimento)</label>
-                    <input className="input-field" type="number" min="0" step="0.001" placeholder="1.000" value={newIng.weight_volume} onChange={e => setNewIng(p => ({ ...p, weight_volume: e.target.value }))} style={{ background: '#F9FAFB', color: C.text, borderColor: C.border }} />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 10, marginBottom: 20 }}>
