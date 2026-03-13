@@ -6,6 +6,24 @@ function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
+function formatZipcode(zipcode) {
+  const digits = String(zipcode || '').replace(/\D/g, '');
+  if (digits.length !== 8) return '';
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
+function ufToStateName(uf) {
+  const map = {
+    AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas', BA: 'Bahia', CE: 'Ceará',
+    DF: 'Distrito Federal', ES: 'Espírito Santo', GO: 'Goiás', MA: 'Maranhão', MT: 'Mato Grosso',
+    MS: 'Mato Grosso do Sul', MG: 'Minas Gerais', PA: 'Pará', PB: 'Paraíba', PR: 'Paraná',
+    PE: 'Pernambuco', PI: 'Piauí', RJ: 'Rio de Janeiro', RN: 'Rio Grande do Norte',
+    RS: 'Rio Grande do Sul', RO: 'Rondônia', RR: 'Roraima', SC: 'Santa Catarina',
+    SP: 'São Paulo', SE: 'Sergipe', TO: 'Tocantins',
+  };
+  return map[String(uf || '').toUpperCase()] || '';
+}
+
 function parseAddressDetails(raw) {
   if (!raw) return null;
   try {
@@ -26,6 +44,9 @@ function parseAddressDetails(raw) {
 }
 
 function getAddressCandidates(details, rawAddress = '') {
+  const zipcodeFormatted = formatZipcode(details.zipcode);
+  const stateName = ufToStateName(details.state);
+
   const streetLine = [details.street, details.number].filter(Boolean).join(', ');
   const withZip = [streetLine, details.complement, details.neighborhood, details.city, details.state, details.zipcode]
     .filter(Boolean)
@@ -36,9 +57,25 @@ function getAddressCandidates(details, rawAddress = '') {
   const neighborhoodFirst = [details.neighborhood, details.city, details.state, details.zipcode]
     .filter(Boolean)
     .join(', ');
+  const withoutNumber = [details.street, details.neighborhood, details.city, details.state, zipcodeFormatted]
+    .filter(Boolean)
+    .join(', ');
+  const cityAndZip = [details.city, details.state, zipcodeFormatted]
+    .filter(Boolean)
+    .join(', ');
+  const zipcodeOnly = zipcodeFormatted;
+  const stateAsName = [streetLine, details.neighborhood, details.city, stateName, zipcodeFormatted]
+    .filter(Boolean)
+    .join(', ');
   const fallbackRaw = normalizeText(rawAddress);
 
-  return [withZip, withoutZip, neighborhoodFirst, fallbackRaw]
+  const base = [withZip, withoutZip, neighborhoodFirst, withoutNumber, cityAndZip, zipcodeOnly, stateAsName, fallbackRaw]
+    .map(normalizeText)
+    .filter(Boolean);
+
+  const withCountry = base.map((value) => `${value}, Brasil`);
+
+  return [...base, ...withCountry]
     .map(normalizeText)
     .filter((value, idx, arr) => value && arr.indexOf(value) === idx);
 }
@@ -46,24 +83,30 @@ function getAddressCandidates(details, rawAddress = '') {
 async function geocode(addresses) {
   const candidates = Array.isArray(addresses) ? addresses : [addresses];
   for (const address of candidates) {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(address)}`;
-    try {
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'fumego-pizza-delivery/1.0',
-          'Accept-Language': 'pt-BR',
-        },
-        cache: 'no-store',
-      });
-      if (!res.ok) continue;
-      const rows = await res.json();
-      if (!Array.isArray(rows) || rows.length === 0) continue;
-      const r = rows[0];
-      const lat = Number(r.lat);
-      const lng = Number(r.lon);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng, query: address };
-    } catch {
-      // tenta próximo candidato
+    const providers = [
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&addressdetails=1&q=${encodeURIComponent(address)}`,
+      `https://geocode.maps.co/search?q=${encodeURIComponent(address)}&countrycode=br`,
+    ];
+
+    for (const url of providers) {
+      try {
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent': 'fumego-pizza-delivery/1.0',
+            'Accept-Language': 'pt-BR,pt;q=0.9',
+          },
+          cache: 'no-store',
+        });
+        if (!res.ok) continue;
+        const rows = await res.json();
+        if (!Array.isArray(rows) || rows.length === 0) continue;
+        const r = rows[0];
+        const lat = Number(r.lat);
+        const lng = Number(r.lon);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng, query: address };
+      } catch {
+        // tenta próximo provider/candidato
+      }
     }
   }
   return null;
