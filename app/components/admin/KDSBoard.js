@@ -59,8 +59,13 @@ const COLUMNS = [
 
 const PM = {
   pix:          { label: 'PIX',      icon: Zap,        color: '#1D4ED8' },
+  card:         { label: 'Cartão online', icon: CreditCard, color: '#7C3AED' },
+  card_credit:  { label: 'Cartão (crédito)', icon: CreditCard, color: '#7C3AED' },
+  card_debit:   { label: 'Cartão (débito)', icon: CreditCard, color: '#7C3AED' },
+  debit:        { label: 'Débito', icon: CreditCard, color: '#7C3AED' },
   cash:         { label: 'Dinheiro', icon: Banknote,   color: '#059669' },
   card_delivery:{ label: 'Cartão',   icon: CreditCard, color: '#7C3AED' },
+  voucher:      { label: 'Vale refeição', icon: CreditCard, color: '#D97706' },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -218,6 +223,7 @@ function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPerson
   const mins = elapsedMins(order.created_at);
   const initials = getNameInitials(deliveryPersonName);
   const isDelivering = order.status === 'delivering';
+  const isPaidOnline = order.payment_status === 'approved' && ['pix', 'card', 'card_credit', 'card_debit'].includes(order.payment_method);
 
   const borderColor = isReady ? '#F59E0B' : isNew ? cfg.color : '#D1D5DB';
   const shadow = isReady
@@ -260,6 +266,19 @@ function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPerson
           boxShadow: '0 0 0 3px #FEF3C7',
           animation: 'kdsPulse 1.2s ease-in-out infinite',
         }} />
+      )}
+
+      {isPaidOnline && (
+        <div style={{
+          position: 'absolute', top: 8, right: 8,
+          display: 'flex', alignItems: 'center', gap: 5,
+          fontSize: 10, fontWeight: 800,
+          color: '#065F46', background: '#ECFDF5', border: '1px solid #A7F3D0',
+          borderRadius: 999, padding: '2px 7px',
+        }}>
+          <input type="checkbox" checked readOnly style={{ width: 12, height: 12, accentColor: '#059669' }} />
+          PAGO
+        </div>
       )}
       {isNew && (
         <div style={{
@@ -945,8 +964,12 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
 
   const paymentOptions = [
     { key: 'pix', label: 'PIX', icon: Zap, color: '#2563EB' },
+    { key: 'card', label: 'Cartão (online)', icon: CreditCard, color: '#7C3AED' },
+    { key: 'card_credit', label: 'Cartão (crédito)', icon: CreditCard, color: '#6D28D9' },
+    { key: 'card_debit', label: 'Cartão (débito)', icon: CreditCard, color: '#7C3AED' },
     { key: 'cash', label: 'Dinheiro', icon: Banknote, color: '#059669' },
-    { key: 'card_delivery', label: 'Cartão', icon: CreditCard, color: '#7C3AED' },
+    { key: 'card_delivery', label: 'Cartão na entrega', icon: CreditCard, color: '#0E7490' },
+    { key: 'voucher', label: 'Vale refeição', icon: CreditCard, color: '#D97706' },
   ];
 
   function openPaymentFlow() {
