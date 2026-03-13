@@ -1527,6 +1527,7 @@ function QuickStat({ label, value, color, hidden }) {
 
 function KitchenOrderDetailsModal({ order, onClose }) {
   if (!order) return null;
+  const kitchenItems = (order.order_items || []).filter(item => !item?.drink_id);
 
   return (
     <div
@@ -1555,7 +1556,7 @@ function KitchenOrderDetailsModal({ order, onClose }) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {(order.order_items || []).length > 0 ? order.order_items.map((item, i) => (
+          {kitchenItems.length > 0 ? kitchenItems.map((item, i) => (
             <div key={`${order.id}-kitchen-item-${i}`} style={{ border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', background: '#fff' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{ fontSize: 18, fontWeight: 900, color: '#D97706', minWidth: 28, fontFamily: 'monospace' }}>{item.quantity}×</span>
@@ -1587,15 +1588,44 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) 
   const isItemsLoading = !!order.order_items_loading;
   const [marking, setMarking] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [checkedItems, setCheckedItems] = useState({});
   const mins = elapsedMins(order.created_at);
   const urgentColor = mins >= 30 ? '#EF4444' : mins >= 20 ? '#D97706' : '#10B981';
   const urgentBg    = mins >= 30 ? '#FEF2F2' : mins >= 20 ? '#FFFBEB' : '#ECFDF5';
+  const kitchenItems = (order.order_items || []).filter(item => !item?.drink_id);
+
+  useEffect(() => {
+    setCheckedItems({});
+  }, [order.id, kitchenItems.length]);
+
+  const isEveryKitchenItemChecked = kitchenItems.length > 0 && kitchenItems.every((item, idx) => {
+    const itemKey = `${item.product_name || 'item'}-${idx}-${item.quantity || 1}`;
+    return !!checkedItems[itemKey];
+  });
 
   async function confirmReady() {
     setShowConfirm(false);
     setMarking(true);
     await onMarkReady();
     setMarking(false);
+  }
+
+  async function handleToggleItem(item, idx) {
+    const itemKey = `${item.product_name || 'item'}-${idx}-${item.quantity || 1}`;
+    const nextChecked = !checkedItems[itemKey];
+    const nextState = { ...checkedItems, [itemKey]: nextChecked };
+    setCheckedItems(nextState);
+
+    const allChecked = kitchenItems.length > 0 && kitchenItems.every((kItem, kIdx) => {
+      const key = `${kItem.product_name || 'item'}-${kIdx}-${kItem.quantity || 1}`;
+      return key === itemKey ? nextChecked : !!nextState[key];
+    });
+
+    if (allChecked && !marking) {
+      setMarking(true);
+      await onMarkReady();
+      setMarking(false);
+    }
   }
 
   return (
@@ -1646,16 +1676,26 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) 
       <div style={{ marginTop: 4, borderTop: '1px dashed #E5E7EB', paddingTop: 9, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {isItemsLoading ? (
           <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>Carregando itens...</p>
-        ) : (order.order_items || []).length === 0 ? (
+        ) : kitchenItems.length === 0 ? (
           <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>Sem itens para este pedido.</p>
         ) : (
-          order.order_items.map((item, idx) => (
+          kitchenItems.map((item, idx) => {
+            const itemKey = `${item.product_name || 'item'}-${idx}-${item.quantity || 1}`;
+            const isChecked = !!checkedItems[itemKey];
+            return (
             <div key={`${order.id}-kitchen-preview-item-${idx}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onClick={e => e.stopPropagation()}
+                onChange={() => handleToggleItem(item, idx)}
+                style={{ marginTop: 2, width: 16, height: 16, accentColor: '#2563EB', cursor: 'pointer' }}
+              />
               <span style={{ fontSize: 15, fontWeight: 900, color: '#D97706', minWidth: 26, fontFamily: 'monospace' }}>
                 {parseInt(item.quantity, 10) || 1}x
               </span>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{ fontSize: 14, color: '#111827', lineHeight: 1.3, fontWeight: 800, wordBreak: 'break-word' }}>
+                <p style={{ fontSize: 14, color: isChecked ? '#2563EB' : '#111827', lineHeight: 1.3, fontWeight: 800, wordBreak: 'break-word' }}>
                   {item.product_name || 'Item'}
                 </p>
                 {item.observations && (
@@ -1665,7 +1705,7 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) 
                 )}
               </div>
             </div>
-          ))
+          )})
         )}
       </div>
 
@@ -1706,21 +1746,23 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) 
       ) : (
         /* Botão PRONTO */
         <button
-          disabled={marking}
+          disabled={marking || isEveryKitchenItemChecked}
           onClick={e => {
             e.stopPropagation();
             setShowConfirm(true);
           }}
           style={{
             width: '100%', padding: '14px', borderRadius: 10, border: 'none',
-            fontSize: 16, fontWeight: 900, cursor: marking ? 'not-allowed' : 'pointer',
-            background: marking ? '#9CA3AF' : '#10B981',
+            fontSize: 16, fontWeight: 900, cursor: marking || isEveryKitchenItemChecked ? 'not-allowed' : 'pointer',
+            background: marking || isEveryKitchenItemChecked ? '#9CA3AF' : '#10B981',
             color: '#fff', letterSpacing: 0.5, transition: 'background 0.15s',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
           }}
         >
           {marking
             ? 'Registrando...'
+            : isEveryKitchenItemChecked
+              ? 'Pedido finalizado'
             : <><PackageCheck size={20} /> MARCAR PRONTO</>
           }
         </button>
@@ -1741,7 +1783,7 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
   const kitchenOrders = orders
     .filter(o => ['confirmed', 'preparing'].includes(o.status))
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-  const maxItemsInKitchen = Math.max(1, ...kitchenOrders.map(o => (o.order_items || []).length || 1));
+  const maxItemsInKitchen = Math.max(1, ...kitchenOrders.map(o => (o.order_items || []).filter(item => !item?.drink_id).length || 1));
   const minKitchenCardHeight = 180 + (maxItemsInKitchen * 28);
   const detailOrder = kitchenOrders.find(o => o.id === detailOrderId) || null;
 
