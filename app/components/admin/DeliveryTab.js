@@ -408,22 +408,29 @@ function ZonesTab({ adminToken }) {
     setRules(prev => prev.filter((_, i) => i !== index));
   }
 
+  const manualCoordsValid = Number.isFinite(parseFloat(originCoords.lat)) && parseFloat(originCoords.lat) !== 0
+    && Number.isFinite(parseFloat(originCoords.lng)) && parseFloat(originCoords.lng) !== 0;
+
   async function saveRadiusConfig() {
-    const requiredStoreFields = [
-      ['zipcode', 'CEP'],
-      ['street', 'Rua/Avenida'],
-      ['number', 'Número'],
-      ['neighborhood', 'Bairro'],
-      ['city', 'Cidade'],
-      ['state', 'UF'],
-    ];
-    const missing = requiredStoreFields
-      .filter(([field]) => !String(originAddress[field] || '').trim())
-      .map(([, label]) => label);
-    if (missing.length > 0) {
-      setMsg(`Preencha o endereço completo da loja: ${missing.join(', ')}`);
-      return;
+    // If no manual coords, require full store address for geocoding
+    if (!manualCoordsValid) {
+      const requiredStoreFields = [
+        ['zipcode', 'CEP'],
+        ['street', 'Rua/Avenida'],
+        ['number', 'Número'],
+        ['neighborhood', 'Bairro'],
+        ['city', 'Cidade'],
+        ['state', 'UF'],
+      ];
+      const missing = requiredStoreFields
+        .filter(([field]) => !String(originAddress[field] || '').trim())
+        .map(([, label]) => label);
+      if (missing.length > 0) {
+        setMsg(`Preencha o endereço completo da loja ou informe as coordenadas manualmente: ${missing.join(', ')}`);
+        return;
+      }
     }
+
     const cleaned = rules
       .map(r => ({
         radius_km: parseFloat(r.radius_km),
@@ -449,30 +456,50 @@ function ZonesTab({ adminToken }) {
       await adminPost('save_setting', { key: 'delivery_origin_address', value: buildOriginAddressLine(normalizedStoreAddress) }, adminToken);
       await adminPost('save_setting', { key: 'delivery_radius_rules', value: JSON.stringify(cleaned) }, adminToken);
 
-      // Geocode store address and save lat/lng for fast delivery calculations
-      setMsg('Salvando... Geocodificando endereço da loja...');
-      try {
-        const geoRes = await fetch('/api/delivery/geocode-store', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(normalizedStoreAddress),
-        });
-        const geoData = await geoRes.json();
-        if (geoData.lat && geoData.lng) {
-          await adminPost('save_setting', { key: 'delivery_origin_lat', value: String(geoData.lat) }, adminToken);
-          await adminPost('save_setting', { key: 'delivery_origin_lng', value: String(geoData.lng) }, adminToken);
-          setOriginCoords({ lat: String(geoData.lat), lng: String(geoData.lng) });
-          setMsg('Configuracao de entrega salva! Coordenadas da loja: ' + geoData.lat.toFixed(6) + ', ' + geoData.lng.toFixed(6));
-        } else {
-          setMsg('Configuracao salva, mas nao foi possivel geocodificar o endereco. O sistema tentara novamente no proximo calculo de frete.');
+      if (manualCoordsValid) {
+        // Manual coords take priority — save directly without geocoding
+        const lat = parseFloat(originCoords.lat);
+        const lng = parseFloat(originCoords.lng);
+        await adminPost('save_setting', { key: 'delivery_origin_lat', value: String(lat) }, adminToken);
+        await adminPost('save_setting', { key: 'delivery_origin_lng', value: String(lng) }, adminToken);
+        setMsg(`✅ Configuração salva! Coordenadas manuais: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      } else {
+        // Geocode store address and cache lat/lng
+        setMsg('Salvando... Geocodificando endereço da loja...');
+        try {
+          const geoRes = await fetch('/api/delivery/geocode-store', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(normalizedStoreAddress),
+          });
+          const geoData = await geoRes.json();
+          if (geoData.lat && geoData.lng) {
+            await adminPost('save_setting', { key: 'delivery_origin_lat', value: String(geoData.lat) }, adminToken);
+            await adminPost('save_setting', { key: 'delivery_origin_lng', value: String(geoData.lng) }, adminToken);
+            setOriginCoords({ lat: String(geoData.lat), lng: String(geoData.lng) });
+            setMsg(`✅ Configuração salva! Coordenadas geocodificadas: ${geoData.lat.toFixed(6)}, ${geoData.lng.toFixed(6)}`);
+          } else {
+            setMsg('Configuração salva, mas não foi possível geocodificar o endereço. O sistema tentará novamente no próximo cálculo de frete.');
+          }
+        } catch {
+          setMsg('Configuração salva, mas erro ao geocodificar. O sistema tentará novamente no próximo cálculo de frete.');
         }
-      } catch {
-        setMsg('Configuracao salva, mas erro ao geocodificar. O sistema tentara novamente no proximo calculo de frete.');
       }
     } catch (e) {
       setMsg('Erro: ' + e.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function clearCoords() {
+    try {
+      await adminPost('save_setting', { key: 'delivery_origin_lat', value: '' }, adminToken);
+      await adminPost('save_setting', { key: 'delivery_origin_lng', value: '' }, adminToken);
+      setOriginCoords({ lat: '', lng: '' });
+      setMsg('Coordenadas removidas. O sistema geocodificará o endereço automaticamente no próximo salvamento.');
+    } catch (e) {
+      setMsg('Erro ao limpar coordenadas: ' + e.message);
     }
   }
 
@@ -524,6 +551,53 @@ function ZonesTab({ adminToken }) {
             </div>
           </div>
 
+          {/* Manual coordinates */}
+          <div style={{ background: manualCoordsValid ? '#F0FDF4' : '#F9FAFB', border: `1px solid ${manualCoordsValid ? '#86EFAC' : C.border}`, borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 700, color: manualCoordsValid ? '#15803D' : C.text, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <MapPin size={13} />
+                  Coordenadas da loja (opcional)
+                  {manualCoordsValid && <span style={{ fontSize: 10, background: '#DCFCE7', color: '#15803D', padding: '1px 7px', borderRadius: 10, fontWeight: 700 }}>ATIVAS — prioridade sobre endereço</span>}
+                </p>
+                <p style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                  {manualCoordsValid
+                    ? 'As coordenadas manuais estão sendo usadas para calcular a distância de entrega.'
+                    : 'Se preenchidas, têm prioridade total sobre o endereço. Útil para corrigir imprecisões do geocodificador.'}
+                </p>
+              </div>
+              {manualCoordsValid && (
+                <button onClick={clearCoords} style={{ ...btnGhost, fontSize: 11, padding: '5px 10px', color: C.danger, borderColor: '#FECACA', flexShrink: 0 }}>
+                  <X size={12} /> Limpar
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div>
+                <label style={labelStyle}>Latitude</label>
+                <input
+                  style={{ ...inputStyle, borderColor: manualCoordsValid ? '#86EFAC' : C.border }}
+                  type="number"
+                  step="any"
+                  placeholder="Ex: -19.920557"
+                  value={originCoords.lat}
+                  onChange={e => setOriginCoords(prev => ({ ...prev, lat: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Longitude</label>
+                <input
+                  style={{ ...inputStyle, borderColor: manualCoordsValid ? '#86EFAC' : C.border }}
+                  type="number"
+                  step="any"
+                  placeholder="Ex: -43.938545"
+                  value={originCoords.lng}
+                  onChange={e => setOriginCoords(prev => ({ ...prev, lng: e.target.value }))}
+                />
+              </div>
+            </div>
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
             {rules.map((r, i) => (
               <div key={`radius-rule-${i}`} style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1fr auto auto', gap: 8, alignItems: 'end', background: '#F9FAFB', border: `1px solid ${C.border}`, borderRadius: 10, padding: 10 }}>
@@ -548,13 +622,6 @@ function ZonesTab({ adminToken }) {
               </div>
             ))}
           </div>
-
-          {originCoords.lat && originCoords.lng && (
-            <p style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>
-              <MapPin size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }} />
-              Coordenadas da loja: {Number(originCoords.lat).toFixed(6)}, {Number(originCoords.lng).toFixed(6)}
-            </p>
-          )}
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button onClick={addRule} style={btnGhost}><Plus size={14} /> Adicionar raio</button>
