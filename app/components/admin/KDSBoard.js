@@ -8,7 +8,7 @@ import {
   EyeOff, Eye, ChevronDown, Plus, ShoppingBag, Star,
   ArrowRight, PackageCheck, Timer, LayoutList, FilePenLine,
 } from 'lucide-react';
-import ManualOrderDrawer from './ManualOrderDrawer';
+import ManualOrderDrawer, { ProductPicker } from './ManualOrderDrawer';
 import OrdersTab from './OrdersTab';
 
 // ── Status config ──────────────────────────────────────────────────────────────
@@ -835,7 +835,7 @@ function PaymentPanel({ order, onSave }) {
   );
 }
 
-function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, onAddressUpdate, onItemsUpdate, adminToken, customerOrderCount, deliveryPersons, onAssignDeliveryPerson, onEnsureDeliveryPersons }) {
+function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, onAddressUpdate, onItemsUpdate, adminToken, customerOrderCount, deliveryPersons, onAssignDeliveryPerson, onEnsureDeliveryPersons, products, drinks }) {
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [showPrintDialog, setShowPrintDialog]         = useState(false);
   const [showPaymentFlow, setShowPaymentFlow]         = useState(false);
@@ -861,6 +861,9 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
   const [editingItems, setEditingItems]                 = useState(false);
   const [savingItems, setSavingItems]                   = useState(false);
   const [itemsDraft, setItemsDraft]                     = useState([]);
+  const [showItemPicker, setShowItemPicker]             = useState(false);
+  const [historyRows, setHistoryRows]                   = useState([]);
+  const [historyLoading, setHistoryLoading]             = useState(false);
 
   useEffect(() => {
     setAddressDraft({
@@ -889,6 +892,31 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
       observations: item.observations || '',
     })));
   }, [order?.id, items]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadHistory() {
+      if (!order?.id || !adminToken) return;
+      setHistoryLoading(true);
+      try {
+        const res = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+          body: JSON.stringify({ action: 'get_order_change_history', data: { order_id: order.id } }),
+        });
+        const d = await res.json();
+        if (!res.ok || d.error) throw new Error(d.error || 'Erro ao buscar histórico');
+        if (!cancelled) setHistoryRows(Array.isArray(d.history) ? d.history : []);
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setHistoryRows([]);
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    }
+    loadHistory();
+    return () => { cancelled = true; };
+  }, [order?.id, adminToken]);
 
   if (!order) return null;
   const cfg  = S[order.status] || S.pending;
@@ -952,16 +980,20 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
     }
   }
 
-  function updateItemDraft(index, field, value) {
-    setItemsDraft(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
-  }
-
-  function addItemDraft() {
-    setItemsDraft(prev => ([...prev, { product_name: '', quantity: 1, unit_price: 0, observations: '' }]));
-  }
-
   function removeItemDraft(index) {
     setItemsDraft(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function addPickedItem(item) {
+    setItemsDraft(prev => ([
+      ...prev,
+      {
+        product_name: item.product_name || '',
+        quantity: Math.max(1, parseInt(item.quantity, 10) || 1),
+        unit_price: Math.max(0, parseFloat(item.unit_price) || 0),
+        observations: item.observations || '',
+      },
+    ]));
   }
 
   async function saveItems() {
@@ -976,7 +1008,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
         }))
         .filter(item => item.product_name);
       if (cleaned.length === 0) {
-        alert('Adicione pelo menos um item com nome.');
+        alert('O pedido precisa ter ao menos um item.');
         return;
       }
       await onItemsUpdate(cleaned);
@@ -1155,28 +1187,33 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
 
             {/* Itens */}
             <Section label="Itens do Pedido" icon={<List size={12} />} collapsible defaultExpanded={false}>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                 {!editingItems ? (
                   <button onClick={() => setEditingItems(true)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', fontSize: 11, fontWeight: 700, color: '#374151', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}><FilePenLine size={12} /> Editar itens</button>
                 ) : (
                   <>
-                    <button onClick={addItemDraft} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #BFDBFE', background: '#EFF6FF', fontSize: 11, fontWeight: 700, color: '#2563EB', cursor: 'pointer' }}>+ Item</button>
-                    <button onClick={() => { setEditingItems(false); setItemsDraft((items || []).map(item => ({ product_name: item.product_name || '', quantity: item.quantity || 1, unit_price: item.unit_price || 0, observations: item.observations || '' }))); }} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', fontSize: 11, fontWeight: 700, color: '#6B7280', cursor: 'pointer' }}>Cancelar</button>
+                    <button onClick={() => setShowItemPicker(true)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #BFDBFE', background: '#EFF6FF', fontSize: 11, fontWeight: 700, color: '#2563EB', cursor: 'pointer' }}>+ Item</button>
+                    <button onClick={() => { setEditingItems(false); setShowItemPicker(false); setItemsDraft((items || []).map(item => ({ product_name: item.product_name || '', quantity: item.quantity || 1, unit_price: item.unit_price || 0, observations: item.observations || '' }))); }} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', fontSize: 11, fontWeight: 700, color: '#6B7280', cursor: 'pointer' }}>Cancelar</button>
                     <button onClick={saveItems} disabled={savingItems} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: savingItems ? '#9CA3AF' : '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: savingItems ? 'not-allowed' : 'pointer' }}>{savingItems ? 'Salvando...' : 'Salvar itens'}</button>
                   </>
                 )}
               </div>
               {editingItems ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <p style={{ fontSize: 11, color: '#6B7280', marginBottom: 2 }}>
+                    Os itens são tratados como únicos. Você pode remover itens existentes e adicionar novos via mini cardápio.
+                  </p>
                   {itemsDraft.map((item, i) => (
-                    <div key={`item-draft-${i}`} style={{ border: '1px solid #E5E7EB', borderRadius: 6, padding: 8, display: 'grid', gridTemplateColumns: '1fr 78px 92px', gap: 6 }}>
-                      <input value={item.product_name} onChange={e => updateItemDraft(i, 'product_name', e.target.value)} placeholder="Nome do item" style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
-                      <input type="number" min="1" value={item.quantity} onChange={e => updateItemDraft(i, 'quantity', e.target.value)} placeholder="Qtd" style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
-                      <input type="number" min="0" step="0.01" value={item.unit_price} onChange={e => updateItemDraft(i, 'unit_price', e.target.value)} placeholder="Unitário" style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
-                      <input value={item.observations} onChange={e => updateItemDraft(i, 'observations', e.target.value)} placeholder="Observações" style={{ gridColumn: '1 / span 2', padding: '6px 8px', borderRadius: 5, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                    <div key={`item-draft-${i}`} style={{ border: '1px solid #E5E7EB', borderRadius: 6, padding: 8, display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center' }}>
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{item.quantity}× {item.product_name}</p>
+                        <p style={{ fontSize: 11, color: '#6B7280' }}>{fmtBRL(item.unit_price)} un. · Total {fmtBRL((item.quantity || 1) * (item.unit_price || 0))}</p>
+                        {item.observations && <p style={{ fontSize: 11, color: '#92400E', marginTop: 4 }}>⚠️ {item.observations}</p>}
+                      </div>
                       <button onClick={() => removeItemDraft(i)} style={{ padding: '6px 8px', borderRadius: 5, border: '1px solid #FECACA', background: '#FEF2F2', color: '#B91C1C', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Remover</button>
                     </div>
                   ))}
+                  {itemsDraft.length === 0 && <p style={{ fontSize: 12, color: '#9CA3AF' }}>Sem itens no rascunho. Use + Item para adicionar.</p>}
                 </div>
               ) : itemsLoading ? (
                 <div style={{ display: 'flex', gap: 7, alignItems: 'center', color: '#9CA3AF', fontSize: 13 }}>
@@ -1217,6 +1254,49 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                 <p style={{ fontSize: 13, color: '#9CA3AF' }}>Sem itens para este pedido.</p>
               )}
             </Section>
+
+            <Section label="Histórico de alterações" icon={<Timer size={12} />} collapsible defaultExpanded={false}>
+              {historyLoading ? (
+                <p style={{ fontSize: 12, color: '#9CA3AF' }}>Carregando histórico...</p>
+              ) : historyRows.length === 0 ? (
+                <p style={{ fontSize: 12, color: '#9CA3AF' }}>Nenhuma alteração registrada ainda.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {historyRows.map((entry) => {
+                    const details = entry?.details || {};
+                    const removed = Array.isArray(details.removed_items) ? details.removed_items : [];
+                    const added = Array.isArray(details.added_items) ? details.added_items : [];
+                    const address = Array.isArray(details.address_changes) ? details.address_changes : [];
+                    return (
+                      <div key={entry.id} style={{ border: '1px solid #E5E7EB', borderRadius: 6, padding: 8 }}>
+                        <p style={{ fontSize: 11, fontWeight: 800, color: '#374151', marginBottom: 4 }}>{entry.action_type} · {fmtDateFull(entry.created_at)}</p>
+                        {removed.map((r, idx) => <p key={`r-${idx}`} style={{ fontSize: 11, color: '#B91C1C' }}>- Removido: {r.quantity}× {r.product_name}</p>)}
+                        {added.map((a, idx) => <p key={`a-${idx}`} style={{ fontSize: 11, color: '#065F46' }}>+ Adicionado: {a.quantity}× {a.product_name}</p>)}
+                        {address.map((a, idx) => <p key={`ad-${idx}`} style={{ fontSize: 11, color: '#1D4ED8' }}>• Endereço: {a.field} de "{a.from || ''}" para "{a.to || ''}"</p>)}
+                        {!removed.length && !added.length && !address.length && details.message && (
+                          <p style={{ fontSize: 11, color: '#6B7280' }}>{details.message}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Section>
+
+            {showItemPicker && (
+              <div style={{ border: '1px solid #DBEAFE', background: '#EFF6FF', borderRadius: 8, padding: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <p style={{ fontSize: 12, fontWeight: 800, color: '#1D4ED8' }}>Mini cardápio — adicionar item</p>
+                  <button onClick={() => setShowItemPicker(false)} style={{ border: 'none', background: 'transparent', fontSize: 12, color: '#1D4ED8', cursor: 'pointer', fontWeight: 700 }}>Fechar</button>
+                </div>
+                <ProductPicker
+                  products={(products || []).filter(p => !p.is_hidden)}
+                  drinks={(drinks || []).filter(d => !d.is_hidden)}
+                  onAdd={addPickedItem}
+                  onClose={() => setShowItemPicker(false)}
+                />
+              </div>
+            )}
 
             {/* Obs */}
             {order.observations && (
@@ -2311,6 +2391,8 @@ export default function KDSBoard({
           deliveryPersons={deliveryPersons}
           onAssignDeliveryPerson={assignDeliveryPerson}
           onEnsureDeliveryPersons={ensureDeliveryPersons}
+          products={products || []}
+          drinks={drinks || []}
         />
       )}
 
