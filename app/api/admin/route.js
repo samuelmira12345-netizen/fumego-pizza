@@ -7,7 +7,7 @@ import { logger } from '../../../lib/logger';
 // ── Handlers por domínio ──────────────────────────────────────────────────────
 import {
   handleGetData, handleGetOrdersOnly, handleGetMoreOrders,
-  handleGetOrderItems, handleUpdateOrder, handleDeleteOrder, handleCreateManualOrder,
+  handleGetOrderItems, handleGetOrderChangeHistory, handleUpdateOrder, handleUpdateOrderItems, handleDeleteOrder, handleCreateManualOrder,
 } from '../../../lib/admin-actions/orders';
 import {
   handleSaveAll, handleSaveSetting, handleAddProduct,
@@ -73,7 +73,9 @@ export async function POST(request) {
     if (action === 'get_orders_only')   return handleGetOrdersOnly(supabase, data);
     if (action === 'get_more_orders')   return handleGetMoreOrders(supabase, data);
     if (action === 'get_order_items')   return handleGetOrderItems(supabase, data);
+    if (action === 'get_order_change_history') return handleGetOrderChangeHistory(supabase, data);
     if (action === 'update_order')      return handleUpdateOrder(supabase, data);
+    if (action === 'update_order_items') return handleUpdateOrderItems(supabase, data);
     if (action === 'delete_order')      return handleDeleteOrder(supabase, data);
     if (action === 'create_manual_order') return handleCreateManualOrder(supabase, data);
 
