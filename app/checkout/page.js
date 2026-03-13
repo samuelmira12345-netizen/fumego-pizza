@@ -27,6 +27,7 @@ export default function CheckoutPage() {
   const [couponError, setCouponError] = useState('');
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryTime, setDeliveryTime] = useState('40–60 min');
+  const [deliveryQuoteError, setDeliveryQuoteError] = useState('');
   const [instagramUrl, setInstagramUrl] = useState('');
   const [pixData, setPixData] = useState(null);
   const [orderCreated, setOrderCreated] = useState(false);
@@ -84,6 +85,13 @@ export default function CheckoutPage() {
     street: '', number: '', complement: '', neighborhood: '', city: '', state: '', zipcode: '',
   });
 
+  useEffect(() => {
+    const ready = form.street && form.number && form.zipcode;
+    if (!ready) return;
+    const t = setTimeout(() => { recalculateDeliveryFee(); }, 450);
+    return () => clearTimeout(t);
+  }, [form.street, form.number, form.neighborhood, form.city, form.state, form.zipcode]);
+
   // Limpa o intervalo de polling e o timeout ao desmontar o componente
   useEffect(() => {
     return () => {
@@ -125,15 +133,13 @@ export default function CheckoutPage() {
     }
 
     supabase.from('settings').select('*')
-      .in('key', ['delivery_fee', 'delivery_time', 'instagram_url', 'scheduling_enabled', 'scheduling_max_days'])
+      .in('key', ['delivery_time', 'instagram_url', 'scheduling_enabled', 'scheduling_max_days'])
       .then(({ data }) => {
         if (data) {
-          const fee   = data.find(s => s.key === 'delivery_fee');
           const time  = data.find(s => s.key === 'delivery_time');
           const insta = data.find(s => s.key === 'instagram_url');
           const schEn = data.find(s => s.key === 'scheduling_enabled');
           const schMx = data.find(s => s.key === 'scheduling_max_days');
-          if (fee)   setDeliveryFee(Number(fee.value) || 0);
           if (time)  setDeliveryTime(time.value || '40–60 min');
           if (insta) setInstagramUrl(insta.value || '');
           if (schEn?.value === 'true') setSchedulingEnabled(true);
@@ -142,7 +148,46 @@ export default function CheckoutPage() {
       });
   }, []);
 
-  function updateForm(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
+  function updateForm(field, value) {
+    setForm(prev => ({ ...prev, [field]: value }));
+    if (['street', 'number', 'neighborhood', 'city', 'state', 'zipcode'].includes(field)) {
+      setDeliveryQuoteError('');
+    }
+  }
+
+
+
+  async function recalculateDeliveryFee(extra = {}) {
+    const payload = {
+      street: form.street,
+      number: form.number,
+      neighborhood: form.neighborhood,
+      city: form.city,
+      state: form.state,
+      zipcode: form.zipcode,
+      ...extra,
+    };
+    if (!payload.street || !payload.number || !payload.zipcode) return;
+
+    try {
+      setDeliveryQuoteError('');
+      const res = await fetch('/api/delivery/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDeliveryQuoteError(data.error || 'Não foi possível calcular a taxa de entrega');
+        setDeliveryFee(0);
+        return;
+      }
+      setDeliveryFee(Number(data.fee) || 0);
+      if (data.estimated_mins) setDeliveryTime(`${data.estimated_mins}–${Number(data.estimated_mins) + 20} min`);
+    } catch {
+      setDeliveryQuoteError('Não foi possível calcular a taxa de entrega no momento');
+    }
+  }
 
   async function loadAvailableSlots(date) {
     if (!date) { setAvailableSlots([]); setSelectedSlot(''); return; }
@@ -192,6 +237,8 @@ export default function CheckoutPage() {
       }
     } catch (e) { console.error('Erro CEP:', e); }
     finally { setCepLoading(false); }
+
+    recalculateDeliveryFee({ zipcode: cep });
   }
 
   function calcSubtotal() {
@@ -937,6 +984,9 @@ export default function CheckoutPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: MUTED, marginBottom: 8 }}>
               <span>Entrega</span><span style={{ color: '#fff' }}>R$ {deliveryFee.toFixed(2).replace('.', ',')}</span>
             </div>
+          )}
+          {deliveryQuoteError && (
+            <p style={{ fontSize: 12, color: RED, marginBottom: 8 }}>{deliveryQuoteError}</p>
           )}
           {calcDiscount() > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>

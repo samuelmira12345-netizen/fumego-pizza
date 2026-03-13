@@ -318,180 +318,137 @@ function PersonsTab({ adminToken }) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 function ZonesTab({ adminToken }) {
-  const [zones, setZones]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [saving, setSaving]     = useState(null); // id being saved
-  const [deleting, setDeleting] = useState(null);
-  const [form, setForm]         = useState(null); // null | {...zone} | 'new'
-  const [msg, setMsg]           = useState('');
+  const [originAddress, setOriginAddress] = useState('');
+  const [rules, setRules] = useState([{ radius_km: '3', fee: '5', estimated_mins: '35', is_active: true }]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const j = await adminPost('get_delivery_zones', {}, adminToken);
-      setZones(j.zones || []);
+      const j = await adminPost('get_data', {}, adminToken);
+      const settings = j.settings || [];
+      const map = Object.fromEntries(settings.map(s => [s.key, s.value]));
+      setOriginAddress(map.delivery_origin_address || '');
+      if (map.delivery_radius_rules) {
+        try {
+          const parsed = JSON.parse(map.delivery_radius_rules);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setRules(parsed.map(r => ({
+              radius_km: String(r.radius_km ?? ''),
+              fee: String(r.fee ?? ''),
+              estimated_mins: String(r.estimated_mins ?? '40'),
+              is_active: r.is_active !== false,
+            })));
+          }
+        } catch {}
+      }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [adminToken]);
 
   useEffect(() => { load(); }, [load]);
 
-  async function saveZone() {
-    if (!form.neighborhood) { setMsg('Bairro é obrigatório'); return; }
-    setSaving('form');
+  function addRule() {
+    setRules(prev => [...prev, { radius_km: '', fee: '', estimated_mins: '40', is_active: true }]);
+  }
+
+  function updateRule(index, patch) {
+    setRules(prev => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  }
+
+  function removeRule(index) {
+    setRules(prev => prev.filter((_, i) => i !== index));
+  }
+
+  async function saveRadiusConfig() {
+    if (!originAddress.trim()) { setMsg('Informe o endereço de origem da loja'); return; }
+    const cleaned = rules
+      .map(r => ({
+        radius_km: parseFloat(r.radius_km),
+        fee: parseFloat(r.fee),
+        estimated_mins: parseInt(r.estimated_mins, 10) || 40,
+        is_active: r.is_active !== false,
+      }))
+      .filter(r => Number.isFinite(r.radius_km) && r.radius_km > 0 && Number.isFinite(r.fee));
+
+    if (cleaned.length === 0) { setMsg('Cadastre ao menos 1 faixa de raio válida'); return; }
+
+    cleaned.sort((a, b) => a.radius_km - b.radius_km);
+
+    setSaving(true);
     setMsg('');
     try {
-      await adminPost('save_delivery_zone', form, adminToken);
-      setMsg('✅ Salvo!');
-      setForm(null);
-      load();
-    } catch (e) { setMsg('Erro: ' + e.message); }
-    finally { setSaving(null); }
-  }
-
-  async function deleteZone(id) {
-    if (!confirm('Excluir esta zona de entrega?')) return;
-    setDeleting(id);
-    try {
-      await adminPost('delete_delivery_zone', { id }, adminToken);
-      load();
-    } catch (e) { alert('Erro: ' + e.message); }
-    finally { setDeleting(null); }
-  }
-
-  async function toggleZone(zone) {
-    try {
-      await adminPost('save_delivery_zone', { ...zone, is_active: !zone.is_active }, adminToken);
-      load();
-    } catch (e) { alert('Erro: ' + e.message); }
+      await adminPost('save_setting', { key: 'delivery_origin_address', value: originAddress.trim() }, adminToken);
+      await adminPost('save_setting', { key: 'delivery_radius_rules', value: JSON.stringify(cleaned) }, adminToken);
+      setMsg('✅ Configuração de entrega por raio salva com sucesso!');
+    } catch (e) {
+      setMsg('Erro: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Zonas de Entrega</h3>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={load} style={btnGhost}><RefreshCw size={14} /> Atualizar</button>
-          <button onClick={() => { setForm({ ...BLANK_ZONE }); setMsg(''); }} style={btnPrimary}><Plus size={14} /> Nova zona</button>
-        </div>
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Zonas por Raio</h3>
+        <button onClick={load} style={btnGhost}><RefreshCw size={14} /> Atualizar</button>
       </div>
 
-      {/* Form */}
-      {form && (
-        <div style={{ background: '#F9FAFB', border: `1px solid ${C.border}`, borderRadius: 12, padding: 20, marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <h4 style={{ fontWeight: 700, color: C.text, fontSize: 14 }}>
-              {form.id ? 'Editar Zona' : 'Nova Zona de Entrega'}
-            </h4>
-            <button onClick={() => setForm(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.muted }}><X size={16} /></button>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 12 }}>
-            <div>
-              <label style={labelStyle}>Bairro *</label>
-              <input style={inputStyle} placeholder="Ex: Centro" value={form.neighborhood || ''} onChange={e => setForm(f => ({ ...f, neighborhood: e.target.value }))} />
-            </div>
-            <div>
-              <label style={labelStyle}>Cidade</label>
-              <input style={inputStyle} placeholder="Ex: São Paulo" value={form.city || ''} onChange={e => setForm(f => ({ ...f, city: e.target.value }))} />
-            </div>
-            <div>
-              <label style={labelStyle}>Taxa de entrega (R$)</label>
-              <input style={inputStyle} type="number" step="0.50" min="0" placeholder="5.00" value={form.fee || ''} onChange={e => setForm(f => ({ ...f, fee: e.target.value }))} />
-            </div>
-            <div>
-              <label style={labelStyle}>Tempo estimado (min)</label>
-              <input style={inputStyle} type="number" min="5" placeholder="30" value={form.estimated_mins || ''} onChange={e => setForm(f => ({ ...f, estimated_mins: e.target.value }))} />
-            </div>
-            <div>
-              <label style={labelStyle}>Ordem de exibição</label>
-              <input style={inputStyle} type="number" min="0" placeholder="0" value={form.sort_order || ''} onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 2 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: C.text }}>
-                <input type="checkbox" checked={!!form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
-                Ativa
-              </label>
-            </div>
-          </div>
-          {msg && <p style={{ fontSize: 12, color: msg.startsWith('✅') ? C.success : C.danger, marginBottom: 10 }}>{msg}</p>}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={saveZone} disabled={saving === 'form'} style={{ ...btnPrimary, opacity: saving === 'form' ? 0.6 : 1 }}>
-              {saving === 'form' ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Salvando…</> : <><Save size={13} /> Salvar</>}
-            </button>
-            <button onClick={() => setForm(null)} style={btnGhost}>Cancelar</button>
-          </div>
-        </div>
-      )}
-
-      {/* Table */}
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
           <Loader2 size={22} color={C.gold} style={{ animation: 'spin 1s linear infinite' }} />
         </div>
-      ) : zones.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '32px 0', color: C.muted, fontSize: 14 }}>
-          Nenhuma zona cadastrada. Adicione bairros para controle de taxas de entrega.
-        </div>
       ) : (
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden' }}>
-          {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 90px 70px 60px 80px', gap: 0, background: '#F9FAFB', padding: '10px 16px', borderBottom: `1px solid ${C.border}` }}>
-            {['Bairro / Cidade', 'Taxa', 'Tempo', 'Ordem', 'Ativo', 'Ações'].map(h => (
-              <span key={h} style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</span>
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
+          <p style={{ fontSize: 12, color: C.muted, marginBottom: 12 }}>
+            Defina o endereço da loja e as faixas de raio. O sistema calculará a distância e aplicará automaticamente a taxa no checkout.
+          </p>
+
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Endereço de origem da loja *</label>
+            <input
+              style={inputStyle}
+              placeholder="Ex: Rua X, 123, Centro, Cidade - UF"
+              value={originAddress}
+              onChange={e => setOriginAddress(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+            {rules.map((r, i) => (
+              <div key={`radius-rule-${i}`} style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1fr auto auto', gap: 8, alignItems: 'end', background: '#F9FAFB', border: `1px solid ${C.border}`, borderRadius: 10, padding: 10 }}>
+                <div>
+                  <label style={labelStyle}>Raio até (km)</label>
+                  <input style={inputStyle} type="number" min="0.1" step="0.1" value={r.radius_km} onChange={e => updateRule(i, { radius_km: e.target.value })} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Taxa (R$)</label>
+                  <input style={inputStyle} type="number" min="0" step="0.5" value={r.fee} onChange={e => updateRule(i, { fee: e.target.value })} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Tempo (min)</label>
+                  <input style={inputStyle} type="number" min="5" step="5" value={r.estimated_mins} onChange={e => updateRule(i, { estimated_mins: e.target.value })} />
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.text, marginBottom: 8 }}>
+                  <input type="checkbox" checked={!!r.is_active} onChange={e => updateRule(i, { is_active: e.target.checked })} /> Ativa
+                </label>
+                <button onClick={() => removeRule(i)} style={{ ...btnGhost, color: C.danger, borderColor: '#FECACA', padding: '7px 10px' }}>
+                  <Trash2 size={13} />
+                </button>
+              </div>
             ))}
           </div>
-          {zones.map((z, idx) => (
-            <div
-              key={z.id}
-              style={{
-                display: 'grid', gridTemplateColumns: '2fr 1fr 90px 70px 60px 80px',
-                padding: '12px 16px', alignItems: 'center',
-                borderBottom: idx < zones.length - 1 ? `1px solid ${C.border}` : 'none',
-                background: z.is_active ? C.card : '#FAFAFA',
-              }}
-            >
-              <div>
-                <span style={{ fontWeight: 600, fontSize: 13, color: z.is_active ? C.text : C.muted }}>{z.neighborhood}</span>
-                {z.city && <span style={{ fontSize: 11, color: C.light, marginLeft: 6 }}>{z.city}</span>}
-              </div>
-              <span style={{ fontSize: 13, color: C.gold, fontWeight: 700 }}>{fmtBRL(z.fee)}</span>
-              <span style={{ fontSize: 12, color: C.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Clock size={11} /> {z.estimated_mins || 30} min
-              </span>
-              <span style={{ fontSize: 12, color: C.muted }}>{z.sort_order || 0}</span>
-              <div>
-                <button
-                  onClick={() => toggleZone(z)}
-                  style={{
-                    width: 32, height: 18, borderRadius: 9, border: 'none', cursor: 'pointer',
-                    background: z.is_active ? C.success : '#D1D5DB',
-                    position: 'relative', transition: 'background 0.2s',
-                  }}
-                >
-                  <span style={{
-                    position: 'absolute', top: 2, left: z.is_active ? 16 : 2,
-                    width: 14, height: 14, borderRadius: '50%', background: '#fff',
-                    transition: 'left 0.2s',
-                  }} />
-                </button>
-              </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button
-                  onClick={() => { setForm({ id: z.id, neighborhood: z.neighborhood, city: z.city || '', fee: String(z.fee || ''), estimated_mins: String(z.estimated_mins || 30), is_active: z.is_active, sort_order: String(z.sort_order || 0) }); setMsg(''); }}
-                  style={{ ...btnGhost, padding: '4px 8px' }}
-                >
-                  <Edit2 size={12} />
-                </button>
-                <button
-                  onClick={() => deleteZone(z.id)}
-                  disabled={deleting === z.id}
-                  style={{ ...btnGhost, padding: '4px 8px', color: C.danger, borderColor: '#FECACA', opacity: deleting === z.id ? 0.5 : 1 }}
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            </div>
-          ))}
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button onClick={addRule} style={btnGhost}><Plus size={14} /> Adicionar raio</button>
+            <button onClick={saveRadiusConfig} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>
+              {saving ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Salvando…</> : <><Save size={13} /> Salvar configuração</>}
+            </button>
+          </div>
+          {msg && <p style={{ marginTop: 10, fontSize: 12, color: msg.startsWith('✅') ? C.success : C.danger }}>{msg}</p>}
         </div>
       )}
     </div>
