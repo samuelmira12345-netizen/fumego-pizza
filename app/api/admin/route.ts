@@ -130,7 +130,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
   } catch (e) {
-    logger.error('Admin error', e);
+    logger.error('Admin error', e as Error);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

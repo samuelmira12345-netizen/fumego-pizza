@@ -213,7 +213,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     });
 
   } catch (e) {
-    logger.error('Exceção create-payment', e);
+    logger.error('Exceção create-payment', e as Error);
     return NextResponse.json({ error: 'Erro interno', details: (e as Error).message }, { status: 500 });
   }
 }

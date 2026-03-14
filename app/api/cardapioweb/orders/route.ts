@@ -69,7 +69,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       integrationEnabled: isIntegrationEnabled(),
     });
   } catch (e) {
-    logger.error('[CW Orders GET] Erro', e);
+    logger.error('[CW Orders GET] Erro', e as Error);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: true, newStatus });
 
   } catch (e) {
-    logger.error('[CW Orders POST] Erro', e);
+    logger.error('[CW Orders POST] Erro', e as Error);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }
