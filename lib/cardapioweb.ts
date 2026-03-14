@@ -14,11 +14,27 @@ const BASE_URL =
   process.env.CARDAPIOWEB_API_URL ||
   'https://integracao.cardapioweb.com';
 
+interface GetOrdersOptions {
+  updatedSince?: string;
+  status?: string | string[];
+}
+
+interface GetOrderHistoryOptions {
+  status?: string | string[];
+  page?: number | string;
+  perPage?: number | string;
+}
+
+interface GetCouponsOptions {
+  page?: number | string;
+  perPage?: number | string;
+}
+
 /**
  * Monta os headers obrigatórios para todas as requisições.
  * Lança erro se a variável de ambiente não estiver configurada.
  */
-function getHeaders() {
+function getHeaders(): Record<string, string> {
   const apiKey = process.env.CARDAPIOWEB_API_KEY;
   if (!apiKey) {
     throw new Error(
@@ -37,13 +53,13 @@ function getHeaders() {
  * - Retorna null para respostas 204 No Content.
  * - Lança Error para respostas de erro (4xx/5xx).
  */
-async function cwFetch(path, options = {}) {
+async function cwFetch(path: string, options: RequestInit = {}): Promise<unknown> {
   const url = `${BASE_URL}${path}`;
   const res = await fetch(url, {
     ...options,
     headers: {
       ...getHeaders(),
-      ...(options.headers || {}),
+      ...(options.headers as Record<string, string> || {}),
     },
   });
 
@@ -66,12 +82,8 @@ async function cwFetch(path, options = {}) {
 /**
  * Retorna pedidos modificados nas últimas 8 horas (polling).
  * Recomendado: chamar a cada 30 segundos como fallback para webhooks.
- *
- * @param {Object} opts
- * @param {string} [opts.updatedSince] - ISO 8601; retorna apenas pedidos modificados após esta data
- * @param {string|string[]} [opts.status] - Filtrar por status(es)
  */
-export async function getOrders({ updatedSince, status } = {}) {
+export async function getOrders({ updatedSince, status }: GetOrdersOptions = {}): Promise<unknown> {
   const params = new URLSearchParams();
   if (updatedSince) params.set('updated_since', updatedSince);
   if (status) {
@@ -84,79 +96,69 @@ export async function getOrders({ updatedSince, status } = {}) {
 
 /**
  * Retorna os detalhes completos de um pedido pelo ID do CardápioWeb.
- * @param {number} orderId
  */
-export async function getOrder(orderId) {
+export async function getOrder(orderId: number | string): Promise<unknown> {
   return cwFetch(`/api/partner/v1/orders/${orderId}`);
 }
 
 /**
  * Histórico de pedidos por período (max 6 meses de intervalo).
  * Rate limit: 5 req/min.
- * @param {string} startDate - YYYY-MM-DD
- * @param {string} endDate   - YYYY-MM-DD
  */
-export async function getOrderHistory(startDate, endDate, { status, page, perPage } = {}) {
+export async function getOrderHistory(
+  startDate: string,
+  endDate: string,
+  { status, page, perPage }: GetOrderHistoryOptions = {}
+): Promise<unknown> {
   const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
   if (status) {
     const statuses = Array.isArray(status) ? status : [status];
     statuses.forEach(s => params.append('status[]', s));
   }
-  if (page) params.set('page', page);
-  if (perPage) params.set('per_page', perPage);
+  if (page)    params.set('page', String(page));
+  if (perPage) params.set('per_page', String(perPage));
   return cwFetch(`/api/partner/v1/orders/history?${params}`);
 }
 
 /**
  * Confirma/aceita um pedido (waiting_confirmation → confirmed).
- * Para pedidos agendados: waiting_confirmation → scheduled_confirmed.
- * @param {number} orderId
  */
-export async function confirmOrder(orderId) {
+export async function confirmOrder(orderId: number | string): Promise<unknown> {
   return cwFetch(`/api/partner/v1/orders/${orderId}/confirm`, { method: 'POST' });
 }
 
 /**
  * Inicia preparação de pedido agendado (scheduled_confirmed → confirmed).
- * @param {number} orderId
  */
-export async function startPreparation(orderId) {
+export async function startPreparation(orderId: number | string): Promise<unknown> {
   return cwFetch(`/api/partner/v1/orders/${orderId}/start_preparation`, { method: 'POST' });
 }
 
 /**
- * Marca pedido como pronto:
- *   - delivery    → released
- *   - takeout/onsite → waiting_to_catch
- * @param {number} orderId
+ * Marca pedido como pronto.
  */
-export async function markOrderReady(orderId) {
+export async function markOrderReady(orderId: number | string): Promise<unknown> {
   return cwFetch(`/api/partner/v1/orders/${orderId}/ready`, { method: 'POST' });
 }
 
 /**
  * Marca pedido de delivery como entregue (released → delivered).
- * Disponível apenas para pedidos de entrega em status "released".
- * @param {number} orderId
  */
-export async function markOrderDelivered(orderId) {
+export async function markOrderDelivered(orderId: number | string): Promise<unknown> {
   return cwFetch(`/api/partner/v1/orders/${orderId}/delivered`, { method: 'POST' });
 }
 
 /**
- * Finaliza o pedido (status final: closed). Sem retorno possível.
- * @param {number} orderId
+ * Finaliza o pedido (status final: closed).
  */
-export async function finalizeOrder(orderId) {
+export async function finalizeOrder(orderId: number | string): Promise<unknown> {
   return cwFetch(`/api/partner/v1/orders/${orderId}/finalize`, { method: 'POST' });
 }
 
 /**
- * Cancela o pedido (status final: canceled). Sem retorno possível.
- * @param {number} orderId
- * @param {string} [cancellationReason] - Motivo do cancelamento (opcional)
+ * Cancela o pedido (status final: canceled).
  */
-export async function cancelOrder(orderId, cancellationReason) {
+export async function cancelOrder(orderId: number | string, cancellationReason?: string): Promise<unknown> {
   const body = cancellationReason
     ? JSON.stringify({ cancellation_reason: cancellationReason })
     : undefined;
@@ -172,21 +174,18 @@ export async function cancelOrder(orderId, cancellationReason) {
 
 /**
  * Retorna informações do estabelecimento (endereço, horários, etc.).
- * Rate limit: 5 req/min.
  */
-export async function getMerchant() {
+export async function getMerchant(): Promise<unknown> {
   return cwFetch('/api/partner/v1/merchant');
 }
 
 /**
  * Lista cupons do estabelecimento.
- * @param {number} [page]
- * @param {number} [perPage] - Máx. 20
  */
-export async function getCoupons({ page, perPage } = {}) {
+export async function getCoupons({ page, perPage }: GetCouponsOptions = {}): Promise<unknown> {
   const params = new URLSearchParams();
-  if (page) params.set('page', page);
-  if (perPage) params.set('per_page', perPage);
+  if (page)    params.set('page', String(page));
+  if (perPage) params.set('per_page', String(perPage));
   const query = params.toString() ? `?${params}` : '';
   return cwFetch(`/api/partner/v1/merchant/coupons${query}`);
 }
@@ -194,7 +193,7 @@ export async function getCoupons({ page, perPage } = {}) {
 /**
  * Lista avaliações do estabelecimento.
  */
-export async function getReviews() {
+export async function getReviews(): Promise<unknown> {
   return cwFetch('/api/partner/v1/merchant/reviews');
 }
 
@@ -204,9 +203,8 @@ export async function getReviews() {
 
 /**
  * Retorna o catálogo completo (categorias, produtos, complementos).
- * Rate limit: 5 req/min.
  */
-export async function getCatalog() {
+export async function getCatalog(): Promise<unknown> {
   return cwFetch('/api/partner/v1/catalog');
 }
 
@@ -217,31 +215,31 @@ export async function getCatalog() {
 /**
  * Verifica se a integração está ativa (API key configurada).
  */
-export function isIntegrationEnabled() {
+export function isIntegrationEnabled(): boolean {
   return Boolean(process.env.CARDAPIOWEB_API_KEY);
 }
 
 /**
  * Mapeia status do CardápioWeb para rótulo em português.
  */
-export const STATUS_LABELS = {
-  waiting_confirmation: 'Aguardando',
-  pending_payment:      'Pag. Pendente',
+export const STATUS_LABELS: Record<string, string> = {
+  waiting_confirmation:   'Aguardando',
+  pending_payment:        'Pag. Pendente',
   pending_online_payment: 'Pag. Online Pendente',
-  scheduled_confirmed:  'Agendado',
-  confirmed:            'Confirmado',
-  released:             'Em Entrega',
-  waiting_to_catch:     'Aguard. Retirada',
-  delivered:            'Entregue',
-  canceling:            'Cancelando',
-  canceled:             'Cancelado',
-  closed:               'Finalizado',
+  scheduled_confirmed:    'Agendado',
+  confirmed:              'Confirmado',
+  released:               'Em Entrega',
+  waiting_to_catch:       'Aguard. Retirada',
+  delivered:              'Entregue',
+  canceling:              'Cancelando',
+  canceled:               'Cancelado',
+  closed:                 'Finalizado',
 };
 
 /**
  * Mapeia tipo de pedido para rótulo em português.
  */
-export const ORDER_TYPE_LABELS = {
+export const ORDER_TYPE_LABELS: Record<string, string> = {
   delivery:     'Delivery',
   takeout:      'Retirada',
   onsite:       'Mesa',

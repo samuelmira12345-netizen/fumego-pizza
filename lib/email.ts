@@ -1,5 +1,5 @@
 /**
- * lib/email.js — Envio de e-mails transacionais via Resend.
+ * lib/email.ts — Envio de e-mails transacionais via Resend.
  *
  * Configurar nas variáveis de ambiente:
  *   RESEND_API_KEY  — chave da API Resend (re_xxxxxxxx)
@@ -9,7 +9,25 @@
 
 const RESEND_API = 'https://api.resend.com/emails';
 
-async function sendEmail({ to, subject, html }) {
+interface EmailPayload {
+  to: string;
+  subject: string;
+  html: string;
+}
+
+interface EmailResult {
+  ok: boolean;
+  id?: string;
+  error?: string;
+}
+
+interface OrderItemEmail {
+  product_name: string;
+  quantity: number;
+  total_price: number | string;
+}
+
+async function sendEmail({ to, subject, html }: EmailPayload): Promise<EmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   const from   = process.env.EMAIL_FROM;
 
@@ -27,7 +45,7 @@ async function sendEmail({ to, subject, html }) {
       },
       body: JSON.stringify({ from, to, subject, html }),
     });
-    const data = await res.json();
+    const data = await res.json() as { id?: string; message?: string };
     if (!res.ok) {
       console.error('[email] Erro Resend:', data);
       return { ok: false, error: data.message || 'Erro ao enviar e-mail' };
@@ -35,11 +53,11 @@ async function sendEmail({ to, subject, html }) {
     return { ok: true, id: data.id };
   } catch (e) {
     console.error('[email] Exceção:', e);
-    return { ok: false, error: e.message };
+    return { ok: false, error: (e as Error).message };
   }
 }
 
-export async function sendVerificationEmail(to, name, verifyUrl) {
+export async function sendVerificationEmail(to: string, name: string, verifyUrl: string): Promise<EmailResult> {
   return sendEmail({
     to,
     subject: 'FUMÊGO — Confirme seu e-mail',
@@ -56,7 +74,7 @@ export async function sendVerificationEmail(to, name, verifyUrl) {
   });
 }
 
-export async function sendPasswordResetEmail(to, name, resetUrl) {
+export async function sendPasswordResetEmail(to: string, name: string, resetUrl: string): Promise<EmailResult> {
   return sendEmail({
     to,
     subject: 'FUMÊGO — Redefinição de senha',
@@ -73,7 +91,14 @@ export async function sendPasswordResetEmail(to, name, resetUrl) {
   });
 }
 
-export async function sendOrderConfirmationEmail(to, name, orderNumber, total, items, estimatedTime) {
+export async function sendOrderConfirmationEmail(
+  to: string,
+  name: string,
+  orderNumber: string | number,
+  total: number | string,
+  items: OrderItemEmail[],
+  estimatedTime?: string | null
+): Promise<EmailResult> {
   const itemsHtml = items.map(i =>
     `<tr>
       <td style="padding:6px 0;color:#ccc;">${i.product_name}${i.quantity > 1 ? ` ×${i.quantity}` : ''}</td>

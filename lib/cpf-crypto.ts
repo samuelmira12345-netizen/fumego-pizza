@@ -16,7 +16,7 @@ import { createHmac, createCipheriv, createDecipheriv, randomBytes, createHash }
  * Valida um CPF verificando o formato (11 dígitos) e os dígitos verificadores.
  * Retorna true se o CPF for válido, false caso contrário.
  */
-export function validateCpf(cpf) {
+export function validateCpf(cpf: string | null | undefined): boolean {
   if (!cpf) return false;
   const clean = String(cpf).replace(/\D/g, '');
   if (clean.length !== 11) return false;
@@ -38,7 +38,7 @@ export function validateCpf(cpf) {
   return remainder === parseInt(clean[10]);
 }
 
-function getKey() {
+function getKey(): Buffer {
   const raw = process.env.CPF_ENCRYPTION_KEY;
   if (!raw) throw new Error('CPF_ENCRYPTION_KEY não configurada');
   // Derivar exatamente 32 bytes a partir da chave fornecida
@@ -49,7 +49,7 @@ function getKey() {
  * Criptografa um CPF com AES-256-GCM.
  * Retorna string no formato "iv:authTag:ciphertext" em hex, ou null se inválido.
  */
-export function encryptCpf(cpf) {
+export function encryptCpf(cpf: string | null | undefined): string | null {
   if (!cpf) return null;
   const clean = String(cpf).replace(/\D/g, '');
   if (!clean) return null;
@@ -67,7 +67,7 @@ export function encryptCpf(cpf) {
  * Descriptografa um CPF criptografado com encryptCpf.
  * Retorna o CPF limpo (somente dígitos) ou null se falhar.
  */
-export function decryptCpf(stored) {
+export function decryptCpf(stored: string | null | undefined): string | null {
   if (!stored) return null;
   // Suporte retroativo: se não tem o formato esperado, retorna null
   if (!stored.includes(':')) return null;
@@ -95,7 +95,7 @@ export function decryptCpf(stored) {
  * Irreversível: adequado onde só é preciso verificar igualdade, não recuperar o valor.
  * Retorna null se o CPF não tiver 11 dígitos.
  */
-export function hashCpf(cpf) {
+export function hashCpf(cpf: string | null | undefined): string | null {
   if (!cpf) return null;
   const clean = String(cpf).replace(/\D/g, '');
   if (clean.length !== 11) return null;

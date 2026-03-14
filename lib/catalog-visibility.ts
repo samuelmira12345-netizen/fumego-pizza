@@ -8,7 +8,29 @@
 
 export const CATALOG_VISIBILITY_SETTING_KEY = 'catalog_visibility_overrides';
 
-function coerceBoolean(value, fallback = false) {
+interface VisibilityOverride {
+  is_active?: boolean | string | number;
+  is_hidden?: boolean | string | number;
+}
+
+export interface CatalogVisibilityOverrides {
+  products: Record<string, VisibilityOverride>;
+  drinks:   Record<string, VisibilityOverride>;
+}
+
+interface Setting {
+  key: string;
+  value: string;
+}
+
+interface ItemWithVisibility {
+  id: number | string;
+  is_active?: boolean | string | number;
+  is_hidden?: boolean | string | number;
+  [key: string]: unknown;
+}
+
+function coerceBoolean(value: unknown, fallback = false): boolean {
   if (value === undefined || value === null) return fallback;
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return value !== 0;
@@ -20,12 +42,12 @@ function coerceBoolean(value, fallback = false) {
   return Boolean(value);
 }
 
-export function parseCatalogVisibilityOverrides(settings = []) {
+export function parseCatalogVisibilityOverrides(settings: Setting[] = []): CatalogVisibilityOverrides {
   const raw = (settings || []).find(s => s.key === CATALOG_VISIBILITY_SETTING_KEY)?.value;
   if (!raw) return { products: {}, drinks: {} };
 
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(raw) as Partial<CatalogVisibilityOverrides>;
     return {
       products: parsed?.products && typeof parsed.products === 'object' ? parsed.products : {},
       drinks:   parsed?.drinks   && typeof parsed.drinks === 'object'   ? parsed.drinks   : {},
@@ -35,7 +57,11 @@ export function parseCatalogVisibilityOverrides(settings = []) {
   }
 }
 
-export function applyCatalogVisibilityOverrides(products = [], drinks = [], overrides = { products: {}, drinks: {} }) {
+export function applyCatalogVisibilityOverrides<T extends ItemWithVisibility>(
+  products: T[] = [],
+  drinks: T[] = [],
+  overrides: CatalogVisibilityOverrides = { products: {}, drinks: {} }
+): { products: T[]; drinks: T[] } {
   const productMap = overrides?.products || {};
   const drinkMap   = overrides?.drinks   || {};
 
