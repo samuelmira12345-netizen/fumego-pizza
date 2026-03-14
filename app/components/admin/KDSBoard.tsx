@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Phone, MapPin, Clock, ChefHat, Truck, Bike, CheckCircle, XCircle,
   Printer, RefreshCw, Volume2, VolumeX, X, Bell, Calendar,
@@ -71,11 +71,11 @@ const PM = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtBRL(v) {
+function fmtBRL(v: any) {
   return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function fmtPhone(p) {
+function fmtPhone(p: any) {
   if (!p) return null;
   const d = p.replace(/\D/g, '');
   if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
@@ -83,7 +83,7 @@ function fmtPhone(p) {
   return p;
 }
 
-function getNameInitials(name) {
+function getNameInitials(name: any) {
   if (!name || typeof name !== 'string') return '';
   const parts = name
     .trim()
@@ -94,7 +94,7 @@ function getNameInitials(name) {
   return `${parts[0].slice(0, 1)}${parts[1].slice(0, 1)}`.toUpperCase();
 }
 
-function buildAddress(order) {
+function buildAddress(order: any) {
   return [
     `${order?.delivery_street || ''} ${order?.delivery_number || ''}`.trim(),
     order?.delivery_neighborhood || '',
@@ -103,7 +103,7 @@ function buildAddress(order) {
   ].filter(Boolean).join(', ');
 }
 
-function getMapsLinks(order) {
+function getMapsLinks(order: any) {
   const address = buildAddress(order);
   if (!address) return { address: '', googleMaps: '', waze: '' };
   const encoded = encodeURIComponent(address);
@@ -114,28 +114,28 @@ function getMapsLinks(order) {
   };
 }
 
-function elapsedMins(isoStr) {
+function elapsedMins(isoStr: any) {
   return Math.floor((Date.now() - new Date(isoStr).getTime()) / 60000);
 }
 
-function fmtElapsed(mins) {
+function fmtElapsed(mins: any) {
   if (mins < 60) return `${mins}min`;
   return `${Math.floor(mins / 60)}h${mins % 60 > 0 ? (mins % 60) + 'm' : ''}`;
 }
 
-function timerColor(mins) {
+function timerColor(mins: any) {
   if (mins < 20) return '#059669';
   if (mins < 35) return '#D97706';
   return '#DC2626';
 }
 
-function fmtTime(isoStr) {
+function fmtTime(isoStr: any) {
   return new Date(isoStr).toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit',
   });
 }
 
-function fmtDateFull(isoStr) {
+function fmtDateFull(isoStr: any) {
   return new Date(isoStr).toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo',
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -147,7 +147,7 @@ function todaySP() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-function daysAgoSP(n) {
+function daysAgoSP(n: any) {
   const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
   d.setDate(d.getDate() - n);
   return d.toLocaleDateString('en-CA');
@@ -160,19 +160,19 @@ function weekStartSP() {
   return d.toLocaleDateString('en-CA');
 }
 
-function orderDateSP(isoStr) {
+function orderDateSP(isoStr: any) {
   return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-function diffMins(fromIso, toIso) {
+function diffMins(fromIso: any, toIso: any) {
   if (!fromIso || !toIso) return null;
-  return Math.round((new Date(toIso) - new Date(fromIso)) / 60000);
+  return Math.round((new Date(toIso).getTime() - new Date(fromIso).getTime()) / 60000);
 }
 
 // Beep estridente para NOVO PEDIDO via Web Audio API
 function playBeep() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     [[880, 0, 0.25], [1100, 0.20, 0.25], [1320, 0.40, 0.25], [1100, 0.60, 0.20], [1320, 0.80, 0.35]].forEach(([freq, t, dur]) => {
       const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -191,7 +191,7 @@ function playBeep() {
 // Sino suave para PEDIDO PRONTO (campainha de balcão)
 function playReadyChime() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     // Dois "dingues" ascendentes — como campainha de balcão
     [[1047, 0, 0.45], [1319, 0.22, 0.45], [1568, 0.44, 0.65], [1319, 0.68, 0.35]].forEach(([freq, t, dur]) => {
       const osc  = ctx.createOscillator();
@@ -219,8 +219,8 @@ function useSecondTick() {
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPersonName }) {
-  const cfg  = S[order.status] || S.pending;
+function OrderCard({ order, onClick, isNew, isReady, onDragStart, deliveryPersonName }: { order: any, onClick: any, isNew: any, isReady: any, onDragStart: any, deliveryPersonName: any }) {
+  const cfg  = (S as any)[order.status] || S.pending;
   const mins = elapsedMins(order.created_at);
   const initials = getNameInitials(deliveryPersonName);
   const isDelivering = order.status === 'delivering';
@@ -333,11 +333,11 @@ const DROP_TARGET_STATUS = {
   finalizados: 'delivered',
 };
 
-function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, onDrop, deliveryPersonsById }) {
+function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, onDrop, deliveryPersonsById }: { col: any, orders: any, onCardClick: any, newIds: any, readyIds: any, onDragStart: any, onDrop: any, deliveryPersonsById: any }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const cards = orders
-    .filter(o => col.statuses.includes(o.status))
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    .filter((o: any) => col.statuses.includes(o.status))
+    .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   const Icon = col.cfg.icon;
   const isFinalized = col.id === 'finalizados';
@@ -346,7 +346,7 @@ function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, on
     <div
       onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
-      onDrop={e => { e.preventDefault(); setIsDragOver(false); onDrop(DROP_TARGET_STATUS[col.id]); }}
+      onDrop={e => { e.preventDefault(); setIsDragOver(false); onDrop((DROP_TARGET_STATUS as any)[col.id]); }}
       style={{
         display: 'flex', flexDirection: 'column',
         flex: '1 1 260px', minWidth: 220,
@@ -398,7 +398,7 @@ function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, on
                 +{cards.length - 8} pedidos anteriores
               </p>
             )}
-            {visible.map(o => (
+            {visible.map((o: any) => (
               <OrderCard
                 key={o.id}
                 order={o}
@@ -418,7 +418,7 @@ function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, on
 
 // ── Timeline do pedido ────────────────────────────────────────────────────────
 
-function OrderTimeline({ order }) {
+function OrderTimeline({ order }: { order: any }) {
   const steps = [
     { label: 'Pedido recebido',       time: order.created_at,    icon: Bell,         color: '#D97706' },
     { label: 'Entrou em preparo',      time: order.confirmed_at,  icon: ChefHat,      color: '#2563EB' },
@@ -479,8 +479,8 @@ function OrderTimeline({ order }) {
 
 // ── Mini CRM do cliente ───────────────────────────────────────────────────────
 
-function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
-  const [profile, setProfile] = useState(null);
+function CustomerProfilePanel({ phone, name, adminToken, onClose }: { phone: any, name: any, adminToken: any, onClose: any }) {
+  const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -497,9 +497,9 @@ function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
   }, [phone, adminToken]);
 
   const orders     = profile?.orders || [];
-  const active     = orders.filter(o => o.status !== 'cancelled');
-  const cancelled  = orders.filter(o => o.status === 'cancelled');
-  const totalSpent = active.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
+  const active     = orders.filter((o: any) => o.status !== 'cancelled');
+  const cancelled  = orders.filter((o: any) => o.status === 'cancelled');
+  const totalSpent = active.reduce((s: any, o: any) => s + (parseFloat(o.total) || 0), 0);
   const avgTicket  = active.length > 0 ? totalSpent / active.length : 0;
   const firstOrder = orders.length > 0 ? orders[orders.length - 1] : null;
   const lastOrder  = orders.length > 0 ? orders[0] : null;
@@ -508,22 +508,22 @@ function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
   // Average days between orders
   let avgDays = null;
   if (active.length >= 2) {
-    const sorted = [...active].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    const sorted = [...active].sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     let totalDiff = 0;
     for (let i = 1; i < sorted.length; i++) {
-      totalDiff += (new Date(sorted[i].created_at) - new Date(sorted[i-1].created_at)) / 86400000;
+      totalDiff += (new Date(sorted[i].created_at).getTime() - new Date(sorted[i-1].created_at).getTime()) / 86400000;
     }
     avgDays = Math.round(totalDiff / (sorted.length - 1));
   }
 
   // Top neighborhood
-  const nbhMap = {};
-  active.forEach(o => { if (o.delivery_neighborhood) nbhMap[o.delivery_neighborhood] = (nbhMap[o.delivery_neighborhood] || 0) + 1; });
-  const topNbh = Object.entries(nbhMap).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const nbhMap: Record<string, any> = {};
+  active.forEach((o: any) => { if (o.delivery_neighborhood) nbhMap[o.delivery_neighborhood] = (nbhMap[o.delivery_neighborhood] || 0) + 1; });
+  const topNbh = Object.entries(nbhMap).sort((a, b) => (b[1] as any) - (a[1] as any))[0]?.[0];
 
   // Payment method breakdown
-  const pmMap = {};
-  active.forEach(o => { if (o.payment_method) pmMap[o.payment_method] = (pmMap[o.payment_method] || 0) + 1; });
+  const pmMap: Record<string, any> = {};
+  active.forEach((o: any) => { if (o.payment_method) pmMap[o.payment_method] = (pmMap[o.payment_method] || 0) + 1; });
   const pmLabels = { pix: 'PIX', card: 'Cartão', card_delivery: 'Cartão/Entrega', cash: 'Dinheiro', debit: 'Débito', voucher: 'Vale' };
 
   const statusCfg = {
@@ -577,7 +577,7 @@ function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
               { label: 'Cancelamentos', value: `${cancelled.length} (${cancelRate}%)`, color: cancelled.length > 0 ? '#EF4444' : '#9CA3AF' },
               avgDays !== null && { label: 'Freq. média', value: `${avgDays}d`, color: '#6B7280' },
               topNbh && { label: 'Bairro fav.', value: topNbh, color: '#6B7280' },
-            ].filter(Boolean).map(s => (
+            ].filter(Boolean).map((s: any) => (
               <div key={s.label} style={{ background: '#F9FAFB', borderRadius: 6, padding: '8px 6px', textAlign: 'center', border: '1px solid #E5E7EB' }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: s.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.value}</p>
                 <p style={{ fontSize: 9, color: '#9CA3AF', marginTop: 1 }}>{s.label}</p>
@@ -608,9 +608,9 @@ function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
             <div style={{ marginBottom: 10 }}>
               <p style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>FORMA DE PAGAMENTO</p>
               <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {Object.entries(pmMap).sort((a, b) => b[1] - a[1]).map(([pm, cnt]) => (
+                {Object.entries(pmMap).sort((a, b) => (b[1] as any) - (a[1] as any)).map(([pm, cnt]) => (
                   <span key={pm} style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: '#F3F4F6', color: '#374151' }}>
-                    {pmLabels[pm] || pm} {cnt}×
+                    {(pmLabels as any)[pm] || pm} {cnt as any}×
                   </span>
                 ))}
               </div>
@@ -621,7 +621,7 @@ function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
           {profile?.topItems?.length > 0 && (
             <div style={{ marginBottom: 10 }}>
               <p style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>MAIS PEDIDO</p>
-              {profile.topItems.slice(0, 4).map((item, i) => (
+              {profile.topItems.slice(0, 4).map((item: any, i: any) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #F3F4F6' }}>
                   <span style={{ fontSize: 11, color: '#374151', display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ fontSize: 10, fontWeight: 800, color: i === 0 ? '#F2A800' : '#9CA3AF' }}>#{i+1}</span>
@@ -636,8 +636,8 @@ function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
           {/* Histórico completo */}
           <p style={{ fontSize: 9, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>HISTÓRICO COMPLETO ({orders.length} pedidos)</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 260, overflowY: 'auto' }}>
-            {orders.map(o => {
-              const sc = statusCfg[o.status] || statusCfg.pending;
+            {orders.map((o: any) => {
+              const sc = (statusCfg as any)[o.status] || statusCfg.pending;
               return (
                 <div key={o.id} style={{ padding: '6px 8px', background: '#F9FAFB', borderRadius: 5, border: '1px solid #E5E7EB' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
@@ -655,7 +655,7 @@ function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
                       {o.delivery_neighborhood ? ` · ${o.delivery_neighborhood}` : ''}
                     </span>
                     <span style={{ fontSize: 10, color: '#9CA3AF' }}>
-                      {pmLabels[o.payment_method] || o.payment_method || '—'}
+                      {(pmLabels as any)[o.payment_method] || o.payment_method || '—'}
                       {o.payment_status === 'approved' ? ' ✓' : ''}
                     </span>
                   </div>
@@ -679,7 +679,7 @@ function CustomerProfilePanel({ phone, name, adminToken, onClose }) {
 
 // ── Diálogo de tipo de impressão ──────────────────────────────────────────────
 
-function PrintTypeDialog({ onSelect, onClose }) {
+function PrintTypeDialog({ onSelect, onClose }: { onSelect: any, onClose: any }) {
   const types = [
     { key: 'cozinha', label: '👨‍🍳 Via Cozinha',    desc: 'Itens + endereço, fonte grande' },
     { key: 'balcao',  label: '🧾 Via Balcão',      desc: 'Pedido completo com pagamento' },
@@ -734,7 +734,7 @@ const PAYMENT_METHODS = [
   { key: 'voucher',      label: 'Vale Refeição',   color: '#D97706', icon: '🍽️' },
 ];
 
-function PaymentPanel({ order, onSave }) {
+function PaymentPanel({ order, onSave }: { order: any, onSave: any }) {
   const [payMethod, setPayMethod]     = useState(order.payment_method || 'pix');
   const [payStatus, setPayStatus]     = useState(order.payment_status === 'approved' ? 'paid' : 'pending');
   const [fiscalNote, setFiscalNote]   = useState(order.fiscal_note || false);
@@ -822,7 +822,7 @@ function PaymentPanel({ order, onSave }) {
         <div>
           <p style={{ fontSize: 10, color: '#6B7280', fontWeight: 600, marginBottom: 4 }}>NOTA FISCAL</p>
           <button
-            onClick={() => setFiscalNote(v => !v)}
+            onClick={() => setFiscalNote((v: any) => !v)}
             style={{
               padding: '6px 12px', borderRadius: 5, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
               border: fiscalNote ? '2px solid #6366F1' : '2px solid #E5E7EB',
@@ -855,7 +855,7 @@ function PaymentPanel({ order, onSave }) {
   );
 }
 
-function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, onAddressUpdate, onItemsUpdate, adminToken, customerOrderCount, deliveryPersons, onAssignDeliveryPerson, onEnsureDeliveryPersons, products, drinks }) {
+function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUpdate, onPrint, onAddressUpdate, onItemsUpdate, adminToken, customerOrderCount, deliveryPersons, onAssignDeliveryPerson, onEnsureDeliveryPersons, products, drinks }: { order: any, items: any, itemsLoading: any, onClose: any, onAction: any, onPaymentUpdate: any, onPrint: any, onAddressUpdate: any, onItemsUpdate: any, adminToken: any, customerOrderCount: any, deliveryPersons: any, onAssignDeliveryPerson: any, onEnsureDeliveryPersons: any, products: any, drinks: any }) {
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const [showPrintDialog, setShowPrintDialog]         = useState(false);
   const [showPaymentFlow, setShowPaymentFlow]         = useState(false);
@@ -884,9 +884,9 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
   });
   const [editingItems, setEditingItems]                 = useState(false);
   const [savingItems, setSavingItems]                   = useState(false);
-  const [itemsDraft, setItemsDraft]                     = useState([]);
+  const [itemsDraft, setItemsDraft]                     = useState<any[]>([]);
   const [showItemPicker, setShowItemPicker]             = useState(false);
-  const [historyRows, setHistoryRows]                   = useState([]);
+  const [historyRows, setHistoryRows]                   = useState<any[]>([]);
   const [historyLoading, setHistoryLoading]             = useState(false);
 
   useEffect(() => {
@@ -909,7 +909,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
   ]);
 
   useEffect(() => {
-    setItemsDraft((items || []).map(item => ({
+    setItemsDraft((items || []).map((item: any) => ({
       product_name: item.product_name || '',
       quantity: item.quantity || 1,
       unit_price: item.unit_price || 0,
@@ -943,9 +943,9 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
   }, [order?.id, adminToken]);
 
   if (!order) return null;
-  const cfg  = S[order.status] || S.pending;
+  const cfg  = (S as any)[order.status] || S.pending;
   const mins = elapsedMins(order.created_at);
-  const pm   = PM[order.payment_method] || { label: order.payment_method, icon: CreditCard, color: '#6B7280' };
+  const pm   = (PM as any)[order.payment_method] || { label: order.payment_method, icon: CreditCard, color: '#6B7280' };
   const PMIcon = pm.icon;
 
   const totalOrders  = customerOrderCount?.[order.customer_phone || order.customer_name] ?? 1;
@@ -1031,12 +1031,12 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
     }
   }
 
-  function removeItemDraft(index) {
-    setItemsDraft(prev => prev.filter((_, i) => i !== index));
+  function removeItemDraft(index: any) {
+    setItemsDraft((prev: any) => prev.filter((_: any, i: any) => i !== index));
   }
 
-  function addPickedItem(item) {
-    setItemsDraft(prev => ([
+  function addPickedItem(item: any) {
+    setItemsDraft((prev: any) => ([
       ...prev,
       {
         product_name: item.product_name || '',
@@ -1181,12 +1181,12 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
               )}
               {editingAddress && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 8 }}>
-                  <input value={addressDraft.delivery_street} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_street: e.target.value }))} placeholder="Rua" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
-                  <input value={addressDraft.delivery_number} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_number: e.target.value }))} placeholder="Número" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
-                  <input value={addressDraft.delivery_complement} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_complement: e.target.value }))} placeholder="Complemento" style={{ gridColumn: '1 / -1', padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
-                  <input value={addressDraft.delivery_neighborhood} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_neighborhood: e.target.value }))} placeholder="Bairro" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
-                  <input value={addressDraft.delivery_zipcode} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_zipcode: e.target.value }))} placeholder="CEP" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
-                  <input value={addressDraft.delivery_city} onChange={e => setAddressDraft(prev => ({ ...prev, delivery_city: e.target.value }))} placeholder="Cidade" style={{ gridColumn: '1 / -1', padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                  <input value={addressDraft.delivery_street} onChange={e => setAddressDraft((prev: any) => ({ ...prev, delivery_street: e.target.value }))} placeholder="Rua" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                  <input value={addressDraft.delivery_number} onChange={e => setAddressDraft((prev: any) => ({ ...prev, delivery_number: e.target.value }))} placeholder="Número" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                  <input value={addressDraft.delivery_complement} onChange={e => setAddressDraft((prev: any) => ({ ...prev, delivery_complement: e.target.value }))} placeholder="Complemento" style={{ gridColumn: '1 / -1', padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                  <input value={addressDraft.delivery_neighborhood} onChange={e => setAddressDraft((prev: any) => ({ ...prev, delivery_neighborhood: e.target.value }))} placeholder="Bairro" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                  <input value={addressDraft.delivery_zipcode} onChange={e => setAddressDraft((prev: any) => ({ ...prev, delivery_zipcode: e.target.value }))} placeholder="CEP" style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
+                  <input value={addressDraft.delivery_city} onChange={e => setAddressDraft((prev: any) => ({ ...prev, delivery_city: e.target.value }))} placeholder="Cidade" style={{ gridColumn: '1 / -1', padding: '7px 8px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 12 }} />
                 </div>
               )}
               {maps.googleMaps && !editingAddress && (
@@ -1224,7 +1224,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                   style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 13, background: '#fff' }}
                 >
                   <option value="">— Selecione o entregador —</option>
-                  {(deliveryPersons || []).map(dp => (
+                  {(deliveryPersons || []).map((dp: any) => (
                     <option key={dp.id} value={dp.id}>{dp.name}</option>
                   ))}
                 </select>
@@ -1244,7 +1244,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                 ) : (
                   <>
                     <button onClick={() => setShowItemPicker(true)} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #BFDBFE', background: '#EFF6FF', fontSize: 11, fontWeight: 700, color: '#2563EB', cursor: 'pointer' }}>+ Item</button>
-                    <button onClick={() => { setEditingItems(false); setShowItemPicker(false); setItemsDraft((items || []).map(item => ({ product_name: item.product_name || '', quantity: item.quantity || 1, unit_price: item.unit_price || 0, observations: item.observations || '' }))); }} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', fontSize: 11, fontWeight: 700, color: '#6B7280', cursor: 'pointer' }}>Cancelar</button>
+                    <button onClick={() => { setEditingItems(false); setShowItemPicker(false); setItemsDraft((items || []).map((item: any) => ({ product_name: item.product_name || '', quantity: item.quantity || 1, unit_price: item.unit_price || 0, observations: item.observations || '' }))); }} style={{ padding: '5px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', fontSize: 11, fontWeight: 700, color: '#6B7280', cursor: 'pointer' }}>Cancelar</button>
                     <button onClick={saveItems} disabled={savingItems} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', background: savingItems ? '#9CA3AF' : '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: savingItems ? 'not-allowed' : 'pointer' }}>{savingItems ? 'Salvando...' : 'Salvar itens'}</button>
                   </>
                 )}
@@ -1273,7 +1273,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                 </div>
               ) : items.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {items.map((item, i) => (
+                  {items.map((item: any, i: any) => (
                     <div key={i}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>
@@ -1313,7 +1313,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                 <p style={{ fontSize: 12, color: '#9CA3AF' }}>Nenhuma alteração registrada ainda.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {historyRows.map((entry) => {
+                  {historyRows.map((entry: any) => {
                     const details = entry?.details || {};
                     const removed = Array.isArray(details.removed_items) ? details.removed_items : [];
                     const added = Array.isArray(details.added_items) ? details.added_items : [];
@@ -1321,9 +1321,9 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                     return (
                       <div key={entry.id} style={{ border: '1px solid #E5E7EB', borderRadius: 6, padding: 8 }}>
                         <p style={{ fontSize: 11, fontWeight: 800, color: '#374151', marginBottom: 4 }}>{entry.action_type} · {fmtDateFull(entry.created_at)}</p>
-                        {removed.map((r, idx) => <p key={`r-${idx}`} style={{ fontSize: 11, color: '#B91C1C' }}>- Removido: {r.quantity}× {r.product_name}</p>)}
-                        {added.map((a, idx) => <p key={`a-${idx}`} style={{ fontSize: 11, color: '#065F46' }}>+ Adicionado: {a.quantity}× {a.product_name}</p>)}
-                        {address.map((a, idx) => <p key={`ad-${idx}`} style={{ fontSize: 11, color: '#1D4ED8' }}>• Endereço: {a.field} de "{a.from || ''}" para "{a.to || ''}"</p>)}
+                        {removed.map((r: any, idx: any) => <p key={`r-${idx}`} style={{ fontSize: 11, color: '#B91C1C' }}>- Removido: {r.quantity}× {r.product_name}</p>)}
+                        {added.map((a: any, idx: any) => <p key={`a-${idx}`} style={{ fontSize: 11, color: '#065F46' }}>+ Adicionado: {a.quantity}× {a.product_name}</p>)}
+                        {address.map((a: any, idx: any) => <p key={`ad-${idx}`} style={{ fontSize: 11, color: '#1D4ED8' }}>• Endereço: {a.field} de "{a.from || ''}" para "{a.to || ''}"</p>)}
                         {!removed.length && !added.length && !address.length && details.message && (
                           <p style={{ fontSize: 11, color: '#6B7280' }}>{details.message}</p>
                         )}
@@ -1341,8 +1341,8 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                   <button onClick={() => setShowItemPicker(false)} style={{ border: 'none', background: 'transparent', fontSize: 12, color: '#1D4ED8', cursor: 'pointer', fontWeight: 700 }}>Fechar</button>
                 </div>
                 <ProductPicker
-                  products={(products || []).filter(p => !p.is_hidden)}
-                  drinks={(drinks || []).filter(d => !d.is_hidden)}
+                  products={(products || []).filter((p: any) => !p.is_hidden)}
+                  drinks={(drinks || []).filter((d: any) => !d.is_hidden)}
                   onAdd={addPickedItem}
                   onClose={() => setShowItemPicker(false)}
                 />
@@ -1400,7 +1400,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
             {/* Botões */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 2 }}>
               <div style={{ display: 'flex', gap: 8 }}>
-                {actionButtons.filter(a => a.primary).map(a => (
+                {actionButtons.filter((a: any) => a.primary).map((a: any) => (
                   <button key={a.next} onClick={() => { onAction(order.id, 'status', a.next); onClose(); }}
                     style={{ flex: 1, padding: '12px', borderRadius: 5, border: 'none', background: a.bg, color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
                     {a.label}
@@ -1419,7 +1419,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                       // Pre-fill with 1 hour from now in SP timezone
                       const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
                       now.setHours(now.getHours() + 1, 0, 0, 0);
-                      const pad = n => String(n).padStart(2, '0');
+                      const pad = (n: any) => String(n).padStart(2, '0');
                       setScheduledFor(`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`);
                       setShowScheduleDialog(true);
                     }}
@@ -1428,7 +1428,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                     <Calendar size={13} /> Agendar
                   </button>
                 )}
-                {actionButtons.filter(a => !a.primary).map(a => (
+                {actionButtons.filter((a: any) => !a.primary).map((a: any) => (
                   <button key={a.next} onClick={() => { setDangerAction('cancel'); setShowDangerDialog(true); }}
                     style={{ flex: 1, padding: '9px', borderRadius: 5, border: `1px solid ${a.bg}40`, background: a.bg + '10', color: a.bg, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     {a.label}
@@ -1458,7 +1458,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
       {/* Diálogo de tipo de impressão */}
       {showPrintDialog && (
         <PrintTypeDialog
-          onSelect={type => { setShowPrintDialog(false); onPrint(type); }}
+          onSelect={(type: any) => { setShowPrintDialog(false); onPrint(type); }}
           onClose={() => setShowPrintDialog(false)}
         />
       )}
@@ -1568,14 +1568,14 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function Section({ label, icon, children, collapsible = false, defaultExpanded = true }) {
+function Section({ label, icon, children, collapsible = false, defaultExpanded = true }: { label: any, icon: any, children: any, collapsible?: any, defaultExpanded?: any }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   return (
     <div style={{ background: '#F9FAFB', borderRadius: 5, padding: '11px 13px', border: '1px solid #E5E7EB' }}>
       <button
         type="button"
-        onClick={() => collapsible && setExpanded(prev => !prev)}
+        onClick={() => collapsible && setExpanded((prev: any) => !prev)}
         style={{
           width: '100%',
           display: 'flex',
@@ -1606,7 +1606,7 @@ function Section({ label, icon, children, collapsible = false, defaultExpanded =
   );
 }
 
-function Row({ label, value, valueColor }) {
+function Row({ label, value, valueColor }: { label: any, value: any, valueColor?: any }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
       <span style={{ fontSize: 12, color: '#6B7280' }}>{label}</span>
@@ -1615,7 +1615,7 @@ function Row({ label, value, valueColor }) {
   );
 }
 
-function QuickStat({ label, value, color, hidden }) {
+function QuickStat({ label, value, color, hidden }: { label: any, value: any, color: any, hidden?: any }) {
   return (
     <div style={{ textAlign: 'center', padding: '6px 14px', background: color + '10', borderRadius: 4, border: `1px solid ${color}20` }}>
       <p style={{ fontSize: 15, fontWeight: 800, color, filter: hidden ? 'blur(6px)' : 'none', userSelect: hidden ? 'none' : 'auto' }}>{value}</p>
@@ -1626,9 +1626,9 @@ function QuickStat({ label, value, color, hidden }) {
 
 // ── Kitchen KDS (tablet/iPad de cozinha) ─────────────────────────────────────
 
-function KitchenOrderDetailsModal({ order, onClose }) {
+function KitchenOrderDetailsModal({ order, onClose }: { order: any, onClose: any }) {
   if (!order) return null;
-  const kitchenItems = (order.order_items || []).filter(item => !item?.drink_id);
+  const kitchenItems = (order.order_items || []).filter((item: any) => !item?.drink_id);
 
   return (
     <div
@@ -1657,7 +1657,7 @@ function KitchenOrderDetailsModal({ order, onClose }) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {kitchenItems.length > 0 ? kitchenItems.map((item, i) => (
+          {kitchenItems.length > 0 ? kitchenItems.map((item: any, i: any) => (
             <div key={`${order.id}-kitchen-item-${i}`} style={{ border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 12px', background: '#fff' }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{ fontSize: 18, fontWeight: 900, color: '#D97706', minWidth: 28, fontFamily: 'monospace' }}>{item.quantity}×</span>
@@ -1685,21 +1685,21 @@ function KitchenOrderDetailsModal({ order, onClose }) {
   );
 }
 
-function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) {
+function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }: { order: any, onMarkReady: any, onOpenDetails: any, minCardHeight: any }) {
   const isItemsLoading = !!order.order_items_loading;
   const [marking, setMarking] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [checkedItems, setCheckedItems] = useState({});
+  const [checkedItems, setCheckedItems] = useState<any>({});
   const mins = elapsedMins(order.created_at);
   const urgentColor = mins >= 30 ? '#EF4444' : mins >= 20 ? '#D97706' : '#10B981';
   const urgentBg    = mins >= 30 ? '#FEF2F2' : mins >= 20 ? '#FFFBEB' : '#ECFDF5';
-  const kitchenItems = (order.order_items || []).filter(item => !item?.drink_id);
+  const kitchenItems = (order.order_items || []).filter((item: any) => !item?.drink_id);
 
   useEffect(() => {
     setCheckedItems({});
   }, [order.id, kitchenItems.length]);
 
-  const isEveryKitchenItemChecked = kitchenItems.length > 0 && kitchenItems.every((item, idx) => {
+  const isEveryKitchenItemChecked = kitchenItems.length > 0 && kitchenItems.every((item: any, idx: any) => {
     const itemKey = `${item.product_name || 'item'}-${idx}-${item.quantity || 1}`;
     return !!checkedItems[itemKey];
   });
@@ -1711,13 +1711,13 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) 
     setMarking(false);
   }
 
-  async function handleToggleItem(item, idx) {
+  async function handleToggleItem(item: any, idx: any) {
     const itemKey = `${item.product_name || 'item'}-${idx}-${item.quantity || 1}`;
     const nextChecked = !checkedItems[itemKey];
     const nextState = { ...checkedItems, [itemKey]: nextChecked };
     setCheckedItems(nextState);
 
-    const allChecked = kitchenItems.length > 0 && kitchenItems.every((kItem, kIdx) => {
+    const allChecked = kitchenItems.length > 0 && kitchenItems.every((kItem: any, kIdx: any) => {
       const key = `${kItem.product_name || 'item'}-${kIdx}-${kItem.quantity || 1}`;
       return key === itemKey ? nextChecked : !!nextState[key];
     });
@@ -1780,7 +1780,7 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) 
         ) : kitchenItems.length === 0 ? (
           <p style={{ fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' }}>Sem itens para este pedido.</p>
         ) : (
-          kitchenItems.map((item, idx) => {
+          kitchenItems.map((item: any, idx: any) => {
             const itemKey = `${item.product_name || 'item'}-${idx}-${item.quantity || 1}`;
             const isChecked = !!checkedItems[itemKey];
             return (
@@ -1872,9 +1872,9 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }) 
   );
 }
 
-function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
+function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }: { orders: any, onMarkReady: any, soundOn: any, setSoundOn: any }) {
   const [clockTick, setClockTick] = useState(0);
-  const [detailOrderId, setDetailOrderId] = useState(null);
+  const [detailOrderId, setDetailOrderId] = useState<any>(null);
   useEffect(() => {
     const iv = setInterval(() => setClockTick(t => t + 1), 30000);
     return () => clearInterval(iv);
@@ -1882,11 +1882,11 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
 
   // Only show orders that need kitchen action (not 'ready' — they disappear after marking)
   const kitchenOrders = orders
-    .filter(o => ['confirmed', 'preparing'].includes(o.status))
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-  const maxItemsInKitchen = Math.max(1, ...kitchenOrders.map(o => (o.order_items || []).filter(item => !item?.drink_id).length || 1));
+    .filter((o: any) => ['confirmed', 'preparing'].includes(o.status))
+    .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const maxItemsInKitchen = Math.max(1, ...kitchenOrders.map((o: any) => (o.order_items || []).filter((item: any) => !item?.drink_id).length || 1));
   const minKitchenCardHeight = 180 + (maxItemsInKitchen * 28);
-  const detailOrder = kitchenOrders.find(o => o.id === detailOrderId) || null;
+  const detailOrder = kitchenOrders.find((o: any) => o.id === detailOrderId) || null;
 
   return (
     <div style={{ flex: 1, background: '#F8FAFC', overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -1913,7 +1913,7 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
             {new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: '2-digit' })}
           </div>
         </div>
-        <button onClick={() => setSoundOn(s => !s)}
+        <button onClick={() => setSoundOn((s: any) => !s)}
           style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, border: '1px solid ' + (soundOn ? '#A7F3D0' : '#E5E7EB'), background: soundOn ? '#ECFDF5' : '#F9FAFB', color: soundOn ? '#059669' : '#9CA3AF', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
           {soundOn ? <Volume2 size={14} /> : <VolumeX size={14} />} Som
         </button>
@@ -1937,7 +1937,7 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
               </span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
-              {kitchenOrders.map(o => (
+              {kitchenOrders.map((o: any) => (
                 <KitchenOrderCard
                   key={o.id}
                   order={o}
@@ -1966,27 +1966,27 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }) {
 export default function KDSBoard({
   orders, onUpdateStatus, onUpdatePayment, onRefresh, onRefreshOrders, adminToken, loading,
   products, drinks, hasMoreOrders, loadingMore, onLoadMore,
-}) {
-  const [modal, setModal]               = useState(null);
-  const [items, setItems]               = useState([]);
-  const [itemsByOrder, setItemsByOrder] = useState({});
+}: { orders: any, onUpdateStatus: any, onUpdatePayment: any, onRefresh: any, onRefreshOrders: any, adminToken: any, loading: any, products: any, drinks: any, hasMoreOrders: any, loadingMore: any, onLoadMore: any }) {
+  const [modal, setModal]               = useState<any>(null);
+  const [items, setItems]               = useState<any[]>([]);
+  const [itemsByOrder, setItemsByOrder] = useState<any>({});
   const [itemsLoading, setItemsLoading] = useState(false);
-  const [itemsLoadingByOrder, setItemsLoadingByOrder] = useState({});
+  const [itemsLoadingByOrder, setItemsLoadingByOrder] = useState<any>({});
   const [soundOn, setSoundOn]           = useState(true);
   const [newIds, setNewIds]             = useState(new Set());
   const [readyIds, setReadyIds]         = useState(new Set());
   const [countdown, setCountdown]       = useState(15);
   const [showRevenue, setShowRevenue]   = useState(true);
-  const [dragging, setDragging]         = useState(null);
+  const [dragging, setDragging]         = useState<any>(null);
   const [showDrawer, setShowDrawer]     = useState(false);
   const [viewMode, setViewMode]         = useState('kanban'); // 'kanban' | 'lista' | 'cozinha'
-  const [deliveryPersons, setDeliveryPersons] = useState([]);
+  const [deliveryPersons, setDeliveryPersons] = useState<any[]>([]);
   const [deliveryPrompt, setDeliveryPrompt] = useState({ open: false, orderId: null, deliveryPersonId: '' });
   const [assigningDelivery, setAssigningDelivery] = useState(false);
   const deliveryPersonsLoadedRef         = useRef(false);
   const fetchingItemsRef                = useRef(new Set());
-  const seenIdsRef                      = useRef(null);
-  const prevStatusRef                   = useRef({});
+  const seenIdsRef                      = useRef<Set<any> | null>(null);
+  const prevStatusRef                   = useRef<Record<string, any>>({});
   const onUpdateRef                     = useRef(onUpdateStatus);
   const tick                            = useSecondTick();
 
@@ -1997,12 +1997,12 @@ export default function KDSBoard({
     if (!orders.length) return;
     const cutoff = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
     orders
-      .filter(o => !['cancelled', 'delivered'].includes(o.status) && o.created_at < cutoff)
-      .forEach(o => onUpdateRef.current(o.id, 'status', 'delivered'));
+      .filter((o: any) => !['cancelled', 'delivered'].includes(o.status) && o.created_at < cutoff)
+      .forEach((o: any) => onUpdateRef.current(o.id, 'status', 'delivered'));
   }, [orders]);
 
   // Mapa telefone/nome → contagem de pedidos (todos os pedidos carregados)
-  const customerOrderCount = {};
+  const customerOrderCount: Record<string, any> = {};
   for (const o of orders) {
     const key = o.customer_phone || o.customer_name;
     if (key) customerOrderCount[key] = (customerOrderCount[key] || 0) + 1;
@@ -2014,7 +2014,7 @@ export default function KDSBoard({
   // Show: today's orders + orders still open from last 24h (cross-midnight)
   // 'delivered' orders with pending payment stay visible until payment is registered
   // 'delivered' + paid (approved) orders move to history only
-  const visible = orders.filter(o => {
+  const visible = orders.filter((o: any) => {
     if (o.status === 'cancelled') return false;
     // Delivered + paid → only in history (hidden from kanban)
     if (o.status === 'delivered' && o.payment_status === 'approved') return false;
@@ -2025,10 +2025,10 @@ export default function KDSBoard({
     return isToday || isOpenRecent || isUnpaidDelivered;
   });
 
-  const fetchOrderItems = useCallback(async (orderId) => {
+  const fetchOrderItems = useCallback(async (orderId: any) => {
     if (!orderId || fetchingItemsRef.current.has(orderId)) return null;
     fetchingItemsRef.current.add(orderId);
-    setItemsLoadingByOrder(prev => ({ ...prev, [orderId]: true }));
+    setItemsLoadingByOrder((prev: any) => ({ ...prev, [orderId]: true }));
     try {
       const res = await fetch('/api/admin', {
         method: 'POST',
@@ -2037,18 +2037,18 @@ export default function KDSBoard({
       });
       const d = await res.json();
       const nextItems = Array.isArray(d.items) ? d.items : [];
-      setItemsByOrder(prev => ({ ...prev, [orderId]: nextItems }));
+      setItemsByOrder((prev: any) => ({ ...prev, [orderId]: nextItems }));
       return nextItems;
     } catch {
-      setItemsByOrder(prev => ({ ...prev, [orderId]: [] }));
+      setItemsByOrder((prev: any) => ({ ...prev, [orderId]: [] }));
       return [];
     } finally {
       fetchingItemsRef.current.delete(orderId);
-      setItemsLoadingByOrder(prev => ({ ...prev, [orderId]: false }));
+      setItemsLoadingByOrder((prev: any) => ({ ...prev, [orderId]: false }));
     }
   }, [adminToken]);
 
-  function getOrderItems(order) {
+  function getOrderItems(order: any) {
     const cached = itemsByOrder[order.id];
     if (Array.isArray(cached) && cached.length > 0) return cached;
     if (Array.isArray(order.order_items) && order.order_items.length > 0) return order.order_items;
@@ -2057,21 +2057,21 @@ export default function KDSBoard({
 
   useEffect(() => {
     const ids = visible
-      .filter(o => !Object.prototype.hasOwnProperty.call(itemsByOrder, o.id))
-      .map(o => o.id)
+      .filter((o: any) => !Object.prototype.hasOwnProperty.call(itemsByOrder, o.id))
+      .map((o: any) => o.id)
       .slice(0, 10);
 
     if (ids.length === 0) return;
-    ids.forEach(id => { fetchOrderItems(id); });
+    ids.forEach((id: any) => { fetchOrderItems(id); });
   }, [visible, itemsByOrder, fetchOrderItems]);
 
-  const visibleWithItems = visible.map(o => ({
+  const visibleWithItems = visible.map((o: any) => ({
     ...o,
     order_items: getOrderItems(o),
     order_items_loading: !!itemsLoadingByOrder[o.id],
   }));
 
-  const deliveryPersonsById = deliveryPersons.reduce((acc, person) => {
+  const deliveryPersonsById = deliveryPersons.reduce((acc: any, person: any) => {
     acc[String(person.id)] = person.name || '';
     return acc;
   }, {});
@@ -2081,28 +2081,28 @@ export default function KDSBoard({
     ensureDeliveryPersons();
   }, [adminToken]);
 
-  const todayOrders  = orders.filter(o => orderDateSP(o.created_at) === today);
-  const activeToday  = todayOrders.filter(o => !['cancelled','delivered'].includes(o.status)).length;
-  const doneToday    = todayOrders.filter(o => o.status === 'delivered').length;
-  const revenueToday = todayOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
+  const todayOrders  = orders.filter((o: any) => orderDateSP(o.created_at) === today);
+  const activeToday  = todayOrders.filter((o: any) => !['cancelled','delivered'].includes(o.status)).length;
+  const doneToday    = todayOrders.filter((o: any) => o.status === 'delivered').length;
+  const revenueToday = todayOrders.filter((o: any) => o.status !== 'cancelled').reduce((s: any, o: any) => s + (parseFloat(o.total) || 0), 0);
 
   // Detectar novos pedidos → beep + highlight
   useEffect(() => {
     if (!orders.length) return;
-    const cur = new Set(orders.map(o => o.id));
+    const cur = new Set(orders.map((o: any) => o.id));
     if (seenIdsRef.current === null) {
-      seenIdsRef.current = new Set(cur);
+      seenIdsRef.current = new Set(cur) as any;
       return;
     }
-    const added = new Set([...cur].filter(id => !seenIdsRef.current.has(id)));
-    cur.forEach(id => seenIdsRef.current.add(id));
+    const added = new Set([...cur].filter((id: any) => !(seenIdsRef.current as any).has(id)));
+    cur.forEach((id: any) => (seenIdsRef.current as any).add(id));
     if (added.size > 0) {
       setNewIds(added);
       if (soundOn) playBeep();
       setTimeout(() => setNewIds(new Set()), 12000);
       orders
-        .filter(o => added.has(o.id) && o.status === 'pending')
-        .forEach(o => onUpdateRef.current(o.id, 'status', 'confirmed'));
+        .filter((o: any) => added.has(o.id) && o.status === 'pending')
+        .forEach((o: any) => onUpdateRef.current(o.id, 'status', 'confirmed'));
     }
   }, [orders, soundOn]);
 
@@ -2110,12 +2110,12 @@ export default function KDSBoard({
   useEffect(() => {
     if (!orders.length) return;
     const newReady = new Set();
-    orders.forEach(o => {
-      const prev = prevStatusRef.current[o.id];
+    orders.forEach((o: any) => {
+      const prev = (prevStatusRef.current as any)[o.id];
       if (o.status === 'ready' && prev !== undefined && prev !== 'ready') {
         newReady.add(o.id);
       }
-      prevStatusRef.current[o.id] = o.status;
+      (prevStatusRef.current as any)[o.id] = o.status;
     });
     if (newReady.size > 0) {
       setReadyIds(newReady);
@@ -2137,7 +2137,7 @@ export default function KDSBoard({
     return () => clearInterval(iv);
   }, [refreshOrders]);
 
-  async function openModal(order) {
+  async function openModal(order: any) {
     setModal(order);
     setItems(getOrderItems(order));
     setItemsLoading(true);
@@ -2159,14 +2159,14 @@ export default function KDSBoard({
         body: JSON.stringify({ action: 'get_delivery_persons', data: {} }),
       });
       const d = await res.json();
-      setDeliveryPersons((d.persons || []).filter(p => p.is_active));
+      setDeliveryPersons((d.persons || []).filter((p: any) => p.is_active));
     } catch (e) {
       console.error(e);
       deliveryPersonsLoadedRef.current = false;
     }
   }
 
-  async function assignDeliveryPerson(orderId, personId, startDelivery = false) {
+  async function assignDeliveryPerson(orderId: any, personId: any, startDelivery = false) {
     if (!adminToken || !orderId) return false;
     try {
       const res = await fetch('/api/admin', {
@@ -2179,12 +2179,12 @@ export default function KDSBoard({
       return true;
     } catch (e) {
       console.error(e);
-      alert('Erro ao atribuir entregador: ' + (e.message || 'erro desconhecido'));
+      alert('Erro ao atribuir entregador: ' + ((e as Error).message || 'erro desconhecido'));
       return false;
     }
   }
 
-  async function verifyAdminPassword(password) {
+  async function verifyAdminPassword(password: any) {
     try {
       const res = await fetch('/api/admin/session', {
         method: 'POST',
@@ -2199,7 +2199,7 @@ export default function KDSBoard({
     }
   }
 
-  async function handleAction(orderId, field, value) {
+  async function handleAction(orderId: any, field: any, value: any) {
     if (field === 'cancel' || field === 'delete') {
       const validPass = await verifyAdminPassword(value);
       if (!validPass) {
@@ -2209,7 +2209,7 @@ export default function KDSBoard({
 
       if (field === 'cancel') {
         onUpdateStatus(orderId, 'status', 'cancelled');
-        setModal(prev => prev?.id === orderId ? { ...prev, status: 'cancelled' } : prev);
+        setModal((prev: any) => prev?.id === orderId ? { ...prev, status: 'cancelled' } : prev);
         return true;
       }
 
@@ -2224,7 +2224,7 @@ export default function KDSBoard({
         await refreshOrders();
         return true;
       } catch (e) {
-        alert('Erro ao inativar pedido: ' + (e.message || 'erro desconhecido'));
+        alert('Erro ao inativar pedido: ' + ((e as Error).message || 'erro desconhecido'));
         return false;
       }
     }
@@ -2241,11 +2241,11 @@ export default function KDSBoard({
         if (!res.ok || d.error) throw new Error(d.error || 'Erro ao reabrir pedido');
         // Optimistic update
         onUpdateStatus(orderId, 'status', 'confirmed');
-        setModal(prev => prev?.id === orderId ? { ...prev, status: 'confirmed', delivered_at: null } : prev);
+        setModal((prev: any) => prev?.id === orderId ? { ...prev, status: 'confirmed', delivered_at: null } : prev);
         await refreshOrders();
         return true;
       } catch (e) {
-        alert('Erro ao reabrir pedido: ' + (e.message || 'erro desconhecido'));
+        alert('Erro ao reabrir pedido: ' + ((e as Error).message || 'erro desconhecido'));
         return false;
       }
     }
@@ -2263,16 +2263,16 @@ export default function KDSBoard({
         if (!res.ok || d.error) throw new Error(d.error || 'Erro ao agendar pedido');
         onUpdateStatus(orderId, 'status', 'scheduled');
         onUpdateStatus(orderId, 'scheduled_for', scheduled_for);
-        setModal(prev => prev?.id === orderId ? { ...prev, status: 'scheduled', scheduled_for } : prev);
+        setModal((prev: any) => prev?.id === orderId ? { ...prev, status: 'scheduled', scheduled_for } : prev);
         return true;
       } catch (e) {
-        alert('Erro ao agendar pedido: ' + (e.message || 'erro desconhecido'));
+        alert('Erro ao agendar pedido: ' + ((e as Error).message || 'erro desconhecido'));
         return false;
       }
     }
 
     if (field === 'status' && value === 'delivering') {
-      const order = orders.find(o => o.id === orderId);
+      const order = orders.find((o: any) => o.id === orderId);
       await ensureDeliveryPersons();
       setDeliveryPrompt({
         open: true,
@@ -2282,7 +2282,7 @@ export default function KDSBoard({
       return true;
     }
     onUpdateStatus(orderId, field, value);
-    setModal(prev => prev?.id === orderId ? { ...prev, [field]: value } : prev);
+    setModal((prev: any) => prev?.id === orderId ? { ...prev, [field]: value } : prev);
     return true;
   }
 
@@ -2293,7 +2293,7 @@ export default function KDSBoard({
     if (ok) {
       onUpdateStatus(deliveryPrompt.orderId, 'delivery_person_id', deliveryPrompt.deliveryPersonId);
       onUpdateStatus(deliveryPrompt.orderId, 'status', 'delivering');
-      setModal(prev => prev?.id === deliveryPrompt.orderId
+      setModal((prev: any) => prev?.id === deliveryPrompt.orderId
         ? { ...prev, delivery_person_id: deliveryPrompt.deliveryPersonId, status: 'delivering' }
         : prev);
       setDeliveryPrompt({ open: false, orderId: null, deliveryPersonId: '' });
@@ -2301,7 +2301,7 @@ export default function KDSBoard({
     setAssigningDelivery(false);
   }
 
-  async function handlePaymentUpdate(orderId, updates) {
+  async function handlePaymentUpdate(orderId: any, updates: any) {
     if (onUpdatePayment) {
       await onUpdatePayment(orderId, updates);
     } else {
@@ -2310,20 +2310,20 @@ export default function KDSBoard({
         onUpdateStatus(orderId, field, value);
       }
     }
-    setModal(prev => prev?.id === orderId ? { ...prev, ...updates } : prev);
+    setModal((prev: any) => prev?.id === orderId ? { ...prev, ...updates } : prev);
   }
 
-  async function handleAddressUpdate(orderId, updates) {
+  async function handleAddressUpdate(orderId: any, updates: any) {
     onUpdateStatus(orderId, 'delivery_street', updates.delivery_street || null);
     onUpdateStatus(orderId, 'delivery_number', updates.delivery_number || null);
     onUpdateStatus(orderId, 'delivery_complement', updates.delivery_complement || null);
     onUpdateStatus(orderId, 'delivery_neighborhood', updates.delivery_neighborhood || null);
     onUpdateStatus(orderId, 'delivery_city', updates.delivery_city || null);
     onUpdateStatus(orderId, 'delivery_zipcode', updates.delivery_zipcode || null);
-    setModal(prev => prev?.id === orderId ? { ...prev, ...updates } : prev);
+    setModal((prev: any) => prev?.id === orderId ? { ...prev, ...updates } : prev);
   }
 
-  async function handleItemsUpdate(orderId, nextItems) {
+  async function handleItemsUpdate(orderId: any, nextItems: any) {
     const res = await fetch('/api/admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
@@ -2336,7 +2336,7 @@ export default function KDSBoard({
 
     const refreshedItems = Array.isArray(d.items) ? d.items : [];
     setItems(refreshedItems);
-    setItemsByOrder(prev => ({ ...prev, [orderId]: refreshedItems }));
+    setItemsByOrder((prev: any) => ({ ...prev, [orderId]: refreshedItems }));
 
     const totalsUpdate = {
       subtotal: d.subtotal,
@@ -2344,14 +2344,14 @@ export default function KDSBoard({
     };
     onUpdateStatus(orderId, 'subtotal', d.subtotal);
     onUpdateStatus(orderId, 'total', d.total);
-    setModal(prev => prev?.id === orderId ? { ...prev, ...totalsUpdate } : prev);
+    setModal((prev: any) => prev?.id === orderId ? { ...prev, ...totalsUpdate } : prev);
 
     if (onRefreshOrders) onRefreshOrders();
   }
 
   function handlePrint(type = 'balcao') {
     if (!modal) return;
-    const body = items.map(i =>
+    const body = items.map((i: any) =>
       `  ${i.quantity}x ${i.product_name.padEnd(22)} ${fmtBRL(i.total_price)}`
     ).join('\n');
 
@@ -2387,7 +2387,7 @@ export default function KDSBoard({
         parseFloat(modal.discount) > 0     ? `  Desconto:     -${fmtBRL(modal.discount)}` : '',
         parseFloat(modal.delivery_fee) > 0 ? `  Taxa entrega:  ${fmtBRL(modal.delivery_fee)}` : '',
         `  TOTAL:         ${fmtBRL(modal.total)}`,
-        `  ${PM[modal.payment_method]?.label || modal.payment_method || ''}`,
+        `  ${(PM as any)[modal.payment_method]?.label || modal.payment_method || ''}`,
         `════════════════════════`,
         modal.observations ? `  OBS: ${modal.observations}` : '',
       ].filter(l => l !== undefined).join('\n');
@@ -2409,7 +2409,7 @@ export default function KDSBoard({
         parseFloat(modal.discount) > 0     ? `  Desconto:     -${fmtBRL(modal.discount)}` : '',
         parseFloat(modal.delivery_fee) > 0 ? `  Taxa entrega:  ${fmtBRL(modal.delivery_fee)}` : '',
         `  TOTAL:         ${fmtBRL(modal.total)}`,
-        `  ${PM[modal.payment_method]?.label || modal.payment_method || ''}`,
+        `  ${(PM as any)[modal.payment_method]?.label || modal.payment_method || ''}`,
         `════════════════════════`,
         modal.observations ? `  OBS: ${modal.observations}` : '',
       ].filter(l => l !== undefined).join('\n');
@@ -2417,13 +2417,15 @@ export default function KDSBoard({
 
     const fontSize = type === 'cozinha' ? '16px' : '13px';
     const w = window.open('', '_blank', 'width=400,height=600');
-    w.document.write(`<html><body><pre style="font-family:monospace;font-size:${fontSize};padding:16px;white-space:pre">${txt}</pre><script>window.onload=()=>window.print()<\/script></body></html>`);
-    w.document.close();
+    if (w) {
+      w.document.write(`<html><body><pre style="font-family:monospace;font-size:${fontSize};padding:16px;white-space:pre">${txt}</pre><script>window.onload=()=>window.print()<\/script></body></html>`);
+      w.document.close();
+    }
   }
 
-  const hasScheduled   = visible.some(o => o.status === 'scheduled');
-  const preparing_count = visible.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status)).length;
-  const cols = COLUMNS.filter(c => c.id !== 'agendados' || hasScheduled);
+  const hasScheduled   = visible.some((o: any) => o.status === 'scheduled');
+  const preparing_count = visible.filter((o: any) => ['confirmed', 'preparing', 'ready'].includes(o.status)).length;
+  const cols = COLUMNS.filter((c: any) => c.id !== 'agendados' || hasScheduled);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, background: '#F1F3F5', overflow: 'hidden' }}>
@@ -2520,7 +2522,7 @@ export default function KDSBoard({
       {viewMode === 'cozinha' && (
         <KitchenKDS
           orders={visibleWithItems}
-          onMarkReady={id => handleAction(id, 'status', 'ready')}
+          onMarkReady={(id: any) => handleAction(id, 'status', 'ready')}
           soundOn={soundOn}
           setSoundOn={setSoundOn}
         />
@@ -2540,9 +2542,9 @@ export default function KDSBoard({
               onCardClick={openModal}
               newIds={newIds}
               readyIds={readyIds}
-              onDragStart={order => setDragging(order)}
+              onDragStart={(order: any) => setDragging(order)}
               deliveryPersonsById={deliveryPersonsById}
-              onDrop={targetStatus => {
+              onDrop={(targetStatus: any) => {
                 if (dragging && dragging.status !== targetStatus) {
                   handleAction(dragging.id, 'status', targetStatus);
                 }
@@ -2582,9 +2584,9 @@ export default function KDSBoard({
           itemsLoading={itemsLoading}
           onClose={() => setModal(null)}
           onAction={handleAction}
-          onPaymentUpdate={(updates) => handlePaymentUpdate(modal.id, updates)}
-          onAddressUpdate={(updates) => handleAddressUpdate(modal.id, updates)}
-          onItemsUpdate={(nextItems) => handleItemsUpdate(modal.id, nextItems)}
+          onPaymentUpdate={(updates: any) => handlePaymentUpdate(modal.id, updates)}
+          onAddressUpdate={(updates: any) => handleAddressUpdate(modal.id, updates)}
+          onItemsUpdate={(nextItems: any) => handleItemsUpdate(modal.id, nextItems)}
           onPrint={handlePrint}
           adminToken={adminToken}
           customerOrderCount={customerOrderCount}
@@ -2605,11 +2607,11 @@ export default function KDSBoard({
             </p>
             <select
               value={deliveryPrompt.deliveryPersonId}
-              onChange={e => setDeliveryPrompt(prev => ({ ...prev, deliveryPersonId: e.target.value }))}
+              onChange={e => setDeliveryPrompt((prev: any) => ({ ...prev, deliveryPersonId: e.target.value }))}
               style={{ width: '100%', padding: '9px 10px', borderRadius: 7, border: '1px solid #D1D5DB', fontSize: 13, marginBottom: 12 }}
             >
               <option value="">— Selecione o entregador —</option>
-              {deliveryPersons.map(dp => (
+              {deliveryPersons.map((dp: any) => (
                 <option key={dp.id} value={dp.id}>{dp.name}</option>
               ))}
             </select>

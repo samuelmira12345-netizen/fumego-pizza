@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   UtensilsCrossed, GlassWater, Package, Upload, Loader2, Trash2,
   Plus, Check, ChevronDown, ChevronUp, Save, RefreshCw,
@@ -36,11 +36,11 @@ const C = {
   gold: '#F2A800', success: '#10B981', danger: '#EF4444',
 };
 
-function fmtBRL(v) {
+function fmtBRL(v: any) {
   return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function formatCorrectionPercent(rawValue) {
+function formatCorrectionPercent(rawValue: any) {
   const loss = parseCorrectionLoss(rawValue);
   return (loss * 100).toFixed(2);
 }
@@ -50,21 +50,21 @@ function formatCorrectionPercent(rawValue) {
 // Unit sub-conversion map: base unit → { sub unit, conversion factor to base }
 const UNIT_SUB = { kg: { sub: 'g', factor: 0.001 }, L: { sub: 'ml', factor: 0.001 } };
 
-function toBaseQty(qty, recipeUnit, baseUnit) {
+function toBaseQty(qty: any, recipeUnit: any, baseUnit: any) {
   if (!recipeUnit || recipeUnit === baseUnit) return parseFloat(qty) || 0;
-  const conv = UNIT_SUB[baseUnit];
+  const conv = (UNIT_SUB as any)[baseUnit];
   if (conv && conv.sub === recipeUnit) return (parseFloat(qty) || 0) * conv.factor;
   return parseFloat(qty) || 0;
 }
 
-function getUnitOptions(baseUnit) {
-  const conv = UNIT_SUB[baseUnit];
+function getUnitOptions(baseUnit: any) {
+  const conv = (UNIT_SUB as any)[baseUnit];
   if (conv) return [baseUnit, conv.sub];
   return [baseUnit];
 }
 
-function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) {
-  const [items, setItems] = useState([]);
+function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }: { productId: any, productPrice: any, ingredients: any, recipe: any, onSave: any }) {
+  const [items, setItems] = useState<any[]>([]);
   const [addIng, setAddIng] = useState('');
   const [addQty, setAddQty] = useState('');
   const [addUnit, setAddUnit] = useState('');
@@ -72,8 +72,8 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
 
   useEffect(() => { setItems(recipe || []); }, [recipe]);
 
-  const enriched = items.map(i => {
-    const ing = ingredients.find(g => g.id === i.ingredient_id);
+  const enriched = items.map((i: any) => {
+    const ing = ingredients.find((g: any) => g.id === i.ingredient_id);
     return { ...i, name: ing?.name, unit: ing?.unit, cost_per_unit: costWithFC(parseFloat(ing?.cost_per_unit) || 0, ing?.correction_factor) };
   });
 
@@ -84,26 +84,26 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
   const price = parseFloat(productPrice) || 0;
   const margin = price > 0 && calcCost > 0 ? ((price - calcCost) / price * 100) : null;
 
-  const availableIngs = ingredients.filter(g => !items.find(i => i.ingredient_id === g.id));
+  const availableIngs = ingredients.filter((g: any) => !items.find((i: any) => i.ingredient_id === g.id));
 
   function addItem() {
     if (!addIng || !addQty) return;
-    const ing = ingredients.find(g => g.id === addIng);
+    const ing = ingredients.find((g: any) => g.id === addIng);
     const recipeUnit = addUnit || ing?.unit || '';
     setItems(prev => [...prev, { ingredient_id: addIng, quantity: parseFloat(addQty), recipe_unit: recipeUnit }]);
     setAddIng(''); setAddQty(''); setAddUnit('');
   }
 
-  function removeItem(ingredient_id) {
-    setItems(prev => prev.filter(i => i.ingredient_id !== ingredient_id));
+  function removeItem(ingredient_id: any) {
+    setItems(prev => prev.filter((i: any) => i.ingredient_id !== ingredient_id));
   }
 
-  function updateQty(ingredient_id, qty) {
-    setItems(prev => prev.map(i => i.ingredient_id === ingredient_id ? { ...i, quantity: qty } : i));
+  function updateQty(ingredient_id: any, qty: any) {
+    setItems(prev => prev.map((i: any) => i.ingredient_id === ingredient_id ? { ...i, quantity: qty } : i));
   }
 
-  function updateRecipeUnit(ingredient_id, unit) {
-    setItems(prev => prev.map(i => i.ingredient_id === ingredient_id ? { ...i, recipe_unit: unit } : i));
+  function updateRecipeUnit(ingredient_id: any, unit: any) {
+    setItems(prev => prev.map((i: any) => i.ingredient_id === ingredient_id ? { ...i, recipe_unit: unit } : i));
   }
 
   async function save() {
@@ -115,9 +115,9 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
   const lucro = price > 0 ? price - calcCost : null;
 
   // When ingredient selection changes, reset unit to its base unit
-  function handleAddIngChange(ingId) {
+  function handleAddIngChange(ingId: any) {
     setAddIng(ingId);
-    const ing = ingredients.find(g => g.id === ingId);
+    const ing = ingredients.find((g: any) => g.id === ingId);
     setAddUnit(ing?.unit || '');
   }
 
@@ -206,12 +206,12 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
           <select value={addIng} onChange={e => handleAddIngChange(e.target.value)}
             style={{ flex: 1, minWidth: 160, padding: '5px 8px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none', background: '#fff' }}>
             <option value="">Selecionar insumo...</option>
-            {availableIngs.map(g => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
+            {availableIngs.map((g: any) => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
           </select>
           <input type="number" value={addQty} min="0" step="0.001" onChange={e => setAddQty(e.target.value)} placeholder="Qtd"
             style={{ width: 70, padding: '5px 6px', borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 12, outline: 'none' }} />
           {addIng && (() => {
-            const ing = ingredients.find(g => g.id === addIng);
+            const ing = ingredients.find((g: any) => g.id === addIng);
             const opts = getUnitOptions(ing?.unit || '');
             return opts.length > 1 ? (
               <select value={addUnit} onChange={e => setAddUnit(e.target.value)}
@@ -244,14 +244,14 @@ function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }) 
 const UNITS_COMPOUND = ['unid', 'kg', 'g', 'L', 'ml', 'cx', 'pct', 'dz', 'ft', 'Bag', 'UN', 'KG'];
 
 /** Calcula automaticamente o rendimento de uma receita somando as quantidades dos insumos. */
-function autoCalcYield(enrichedItems, unit) {
+function autoCalcYield(enrichedItems: any, unit: any) {
   const toGrams = { kg: 1000, g: 1 };
   const toMl    = { L: 1000, ml: 1 };
   let totalG = 0, totalMl = 0, totalCount = 0;
-  enrichedItems.forEach(item => {
+  enrichedItems.forEach((item: any) => {
     const q = parseFloat(item.quantity) || 0;
-    if (toGrams[item.unit] !== undefined)  totalG     += q * toGrams[item.unit];
-    else if (toMl[item.unit] !== undefined) totalMl   += q * toMl[item.unit];
+    if ((toGrams as any)[item.unit] !== undefined)  totalG     += q * (toGrams as any)[item.unit];
+    else if ((toMl as any)[item.unit] !== undefined) totalMl   += q * (toMl as any)[item.unit];
     else                                    totalCount += q;
   });
   if (unit === 'kg')  return totalG   > 0 ? +(totalG   / 1000).toFixed(3) : null;
@@ -262,11 +262,11 @@ function autoCalcYield(enrichedItems, unit) {
 }
 
 // ── RecipeItemsEditor: edit ingredients of a single named recipe ──────────────
-function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved, onCancel, onIngredientCreated }) {
+function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved, onCancel, onIngredientCreated }: { recipe: any, compound: any, ingredients: any, adminToken: any, onSaved: any, onCancel: any, onIngredientCreated: any }) {
   const existing = recipe?.compound_recipe_items || [];
   const [name, setName]         = useState(recipe?.name || '');
   const [yieldUnit, setYieldUnit] = useState(recipe?.yield_unit || compound.unit);
-  const [items, setItems]   = useState(existing.map(i => ({ ingredient_id: i.ingredient_id, quantity: String(i.quantity) })));
+  const [items, setItems]   = useState<any[]>(existing.map((i: any) => ({ ingredient_id: i.ingredient_id, quantity: String(i.quantity) })));
   const [addIng, setAddIng] = useState('');
   const [addQty, setAddQty] = useState('');
   const [saving, setSaving] = useState(false);
@@ -279,14 +279,14 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
   const [newSubQty, setNewSubQty]   = useState('');
   const [creatingNew, setCreatingNew] = useState(false);
 
-  const available = ingredients.filter(g => g.id !== compound.id && !items.find(i => i.ingredient_id === g.id));
-  const enriched  = items.map(i => {
-    const sub = ingredients.find(g => g.id === i.ingredient_id);
+  const available = ingredients.filter((g: any) => g.id !== compound.id && !items.find((i: any) => i.ingredient_id === g.id));
+  const enriched  = items.map((i: any) => {
+    const sub = ingredients.find((g: any) => g.id === i.ingredient_id);
     const rawCost = parseFloat(sub?.cost_per_unit) || 0;
     const cf = sub?.correction_factor;
     return { ...i, name: sub?.name, unit: sub?.unit, cost_per_unit: costWithFC(rawCost, cf), raw_cost: rawCost, correction_factor: cf };
   });
-  const totalCost   = enriched.reduce((s, i) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
+  const totalCost   = enriched.reduce((s: any, i: any) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
   const yieldNum    = autoCalcYield(enriched, yieldUnit);
   const compoundFC  = parseFloat(compound.correction_factor) || 0;
   const netYield    = (yieldNum !== null && compoundFC > 0) ? +(yieldNum * (1 - compoundFC / 100)).toFixed(3) : yieldNum;
@@ -294,7 +294,7 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
 
   function addItem() {
     if (!addIng || !addQty) return;
-    setItems(prev => [...prev, { ingredient_id: addIng, quantity: addQty }]);
+    setItems((prev: any[]) => [...prev, { ingredient_id: addIng, quantity: addQty }]);
     setAddIng(''); setAddQty('');
   }
 
@@ -316,11 +316,11 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
       if (d.error) { alert('Erro: ' + d.error); return; }
       if (d.ingredient) {
         onIngredientCreated(d.ingredient);
-        if (newSubQty) setItems(prev => [...prev, { ingredient_id: d.ingredient.id, quantity: newSubQty }]);
+        if (newSubQty) setItems((prev: any[]) => [...prev, { ingredient_id: d.ingredient.id, quantity: newSubQty }]);
         setNewSubName(''); setNewSubUnit('kg'); setNewSubCost(''); setNewSubQty('');
         setShowNewSub(false);
       }
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setCreatingNew(false); }
   }
 
@@ -337,13 +337,13 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
           name: name.trim(),
           yield_quantity: yieldNum || 0,
           yield_unit: yieldUnit,
-          items: items.map(i => ({ ingredient_id: i.ingredient_id, quantity: parseFloat(i.quantity) || 0 })),
+          items: items.map((i: any) => ({ ingredient_id: i.ingredient_id, quantity: parseFloat(i.quantity) || 0 })),
         }}),
       });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
       onSaved(d.recipe_id);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setSaving(false); }
   }
 
@@ -378,15 +378,15 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 28px', background: '#EDE9FE', padding: '5px 10px' }}>
             {['Insumo', 'Qtd', 'Unid', 'Custo', ''].map((h, i) => <span key={i} style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase' }}>{h}</span>)}
           </div>
-          {enriched.map((item, idx) => (
+          {enriched.map((item: any, idx: any) => (
             <div key={item.ingredient_id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 50px 90px 28px', alignItems: 'center', padding: '5px 10px', borderTop: '1px solid #EDE9FE' }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: C.text }}>{item.name || '—'}</span>
               <input type="number" value={item.quantity} min="0" step="0.001"
-                onChange={e => setItems(prev => prev.map((it, i) => i === idx ? { ...it, quantity: e.target.value } : it))}
+                onChange={e => setItems((prev: any[]) => prev.map((it: any, i: any) => i === idx ? { ...it, quantity: e.target.value } : it))}
                 style={{ padding: '3px 5px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', textAlign: 'right', color: C.text }} />
               <span style={{ fontSize: 11, color: C.muted, textAlign: 'center' }}>{item.unit}</span>
               <span style={{ fontSize: 12, fontWeight: 700, color: '#059669', textAlign: 'right' }}>{fmtBRL((parseFloat(item.quantity) || 0) * item.cost_per_unit)}</span>
-              <button onClick={() => setItems(prev => prev.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.danger }}><X size={12} /></button>
+              <button onClick={() => setItems((prev: any[]) => prev.filter((_: any, i: any) => i !== idx))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.danger }}><X size={12} /></button>
             </div>
           ))}
         </div>
@@ -416,7 +416,7 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
         <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
           <select value={addIng} onChange={e => setAddIng(e.target.value)} style={{ flex: 1, padding: '5px 8px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', background: '#fff', color: C.text }}>
             <option value="">Adicionar insumo...</option>
-            {available.map(g => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
+            {available.map((g: any) => <option key={g.id} value={g.id}>{g.name} ({g.unit})</option>)}
           </select>
           <input type="number" value={addQty} min="0" step="0.001" onChange={e => setAddQty(e.target.value)} placeholder="Qtd" style={{ width: 70, padding: '5px 6px', borderRadius: 4, border: '1px solid #DDD6FE', fontSize: 12, outline: 'none', color: C.text }} />
           <button onClick={addItem} style={{ padding: '5px 10px', borderRadius: 4, border: 'none', background: '#7C3AED', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}><Plus size={12} /> Add</button>
@@ -456,12 +456,12 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
 }
 
 // ── CompoundRecipePanel: multiple named recipes per compound ──────────────────
-function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onIngredientCreated, onRecipeApplied }) {
-  const [recipes, setRecipes]         = useState([]);
+function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onIngredientCreated, onRecipeApplied }: { ingredient: any, ingredients: any, adminToken: any, onClose: any, onIngredientCreated: any, onRecipeApplied: any }) {
+  const [recipes, setRecipes]         = useState<any[]>([]);
   const [loadingRec, setLoadingRec]   = useState(true);
-  const [editingRecipe, setEditingRecipe] = useState(null); // null | 'new' | recipe_object
-  const [applyingId, setApplyingId]   = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null); // recipe id to confirm
+  const [editingRecipe, setEditingRecipe] = useState<any>(null); // null | 'new' | recipe_object
+  const [applyingId, setApplyingId]   = useState<any>(null);
+  const [confirmDelete, setConfirmDelete] = useState<any>(null); // recipe id to confirm
 
   useEffect(() => { loadRecipes(); }, [ingredient.id]);
 
@@ -479,7 +479,7 @@ function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onI
     finally { setLoadingRec(false); }
   }
 
-  async function handleApply(recipe) {
+  async function handleApply(recipe: any) {
     setApplyingId(recipe.id);
     try {
       const res = await fetch('/api/admin', {
@@ -491,11 +491,11 @@ function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onI
       if (d.error) { alert('Erro: ' + d.error); return; }
       onRecipeApplied?.(ingredient.id, d.compound_stock);
       alert(`✅ Receita "${recipe.name}" aplicada! Estoque atualizado: ${d.compound_stock} ${ingredient.unit}`);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setApplyingId(null); }
   }
 
-  async function handleDelete(recipeId) {
+  async function handleDelete(recipeId: any) {
     try {
       const res = await fetch('/api/admin', {
         method: 'POST',
@@ -504,9 +504,9 @@ function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onI
       });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
-      setRecipes(prev => prev.filter(r => r.id !== recipeId));
+      setRecipes((prev: any[]) => prev.filter((r: any) => r.id !== recipeId));
       setConfirmDelete(null);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
   }
 
   return (
@@ -529,7 +529,7 @@ function CompoundRecipePanel({ ingredient, ingredients, adminToken, onClose, onI
           compound={ingredient}
           ingredients={ingredients}
           adminToken={adminToken}
-          onIngredientCreated={ing => onIngredientCreated?.(ing)}
+          onIngredientCreated={(ing: any) => onIngredientCreated?.(ing)}
           onSaved={() => { setEditingRecipe(null); loadRecipes(); }}
           onCancel={() => setEditingRecipe(null)}
         />
@@ -610,7 +610,7 @@ function ProductCard({
   stockLimits, onUpdateStockLimit,
   ingredients, recipe, onSaveRecipe,
   onSave, isSaving,
-}) {
+}: { product: any, idx: any, onUpdate: any, onUploadImage: any, uploadingId: any, imagePositions: any, onUpdateImagePos: any, stockLimits: any, onUpdateStockLimit: any, ingredients: any, recipe: any, onSaveRecipe: any, onSave: any, isSaving: any }) {
   const [fichaOpen, setFichaOpen] = useState(false);
   const [cardTab, setCardTab]     = useState('geral'); // 'geral' | 'imagens'
   const [stockOpen, setStockOpen] = useState(false);
@@ -620,12 +620,12 @@ function ProductCard({
     ? Math.round((product.price - product.cost_price) / product.price * 100)
     : null;
 
-  const inputStyle = {
+  const inputStyle: React.CSSProperties = {
     width: '100%', padding: '6px 9px', borderRadius: 5,
     border: '1px solid ' + C.border, fontSize: 12, outline: 'none',
     background: '#fff', color: C.text, boxSizing: 'border-box', fontFamily: 'inherit',
   };
-  const labelStyle = { fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.3 };
+  const labelStyle: React.CSSProperties = { fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.3 };
 
   const tabs = [
     { key: 'geral',   label: 'Geral' },
@@ -843,7 +843,7 @@ function ProductCard({
                   ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
                   : <><Upload size={13} /> Trocar foto</>
                 }
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) onUploadImage(idx, e.target.files[0]); }} disabled={uploadingId === product.id} />
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files && e.target.files[0]) onUploadImage(idx, e.target.files[0]); }} disabled={uploadingId === product.id} />
               </label>
               <p style={{ fontSize: 11, color: C.light }}>JPG, PNG ou WebP. Recomendado: 800×800px.</p>
             </div>
@@ -886,7 +886,7 @@ function ProductCard({
 
 // ── DrinkRow (collapsed + expandable) ─────────────────────────────────────────
 
-function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdate, onDelete, drinkStockLimits, onUpdateDrinkStockLimit, onToggleFlag, onSave, isSaving }) {
+function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdate, onDelete, drinkStockLimits, onUpdateDrinkStockLimit, onToggleFlag, onSave, isSaving }: { drink: any, idx: any, isExpanded: any, onToggleExpand: any, onDuplicate: any, onUpdate: any, onDelete: any, drinkStockLimits: any, onUpdateDrinkStockLimit: any, onToggleFlag: any, onSave: any, isSaving: any }) {
   const dstock = drinkStockLimits[String(drink.id)] || { enabled: false, qty: 0 };
 
   return (
@@ -1043,11 +1043,11 @@ function DrinkRow({ drink, idx, isExpanded, onToggleExpand, onDuplicate, onUpdat
 
 // ── PriceLineChart (para Análise de Preço) ────────────────────────────────────
 
-function PriceLineChart({ points }) {
-  const [hovered, setHovered] = useState(null);
+function PriceLineChart({ points }: { points: any }) {
+  const [hovered, setHovered] = useState<any>(null);
   if (!points || points.length < 2) return null;
 
-  const prices = points.map(p => p.price);
+  const prices = points.map((p: any) => p.price);
   const minP = Math.min(...prices);
   const maxP = Math.max(...prices);
   const range = maxP - minP || 1;
@@ -1057,12 +1057,12 @@ function PriceLineChart({ points }) {
   const chartH = H - padT - padB;
   const n = points.length;
 
-  function px(i) { return padL + (i / (n - 1)) * chartW; }
-  function py(price) { return padT + chartH - ((price - minP) / range) * chartH; }
+  function px(i: any) { return padL + (i / (n - 1)) * chartW; }
+  function py(price: any) { return padT + chartH - ((price - minP) / range) * chartH; }
 
-  const polyPoints = points.map((p, i) => `${px(i)},${py(p.price)}`).join(' ');
+  const polyPoints = points.map((p: any, i: any) => `${px(i)},${py(p.price)}`).join(' ');
 
-  function fmtBRLshort(v) {
+  function fmtBRLshort(v: any) {
     if (v >= 1000) return `R$${(v / 1000).toFixed(1)}k`;
     return `R$${(v || 0).toFixed(2).replace('.', ',')}`;
   }
@@ -1091,14 +1091,14 @@ function PriceLineChart({ points }) {
         {/* Area fill */}
         <polyline points={`${padL},${padT + chartH} ${polyPoints} ${W - padR},${padT + chartH}`} fill="rgba(242,168,0,0.08)" stroke="none" />
         {/* Points */}
-        {points.map((p, i) => (
+        {points.map((p: any, i: any) => (
           <circle key={i} cx={px(i)} cy={py(p.price)} r={hovered === i ? 5 : 3.5}
             fill={p.isCurrent ? '#6366F1' : '#F2A800'} stroke="#fff" strokeWidth="1.5"
             opacity={hovered !== null && hovered !== i ? 0.4 : 1}
           />
         ))}
         {/* Hover zones */}
-        {points.map((p, i) => (
+        {points.map((p: any, i: any) => (
           <rect key={`h-${i}`} x={px(i) - (chartW / n / 2)} y={padT} width={chartW / n} height={chartH}
             fill="transparent" style={{ cursor: 'crosshair' }} onMouseEnter={() => setHovered(i)} />
         ))}
@@ -1120,16 +1120,16 @@ function ProductRow({
   stockLimits, onUpdateStockLimit,
   ingredients, recipe, onSaveRecipe,
   onSave, onToggleFlag, savingProductId,
-}) {
+}: { product: any, idx: any, isExpanded: any, onToggleExpand: any, onDuplicate: any, onDelete: any, onUpdate: any, onUploadImage: any, uploadingId: any, imagePositions: any, onUpdateImagePos: any, stockLimits: any, onUpdateStockLimit: any, ingredients: any, recipe: any, onSaveRecipe: any, onSave: any, onToggleFlag: any, savingProductId: any }) {
   const catLabel = PROD_CATEGORIES.find(c => c.key === (product.category || 'pizza'))?.label || 'Pizza';
-  const catColors = { pizza: '#F2A800', calzone: '#2563EB', combo: '#7C3AED', outros: '#6B7280' };
+  const catColors: Record<string, string> = { pizza: '#F2A800', calzone: '#2563EB', combo: '#7C3AED', outros: '#6B7280' };
   const catColor = catColors[product.category] || catColors.pizza;
 
   // CMV from ficha técnica
   const cmvValue = (() => {
     if (!recipe?.length) return null;
-    return recipe.reduce((s, item) => {
-      const ing = ingredients.find(g => g.id === item.ingredient_id);
+    return recipe.reduce((s: any, item: any) => {
+      const ing = ingredients.find((g: any) => g.id === item.ingredient_id);
       return s + (parseFloat(item.quantity) || 0) * costWithFC((parseFloat(ing?.cost_per_unit) || 0), ing?.correction_factor);
     }, 0);
   })();
@@ -1177,7 +1177,7 @@ function ProductRow({
         </label>
 
         {/* Hidden toggle */}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: savingProductId === product.id ? 'wait' : 'pointer', flexShrink: 0, title: 'Ocultar do cardápio online' }}>
+        <label title="Ocultar do cardápio online" style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: savingProductId === product.id ? 'wait' : 'pointer', flexShrink: 0 }}>
           <input type="checkbox" checked={!!product.is_hidden} disabled={savingProductId === product.id} onChange={e => onToggleFlag(product.id, 'is_hidden', e.target.checked)} />
           <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: product.is_hidden ? '#7C3AED' : C.light }}>
             {product.is_hidden ? <EyeOff size={11} /> : <Eye size={11} />}
@@ -1239,7 +1239,7 @@ function ProductRow({
 
 // ── SpecialFlavorSaveButton ───────────────────────────────────────────────────
 
-function SpecialFlavorSaveButton({ name, description, onSave }) {
+function SpecialFlavorSaveButton({ name, description, onSave }: { name: any, description: any, onSave: any }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
 
@@ -1269,39 +1269,39 @@ function SpecialFlavorSaveButton({ name, description, onSave }) {
 
 // ── Catalog Main ───────────────────────────────────────────────────────────────
 
-export default function Catalog({ adminToken }) {
+export default function Catalog({ adminToken }: { adminToken: any }) {
   const [tab, setTab]           = useState('cardapio'); // 'cardapio' | 'insumos' | 'analise' | 'especial'
   const [catFilter, setCatFilter] = useState('all');
-  const [expandedId, setExpandedId] = useState(null); // product id currently expanded for editing
+  const [expandedId, setExpandedId] = useState<any>(null); // product id currently expanded for editing
 
-  const [products, setProducts]   = useState([]);
-  const [drinks, setDrinks]       = useState([]);
-  const [ingredients, setIngredients] = useState([]);
-  const [recipes, setRecipes]     = useState({}); // { [productId]: [{ ingredient_id, quantity }] }
-  const [priceHistory, setPriceHistory] = useState([]); // for Análise tab
-  const [compoundItems, setCompoundItems] = useState([]); // [{ compound_id, ingredient_id, quantity }]
+  const [products, setProducts]   = useState<any[]>([]);
+  const [drinks, setDrinks]       = useState<any[]>([]);
+  const [ingredients, setIngredients] = useState<any[]>([]);
+  const [recipes, setRecipes]     = useState<any>({}); // { [productId]: [{ ingredient_id, quantity }] }
+  const [priceHistory, setPriceHistory] = useState<any[]>([]); // for Análise tab
+  const [compoundItems, setCompoundItems] = useState<any[]>([]); // [{ compound_id, ingredient_id, quantity }]
 
   // Stock movement UI state
-  const [stockPanelIngId, setStockPanelIngId] = useState(null); // ingredient id with open stock panel
-  const [stockMovement, setStockMovement] = useState({ type: 'in', quantity: '', reason: '', notes: '' });
+  const [stockPanelIngId, setStockPanelIngId] = useState<any>(null); // ingredient id with open stock panel
+  const [stockMovement, setStockMovement] = useState<any>({ type: 'in', quantity: '', reason: '', notes: '' });
   const [savingStockMovement, setSavingStockMovement] = useState(false);
 
   // Compound recipe panel
-  const [compoundPanelIngId, setCompoundPanelIngId] = useState(null); // ingredient id with open compound panel
+  const [compoundPanelIngId, setCompoundPanelIngId] = useState<any>(null); // ingredient id with open compound panel
   const [savingCompoundRecipe, setSavingCompoundRecipe] = useState(false);
 
   // Per-ingredient stock movement chart
-  const [ingMovements, setIngMovements] = useState({}); // { [ingredient_id]: movements[] }
+  const [ingMovements, setIngMovements] = useState<any>({}); // { [ingredient_id]: movements[] }
 
   // Settings needed for stock limits and image positions
-  const [settings, setSettings]   = useState([]);
+  const [settings, setSettings]   = useState<any[]>([]);
 
   const [loading, setLoading]     = useState(true);
-  const [savingProductId, setSavingProductId] = useState(null);
-  const [savingDrinkId, setSavingDrinkId] = useState(null);
+  const [savingProductId, setSavingProductId] = useState<any>(null);
+  const [savingDrinkId, setSavingDrinkId] = useState<any>(null);
   const [msg, setMsg]             = useState('');
-  const [uploadingId, setUploadingId] = useState(null);
-  const [uploadingUpsellIdx, setUploadingUpsellIdx] = useState(null);
+  const [uploadingId, setUploadingId] = useState<any>(null);
+  const [uploadingUpsellIdx, setUploadingUpsellIdx] = useState<any>(null);
 
   // New product form
   const [showNewProduct, setShowNewProduct] = useState(false);
@@ -1312,7 +1312,7 @@ export default function Catalog({ adminToken }) {
   const [showNewDrink, setShowNewDrink] = useState(false);
   const [newDrink, setNewDrink]   = useState({ name: '', size: '', price: '' });
   const [addingDrink, setAddingDrink] = useState(false);
-  const [expandedDrinkId, setExpandedDrinkId] = useState(null);
+  const [expandedDrinkId, setExpandedDrinkId] = useState<any>(null);
 
   // New ingredient form
   const [newIng, setNewIng]       = useState({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '0.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
@@ -1320,15 +1320,15 @@ export default function Catalog({ adminToken }) {
   const [showNewIngModal, setShowNewIngModal] = useState(false);
 
   // Edit ingredient inline
-  const [editingIng, setEditingIng] = useState(null); // ingredient id
+  const [editingIng, setEditingIng] = useState<any>(null); // ingredient id
 
   // Price history panel: selected ingredient id
-  const [selectedIngForHistory, setSelectedIngForHistory] = useState(null);
+  const [selectedIngForHistory, setSelectedIngForHistory] = useState<any>(null);
 
   // Upsell config editing state
-  const [savingUpsellSlotIdx, setSavingUpsellSlotIdx] = useState(null); // idx do slot sendo salvo
+  const [savingUpsellSlotIdx, setSavingUpsellSlotIdx] = useState<any>(null); // idx do slot sendo salvo
   const blankUpsell = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null, custom_image_url: null });
-  const [upsellSlots, setUpsellSlots] = useState([blankUpsell(), blankUpsell(), blankUpsell()]);
+  const [upsellSlots, setUpsellSlots] = useState<any[]>([blankUpsell(), blankUpsell(), blankUpsell()]);
 
   // ── Data loading ─────────────────────────────────────────────────────────────
 
@@ -1349,12 +1349,12 @@ export default function Catalog({ adminToken }) {
       setSettings(rawSettings);
 
       // Initialize upsell slots from saved config
-      const savedUpsell = rawSettings.find(s => s.key === 'upsell_config')?.value;
+      const savedUpsell = rawSettings.find((s: any) => s.key === 'upsell_config')?.value;
       if (savedUpsell) {
         try {
           const parsed = JSON.parse(savedUpsell);
           const blank = () => ({ enabled: false, product_id: null, offer_label: 'Aproveite e adicione:', show_image: true, custom_price: null, custom_image_url: null });
-          const normalize = slot => ({ ...blank(), ...(slot || {}), product_id: slot?.product_id != null ? String(slot.product_id) : null });
+          const normalize = (slot: any) => ({ ...blank(), ...(slot || {}), product_id: slot?.product_id != null ? String(slot.product_id) : null });
           if (Array.isArray(parsed)) {
             setUpsellSlots([0, 1, 2].map(i => normalize(parsed[i])));
           } else {
@@ -1368,7 +1368,7 @@ export default function Catalog({ adminToken }) {
       setCompoundItems(extra.compoundItems || []);
 
       // Build recipes map: { [productId]: [{ ingredient_id, quantity }] }
-      const recipeMap = {};
+      const recipeMap: Record<string, any[]> = {};
       for (const item of (extra.recipes || [])) {
         if (!recipeMap[item.product_id]) recipeMap[item.product_id] = [];
         recipeMap[item.product_id].push({ ingredient_id: item.ingredient_id, quantity: item.quantity });
@@ -1392,26 +1392,26 @@ export default function Catalog({ adminToken }) {
       body: JSON.stringify({ action: 'get_stock_movements', data: { ingredient_id: stockPanelIngId, limit: 30 } }),
     }).then(r => r.json()).then(d => {
       if (d.movements) {
-        setIngMovements(prev => ({ ...prev, [stockPanelIngId]: d.movements.slice().reverse() }));
+        setIngMovements((prev: any) => ({ ...prev, [stockPanelIngId]: d.movements.slice().reverse() }));
       }
     }).catch(() => {});
   }, [stockPanelIngId]);
 
   // ── Settings helpers ─────────────────────────────────────────────────────────
 
-  function getSetting(key) {
-    return settings.find(s => s.key === key)?.value || '';
+  function getSetting(key: any) {
+    return (settings as any[]).find((s: any) => s.key === key)?.value || '';
   }
 
-  function setSetting(key, value) {
-    setSettings(prev => {
-      const idx = prev.findIndex(s => s.key === key);
-      if (idx >= 0) return prev.map((s, i) => i === idx ? { ...s, value } : s);
+  function setSetting(key: any, value: any) {
+    setSettings((prev: any[]) => {
+      const idx = prev.findIndex((s: any) => s.key === key);
+      if (idx >= 0) return prev.map((s: any, i: any) => i === idx ? { ...s, value } : s);
       return [...prev, { key, value }];
     });
   }
 
-  async function saveSetting(key, value) {
+  async function saveSetting(key: any, value: any) {
     setSetting(key, value);
     try {
       await fetch('/api/admin', {
@@ -1426,7 +1426,7 @@ export default function Catalog({ adminToken }) {
     try { return JSON.parse(getSetting('image_positions') || '{}'); } catch { return {}; }
   }
 
-  function updateImagePosition(productId, x, y) {
+  function updateImagePosition(productId: any, x: any, y: any) {
     const curr = getImagePositions();
     setSetting('image_positions', JSON.stringify({ ...curr, [String(productId)]: { x, y } }));
   }
@@ -1435,7 +1435,7 @@ export default function Catalog({ adminToken }) {
     try { return JSON.parse(getSetting('stock_limits') || '{}'); } catch { return {}; }
   }
 
-  function updateStockLimit(productId, field, value) {
+  function updateStockLimit(productId: any, field: any, value: any) {
     const curr = getStockLimits();
     const existing = curr[String(productId)] || { enabled: false, qty: 0, low_stock_threshold: 3 };
     const entry = { ...existing, [field]: value };
@@ -1454,7 +1454,7 @@ export default function Catalog({ adminToken }) {
     try { return JSON.parse(getSetting('drink_stock_limits') || '{}'); } catch { return {}; }
   }
 
-  async function saveUpsellConfig(configs, slotIdx = null) {
+  async function saveUpsellConfig(configs: any, slotIdx: any = null) {
     setUpsellSlots(configs);
     setSetting('upsell_config', JSON.stringify(configs));
     setSavingUpsellSlotIdx(slotIdx);
@@ -1472,7 +1472,7 @@ export default function Catalog({ adminToken }) {
     finally { setSavingUpsellSlotIdx(null); }
   }
 
-  function updateDrinkStockLimit(drinkId, field, value) {
+  function updateDrinkStockLimit(drinkId: any, field: any, value: any) {
     const curr = getDrinkStockLimits();
     const existing = curr[String(drinkId)] || { enabled: false, qty: 0 };
     const entry = { ...existing, [field]: value };
@@ -1486,17 +1486,17 @@ export default function Catalog({ adminToken }) {
 
   // ── CRUD helpers ─────────────────────────────────────────────────────────────
 
-  function updateProduct(idx, field, value) {
-    setProducts(prev => { const p = [...prev]; p[idx] = { ...p[idx], [field]: value }; return p; });
+  function updateProduct(idx: any, field: any, value: any) {
+    setProducts((prev: any[]) => { const p = [...prev]; p[idx] = { ...p[idx], [field]: value }; return p; });
   }
 
-  function updateDrink(idx, field, value) {
-    setDrinks(prev => { const d = [...prev]; d[idx] = { ...d[idx], [field]: value }; return d; });
+  function updateDrink(idx: any, field: any, value: any) {
+    setDrinks((prev: any[]) => { const d = [...prev]; d[idx] = { ...d[idx], [field]: value }; return d; });
   }
 
   // ── Save / toggles ───────────────────────────────────────────────────────────
 
-  async function toggleProductFlag(productId, field, value) {
+  async function toggleProductFlag(productId: any, field: any, value: any) {
     if (!['is_active', 'is_hidden'].includes(field)) return;
     setSavingProductId(productId);
     const prevProducts = products;
@@ -1516,13 +1516,13 @@ export default function Catalog({ adminToken }) {
       setTimeout(() => setMsg(''), 3000);
     } catch (e) {
       setProducts(prevProducts);
-      setMsg('❌ ' + (e.message || 'Erro ao atualizar produto'));
+      setMsg('❌ ' + ((e as Error).message || 'Erro ao atualizar produto'));
     } finally {
       setSavingProductId(null);
     }
   }
 
-  async function toggleDrinkFlag(drinkId, field, value) {
+  async function toggleDrinkFlag(drinkId: any, field: any, value: any) {
     if (!['is_active', 'is_hidden'].includes(field)) return;
     setSavingDrinkId(drinkId);
     const prevDrinks = drinks;
@@ -1542,13 +1542,13 @@ export default function Catalog({ adminToken }) {
       setTimeout(() => setMsg(''), 3000);
     } catch (e) {
       setDrinks(prevDrinks);
-      setMsg('❌ ' + (e.message || 'Erro ao atualizar bebida'));
+      setMsg('❌ ' + ((e as Error).message || 'Erro ao atualizar bebida'));
     } finally {
       setSavingDrinkId(null);
     }
   }
 
-  async function saveProduct(product) {
+  async function saveProduct(product: any) {
     if (!product) return;
     setSavingProductId(product.id);
     setMsg('');
@@ -1566,7 +1566,7 @@ export default function Catalog({ adminToken }) {
     finally { setSavingProductId(null); }
   }
 
-  async function saveDrink(drink) {
+  async function saveDrink(drink: any) {
     if (!drink) return;
     setSavingDrinkId(drink.id);
     setMsg('');
@@ -1586,7 +1586,7 @@ export default function Catalog({ adminToken }) {
 
   // ── Image upload ─────────────────────────────────────────────────────────────
 
-  async function handleImageUpload(productIdx, file) {
+  async function handleImageUpload(productIdx: any, file: any) {
     const product = products[productIdx];
     if (!file || !product) return;
     setUploadingId(product.id);
@@ -1601,11 +1601,11 @@ export default function Catalog({ adminToken }) {
       if (!res.ok) { alert('Erro no upload: ' + result.error); return; }
       updateProduct(productIdx, 'image_url', result.url);
       alert('✅ Foto enviada!');
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setUploadingId(null); }
   }
 
-  async function handleUpsellImageUpload(idx, file) {
+  async function handleUpsellImageUpload(idx: any, file: any) {
     if (!file) return;
     setUploadingUpsellIdx(idx);
     try {
@@ -1617,7 +1617,7 @@ export default function Catalog({ adminToken }) {
       if (!res.ok) { setMsg('❌ Erro no upload: ' + result.error); return; }
       const next = upsellSlots.map((u, i) => i === idx ? { ...u, custom_image_url: result.url } : u);
       saveUpsellConfig(next);
-    } catch (e) { setMsg('❌ Erro no upload: ' + e.message); }
+    } catch (e) { setMsg('❌ Erro no upload: ' + (e as Error).message); }
     finally { setUploadingUpsellIdx(null); }
   }
 
@@ -1636,21 +1636,21 @@ export default function Catalog({ adminToken }) {
       }
       setNewDrink({ name: '', size: '', price: '' });
       setShowNewDrink(false);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setAddingDrink(false); }
   }
 
-  async function handleDeleteDrink(drinkId) {
+  async function handleDeleteDrink(drinkId: any) {
     if (!confirm('Excluir esta bebida?')) return;
     try {
       const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'delete_drink', data: { id: drinkId } }) });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
-      setDrinks(prev => prev.filter(dr => dr.id !== drinkId));
-    } catch (e) { alert('Erro: ' + e.message); }
+      setDrinks(prev => prev.filter((dr: any) => dr.id !== drinkId));
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
   }
 
-  async function handleDeleteProduct(productId) {
+  async function handleDeleteProduct(productId: any) {
     if (!confirm('Excluir este produto? Essa ação não pode ser desfeita.')) return;
     try {
       const res = await fetch('/api/admin', {
@@ -1661,8 +1661,8 @@ export default function Catalog({ adminToken }) {
       const d = await res.json();
       if (!res.ok || d.error) throw new Error(d.error || 'Erro ao excluir produto');
       setProducts(prev => prev.filter((p) => String(p.id) !== String(productId)));
-      setExpandedId(prev => (String(prev) === String(productId) ? null : prev));
-      setRecipes(prev => {
+      setExpandedId((prev: any) => (String(prev) === String(productId) ? null : prev));
+      setRecipes((prev: any) => {
         const next = { ...prev };
         delete next[productId];
         delete next[String(productId)];
@@ -1671,7 +1671,7 @@ export default function Catalog({ adminToken }) {
       setMsg('✅ Produto excluído!');
       setTimeout(() => setMsg(''), 3000);
     } catch (e) {
-      setMsg('❌ ' + (e.message || 'Erro ao excluir produto'));
+      setMsg('❌ ' + ((e as Error).message || 'Erro ao excluir produto'));
     }
   }
 
@@ -1694,18 +1694,18 @@ export default function Catalog({ adminToken }) {
       } }) });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
-      if (d.ingredient) setIngredients(prev => [...prev, d.ingredient].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
+      if (d.ingredient) setIngredients((prev: any[]) => [...prev, d.ingredient].sort((a: any, b: any) => a.name.localeCompare(b.name, 'pt-BR')));
       setNewIng({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '0.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
       setShowNewIngModal(false);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setAddingIng(false); }
   }
 
-  async function handleUpdateIngredient(id, field, value) {
-    setIngredients(prev => prev.map(i => i.id === id ? { ...i, [field]: value } : i));
+  async function handleUpdateIngredient(id: any, field: any, value: any) {
+    setIngredients((prev: any[]) => prev.map((i: any) => i.id === id ? { ...i, [field]: value } : i));
   }
 
-  async function handleSaveIngredient(ingredient) {
+  async function handleSaveIngredient(ingredient: any) {
     try {
       const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'save_ingredient', data: ingredient }) });
       const d = await res.json();
@@ -1719,19 +1719,19 @@ export default function Catalog({ adminToken }) {
         setPriceHistory(prev => [...prev, d.priceHistoryEntry]);
       }
       setEditingIng(null);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
   }
 
-  async function handleSaveCompoundRecipe(compound_id, items, computedCost) {
+  async function handleSaveCompoundRecipe(compound_id: any, items: any, computedCost: any) {
     setSavingCompoundRecipe(true);
     try {
       const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'save_compound_recipe', data: { compound_id, items, computed_cost: computedCost } }) });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
       // Update local compoundItems state
-      setCompoundItems(prev => {
-        const filtered = prev.filter(c => c.compound_id !== compound_id);
-        const newRows = items.map(i => ({ compound_id, ingredient_id: i.ingredient_id, quantity: i.quantity }));
+      setCompoundItems((prev: any[]) => {
+        const filtered = prev.filter((c: any) => c.compound_id !== compound_id);
+        const newRows = items.map((i: any) => ({ compound_id, ingredient_id: i.ingredient_id, quantity: i.quantity }));
         return [...filtered, ...newRows];
       });
       // Auto-update compound ingredient cost if computed
@@ -1740,11 +1740,11 @@ export default function Catalog({ adminToken }) {
       }
       setMsg('✅ Receita composta salva!');
       setTimeout(() => setMsg(''), 3000);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setSavingCompoundRecipe(false); }
   }
 
-  async function handleStockMovement(ingredient_id, isCompound = false) {
+  async function handleStockMovement(ingredient_id: any, isCompound = false) {
     if (!stockMovement.quantity) { alert('Quantidade é obrigatória'); return; }
     if (isCompound && !stockMovement.reason?.trim()) { alert('Justificativa é obrigatória para compostos'); return; }
     if (isCompound && !stockMovement.admin_password?.trim()) { alert('Senha do admin é obrigatória para compostos'); return; }
@@ -1767,11 +1767,11 @@ export default function Catalog({ adminToken }) {
       setStockPanelIngId(null);
       setMsg('✅ Estoque atualizado!');
       setTimeout(() => setMsg(''), 3000);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setSavingStockMovement(false); }
   }
 
-  async function handleDuplicateDrink(idx) {
+  async function handleDuplicateDrink(idx: any) {
     const drink = drinks[idx];
     try {
       const res = await fetch('/api/admin', {
@@ -1785,7 +1785,7 @@ export default function Catalog({ adminToken }) {
         setDrinks(prev => [...prev, d.drink]);
         setExpandedDrinkId(d.drink.id);
       }
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
   }
 
   async function handleAddProduct() {
@@ -1812,11 +1812,11 @@ export default function Catalog({ adminToken }) {
       }
       setNewProduct({ name: '', category: 'pizza', price: '', description: '' });
       setShowNewProduct(false);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setAddingProduct(false); }
   }
 
-  async function handleDuplicateProduct(idx) {
+  async function handleDuplicateProduct(idx: any) {
     const p = products[idx];
     setAddingProduct(true);
     try {
@@ -1844,32 +1844,32 @@ export default function Catalog({ adminToken }) {
         }
         setExpandedId(d.product.id);
       }
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setAddingProduct(false); }
   }
 
-  async function handleDeleteIngredient(id) {
+  async function handleDeleteIngredient(id: any) {
     if (!confirm('Excluir este insumo? Isso removerá das fichas técnicas.')) return;
     try {
       const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'delete_ingredient', data: { id } }) });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
-      setIngredients(prev => prev.filter(i => i.id !== id));
-      setRecipes(prev => {
+      setIngredients((prev: any[]) => prev.filter((i: any) => i.id !== id));
+      setRecipes((prev: any) => {
         const next = { ...prev };
-        for (const pid of Object.keys(next)) next[pid] = next[pid].filter(r => r.ingredient_id !== id);
+        for (const pid of Object.keys(next)) next[pid] = next[pid].filter((r: any) => r.ingredient_id !== id);
         return next;
       });
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
   }
 
   // ── Recipes ───────────────────────────────────────────────────────────────────
 
-  async function handleSaveRecipe(productId, items) {
+  async function handleSaveRecipe(productId: any, items: any) {
     const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'save_recipe', data: { product_id: productId, items } }) });
     const d = await res.json();
     if (d.error) { alert('Erro ao salvar ficha: ' + d.error); throw new Error(d.error); }
-    setRecipes(prev => ({ ...prev, [productId]: items }));
+    setRecipes((prev: any) => ({ ...prev, [productId]: items }));
   }
 
   // ── Filtered products ─────────────────────────────────────────────────────────
@@ -2009,7 +2009,7 @@ export default function Catalog({ adminToken }) {
                       key={p.id}
                       product={p} idx={productIdx}
                       isExpanded={expandedId === p.id}
-                      onToggleExpand={() => setExpandedId(prev => prev === p.id ? null : p.id)}
+                      onToggleExpand={() => setExpandedId((prev: any) => prev === p.id ? null : p.id)}
                       onDuplicate={handleDuplicateProduct}
                       onDelete={handleDeleteProduct}
                       onUpdate={updateProduct}
@@ -2085,7 +2085,7 @@ export default function Catalog({ adminToken }) {
                       key={d.id}
                       drink={d} idx={idx}
                       isExpanded={expandedDrinkId === d.id}
-                      onToggleExpand={() => setExpandedDrinkId(prev => prev === d.id ? null : d.id)}
+                      onToggleExpand={() => setExpandedDrinkId((prev: any) => prev === d.id ? null : d.id)}
                       onDuplicate={handleDuplicateDrink}
                       onUpdate={updateDrink}
                       onDelete={handleDeleteDrink}
@@ -2238,7 +2238,7 @@ export default function Catalog({ adminToken }) {
                               </label>
                               {upsell.custom_image_url ? (
                                 <>
-                                  <img src={upsell.custom_image_url} alt="" onError={e => { e.target.style.display = 'none'; }} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid ' + C.border, flexShrink: 0 }} />
+                                  <img src={upsell.custom_image_url} alt="" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid ' + C.border, flexShrink: 0 }} />
                                   <button
                                     onClick={() => { const next = upsellSlots.map((u, i) => i === idx ? { ...u, custom_image_url: null } : u); setUpsellSlots(next); }}
                                     style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', fontSize: 11, fontWeight: 600, cursor: 'pointer', color: C.danger }}
@@ -2361,9 +2361,9 @@ export default function Catalog({ adminToken }) {
                 const isCompoundOpen = compoundPanelIngId === ing.id;
                 // Price variation % from first recorded history to current
                 const history = priceHistory
-                  .filter(h => h.ingredient_id === ing.id)
-                  .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at));
-                const firstPrice = history.length > 0 ? (parseFloat(history[0].old_price) || parseFloat(history[0].new_price)) : null;
+                  .filter((h: any) => h.ingredient_id === ing.id)
+                  .sort((a: any, b: any) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime());
+                const firstPrice = history.length > 0 ? (parseFloat((history[0] as any).old_price) || parseFloat((history[0] as any).new_price)) : null;
                 const currentPrice = parseFloat(ing.cost_per_unit);
                 const variation = firstPrice && firstPrice > 0 ? ((currentPrice - firstPrice) / firstPrice * 100) : null;
 
@@ -2652,12 +2652,12 @@ export default function Catalog({ adminToken }) {
                         {(() => {
                           const mvs = ingMovements[ing.id];
                           if (!mvs || mvs.length === 0) return null;
-                          const maxQty = Math.max(...mvs.map(m => Math.abs(parseFloat(m.quantity) || 0)), 0.001);
+                          const maxQty = Math.max(...mvs.map((m: any) => Math.abs(parseFloat(m.quantity) || 0)), 0.001);
                           return (
                             <div style={{ marginBottom: 12 }}>
                               <p style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>Histórico de movimentações (últimas {mvs.length})</p>
                               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 48, background: '#F9FAFB', borderRadius: 6, padding: '6px 8px', overflow: 'hidden' }}>
-                                {mvs.map((m, idx) => {
+                                {mvs.map((m: any, idx: any) => {
                                   const qty = Math.abs(parseFloat(m.quantity) || 0);
                                   const pct = qty / maxQty;
                                   const color = m.movement_type === 'in' ? '#10B981' : m.movement_type === 'out' ? '#EF4444' : '#F59E0B';
@@ -2689,7 +2689,7 @@ export default function Catalog({ adminToken }) {
                           {!isCompound && (
                             <div>
                               <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Tipo</label>
-                              <select value={stockMovement.type} onChange={e => setStockMovement(p => ({ ...p, type: e.target.value }))} style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#fff' }}>
+                              <select value={stockMovement.type} onChange={e => setStockMovement((p: any) => ({ ...p, type: e.target.value }))} style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#fff' }}>
                                 <option value="in">Entrada</option>
                                 <option value="out">Saída</option>
                                 <option value="adjustment">Ajuste</option>
@@ -2700,24 +2700,24 @@ export default function Catalog({ adminToken }) {
                             <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>
                               {isCompound ? 'Novo Estoque' : 'Quantidade'}
                             </label>
-                            <input type="number" min="0" step="0.001" value={stockMovement.quantity} onChange={e => setStockMovement(p => ({ ...p, quantity: e.target.value }))} placeholder="0.000" style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                            <input type="number" min="0" step="0.001" value={stockMovement.quantity} onChange={e => setStockMovement((p: any) => ({ ...p, quantity: e.target.value }))} placeholder="0.000" style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
                           </div>
                           <div>
                             <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>
                               {isCompound ? 'Justificativa *' : 'Motivo'}
                             </label>
-                            <input value={stockMovement.reason} onChange={e => setStockMovement(p => ({ ...p, reason: e.target.value }))} placeholder={isCompound ? 'Motivo do ajuste (obrigatório)...' : 'Compra, perda, inventário...'} style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                            <input value={stockMovement.reason} onChange={e => setStockMovement((p: any) => ({ ...p, reason: e.target.value }))} placeholder={isCompound ? 'Motivo do ajuste (obrigatório)...' : 'Compra, perda, inventário...'} style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
                           </div>
                         </div>
                         {isCompound ? (
                           <div style={{ marginBottom: 10 }}>
                             <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Senha do Admin *</label>
-                            <input type="password" value={stockMovement.admin_password || ''} onChange={e => setStockMovement(p => ({ ...p, admin_password: e.target.value }))} placeholder="Digite a senha do admin..." style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                            <input type="password" value={stockMovement.admin_password || ''} onChange={e => setStockMovement((p: any) => ({ ...p, admin_password: e.target.value }))} placeholder="Digite a senha do admin..." style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
                           </div>
                         ) : (
                           <div style={{ marginBottom: 10 }}>
                             <label style={{ fontSize: 10, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Observações</label>
-                            <input value={stockMovement.notes} onChange={e => setStockMovement(p => ({ ...p, notes: e.target.value }))} placeholder="Observações opcionais..." style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
+                            <input value={stockMovement.notes} onChange={e => setStockMovement((p: any) => ({ ...p, notes: e.target.value }))} placeholder="Observações opcionais..." style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box' }} />
                           </div>
                         )}
                         <button
@@ -2738,8 +2738,8 @@ export default function Catalog({ adminToken }) {
                         ingredients={ingredients}
                         adminToken={adminToken}
                         onClose={() => setCompoundPanelIngId(null)}
-                        onIngredientCreated={newIng => setIngredients(prev => [...prev, newIng].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')))}
-                        onRecipeApplied={(ingId, newStock) => setIngredients(prev => prev.map(i => i.id === ingId ? { ...i, current_stock: newStock } : i))}
+                        onIngredientCreated={(newIng: any) => setIngredients((prev: any[]) => [...prev, newIng].sort((a: any, b: any) => a.name.localeCompare(b.name, 'pt-BR')))}
+                        onRecipeApplied={(ingId: any, newStock: any) => setIngredients((prev: any[]) => prev.map((i: any) => i.id === ingId ? { ...i, current_stock: newStock } : i))}
                       />
                     )}
 
@@ -2970,10 +2970,10 @@ export default function Catalog({ adminToken }) {
             <p style={{ fontSize: 13, color: C.light, textAlign: 'center', padding: 40 }}>Nenhum insumo cadastrado.</p>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: 20 }}>
-              {ingredients.map(ing => {
+              {ingredients.map((ing: any) => {
                 const history = priceHistory
-                  .filter(h => h.ingredient_id === ing.id)
-                  .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at));
+                  .filter((h: any) => h.ingredient_id === ing.id)
+                  .sort((a: any, b: any) => new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime());
 
                 // Build chart points: initial old_price → each change → current
                 const chartPoints = [];
