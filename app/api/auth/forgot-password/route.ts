@@ -4,6 +4,7 @@ import { sendPasswordResetEmail } from '../../../../lib/email';
 import { forgotPasswordSchema } from '../../../../lib/schemas';
 import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 import crypto from 'crypto';
+import { logger } from '../../../../lib/logger';
 
 /** POST /api/auth/forgot-password — envia e-mail de recuperação de senha. */
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true });
   } catch (e) {
-    console.error('Forgot password error:', e);
+    logger.error('Forgot password error', e as Error);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import { logger } from '../../../../lib/logger';
 
 // ── Admin auth ─────────────────────────────────────────────────────────────────
 
@@ -361,7 +362,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
   } catch (err) {
-    console.error('[analytics]', err);
+    logger.error('[analytics]', err as Error);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }

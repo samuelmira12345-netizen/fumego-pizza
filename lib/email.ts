@@ -7,6 +7,8 @@
  *   NEXT_PUBLIC_APP_URL — URL base do app (ex: https://fumego.com.br)
  */
 
+import { logger } from './logger'
+
 const RESEND_API = 'https://api.resend.com/emails';
 
 interface EmailPayload {
@@ -32,7 +34,7 @@ async function sendEmail({ to, subject, html }: EmailPayload): Promise<EmailResu
   const from   = process.env.EMAIL_FROM;
 
   if (!apiKey || !from) {
-    console.warn('[email] RESEND_API_KEY ou EMAIL_FROM não configurados — e-mail não enviado');
+    logger.warn('[email] RESEND_API_KEY ou EMAIL_FROM não configurados — e-mail não enviado');
     return { ok: false, error: 'E-mail não configurado' };
   }
 
@@ -47,12 +49,12 @@ async function sendEmail({ to, subject, html }: EmailPayload): Promise<EmailResu
     });
     const data = await res.json() as { id?: string; message?: string };
     if (!res.ok) {
-      console.error('[email] Erro Resend:', data);
+      logger.error('[email] Erro Resend', data as Record<string, unknown>);
       return { ok: false, error: data.message || 'Erro ao enviar e-mail' };
     }
     return { ok: true, id: data.id };
   } catch (e) {
-    console.error('[email] Exceção:', e);
+    logger.error('[email] Exceção', e as Error);
     return { ok: false, error: (e as Error).message };
   }
 }

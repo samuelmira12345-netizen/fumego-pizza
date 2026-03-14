@@ -5,6 +5,7 @@ import { registerSchema } from '../../../../lib/schemas';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { signUserToken, setAuthCookie } from '../../../../lib/auth';
+import { logger } from '../../../../lib/logger';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const appUrl    = process.env.NEXT_PUBLIC_APP_URL || '';
       const verifyUrl = `${appUrl}/verify-email?token=${verificationToken}`;
       sendVerificationEmail(user.email, user.name, verifyUrl)
-        .catch((err: Error) => console.error('Erro ao enviar e-mail de verificação:', err));
+        .catch((err: Error) => logger.error('Erro ao enviar e-mail de verificação', err));
     });
 
     const { password_hash: _, ...safeUser } = user;

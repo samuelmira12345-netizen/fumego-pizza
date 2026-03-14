@@ -9,7 +9,8 @@
  * - FIFO: os cashbacks mais antigos são consumidos primeiro (protege contra expiração)
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { logger } from './logger'
 
 export interface CashbackTransaction {
   id: string;
@@ -118,7 +119,7 @@ export async function earnCashback(
 
     return earned;
   } catch (e) {
-    console.error('[Cashback] earnCashback error:', (e as Error).message);
+    logger.error('[Cashback] earnCashback error', e as Error);
     return 0;
   }
 }
@@ -193,7 +194,7 @@ export async function useCashback(
 
     return finalDeducted;
   } catch (e) {
-    console.error('[Cashback] useCashback error:', (e as Error).message);
+    logger.error('[Cashback] useCashback error', e as Error);
     return 0;
   }
 }

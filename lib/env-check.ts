@@ -37,6 +37,8 @@ const REQUIRED: EnvEntry[] = [
  * CARDAPIOWEB_WEBHOOK_TOKEN  (opcional, mas recomendado)
  */
 
+import { logger } from './logger'
+
 let checked = false;
 
 // Durante o build (next build), o Next.js define NEXT_PHASE como
@@ -63,7 +65,7 @@ export function checkEnv(): void {
     // Durante o build ou em desenvolvimento: apenas avisa, não derruba
     // Em runtime de produção: gera erro imediato para diagnóstico rápido
     if (IS_BUILD_PHASE || process.env.NODE_ENV !== 'production') {
-      console.warn(msg);
+      logger.warn(msg);
     } else {
       throw new Error(msg);
     }
