@@ -24,22 +24,22 @@ const C = {
   orange:  '#F97316', purple: '#8B5CF6', teal:    '#14B8A6',
 };
 
-const PM_LABELS = {
+const PM_LABELS: Record<string, string> = {
   pix:           'PIX',
   card:          'Cartão de Crédito',
   cash:          'Dinheiro',
   card_delivery: 'Cartão na Entrega',
 };
 
-const PM_COLORS = {
+const PM_COLORS: Record<string, string> = {
   pix:           C.gold,
   card:          C.blue,
   cash:          C.success,
   card_delivery: C.orange,
 };
 
-const TYPE_LABELS = { venda: 'Venda', sangria: 'Sangria', suprimento: 'Suprimento', cancelled: 'Cancelado' };
-const TYPE_COLORS = { venda: C.success, sangria: C.danger, suprimento: C.blue, cancelled: C.light };
+const TYPE_LABELS: Record<string, string> = { venda: 'Venda', sangria: 'Sangria', suprimento: 'Suprimento', cancelled: 'Cancelado' };
+const TYPE_COLORS: Record<string, string> = { venda: C.success, sangria: C.danger, suprimento: C.blue, cancelled: C.light };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -68,7 +68,7 @@ function fmtDateShort(yyyymmdd: any) {
 // ── SVG Bar Chart ─────────────────────────────────────────────────────────────
 
 function RevenueBarChart({ data }: { data: any }) {
-  const [hovered, setHovered] = useState(null);
+  const [hovered, setHovered] = useState<any>(null);
   if (!data?.length) return <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.light, fontSize: 13 }}>Sem dados</div>;
 
   const W = 800, H = 180, padL = 48, padR = 12, padT = 12, padB = 28;
@@ -118,7 +118,7 @@ function RevenueBarChart({ data }: { data: any }) {
             </g>
           );
         })}
-        {data.map((d, i) => {
+        {data.map((d: any, i: any) => {
           const h = bh(d.revenue);
           const x = bx(i);
           const isHov = hovered === i;
@@ -135,7 +135,7 @@ function RevenueBarChart({ data }: { data: any }) {
             </g>
           );
         })}
-        {data.map((d, i) => {
+        {data.map((d: any, i: any) => {
           const show = data.length <= 14 || i % Math.ceil(data.length / 14) === 0 || i === data.length - 1;
           return show ? (
             <text key={i} x={bx(i)} y={H - 4} textAnchor="middle" fontSize={9} fill={C.light}>
@@ -143,7 +143,7 @@ function RevenueBarChart({ data }: { data: any }) {
             </text>
           ) : null;
         })}
-        {data.map((_, i) => (
+        {data.map((_: any, i: any) => (
           <rect key={i}
             x={padL + i * gap} y={padT} width={gap} height={cH}
             fill="transparent" style={{ cursor: 'crosshair' }}
@@ -157,15 +157,15 @@ function RevenueBarChart({ data }: { data: any }) {
 
 // ── SVG Donut Chart ───────────────────────────────────────────────────────────
 
-function DonutChart({ data }) {
-  const [hovered, setHovered] = useState(null);
+function DonutChart({ data }: { data: any }) {
+  const [hovered, setHovered] = useState<any>(null);
   if (!data?.length) return <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.light, fontSize: 13 }}>Sem dados</div>;
 
-  const total = data.reduce((s, d) => s + d.value, 0);
+  const total = data.reduce((s: any, d: any) => s + d.value, 0);
   const cx = 80, cy = 80, R = 68, r = 44;
   let angle = -Math.PI / 2;
 
-  const slices = data.map((d, i) => {
+  const slices = data.map((d: any, i: any) => {
     const pct  = total > 0 ? d.value / total : 0;
     const span = pct * 2 * Math.PI;
     const x1 = cx + R * Math.cos(angle),          y1 = cy + R * Math.sin(angle);
@@ -177,7 +177,7 @@ function DonutChart({ data }) {
     const lx = cx + (R + 8) * Math.cos(mid), ly = cy + (R + 8) * Math.sin(mid);
     const path = `M ${x1},${y1} A ${R},${R} 0 ${large} 1 ${x2},${y2} L ${ix2},${iy2} A ${r},${r} 0 ${large} 0 ${ix1},${iy1} Z`;
     angle += span;
-    const color = PM_COLORS[d.method] || `hsl(${i * 60}, 60%, 55%)`;
+    const color = (PM_COLORS as any)[d.method] || `hsl(${i * 60}, 60%, 55%)`;
     return { ...d, path, pct, color, lx, ly, mid };
   });
 
@@ -185,7 +185,7 @@ function DonutChart({ data }) {
 
   return (
     <svg viewBox="0 0 160 160" style={{ width: '100%', maxWidth: 180, display: 'block' }}>
-      {slices.map((s, i) => (
+      {slices.map((s: any, i: any) => (
         <path key={i} d={s.path}
           fill={s.color}
           opacity={hovered !== null && hovered !== i ? 0.4 : 1}
@@ -211,12 +211,12 @@ function DonutChart({ data }) {
 
 // ── Day-of-Week chart ─────────────────────────────────────────────────────────
 
-function DowChart({ data }) {
+function DowChart({ data }: { data: any }) {
   if (!data?.length) return null;
-  const maxV = Math.max(...data.map(d => d.revenue), 1);
+  const maxV = Math.max(...data.map((d: any) => d.revenue), 1);
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', height: 80 }}>
-      {data.map((d, i) => {
+      {data.map((d: any, i: any) => {
         const h = Math.max(4, (d.revenue / maxV) * 70);
         return (
           <div key={i} title={`${d.label}: ${fmtBRL(d.revenue)}`}
@@ -232,13 +232,12 @@ function DowChart({ data }) {
 
 // ── KPI Card ──────────────────────────────────────────────────────────────────
 
-function KPICard({ icon: Icon, label, value, sub, color = C.gold, negative = false, warning = false }) {
+function KPICard({ icon: Icon, label, value, sub, color = C.gold, negative = false, warning = false }: { icon: any, label: any, value: any, sub?: any, color?: any, negative?: any, warning?: any }) {
   return (
     <div style={{
-      background: C.card, borderRadius: 12, padding: '18px 20px',
+      background: warning ? 'rgba(239,68,68,0.03)' : C.card, borderRadius: 12, padding: '18px 20px',
       border: `1px solid ${warning ? 'rgba(239,68,68,0.3)' : C.border}`,
       boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-      background: warning ? 'rgba(239,68,68,0.03)' : C.card,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>{label}</span>
@@ -256,13 +255,13 @@ function KPICard({ icon: Icon, label, value, sub, color = C.gold, negative = fal
 
 // ── Section header ────────────────────────────────────────────────────────────
 
-function SectionTitle({ children }) {
+function SectionTitle({ children }: { children: any }) {
   return <p style={{ fontSize: 13, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 12 }}>{children}</p>;
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
-function Modal({ title, onClose, children }) {
+function Modal({ title, onClose, children }: { title: any, onClose: any, children: any }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: C.card, borderRadius: 14, padding: '28px 32px', width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
@@ -276,7 +275,7 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-function InputRow({ label, children }) {
+function InputRow({ label, children }: { label: any, children: any }) {
   return (
     <div style={{ marginBottom: 16 }}>
       <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 6 }}>{label}</label>
@@ -285,7 +284,7 @@ function InputRow({ label, children }) {
   );
 }
 
-const inputStyle = {
+const inputStyle: React.CSSProperties = {
   width: '100%', padding: '10px 12px', border: `1px solid ${C.border}`,
   borderRadius: 8, fontSize: 13, color: C.text, outline: 'none',
   boxSizing: 'border-box',
@@ -293,12 +292,12 @@ const inputStyle = {
 
 // ── FATURAMENTO TAB ───────────────────────────────────────────────────────────
 
-function FaturamentoTab({ adminToken, refreshTick }) {
+function FaturamentoTab({ adminToken, refreshTick }: { adminToken: any, refreshTick: any }) {
   const today = todaySP();
   const [dateRange, setDateRange]   = useState({ from: firstOfMonth(), to: today, fromTime: '00:00', toTime: '23:59' });
-  const [data, setData]             = useState(null);
+  const [data, setData]             = useState<any>(null);
   const [loading, setLoading]       = useState(false);
-  const [lastUpdate, setLastUpdate] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState<any>(null);
   const [search, setSearch]         = useState('');
   const [pmFilter, setPmFilter]     = useState('all');
 
@@ -310,7 +309,7 @@ function FaturamentoTab({ adminToken, refreshTick }) {
         { headers: { Authorization: `Bearer ${adminToken}` } }
       );
       const d = await res.json();
-      if (!d.error) { setData(d); setLastUpdate(new Date()); }
+      if (!d.error) { setData(d); setLastUpdate(new Date() as any); }
     } catch {}
     setLoading(false);
   }, [adminToken, dateRange.from, dateRange.to]);
@@ -325,14 +324,14 @@ function FaturamentoTab({ adminToken, refreshTick }) {
 
   const ov = data?.overview || {};
 
-  const filteredOrders = (data?.orders || []).filter(o => {
+  const filteredOrders = (data?.orders || []).filter((o: any) => {
     const matchSearch = !search || o.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
       String(o.order_number).includes(search);
     const matchPm = pmFilter === 'all' || o.payment_method === pmFilter;
     return matchSearch && matchPm;
   });
 
-  const cancelledRecent = (data?.orders || []).filter(o => o.status === 'cancelled').slice(0, 3);
+  const cancelledRecent = (data?.orders || []).filter((o: any) => o.status === 'cancelled').slice(0, 3);
 
   return (
     <div style={{ padding: '24px 28px' }}>
@@ -401,10 +400,10 @@ function FaturamentoTab({ adminToken, refreshTick }) {
           <p style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 12 }}>Formas de Pagamento</p>
           <DonutChart data={data?.paymentBreakdown} />
           <div style={{ marginTop: 10 }}>
-            {(data?.paymentBreakdown || []).map((p, i) => (
+            {(data?.paymentBreakdown || []).map((p: any, i: any) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: PM_COLORS[p.method] || C.gold }} />
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: (PM_COLORS as any)[p.method] || C.gold }} />
                   <span style={{ fontSize: 11, color: C.muted }}>{p.label}</span>
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{fmtBRL(p.value)}</span>
@@ -449,7 +448,7 @@ function FaturamentoTab({ adminToken, refreshTick }) {
             <tbody>
               {filteredOrders.length === 0 ? (
                 <tr><td colSpan={9} style={{ padding: '28px', textAlign: 'center', color: C.light, fontSize: 13 }}>Nenhum pedido encontrado</td></tr>
-              ) : filteredOrders.map((o, i) => {
+              ) : filteredOrders.map((o: any, i: any) => {
                 const isCancelled = o.status === 'cancelled';
                 return (
                   <tr key={o.id} style={{ borderBottom: `1px solid ${C.border}`, opacity: isCancelled ? 0.55 : 1, background: isCancelled ? 'rgba(239,68,68,0.03)' : 'transparent' }}>
@@ -483,24 +482,24 @@ function FaturamentoTab({ adminToken, refreshTick }) {
 
 // ── CAIXA TAB ─────────────────────────────────────────────────────────────────
 
-function CaixaTab({ adminToken, refreshTick }) {
-  const [data, setData]               = useState(null);
+function CaixaTab({ adminToken, refreshTick }: { adminToken: any, refreshTick: any }) {
+  const [data, setData]               = useState<any>(null);
   const [loading, setLoading]         = useState(false);
-  const [lastUpdate, setLastUpdate]   = useState(null);
+  const [lastUpdate, setLastUpdate]   = useState<any>(null);
   const [search, setSearch]           = useState('');
   const [pmFilter, setPmFilter]       = useState('all');
   const [typeFilter, setTypeFilter]   = useState('all');
-  const [modal, setModal]             = useState(null); // 'open'|'close'|'sangria'|'suprimento'|'previous'
-  const [modalData, setModalData]     = useState({});
+  const [modal, setModal]             = useState<any>(null); // 'open'|'close'|'sangria'|'suprimento'|'previous'
+  const [modalData, setModalData]     = useState<any>({});
   const [submitting, setSubmitting]   = useState(false);
-  const [prevSessions, setPrevSessions] = useState([]);
+  const [prevSessions, setPrevSessions] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/admin/financial?action=caixa', { headers: { Authorization: `Bearer ${adminToken}` } });
       const d = await res.json();
-      if (!d.error) { setData(d); setLastUpdate(new Date()); }
+      if (!d.error) { setData(d); setLastUpdate(new Date() as any); }
     } catch {}
     setLoading(false);
   }, [adminToken]);
@@ -515,7 +514,7 @@ function CaixaTab({ adminToken, refreshTick }) {
     setModal('previous');
   }
 
-  async function submitAction(action) {
+  async function submitAction(action: any) {
     setSubmitting(true);
     try {
       const body = { action, session_id: data?.currentSession?.id, ...modalData };
@@ -535,7 +534,7 @@ function CaixaTab({ adminToken, refreshTick }) {
 
   const session = data?.currentSession;
   const summary = data?.summary || {};
-  const entries = (data?.entries || []).filter(e => {
+  const entries = (data?.entries || []).filter((e: any) => {
     const matchSearch = !search || e.description?.toLowerCase().includes(search.toLowerCase());
     const matchPm = pmFilter === 'all' || e.payment_method === pmFilter;
     const matchType = typeFilter === 'all' || e.type === typeFilter;
@@ -573,7 +572,7 @@ function CaixaTab({ adminToken, refreshTick }) {
             <InputRow label="Saldo inicial em dinheiro (R$)">
               <input type="number" step="0.01" min="0" placeholder="0,00"
                 value={modalData.initial_balance || ''}
-                onChange={e => setModalData(p => ({ ...p, initial_balance: e.target.value }))}
+                onChange={e => setModalData((p: any) => ({ ...p, initial_balance: e.target.value }))}
                 style={inputStyle} />
             </InputRow>
             <button onClick={() => submitAction('open_session')} disabled={submitting}
@@ -660,7 +659,7 @@ function CaixaTab({ adminToken, refreshTick }) {
               <tbody>
                 {entries.length === 0 ? (
                   <tr><td colSpan={5} style={{ padding: '28px', textAlign: 'center', color: C.light, fontSize: 13 }}>Nenhum lançamento</td></tr>
-                ) : entries.map((e, i) => {
+                ) : entries.map((e: any, i: any) => {
                   const isSangria = e.type === 'sangria';
                   const isCancelled = e.type === 'cancelled';
                   const typeColor = TYPE_COLORS[e.type] || C.muted;
@@ -725,7 +724,7 @@ function CaixaTab({ adminToken, refreshTick }) {
           {/* Sales summary */}
           <div style={{ background: C.card, borderRadius: 12, padding: '16px 18px', border: `1px solid ${C.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <SectionTitle>Resumo das Vendas</SectionTitle>
-            {(summary.paymentBreakdown || []).map(p => (
+            {(summary.paymentBreakdown || []).map((p: any) => (
               <div key={p.method} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <div style={{ width: 7, height: 7, borderRadius: '50%', background: PM_COLORS[p.method] || C.gold }} />
@@ -748,10 +747,10 @@ function CaixaTab({ adminToken, refreshTick }) {
       {modal === 'sangria' && (
         <Modal title="Sangria" onClose={() => { setModal(null); setModalData({}); }}>
           <InputRow label="Valor (R$)">
-            <input type="number" step="0.01" min="0.01" placeholder="0,00" value={modalData.amount || ''} onChange={e => setModalData(p => ({ ...p, amount: e.target.value }))} style={inputStyle} />
+            <input type="number" step="0.01" min="0.01" placeholder="0,00" value={modalData.amount || ''} onChange={e => setModalData((p: any) => ({ ...p, amount: e.target.value }))} style={inputStyle} />
           </InputRow>
           <InputRow label="Descrição (opcional)">
-            <input placeholder="Ex: Pagamento freelancer" value={modalData.description || ''} onChange={e => setModalData(p => ({ ...p, description: e.target.value }))} style={inputStyle} />
+            <input placeholder="Ex: Pagamento freelancer" value={modalData.description || ''} onChange={e => setModalData((p: any) => ({ ...p, description: e.target.value }))} style={inputStyle} />
           </InputRow>
           <button onClick={() => submitAction('sangria')} disabled={submitting || !modalData.amount}
             style={{ width: '100%', padding: '11px', background: C.danger, border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 14, cursor: (!submitting && modalData.amount) ? 'pointer' : 'not-allowed', opacity: (!modalData.amount) ? 0.5 : 1 }}>
@@ -763,10 +762,10 @@ function CaixaTab({ adminToken, refreshTick }) {
       {modal === 'suprimento' && (
         <Modal title="Suprimento" onClose={() => { setModal(null); setModalData({}); }}>
           <InputRow label="Valor (R$)">
-            <input type="number" step="0.01" min="0.01" placeholder="0,00" value={modalData.amount || ''} onChange={e => setModalData(p => ({ ...p, amount: e.target.value }))} style={inputStyle} />
+            <input type="number" step="0.01" min="0.01" placeholder="0,00" value={modalData.amount || ''} onChange={e => setModalData((p: any) => ({ ...p, amount: e.target.value }))} style={inputStyle} />
           </InputRow>
           <InputRow label="Descrição (opcional)">
-            <input placeholder="Ex: Reforço de troco" value={modalData.description || ''} onChange={e => setModalData(p => ({ ...p, description: e.target.value }))} style={inputStyle} />
+            <input placeholder="Ex: Reforço de troco" value={modalData.description || ''} onChange={e => setModalData((p: any) => ({ ...p, description: e.target.value }))} style={inputStyle} />
           </InputRow>
           <button onClick={() => submitAction('suprimento')} disabled={submitting || !modalData.amount}
             style={{ width: '100%', padding: '11px', background: C.blue, border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 14, cursor: (!submitting && modalData.amount) ? 'pointer' : 'not-allowed', opacity: (!modalData.amount) ? 0.5 : 1 }}>
@@ -782,10 +781,10 @@ function CaixaTab({ adminToken, refreshTick }) {
             <p style={{ fontSize: 20, fontWeight: 800, color: C.text }}>{fmtBRL(summary.cashInHand)}</p>
           </div>
           <InputRow label="Saldo final conferido (R$)">
-            <input type="number" step="0.01" placeholder={String(summary.cashInHand || '0.00')} value={modalData.final_balance || ''} onChange={e => setModalData(p => ({ ...p, final_balance: e.target.value }))} style={inputStyle} />
+            <input type="number" step="0.01" placeholder={String(summary.cashInHand || '0.00')} value={modalData.final_balance || ''} onChange={e => setModalData((p: any) => ({ ...p, final_balance: e.target.value }))} style={inputStyle} />
           </InputRow>
           <InputRow label="Observações (opcional)">
-            <textarea placeholder="Anotações do fechamento" value={modalData.notes || ''} onChange={e => setModalData(p => ({ ...p, notes: e.target.value }))} style={{ ...inputStyle, height: 72, resize: 'vertical' }} />
+            <textarea placeholder="Anotações do fechamento" value={modalData.notes || ''} onChange={e => setModalData((p: any) => ({ ...p, notes: e.target.value }))} style={{ ...inputStyle, height: 72, resize: 'vertical' } as React.CSSProperties} />
           </InputRow>
           <button onClick={() => submitAction('close_session')} disabled={submitting}
             style={{ width: '100%', padding: '11px', background: C.danger, border: 'none', borderRadius: 8, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
@@ -825,12 +824,12 @@ function CaixaTab({ adminToken, refreshTick }) {
 
 const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-function pctChange(curr, prev) {
+function pctChange(curr: any, prev: any) {
   if (!prev || prev === 0) return null;
   return ((curr - prev) / Math.abs(prev)) * 100;
 }
 
-function PctBadge({ curr, prev, inverse = false }) {
+function PctBadge({ curr, prev, inverse = false }: { curr: any, prev: any, inverse?: any }) {
   const chg = pctChange(curr, prev);
   if (chg === null) return null;
   const positive = inverse ? chg < 0 : chg > 0;
@@ -847,7 +846,7 @@ function PctBadge({ curr, prev, inverse = false }) {
   );
 }
 
-function DreRow({ label, value, indent = 0, bold = false, result = false, margin = null, sub = false, color = null, prevValue = null, inverse = false }) {
+function DreRow({ label, value, indent = 0, bold = false, result = false, margin = null, sub = false, color = null, prevValue = null, inverse = false }: { label: any, value: any, indent?: any, bold?: any, result?: any, margin?: any, sub?: any, color?: any, prevValue?: any, inverse?: any }) {
   const fg = color || (result ? C.text : bold ? C.text : C.muted);
   const bg = result ? (value >= 0 ? 'rgba(16,185,129,0.04)' : 'rgba(239,68,68,0.04)') : 'transparent';
   const valColor = value < 0 ? C.danger : (value > 0 ? (result ? C.success : C.text) : C.light);
@@ -875,7 +874,7 @@ function DreRow({ label, value, indent = 0, bold = false, result = false, margin
   );
 }
 
-function DreSeparator({ label }) {
+function DreSeparator({ label }: { label: any }) {
   return (
     <tr>
       <td colSpan={3} style={{ padding: '6px 16px', background: '#F8F9FA', borderBottom: `1px solid ${C.border}` }}>
@@ -887,9 +886,9 @@ function DreSeparator({ label }) {
   );
 }
 
-function DreBarChart({ data }) {
+function DreBarChart({ data }: { data: any }) {
   if (!data || data.length === 0) return null;
-  const maxV = Math.max(...data.map(d => Math.max(d.revenue, d.expenses, 0.01)));
+  const maxV = Math.max(...data.map((d: any) => Math.max(d.revenue, d.expenses, 0.01)));
   const W = 600, H = 160, padL = 8, padR = 8, padT = 10, padB = 30;
   const cW = W - padL - padR;
   const cH = H - padT - padB;
@@ -898,7 +897,7 @@ function DreBarChart({ data }) {
   const barW = Math.max(3, Math.min(12, groupW * 0.35));
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
-      {data.map((d, i) => {
+      {data.map((d: any, i: any) => {
         const x = padL + i * groupW + groupW / 2;
         const rh = (d.revenue / maxV) * cH;
         const eh = (d.expenses / maxV) * cH;
@@ -924,7 +923,7 @@ function DreBarChart({ data }) {
 
 // ── DRE TAB ───────────────────────────────────────────────────────────────────
 
-function DreCompareModal({ c, p, dateRange, onClose }) {
+function DreCompareModal({ c, p, dateRange, onClose }: { c: any, p: any, dateRange: any, onClose: any }) {
   if (!p) return null;
   const rows = [
     { label: '(+) Receita Bruta de Vendas',     cVal: c.grossRevenue,  pVal: p.grossRevenue,  bold: true },
@@ -939,10 +938,10 @@ function DreCompareModal({ c, p, dateRange, onClose }) {
     { label: '(=) RESULTADO DO PERÍODO',         cVal: c.netProfit,    pVal: p.netProfit,     result: true },
   ];
 
-  const fmtPeriodLabel = (from, to) => `${from.split('-').reverse().join('/')} — ${to.split('-').reverse().join('/')}`;
+  const fmtPeriodLabel = (from: any, to: any) => `${from.split('-').reverse().join('/')} — ${to.split('-').reverse().join('/')}`;
 
   // Estimate previous period dates
-  const currDays = (new Date(dateRange.to) - new Date(dateRange.from)) / 86400000 + 1;
+  const currDays = (new Date(dateRange.to).getTime() - new Date(dateRange.from).getTime()) / 86400000 + 1;
   const prevTo   = new Date(new Date(dateRange.from).getTime() - 86400000).toISOString().split('T')[0];
   const prevFrom = new Date(new Date(dateRange.from).getTime() - currDays * 86400000).toISOString().split('T')[0];
 
@@ -972,7 +971,7 @@ function DreCompareModal({ c, p, dateRange, onClose }) {
           <tbody>
             {rows.map((row, i) => {
               const chg = pctChange(row.cVal, row.pVal);
-              const positive = row.danger ? chg <= 0 : chg >= 0;
+              const positive = row.danger ? (chg ?? 0) <= 0 : (chg ?? 0) >= 0;
               const bg = row.result ? (row.cVal >= 0 ? 'rgba(16,185,129,0.04)' : 'rgba(239,68,68,0.04)') : 'transparent';
               return (
                 <tr key={i} style={{ background: bg, borderBottom: `1px solid ${C.border}` }}>
@@ -1011,8 +1010,8 @@ function DreCompareModal({ c, p, dateRange, onClose }) {
   );
 }
 
-function DreTab({ adminToken, refreshTick }) {
-  const [data, setData]           = useState(null);
+function DreTab({ adminToken, refreshTick }: { adminToken: any, refreshTick: any }) {
+  const [data, setData]           = useState<any>(null);
   const [loading, setLoading]     = useState(false);
   const [showCompare, setShowCompare] = useState(false);
 
@@ -1147,7 +1146,7 @@ function DreTab({ adminToken, refreshTick }) {
                   {c.expenseEntries.length === 0 ? (
                     <DreRow label="Sem despesas lançadas no período" value={0} indent={1} sub color={C.light} />
                   ) : (
-                    c.expenseEntries.map(e => (
+                    c.expenseEntries.map((e: any) => (
                       <DreRow
                         key={e.id}
                         label={e.description || 'Sangria de caixa'}
@@ -1181,7 +1180,7 @@ function DreTab({ adminToken, refreshTick }) {
                   { label: 'Resultado',        curr: c.netProfit,     prev: p?.netProfit },
                 ].map(row => {
                   const chg = pctChange(row.curr, row.prev);
-                  const positive = chg >= 0;
+                  const positive = (chg ?? 0) >= 0;
                   return (
                     <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${C.border}` }}>
                       <div style={{ fontSize: 12, color: C.muted }}>{row.label}</div>
@@ -1264,12 +1263,12 @@ function DreTab({ adminToken, refreshTick }) {
 
 // ── MAIN FINANCIAL COMPONENT ──────────────────────────────────────────────────
 
-export default function Financial({ adminToken, orders }) {
+export default function Financial({ adminToken, orders }: { adminToken: any, orders: any }) {
   const [tab, setTab]           = useState('faturamento');
   const [refreshTick, setRefreshTick] = useState(0);
 
   // Bump refreshTick whenever orders list changes (new order arrived)
-  const prevOrderCount = useRef(null);
+  const prevOrderCount = useRef<number | null>(null);
   useEffect(() => {
     if (prevOrderCount.current !== null && orders?.length !== prevOrderCount.current) {
       setRefreshTick(t => t + 1);
