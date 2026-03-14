@@ -1,5 +1,5 @@
 /**
- * lib/cashback.js
+ * lib/cashback.ts
  * Funções core do sistema de Carteira de Cashback.
  *
  * Regras de negócio:
@@ -9,14 +9,25 @@
  * - FIFO: os cashbacks mais antigos são consumidos primeiro (protege contra expiração)
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+export interface CashbackTransaction {
+  id: string;
+  amount: number;
+  remaining: number;
+  expires_at: string;
+  created_at: string;
+}
+
+export interface CashbackBalance {
+  balance: number;
+  transactions: CashbackTransaction[];
+}
+
 /**
  * Calcula o saldo válido de cashback do usuário, marcando expirados (soft expiry).
- *
- * @param {Object} supabase  Admin Supabase client
- * @param {string} userId
- * @returns {{ balance: number, transactions: Array }}
  */
-export async function getCashbackBalance(supabase, userId) {
+export async function getCashbackBalance(supabase: SupabaseClient, userId: string): Promise<CashbackBalance> {
   const now = new Date().toISOString();
 
   // Marca como expiradas as transações que passaram do prazo (soft expiry em leitura)
@@ -50,13 +61,14 @@ export async function getCashbackBalance(supabase, userId) {
  * Registra cashback ganho pelo usuário após a confirmação de um pedido.
  * Idempotente: não cria duplicatas para o mesmo order_id.
  *
- * @param {Object} supabase    Admin Supabase client
- * @param {string} userId
- * @param {string} orderId
- * @param {number} orderTotal  Valor total pago pelo cliente
- * @returns {number} Valor de cashback gerado (0 se cashback desativado ou duplicata)
+ * @returns Valor de cashback gerado (0 se cashback desativado ou duplicata)
  */
-export async function earnCashback(supabase, userId, orderId, orderTotal) {
+export async function earnCashback(
+  supabase: SupabaseClient,
+  userId: string,
+  orderId: string,
+  orderTotal: number
+): Promise<number> {
   try {
     if (!userId || !orderId || !orderTotal) return 0;
 
@@ -106,7 +118,7 @@ export async function earnCashback(supabase, userId, orderId, orderTotal) {
 
     return earned;
   } catch (e) {
-    console.error('[Cashback] earnCashback error:', e.message);
+    console.error('[Cashback] earnCashback error:', (e as Error).message);
     return 0;
   }
 }
@@ -115,13 +127,14 @@ export async function earnCashback(supabase, userId, orderId, orderTotal) {
  * Aplica cashback como desconto usando FIFO (mais antigos primeiro).
  * Registra transações de 'use' correspondentes.
  *
- * @param {Object} supabase       Admin Supabase client
- * @param {string} userId
- * @param {string} orderId
- * @param {number} cashbackToUse  Valor solicitado pelo cliente
- * @returns {number} Valor efetivamente deduzido (pode ser menor se saldo insuficiente)
+ * @returns Valor efetivamente deduzido (pode ser menor se saldo insuficiente)
  */
-export async function useCashback(supabase, userId, orderId, cashbackToUse) {
+export async function useCashback(
+  supabase: SupabaseClient,
+  userId: string,
+  orderId: string,
+  cashbackToUse: number
+): Promise<number> {
   if (!cashbackToUse || cashbackToUse <= 0) return 0;
 
   try {
@@ -140,7 +153,7 @@ export async function useCashback(supabase, userId, orderId, cashbackToUse) {
 
     if (!transactions || transactions.length === 0) return 0;
 
-    let toDeduct     = cashbackToUse;
+    let toDeduct      = cashbackToUse;
     let totalDeducted = 0;
 
     for (const tx of transactions) {
@@ -180,7 +193,7 @@ export async function useCashback(supabase, userId, orderId, cashbackToUse) {
 
     return finalDeducted;
   } catch (e) {
-    console.error('[Cashback] useCashback error:', e.message);
+    console.error('[Cashback] useCashback error:', (e as Error).message);
     return 0;
   }
 }

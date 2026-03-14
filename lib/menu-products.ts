@@ -1,4 +1,14 @@
-function normalizeText(value = '') {
+import type { Product } from '../types';
+
+interface ResolvedMenuProducts {
+  calabresa:  Product | undefined;
+  marguerita: Product | undefined;
+  combo:      Product | undefined;
+  especial:   Product | undefined;
+  remaining:  Product[];
+}
+
+function normalizeText(value: string | null | undefined = ''): string {
   return String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -6,7 +16,7 @@ function normalizeText(value = '') {
     .trim();
 }
 
-function matchByAliases(product, aliases = []) {
+function matchByAliases(product: Product, aliases: string[]): boolean {
   const slug = normalizeText(product?.slug);
   const name = normalizeText(product?.name);
   return aliases.some((alias) => {
@@ -15,11 +25,12 @@ function matchByAliases(product, aliases = []) {
   });
 }
 
-export function resolveMenuProducts(products = []) {
+export function resolveMenuProducts(products: Product[] = []): ResolvedMenuProducts {
   const list = Array.isArray(products) ? products : [];
-  const pick = (aliases, used) => list.find((p) => !used.has(String(p.id)) && matchByAliases(p, aliases));
+  const pick = (aliases: string[], used: Set<string>): Product | undefined =>
+    list.find((p) => !used.has(String(p.id)) && matchByAliases(p, aliases));
 
-  const used = new Set();
+  const used = new Set<string>();
   const calabresa = pick(['calabresa'], used);
   if (calabresa) used.add(String(calabresa.id));
 
