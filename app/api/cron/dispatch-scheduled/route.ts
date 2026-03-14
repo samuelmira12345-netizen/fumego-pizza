@@ -132,7 +132,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     logger.info(`[Cron] dispatch-scheduled: ${dispatched} despachado(s), ${retried} retry(s) CW`);
     return NextResponse.json({ dispatched, retried });
   } catch (e) {
-    logger.error('[Cron] Erro em dispatch-scheduled:', e);
+    logger.error('[Cron] Erro em dispatch-scheduled:', e as Error);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

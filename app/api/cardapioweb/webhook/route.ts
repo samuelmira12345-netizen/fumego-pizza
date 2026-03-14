@@ -88,7 +88,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ received: true });
 
   } catch (e) {
-    logger.error('[CW Webhook] Erro inesperado', e);
+    logger.error('[CW Webhook] Erro inesperado', e as Error);
     return NextResponse.json({ received: true });
   }
 }
