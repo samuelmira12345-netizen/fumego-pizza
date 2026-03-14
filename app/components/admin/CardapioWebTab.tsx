@@ -149,7 +149,7 @@ export default function CardapioWebTab({
 
             {items.length > 0 && (
               <div style={{ background: '#1C1500', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
-                {items.map((item, i) => (
+                {items.map((item: any, i: number) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#ccc', marginBottom: i < items.length - 1 ? 4 : 0 }}>
                     <span>{item.quantity}x {item.name}</span>
                     <span style={{ color: GOLD }}>R$ {Number(item.total_price || 0).toFixed(2).replace('.', ',')}</span>
@@ -166,7 +166,7 @@ export default function CardapioWebTab({
 
             {payments.length > 0 && (
               <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>
-                {payments.map(p => PAYMENT_METHOD_LABEL[p.payment_method] || p.payment_method).join(' + ')}
+                {payments.map((p: any) => PAYMENT_METHOD_LABEL[p.payment_method] || p.payment_method).join(' + ')}
               </p>
             )}
 

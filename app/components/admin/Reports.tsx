@@ -26,17 +26,17 @@ const C = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtBRL(v) {
+function fmtBRL(v: any) {
   return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function fmtDate(yyyymmdd) {
+function fmtDate(yyyymmdd: any) {
   if (!yyyymmdd) return '';
   const [y, m, d] = yyyymmdd.split('-');
   return `${d}/${m}/${y}`;
 }
 
-function fmtPhone(phone) {
+function fmtPhone(phone: any) {
   if (!phone) return '—';
   const d = phone.replace(/\D/g, '');
   if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
@@ -48,7 +48,7 @@ function todaySP() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-function daysAgo(n) {
+function daysAgo(n: number) {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
@@ -61,7 +61,7 @@ function firstOfMonth() {
 
 // ── Mini Bar Chart ─────────────────────────────────────────────────────────────
 
-function fmtShort(v, isCurrency) {
+function fmtShort(v: any, isCurrency?: any) {
   if (!v) return '—';
   if (isCurrency) {
     if (v >= 1000) return `R$${(v / 1000).toFixed(1)}k`;
@@ -70,11 +70,11 @@ function fmtShort(v, isCurrency) {
   return String(v);
 }
 
-function MiniBar({ data, labelKey, valueKey, color = C.gold, height = 160, formatValue, isCurrency = false }) {
-  const max = Math.max(...data.map(d => d[valueKey]), 1);
+function MiniBar({ data, labelKey, valueKey, color = C.gold, height = 160, formatValue, isCurrency = false }: { data: any; labelKey: any; valueKey: any; color?: string; height?: number; formatValue?: any; isCurrency?: boolean }) {
+  const max = Math.max(...data.map((d: any) => d[valueKey]), 1);
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: height + 28, paddingTop: 24 }}>
-      {data.map((item, i) => {
+      {data.map((item: any, i: number) => {
         const pct  = (item[valueKey] / max) * 100;
         const hasV = item[valueKey] > 0;
         return (
@@ -97,7 +97,7 @@ function MiniBar({ data, labelKey, valueKey, color = C.gold, height = 160, forma
 
 // ── Card wrapper ───────────────────────────────────────────────────────────────
 
-function Card({ children, style }) {
+function Card({ children, style }: { children: any; style?: any }) {
   return (
     <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', ...style }}>
       {children}
@@ -107,7 +107,7 @@ function Card({ children, style }) {
 
 // ── Stat Badge ─────────────────────────────────────────────────────────────────
 
-function StatBadge({ label, value, color }) {
+function StatBadge({ label, value, color }: { label: any; value: any; color: any }) {
   return (
     <div style={{ textAlign: 'center', padding: '12px 16px', background: color + '12', borderRadius: 8, border: `1px solid ${color}30` }}>
       <p style={{ fontSize: 18, fontWeight: 700, color }}>{value}</p>
@@ -129,13 +129,13 @@ function Empty({ label = 'Nenhum dado para o período selecionado' }) {
 
 // ── Table ──────────────────────────────────────────────────────────────────────
 
-function Table({ columns, rows, getKey }) {
+function Table({ columns, rows, getKey }: { columns: any; rows: any; getKey: any }) {
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ borderBottom: '2px solid ' + C.border }}>
-            {columns.map(col => (
+            {columns.map((col: any) => (
               <th key={col.key} style={{ padding: '10px 12px', textAlign: col.align || 'left', color: C.muted, fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, whiteSpace: 'nowrap' }}>
                 {col.label}
               </th>
@@ -143,9 +143,9 @@ function Table({ columns, rows, getKey }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => (
+          {rows.map((row: any, i: number) => (
             <tr key={getKey ? getKey(row) : i} style={{ borderBottom: '1px solid ' + C.border, background: i % 2 === 0 ? '#FAFAFA' : C.card }}>
-              {columns.map(col => (
+              {columns.map((col: any) => (
                 <td key={col.key} style={{ padding: '10px 12px', textAlign: col.align || 'left', color: col.color ? col.color(row) : C.text, fontWeight: col.bold ? 600 : 400, whiteSpace: col.noWrap ? 'nowrap' : 'normal' }}>
                   {col.render ? col.render(row) : row[col.key]}
                 </td>
@@ -172,16 +172,16 @@ const REPORT_TABS = [
 
 // ── Report: Produtos ──────────────────────────────────────────────────────────
 
-function ProductsReport({ result }) {
+function ProductsReport({ result }: { result: any }) {
   if (!result?.data?.length) return <Empty />;
   const { data, total_orders } = result;
-  const totalRevenue = data.reduce((s, r) => s + r.revenue, 0);
+  const totalRevenue = data.reduce((s: any, r: any) => s + r.revenue, 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
         <StatBadge label="Pedidos no período" value={total_orders} color={C.blue} />
-        <StatBadge label="Itens vendidos" value={data.reduce((s,r) => s + r.qty, 0)} color={C.orange} />
+        <StatBadge label="Itens vendidos" value={data.reduce((s: any,r: any) => s + r.qty, 0)} color={C.orange} />
         <StatBadge label="Faturamento (produtos)" value={fmtBRL(totalRevenue)} color={C.success} />
         <StatBadge label="Produtos diferentes" value={data.length} color={C.purple} />
       </div>
@@ -197,11 +197,11 @@ function ProductsReport({ result }) {
           rows={data}
           getKey={r => r.product_name}
           columns={[
-            { key: 'rank',         label: '#',           align: 'center', bold: true, render: r => `#${r.rank}` },
+            { key: 'rank',         label: '#',           align: 'center', bold: true, render: (r: any) => `#${r.rank}` },
             { key: 'product_name', label: 'Produto',     bold: true },
-            { key: 'qty',          label: 'Qtd. vendida',align: 'right', render: r => r.qty.toLocaleString('pt-BR') },
-            { key: 'revenue',      label: 'Faturamento', align: 'right', bold: true, render: r => fmtBRL(r.revenue), color: () => C.success },
-            { key: 'share',        label: 'Share',       align: 'right', render: r => `${((r.revenue / totalRevenue) * 100).toFixed(1)}%`, color: () => C.muted },
+            { key: 'qty',          label: 'Qtd. vendida',align: 'right', render: (r: any) => r.qty.toLocaleString('pt-BR') },
+            { key: 'revenue',      label: 'Faturamento', align: 'right', bold: true, render: (r: any) => fmtBRL(r.revenue), color: () => C.success },
+            { key: 'share',        label: 'Share',       align: 'right', render: (r: any) => `${((r.revenue / totalRevenue) * 100).toFixed(1)}%`, color: () => C.muted },
           ]}
         />
       </Card>
@@ -211,10 +211,10 @@ function ProductsReport({ result }) {
 
 // ── Report: Bairros ───────────────────────────────────────────────────────────
 
-function NeighborhoodsReport({ result }) {
+function NeighborhoodsReport({ result }: { result: any }) {
   if (!result?.data?.length) return <Empty />;
   const { data, total_orders } = result;
-  const totalRevenue = data.reduce((s, r) => s + r.revenue, 0);
+  const totalRevenue = data.reduce((s: any, r: any) => s + r.revenue, 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -222,7 +222,7 @@ function NeighborhoodsReport({ result }) {
         <StatBadge label="Pedidos no período" value={total_orders} color={C.blue} />
         <StatBadge label="Bairros atendidos" value={data.length} color={C.purple} />
         <StatBadge label="Faturamento total" value={fmtBRL(totalRevenue)} color={C.success} />
-        <StatBadge label="Taxas de entrega" value={fmtBRL(data.reduce((s,r) => s + r.delivery_fee, 0))} color={C.orange} />
+        <StatBadge label="Taxas de entrega" value={fmtBRL(data.reduce((s: any,r: any) => s + r.delivery_fee, 0))} color={C.orange} />
       </div>
 
       <Card>
@@ -236,12 +236,12 @@ function NeighborhoodsReport({ result }) {
           rows={data}
           getKey={r => r.neighborhood}
           columns={[
-            { key: 'rank',         label: '#',            align: 'center', bold: true, render: r => `#${r.rank}` },
+            { key: 'rank',         label: '#',            align: 'center', bold: true, render: (r: any) => `#${r.rank}` },
             { key: 'neighborhood', label: 'Bairro',       bold: true },
-            { key: 'count',        label: 'Pedidos',      align: 'right', render: r => r.count.toLocaleString('pt-BR') },
-            { key: 'avg_ticket',   label: 'Ticket Médio', align: 'right', render: r => fmtBRL(r.avg_ticket) },
-            { key: 'revenue',      label: 'Faturamento',  align: 'right', bold: true, render: r => fmtBRL(r.revenue), color: () => C.success },
-            { key: 'delivery_fee', label: 'Taxa Entrega', align: 'right', render: r => fmtBRL(r.delivery_fee), color: () => C.muted },
+            { key: 'count',        label: 'Pedidos',      align: 'right', render: (r: any) => r.count.toLocaleString('pt-BR') },
+            { key: 'avg_ticket',   label: 'Ticket Médio', align: 'right', render: (r: any) => fmtBRL(r.avg_ticket) },
+            { key: 'revenue',      label: 'Faturamento',  align: 'right', bold: true, render: (r: any) => fmtBRL(r.revenue), color: () => C.success },
+            { key: 'delivery_fee', label: 'Taxa Entrega', align: 'right', render: (r: any) => fmtBRL(r.delivery_fee), color: () => C.muted },
           ]}
         />
       </Card>
@@ -251,14 +251,14 @@ function NeighborhoodsReport({ result }) {
 
 // ── Report: Horários ──────────────────────────────────────────────────────────
 
-function HoursReport({ result }) {
+function HoursReport({ result }: { result: any }) {
   if (!result?.data) return <Empty />;
   const { data, peak_hour, total_orders } = result;
-  const active = data.filter(h => h.count > 0);
-  const totalRevenue = data.reduce((s, h) => s + h.revenue, 0);
+  const active = data.filter((h: any) => h.count > 0);
+  const totalRevenue = data.reduce((s: any, h: any) => s + h.revenue, 0);
 
   // Show only operational hours (10h–23h) for the chart but full table
-  const chartData = data.filter(h => h.hour >= 10 && h.hour <= 23);
+  const chartData = data.filter((h: any) => h.hour >= 10 && h.hour <= 23);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

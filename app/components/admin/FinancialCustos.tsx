@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Edit2, Trash2, X, RefreshCw, DollarSign, Percent,
   TrendingUp, AlertCircle, CheckCircle, ChevronDown, ChevronUp,
@@ -13,9 +13,9 @@ const C = {
   orange: '#F97316', purple: '#8B5CF6', teal: '#14B8A6',
 };
 
-const fmtBRL = v => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtBRL = (v: any) => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-const CATEGORY_ICONS = {
+const CATEGORY_ICONS: Record<string, any> = {
   'Imóvel':         Building2,
   'Energia Elétrica': Zap,
   'Pessoal':        Users,
@@ -29,13 +29,13 @@ const CATEGORY_ICONS = {
 const FIXED_CATEGORIES = ['Pessoal','Imóvel','Energia Elétrica','Água','Telecom','Insumos','Marketing','Outros'];
 const TAX_CATEGORIES   = ['Imposto','Outros'];
 
-const inputStyle = {
+const inputStyle: React.CSSProperties = {
   width: '100%', padding: '9px 12px', border: `1px solid ${C.border}`,
   borderRadius: 8, fontSize: 13, color: C.text, outline: 'none', boxSizing: 'border-box',
   background: '#FAFAFA',
 };
 
-function Modal({ title, onClose, children }) {
+function Modal({ title, onClose, children }: { title: any; onClose: () => void; children: any }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: C.card, borderRadius: 14, padding: '28px 32px', width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -49,7 +49,7 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-function Row({ label, children }) {
+function Row({ label, children }: { label: any; children: any }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: C.muted, marginBottom: 5 }}>{label}</label>
@@ -59,12 +59,12 @@ function Row({ label, children }) {
 }
 
 // ── Cost form (shared for fixed + tax) ────────────────────────────────────────
-function CostForm({ initial, type, onSave, onCancel, saving }) {
+function CostForm({ initial, type, onSave, onCancel, saving }: { initial: any; type: string; onSave: (form: any) => void; onCancel: () => void; saving: boolean }) {
   const [form, setForm] = useState(initial || {
     name: '', description: '', type, amount: '', rate: '', base: 'gross',
     category: type === 'fixed' ? 'Outros' : 'Imposto', is_active: true,
   });
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
 
   const valid = form.name.trim() && (type === 'fixed' ? form.amount !== '' : form.rate !== '');
 
@@ -121,7 +121,7 @@ function CostForm({ initial, type, onSave, onCancel, saving }) {
 }
 
 // ── Cost card ─────────────────────────────────────────────────────────────────
-function CostCard({ item, onEdit, onDelete, type }) {
+function CostCard({ item, onEdit, onDelete, type }: { item: any; onEdit: (item: any) => void; onDelete: (id: any) => void; type: string }) {
   const Icon = CATEGORY_ICONS[item.category] || DollarSign;
   return (
     <div style={{
@@ -165,13 +165,13 @@ function CostCard({ item, onEdit, onDelete, type }) {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
-export default function CustosTab({ adminToken, refreshTick }) {
+export default function CustosTab({ adminToken, refreshTick }: { adminToken: string; refreshTick: number }) {
   const [subTab, setSubTab]   = useState('fixos');
-  const [costs, setCosts]     = useState([]);
+  const [costs, setCosts]     = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving]   = useState(false);
-  const [modal, setModal]     = useState(null); // { type: 'fixed'|'tax', item?: cost }
-  const [revenue, setRevenue] = useState(null); // current month revenue for calculator
+  const [modal, setModal]     = useState<any>(null); // { type: 'fixed'|'tax', item?: cost }
+  const [revenue, setRevenue] = useState<any>(null); // current month revenue for calculator
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -198,7 +198,7 @@ export default function CustosTab({ adminToken, refreshTick }) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${last}`;
   }
 
-  async function handleSave(form) {
+  async function handleSave(form: any) {
     setSaving(true);
     try {
       const res = await fetch('/api/admin/financial', {
@@ -214,7 +214,7 @@ export default function CustosTab({ adminToken, refreshTick }) {
     setSaving(false);
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(id: any) {
     if (!confirm('Remover este item?')) return;
     try {
       await fetch('/api/admin/financial', {
@@ -238,7 +238,7 @@ export default function CustosTab({ adminToken, refreshTick }) {
   const netRevenue       = parseFloat(revenue?.netRevenue       || grossRevenue);
   const monthlyProjection = parseFloat(revenue?.monthlyProjection || grossRevenue);
 
-  function calcTax(tax, base) {
+  function calcTax(tax: any, base: any) {
     const b = tax.base === 'net' ? base.net : base.gross;
     return (b * parseFloat(tax.rate || 0)) / 100;
   }

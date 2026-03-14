@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search, RefreshCw, Plus, X,
 } from 'lucide-react';
@@ -15,17 +15,17 @@ const C = {
 const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                    'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-const PM_LABELS = { pix:'PIX', card:'Cartão de Crédito', cash:'Dinheiro', card_delivery:'Cartão na Entrega' };
+const PM_LABELS: Record<string, string> = { pix:'PIX', card:'Cartão de Crédito', cash:'Dinheiro', card_delivery:'Cartão na Entrega' };
 
 const CATEGORIES_RECEITA = ['Receitas de vendas','Serviços','Outras receitas'];
 const CATEGORIES_DESPESA = ['Pessoal','Imóvel','Energia Elétrica','Água','Telecom','Entregadores','Insumos','Marketing','Impostos','Outros'];
 
-const fmtBRL = v => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtDate = iso => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day:'2-digit', month:'2-digit', year:'numeric' });
+const fmtBRL = (v: any) => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day:'2-digit', month:'2-digit', year:'numeric' });
 const todaySP = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
-function StatusBadge({ status }) {
-  const MAP = {
+function StatusBadge({ status }: { status: string }) {
+  const MAP: Record<string, { label: string; bg: string; color: string }> = {
     recebido:      { label: 'Recebido',  bg: 'rgba(16,185,129,0.1)',   color: C.success },
     pago:          { label: 'Pago',      bg: 'rgba(16,185,129,0.1)',   color: C.success },
     cancelado:     { label: 'Cancelado', bg: 'rgba(239,68,68,0.1)',    color: C.danger  },
@@ -42,7 +42,7 @@ function StatusBadge({ status }) {
   );
 }
 
-function SummaryChip({ label, amount, color, count }) {
+function SummaryChip({ label, amount, color, count }: { label: any; amount: any; color: any; count?: any }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 8, background: C.card, border: `1px solid ${C.border}` }}>
       <span style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>{label}</span>
@@ -52,7 +52,7 @@ function SummaryChip({ label, amount, color, count }) {
   );
 }
 
-function AddModal({ adminToken, onClose, onSaved }) {
+function AddModal({ adminToken, onClose, onSaved }: { adminToken: string; onClose: () => void; onSaved: () => void }) {
   const [form, setForm] = useState({
     entry_type: 'despesa',
     description: '',
@@ -66,7 +66,7 @@ function AddModal({ adminToken, onClose, onSaved }) {
 
   const categories = form.entry_type === 'receita' ? CATEGORIES_RECEITA : CATEGORIES_DESPESA;
 
-  function handleChange(field, value) {
+  function handleChange(field: string, value: any) {
     setForm(f => {
       const next = { ...f, [field]: value };
       if (field === 'entry_type') {
@@ -93,7 +93,7 @@ function AddModal({ adminToken, onClose, onSaved }) {
     } catch (e) { setError('Erro ao salvar.'); setSaving(false); }
   }
 
-  const inputStyle = {
+  const inputStyle: React.CSSProperties = {
     width: '100%', padding: '9px 12px', border: `1px solid ${C.border}`, borderRadius: 8,
     fontSize: 13, color: C.text, outline: 'none', background: '#fff', boxSizing: 'border-box',
   };
@@ -192,9 +192,9 @@ function todaySP2() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-export default function LancamentosTab({ adminToken, refreshTick }) {
+export default function LancamentosTab({ adminToken, refreshTick }: { adminToken: string; refreshTick: number }) {
   const [subTab, setSubTab] = useState('todos');
-  const [data, setData]     = useState(null);
+  const [data, setData]     = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -220,7 +220,7 @@ export default function LancamentosTab({ adminToken, refreshTick }) {
                    : subTab === 'pagar'   ? (data?.despesas || [])
                    : (data?.todos || []);
 
-  const filtered = allEntries.filter(e => {
+  const filtered = allEntries.filter((e: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return e.description?.toLowerCase().includes(q) || e.category?.toLowerCase().includes(q);
@@ -324,7 +324,7 @@ export default function LancamentosTab({ adminToken, refreshTick }) {
                 <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: C.light, fontSize: 13 }}>
                   Nenhum lançamento encontrado
                 </td></tr>
-              ) : filtered.map((e) => {
+              ) : filtered.map((e: any) => {
                 const isExpense   = e.type === 'despesa';
                 const isTransfer  = e.type === 'transferencia';
                 const isCancelled = e.status === 'cancelado';
