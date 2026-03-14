@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { earnCashback } from '../../../../lib/cashback';
+import { logger } from '../../../../lib/logger';
 
 /**
  * POST /api/cashback/earn
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ earned });
   } catch (e) {
-    console.error('[Cashback Earn API]', (e as Error).message);
+    logger.error('[Cashback Earn API]', e as Error);
     return NextResponse.json({ earned: 0 });
   }
 }

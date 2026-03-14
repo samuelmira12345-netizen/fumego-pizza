@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { resetPasswordSchema } from '../../../../lib/schemas';
 import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 import bcrypt from 'bcryptjs';
+import { logger } from '../../../../lib/logger';
 
 /** POST /api/auth/reset-password — redefine a senha usando o token enviado por e-mail. */
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true });
   } catch (e) {
-    console.error('Reset password error:', e);
+    logger.error('Reset password error', e as Error);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
+import { logger } from '../../../../lib/logger';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ url: imageUrl, fileName });
   } catch (e) {
-    console.error('Upload error:', e);
+    logger.error('Upload error', e as Error);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

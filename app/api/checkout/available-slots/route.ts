@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
+import { logger } from '../../../../lib/logger';
 
 /**
  * GET /api/checkout/available-slots?date=YYYY-MM-DD
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ enabled: true, slots: available });
   } catch (e) {
-    console.error('[available-slots]', e);
+    logger.error('[available-slots]', e as Error);
     return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
   }
 }

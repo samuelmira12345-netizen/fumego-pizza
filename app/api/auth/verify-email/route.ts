@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
+import { logger } from '../../../../lib/logger';
 
 /** GET /api/auth/verify-email?token=... — verifica o token de e-mail. */
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, message: 'E-mail verificado com sucesso!' });
   } catch (e) {
-    console.error('Verify email error:', e);
+    logger.error('Verify email error', e as Error);
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

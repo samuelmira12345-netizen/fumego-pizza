@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { getCashbackBalance } from '../../../../lib/cashback';
+import { logger } from '../../../../lib/logger';
 
 /**
  * GET /api/cashback/balance?user_id=...
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const cashbackMaxPercent = parseFloat(String(settingRes.data?.value) || '50');
     return NextResponse.json({ ...result, cashback_max_percent: cashbackMaxPercent });
   } catch (e) {
-    console.error('[Cashback Balance]', (e as Error).message);
+    logger.error('[Cashback Balance]', e as Error);
     return NextResponse.json({ balance: 0, transactions: [], cashback_max_percent: 50 });
   }
 }
