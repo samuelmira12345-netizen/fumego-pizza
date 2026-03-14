@@ -25,7 +25,7 @@ function ResetPasswordForm() {
     if (!token) setError('Link inválido ou expirado. Solicite um novo.');
   }, [token]);
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     if (newPassword !== confirmPassword) { setError('As senhas não coincidem'); return; }

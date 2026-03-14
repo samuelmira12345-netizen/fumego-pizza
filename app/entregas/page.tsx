@@ -3,18 +3,21 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   MapPin, Phone, Package, CheckCircle, Truck, LogOut,
-  RefreshCw, Navigation, Clock, DollarSign, User,
+  RefreshCw, Clock, DollarSign, User,
   ChevronDown, ChevronUp, AlertCircle, Loader2,
 } from 'lucide-react';
+import type { Order, DeliveryPerson } from '../../types';
 
-const TOKEN_KEY = 'delivery_token';
+const TOKEN_KEY  = 'delivery_token';
 const PERSON_KEY = 'delivery_person';
 
-function fmtBRL(v) {
-  return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+type DeliveryAction = 'collected' | 'delivered';
+
+function fmtBRL(v: number | string): string {
+  return (parseFloat(String(v)) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function fmtPhone(p) {
+function fmtPhone(p: string | null | undefined): string | null {
   if (!p) return null;
   const d = p.replace(/\D/g, '');
   if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
@@ -22,14 +25,14 @@ function fmtPhone(p) {
   return p;
 }
 
-function fmtTime(isoStr) {
+function fmtTime(isoStr: string | null | undefined): string {
   if (!isoStr) return '—';
   return new Date(isoStr).toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit',
   });
 }
 
-const PM_LABELS = {
+const PM_LABELS: Record<string, string> = {
   pix: 'PIX',
   cash: 'Dinheiro',
   card_delivery: 'Cartão na entrega',
@@ -39,13 +42,17 @@ const PM_LABELS = {
 
 // ── Login Screen ──────────────────────────────────────────────────────────────
 
-function LoginScreen({ onLogin }) {
+interface LoginScreenProps {
+  onLogin: (token: string, person: DeliveryPerson) => void;
+}
+
+function LoginScreen({ onLogin }: LoginScreenProps) {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
 
-  async function handleLogin(e) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!email || !password) { setError('Preencha email e senha'); return; }
     setLoading(true);
@@ -61,7 +68,7 @@ function LoginScreen({ onLogin }) {
       sessionStorage.setItem(TOKEN_KEY, d.token);
       sessionStorage.setItem(PERSON_KEY, JSON.stringify(d.person));
       onLogin(d.token, d.person);
-    } catch (e) { setError('Erro de conexão'); }
+    } catch { setError('Erro de conexão'); }
     finally { setLoading(false); }
   }
 
@@ -114,17 +121,25 @@ function LoginScreen({ onLogin }) {
 
 // ── Order Card ────────────────────────────────────────────────────────────────
 
-function OrderCard({ order, token, onStatusUpdate, isBlocked, queuePosition }) {
-  const [expanded, setExpanded] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(null); // 'collected' | 'delivered'
+interface OrderCardProps {
+  order: Order;
+  token: string;
+  onStatusUpdate: (orderId: string, action: DeliveryAction) => void;
+  isBlocked?: boolean;
+  queuePosition?: number;
+}
+
+function OrderCard({ order, token, onStatusUpdate, isBlocked, queuePosition }: OrderCardProps) {
+  const [expanded, setExpanded]     = useState(false);
+  const [updating, setUpdating]     = useState(false);
+  const [showConfirm, setShowConfirm] = useState<DeliveryAction | null>(null);
 
   const isCollected  = !!order.driver_collected_at;
   const isDelivered  = !!order.driver_delivered_at || order.status === 'delivered';
   const pmLabel = PM_LABELS[order.payment_method] || order.payment_method || '—';
   const needsPayment = ['cash', 'card_delivery'].includes(order.payment_method);
 
-  async function doAction(action) {
+  async function doAction(action: DeliveryAction) {
     setShowConfirm(null);
     setUpdating(true);
     try {
@@ -136,7 +151,7 @@ function OrderCard({ order, token, onStatusUpdate, isBlocked, queuePosition }) {
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
       onStatusUpdate(order.id, action);
-    } catch (e) { alert('Erro de conexão'); }
+    } catch { alert('Erro de conexão'); }
     finally { setUpdating(false); }
   }
 
@@ -360,20 +375,20 @@ function OrderCard({ order, token, onStatusUpdate, isBlocked, queuePosition }) {
 // ── Main Delivery Page ────────────────────────────────────────────────────────
 
 export default function EntregasPage() {
-  const [token, setToken]       = useState(() => {
+  const [token, setToken]   = useState<string>(() => {
     try { return sessionStorage.getItem(TOKEN_KEY) || ''; } catch { return ''; }
   });
-  const [person, setPerson]     = useState(() => {
+  const [person, setPerson] = useState<DeliveryPerson | null>(() => {
     try { const s = sessionStorage.getItem(PERSON_KEY); return s ? JSON.parse(s) : null; } catch { return null; }
   });
-  const [orders, setOrders]     = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [lastRefresh, setLastRefresh] = useState(null);
-  const locationRef             = useRef(null);
+  const [orders, setOrders]             = useState<Order[]>([]);
+  const [loading, setLoading]           = useState(false);
+  const [lastRefresh, setLastRefresh]   = useState<Date | null>(null);
+  const locationRef                     = useRef<{ lat: number; lng: number } | null>(null);
 
   const isLoggedIn = !!token && !!person;
 
-  function handleLogin(tok, p) {
+  function handleLogin(tok: string, p: DeliveryPerson) {
     setToken(tok);
     setPerson(p);
   }
@@ -442,12 +457,12 @@ export default function EntregasPage() {
     return () => clearInterval(iv);
   }, [isLoggedIn, orders, token]);
 
-  function handleStatusUpdate(orderId, action) {
+  function handleStatusUpdate(orderId: string, action: DeliveryAction) {
     setOrders(prev => prev.map(o => {
       if (o.id !== orderId) return o;
       const now = new Date().toISOString();
-      if (action === 'collected') return { ...o, status: 'delivering', driver_collected_at: now };
-      if (action === 'delivered') return { ...o, status: 'delivered', driver_delivered_at: now };
+      if (action === 'collected') return { ...o, status: 'delivering' as const, driver_collected_at: now };
+      if (action === 'delivered') return { ...o, status: 'delivered' as const, driver_delivered_at: now };
       return o;
     }));
     // Refresh after a moment
@@ -459,7 +474,7 @@ export default function EntregasPage() {
   const activeOrders    = orders.filter(o => !o.driver_delivered_at && o.status !== 'delivered');
   const completedOrders = orders.filter(o => !!o.driver_delivered_at || o.status === 'delivered');
   const deliveredCount = completedOrders.length;
-  const deliveredFees = completedOrders.reduce((sum, o) => sum + (parseFloat(o.delivery_fee) || 0), 0);
+  const deliveredFees = completedOrders.reduce((sum, o) => sum + (Number(o.delivery_fee) || 0), 0);
 
   // Compute blocking: only the first undelivered active order is unlocked
   // (orders are already sorted by delivery_sort_order from the server)

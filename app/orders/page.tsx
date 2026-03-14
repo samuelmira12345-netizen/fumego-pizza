@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pizza, GlassWater, MapPin, Clock, Landmark, CreditCard, Banknote, ShoppingBag, ClipboardList, Search, X, ChevronDown } from 'lucide-react';
+import type { Order, OrderItem } from '../../types';
 
 const GOLD   = '#F2A800';
 const BG     = '#080600';
@@ -10,7 +11,17 @@ const CARD   = '#1C1500';
 const BORDER = '#2C1E00';
 const MUTED  = '#7A6040';
 
-const STATUS = {
+interface StoredUser {
+  id: string;
+}
+
+interface StatusInfo {
+  label: string;
+  color: string;
+  bg: string;
+}
+
+const STATUS: Record<string, StatusInfo> = {
   pending:    { label: 'Aguardando',        color: '#F2A800', bg: 'rgba(242,168,0,0.15)'   },
   confirmed:  { label: 'Confirmado',        color: '#60A5FA', bg: 'rgba(96,165,250,0.15)'  },
   preparing:  { label: 'Preparando',        color: '#F97316', bg: 'rgba(249,115,22,0.15)'  },
@@ -26,7 +37,7 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'cancelled', label: 'Cancelado' },
 ];
 
-const PAY_ICON = {
+const PAY_ICON: Record<string, React.ReactNode> = {
   pix:          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Landmark size={12} /> PIX</span>,
   card:         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><CreditCard size={12} /> Cartão</span>,
   cash:         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Banknote size={12} /> Dinheiro</span>,
@@ -36,18 +47,18 @@ const PAY_ICON = {
 const ONGOING_STATUS = ['pending', 'confirmed', 'preparing', 'delivering', 'scheduled'];
 const PAGE_SIZE = 3;
 
-function fmtDate(str) {
+function fmtDate(str: string): string {
   return new Date(str).toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   });
 }
 
-function fmtMoney(v) {
+function fmtMoney(v: number): string {
   return Number(v).toFixed(2).replace('.', ',');
 }
 
-function timeElapsed(dateStr) {
+function timeElapsed(dateStr: string): string {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
   if (diff < 1) return 'agora';
   if (diff < 60) return `há ${diff} min`;
@@ -56,7 +67,7 @@ function timeElapsed(dateStr) {
   return m > 0 ? `há ${h}h ${m}min` : `há ${h}h`;
 }
 
-function OrderCard({ order }) {
+function OrderCard({ order }: { order: Order }) {
   const s = STATUS[order.status] || STATUS.pending;
   const isOngoing = ONGOING_STATUS.includes(order.status);
   return (
@@ -88,7 +99,7 @@ function OrderCard({ order }) {
 
       {/* Itens */}
       <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 10, marginBottom: 10 }}>
-        {order.order_items?.map(item => (
+        {order.order_items?.map((item: OrderItem) => (
           <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
             <p style={{ fontSize: 13, color: item.drink_id ? MUTED : '#e8e8e8', display: 'flex', alignItems: 'center', gap: 5 }}>
               {item.drink_id
@@ -134,13 +145,13 @@ function OrderCard({ order }) {
 
 export default function OrdersPage() {
   const router = useRouter();
-  const [user, setUser]           = useState(null);
-  const [orders, setOrders]       = useState([]);
+  const [user, setUser]           = useState<StoredUser | null>(null);
+  const [orders, setOrders]       = useState<Order[]>([]);
   const [loading, setLoading]     = useState(true);
-  const [tab, setTab]             = useState('ongoing');
+  const [tab, setTab]             = useState<'ongoing' | 'past'>('ongoing');
 
   // Histórico: busca, filtro e paginação
-  const [search, setSearch]         = useState('');
+  const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -148,7 +159,7 @@ export default function OrdersPage() {
     try {
       const raw = localStorage.getItem('fumego_user');
       if (!raw) { router.push('/login'); return; }
-      const u = JSON.parse(raw);
+      const u: StoredUser = JSON.parse(raw);
       setUser(u);
       fetchOrders();
     } catch { router.push('/login'); }
@@ -180,7 +191,7 @@ export default function OrdersPage() {
       if (!q) return true;
       return (
         String(o.order_number).includes(q) ||
-        (o.order_items || []).some(i => (i.product_name || '').toLowerCase().includes(q))
+        (o.order_items || []).some((i: OrderItem) => (i.product_name || '').toLowerCase().includes(q))
       );
     });
   }, [past, search, statusFilter]);
@@ -208,8 +219,8 @@ export default function OrdersPage() {
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}` }}>
         {[
-          { id: 'ongoing', label: 'Em andamento', count: ongoing.length },
-          { id: 'past',    label: 'Histórico',    count: past.length    },
+          { id: 'ongoing' as const, label: 'Em andamento', count: ongoing.length },
+          { id: 'past'    as const, label: 'Histórico',    count: past.length    },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{
             flex: 1, padding: '13px 16px',

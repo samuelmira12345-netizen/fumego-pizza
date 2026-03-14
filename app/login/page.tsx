@@ -21,11 +21,10 @@ export default function LoginPage() {
 
   useEffect(() => {
     supabase.from('settings').select('value').eq('key', 'logo_url').single()
-      .then(({ data }) => { if (data?.value) setLogoUrl(data.value); })
-      .catch(() => {});
+      .then(({ data }) => { if (data?.value) setLogoUrl(data.value); }, () => {});
   }, []);
 
-  async function handleLogin(e) {
+  async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -42,7 +41,7 @@ export default function LoginPage() {
       // Apenas os dados de perfil (sem credenciais) ficam no localStorage para a UI.
       localStorage.setItem('fumego_user', JSON.stringify(data.user));
       router.push('/teste');
-    } catch (e) { setError('Erro de conexão'); }
+    } catch { setError('Erro de conexão'); }
     finally { setLoading(false); }
   }
 

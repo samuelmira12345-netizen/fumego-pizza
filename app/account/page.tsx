@@ -11,8 +11,39 @@ const CARD       = '#1C1500';
 const BORDER     = '#2C1E00';
 const MUTED      = '#7A6040';
 
+interface StoredUser {
+  name: string;
+  email: string;
+  phone?: string | null;
+  cpf?: string | null;
+  address_zipcode?: string | null;
+  address_street?: string | null;
+  address_number?: string | null;
+  address_complement?: string | null;
+  address_neighborhood?: string | null;
+  address_city?: string | null;
+  address_state?: string | null;
+}
+
+interface AccountForm {
+  name: string;
+  email: string;
+  phone: string;
+  cpf: string;
+  address_zipcode: string;
+  address_street: string;
+  address_number: string;
+  address_complement: string;
+  address_neighborhood: string;
+  address_city: string;
+  address_state: string;
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+}
+
 // Defined OUTSIDE AccountPage to prevent unmount/remount on every render
-function Section({ title, children }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ background: CARD, borderRadius: 16, padding: 16, border: `1px solid ${BORDER}` }}>
       <h2 style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: 2.5, marginBottom: 14 }}>
@@ -27,13 +58,13 @@ function Section({ title, children }) {
 
 export default function AccountPage() {
   const router = useRouter();
-  const [user, setUser]           = useState(null);
-  const [loading, setLoading]     = useState(false);
+  const [user, setUser]             = useState<StoredUser | null>(null);
+  const [loading, setLoading]       = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
-  const [msg, setMsg]             = useState('');
-  const [error, setError]         = useState('');
+  const [msg, setMsg]               = useState('');
+  const [error, setError]           = useState('');
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<AccountForm>({
     name: '', email: '', phone: '', cpf: '',
     address_zipcode: '', address_street: '', address_number: '',
     address_complement: '', address_neighborhood: '', address_city: '', address_state: '',
@@ -44,7 +75,7 @@ export default function AccountPage() {
     try {
       const raw = localStorage.getItem('fumego_user');
       if (!raw) { router.push('/login'); return; }
-      const u = JSON.parse(raw);
+      const u: StoredUser = JSON.parse(raw);
       setUser(u);
       setForm(prev => ({
         ...prev,
@@ -63,9 +94,11 @@ export default function AccountPage() {
     } catch { router.push('/login'); }
   }, []);
 
-  function upd(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
+  function upd(field: keyof AccountForm, value: string) {
+    setForm(prev => ({ ...prev, [field]: value }));
+  }
 
-  async function handleCepBlur(e) {
+  async function handleCepBlur(e: React.FocusEvent<HTMLInputElement>) {
     // Usa e.target.value diretamente para evitar closure stale com estado React
     const rawValue = e?.target?.value ?? form.address_zipcode;
     const cep = rawValue.replace(/\D/g, '');
@@ -87,7 +120,7 @@ export default function AccountPage() {
     finally { setCepLoading(false); }
   }
 
-  async function handleSave(e) {
+  async function handleSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMsg(''); setError('');
     if (!form.current_password.trim()) {
@@ -101,7 +134,7 @@ export default function AccountPage() {
     setLoading(true);
     try {
       // JWT enviado via cookie httpOnly (sem precisar do token no body)
-      const body = {
+      const body: Record<string, string> = {
         name:  form.name,  email: form.email,
         phone: form.phone, cpf:   form.cpf,
         address_street:       form.address_street,
@@ -111,8 +144,8 @@ export default function AccountPage() {
         address_city:         form.address_city,
         address_state:        form.address_state,
         address_zipcode:      form.address_zipcode,
+        current_password:     form.current_password,
       };
-      body.current_password = form.current_password;
       if (form.new_password) {
         body.new_password = form.new_password;
       }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Wallet, Clock, ArrowLeft, TrendingUp, Minus } from 'lucide-react';
+import { Wallet, Clock, ArrowLeft, TrendingUp } from 'lucide-react';
 
 const GOLD   = '#F2A800';
 const BG     = '#080600';
@@ -11,24 +11,35 @@ const BORDER = '#2C1E00';
 const MUTED  = '#7A6040';
 const GREEN  = '#48BB78';
 
-function fmt(n) { return Number(n).toFixed(2).replace('.', ','); }
+interface StoredUser {
+  id: string;
+}
 
-function daysLeft(expiresAt) {
-  const diff = new Date(expiresAt) - new Date();
+interface CashbackTransaction {
+  id: string;
+  expires_at: string;
+  remaining: number;
+  amount: number;
+}
+
+function fmt(n: number): string { return Number(n).toFixed(2).replace('.', ','); }
+
+function daysLeft(expiresAt: string): number {
+  const diff = new Date(expiresAt).getTime() - new Date().getTime();
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
 export default function WalletPage() {
   const router = useRouter();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [balance, setBalance] = useState(0);
-  const [transactions, setTransactions] = useState([]);
+  const [transactions, setTransactions] = useState<CashbackTransaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const userData = localStorage.getItem('fumego_user');
     if (!userData) { router.push('/login'); return; }
-    const u = JSON.parse(userData);
+    const u: StoredUser = JSON.parse(userData);
     setUser(u);
 
     fetch(`/api/cashback/balance?user_id=${u.id}`)

@@ -83,8 +83,12 @@ export interface Order {
   // Relacionamentos
   user_id: string | null;
   delivery_person_id: string | null;
+  driver_collected_at: string | null;
   driver_delivered_at: string | null;
   delivery_sort_order: number | null;
+
+  // Join opcional (carregado junto em algumas queries)
+  order_items?: OrderItem[];
 }
 
 export interface OrderItem {

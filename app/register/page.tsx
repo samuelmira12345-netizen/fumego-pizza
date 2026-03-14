@@ -11,28 +11,44 @@ const CARD   = '#1C1500';
 const BORDER = '#2C1E00';
 const MUTED  = '#7A6040';
 
+interface RegisterForm {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  confirm: string;
+  address_zipcode: string;
+  address_street: string;
+  address_number: string;
+  address_complement: string;
+  address_neighborhood: string;
+  address_city: string;
+  address_state: string;
+}
+
 export default function RegisterPage() {
   const router = useRouter();
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<RegisterForm>({
     name: '', email: '', phone: '', password: '', confirm: '',
     address_zipcode: '', address_street: '', address_number: '',
     address_complement: '', address_neighborhood: '', address_city: '', address_state: '',
   });
-  const [loading, setLoading]     = useState(false);
+  const [loading, setLoading]       = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
-  const [error, setError]         = useState('');
-  const [logoUrl, setLogoUrl]     = useState('');
+  const [error, setError]           = useState('');
+  const [logoUrl, setLogoUrl]       = useState('');
 
   useEffect(() => {
     supabase.from('settings').select('value').eq('key', 'logo_url').single()
-      .then(({ data }) => { if (data?.value) setLogoUrl(data.value); })
-      .catch(() => {});
+      .then(({ data }) => { if (data?.value) setLogoUrl(data.value); }, () => {});
   }, []);
 
-  function upd(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
+  function upd(field: keyof RegisterForm, value: string) {
+    setForm(prev => ({ ...prev, [field]: value }));
+  }
 
-  async function handleCepBlur(e) {
+  async function handleCepBlur(e: React.FocusEvent<HTMLInputElement>) {
     // Usa e.target.value diretamente para evitar closure stale com estado React
     const rawValue = e?.target?.value ?? form.address_zipcode;
     const cep = rawValue.replace(/\D/g, '');
@@ -54,7 +70,7 @@ export default function RegisterPage() {
     finally { setCepLoading(false); }
   }
 
-  async function handleRegister(e) {
+  async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     if (form.password !== form.confirm) { setError('Senhas não coincidem'); return; }
