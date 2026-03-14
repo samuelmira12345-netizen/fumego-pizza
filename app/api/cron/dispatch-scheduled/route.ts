@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
-import { isCWPartnerEnabled, pushOrderToCW } from '../../../../lib/cardapioweb-partner';
+import { isCWPartnerEnabled, pushOrderToCW, PushOrderResult } from '../../../../lib/cardapioweb-partner';
 import { logger } from '../../../../lib/logger';
 
 /**
@@ -51,10 +51,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
       if (isCWPartnerEnabled()) {
         pushOrderToCW(order, orderItems || [])
-          .then(async (r: { ok: boolean; data?: { id?: string }; error?: string; errors?: string[] }) => {
+          .then(async (r: PushOrderResult) => {
             if (r.ok) {
               logger.info('[Cron] Pedido agendado enviado ao CardápioWeb', {
-                orderId: order.id, cwOrderId: r.data?.id, scheduled_for: order.scheduled_for,
+                orderId: order.id, cwOrderId: (r.data as Record<string, unknown>)?.['id'], scheduled_for: order.scheduled_for,
               });
               await supabase.from('orders').update({
                 cw_push_status:     'success',
@@ -95,10 +95,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           .from('order_items').select('*').eq('order_id', order.id);
 
         pushOrderToCW(order, orderItems || [])
-          .then(async (r: { ok: boolean; data?: { id?: string }; error?: string; errors?: string[] }) => {
+          .then(async (r: PushOrderResult) => {
             if (r.ok) {
               logger.info('[Cron] Retry CW bem-sucedido', {
-                orderId: order.id, cwOrderId: r.data?.id, attempt: (order.cw_push_attempts || 0) + 1,
+                orderId: order.id, cwOrderId: (r.data as Record<string, unknown>)?.['id'], attempt: (order.cw_push_attempts || 0) + 1,
               });
               await supabase.from('orders').update({
                 cw_push_status:     'success',

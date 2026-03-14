@@ -3,7 +3,8 @@ import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { hashCpf, validateCpf } from '../../../../lib/cpf-crypto';
 import { sendOrderConfirmationEmail } from '../../../../lib/email';
 import { createOrderSchema } from '../../../../lib/schemas';
-import { isCWPartnerEnabled, pushOrderToCW } from '../../../../lib/cardapioweb-partner';
+import { isCWPartnerEnabled, pushOrderToCW, PushOrderResult } from '../../../../lib/cardapioweb-partner';
+import type { OrderItem } from '../../../../types';
 import { logger } from '../../../../lib/logger';
 import { earnCashback, useCashback } from '../../../../lib/cashback';
 
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Inserir itens do pedido
-    const orderItems = (items as Record<string, unknown>[]).map(item => ({ ...item, order_id: order.id }));
+    const orderItems = (items as OrderItem[]).map(item => ({ ...item, order_id: order.id })) as OrderItem[];
     const { error: itemsErr } = await supabase.from('order_items').insert(orderItems);
     if (itemsErr) {
       logger.error('Erro ao inserir itens do pedido', { orderId: order.id, error: itemsErr.message });
@@ -204,7 +205,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // ── Cardápio Web Partner API ──────────────────────────────────────────────
     if (isCWPartnerEnabled()) {
       pushOrderToCW(order, orderItems)
-        .then(async (result: Record<string, unknown>) => {
+        .then(async (result: PushOrderResult) => {
           if (result.ok) {
             logger.info('[CW Partner] Pedido enviado com sucesso ao CardápioWeb', {
               orderId:   order.id,
@@ -216,7 +217,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               cw_push_last_error:  null,
             }).eq('id', order.id);
           } else {
-            const errMsg = result.error || ((result.errors as string[] || []).join('; ')) || `HTTP ${result.status}`;
+            const errMsg = result.error || (result.errors || []).join('; ') || `HTTP ${result.status}`;
             logger.error('[CW Partner] Falha ao enviar pedido ao CardápioWeb', {
               orderId: order.id,
               status:  result.status,
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             await supabase.from('orders').update({
               cw_push_status:     'failed',
               cw_push_attempts:   (order.cw_push_attempts || 0) + 1,
-              cw_push_last_error: (errMsg as string).slice(0, 500),
+              cw_push_last_error: errMsg.slice(0, 500),
             }).eq('id', order.id);
           }
         })
