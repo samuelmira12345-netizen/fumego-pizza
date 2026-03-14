@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-function slugifyProductName(value) {
+// ── Helpers internos ──────────────────────────────────────────────────────────
+
+function slugifyProductName(value: string | null | undefined): string {
   const base = String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -12,7 +15,7 @@ function slugifyProductName(value) {
   return base || `produto-${Date.now()}`;
 }
 
-async function getAvailableProductSlug(supabase, preferredSlug) {
+async function getAvailableProductSlug(supabase: SupabaseClient, preferredSlug: string): Promise<string> {
   const { data: rows, error } = await supabase
     .from('products')
     .select('slug')
@@ -28,29 +31,43 @@ async function getAvailableProductSlug(supabase, preferredSlug) {
   return `${preferredSlug}-${i}`;
 }
 
-export async function handleSaveAll(supabase, data) {
+interface StockEntry {
+  qty?: number;
+  enabled?: boolean;
+}
+
+interface VisibilityMap {
+  products?: Record<string, unknown>;
+  drinks?: Record<string, unknown>;
+}
+
+// ── Handlers exportados ───────────────────────────────────────────────────────
+
+export async function handleSaveAll(supabase: SupabaseClient, data: Record<string, unknown>): Promise<NextResponse> {
   const { products, drinks, settings } = data;
+
   if (products) {
-    for (const p of products) {
+    for (const p of (products as Record<string, unknown>[])) {
       const { error } = await supabase.from('products').upsert(p);
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     }
   }
   if (drinks) {
-    for (const d of drinks) {
+    for (const d of (drinks as Record<string, unknown>[])) {
       const { error } = await supabase.from('drinks').upsert(d);
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     }
   }
   if (settings) {
-    for (const s of settings) {
+    for (const s of (settings as Record<string, unknown>[]) ) {
       await supabase.from('settings').upsert(s, { onConflict: 'key' });
     }
-    // Sincroniza stock_limits → product_stock e drink_stock_limits → drink_stock
-    const stockSetting = settings.find(s => s.key === 'stock_limits');
+
+    // Sincroniza stock_limits → product_stock
+    const stockSetting = (settings as Array<{ key: string; value?: string }>).find(s => s.key === 'stock_limits');
     if (stockSetting?.value) {
       try {
-        const stockMap = JSON.parse(stockSetting.value);
+        const stockMap = JSON.parse(stockSetting.value) as Record<string, StockEntry>;
         const rows = Object.entries(stockMap).map(([product_id, entry]) => ({
           product_id,
           quantity: entry.qty ?? 0,
@@ -63,10 +80,11 @@ export async function handleSaveAll(supabase, data) {
       } catch {}
     }
 
-    const drinkStockSetting = settings.find(s => s.key === 'drink_stock_limits');
+    // Sincroniza drink_stock_limits → drink_stock
+    const drinkStockSetting = (settings as Array<{ key: string; value?: string }>).find(s => s.key === 'drink_stock_limits');
     if (drinkStockSetting?.value) {
       try {
-        const drinkMap = JSON.parse(drinkStockSetting.value);
+        const drinkMap = JSON.parse(drinkStockSetting.value) as Record<string, StockEntry>;
         const rows = Object.entries(drinkMap).map(([drink_id, entry]) => ({
           drink_id,
           quantity: entry.qty ?? 0,
@@ -82,14 +100,14 @@ export async function handleSaveAll(supabase, data) {
   return NextResponse.json({ success: true });
 }
 
-export async function handleSaveSetting(supabase, data) {
+export async function handleSaveSetting(supabase: SupabaseClient, data: Record<string, unknown>): Promise<NextResponse> {
   const { key, value } = data;
   await supabase.from('settings').upsert({ key, value }, { onConflict: 'key' });
   return NextResponse.json({ success: true });
 }
 
-export async function handleAddProduct(supabase, data) {
-  const baseSlug = slugifyProductName(data?.slug || data?.name);
+export async function handleAddProduct(supabase: SupabaseClient, data: Record<string, unknown>): Promise<NextResponse> {
+  const baseSlug = slugifyProductName((data?.slug || data?.name) as string | undefined);
   const slug = await getAvailableProductSlug(supabase, baseSlug);
 
   const { data: inserted, error } = await supabase
@@ -102,13 +120,13 @@ export async function handleAddProduct(supabase, data) {
   return NextResponse.json({ success: true, product: inserted });
 }
 
-export async function handleAddDrink(supabase, data) {
+export async function handleAddDrink(supabase: SupabaseClient, data: Record<string, unknown>): Promise<NextResponse> {
   const { error, data: inserted } = await supabase.from('drinks').insert(data).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ success: true, drink: inserted });
 }
 
-export async function handleDeleteProduct(supabase, data) {
+export async function handleDeleteProduct(supabase: SupabaseClient, data?: Record<string, unknown>): Promise<NextResponse> {
   const { id } = data || {};
   if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
 
@@ -123,9 +141,9 @@ export async function handleDeleteProduct(supabase, data) {
     .select('key, value')
     .eq('key', 'catalog_visibility_overrides');
 
-  let visibility = { products: {}, drinks: {} };
+  let visibility: VisibilityMap = { products: {}, drinks: {} };
   try {
-    if (settingsRows?.[0]?.value) visibility = JSON.parse(settingsRows[0].value);
+    if (settingsRows?.[0]?.value) visibility = JSON.parse(settingsRows[0].value) as VisibilityMap;
   } catch {}
 
   if (visibility?.products && visibility.products[String(id)] !== undefined) {
@@ -138,33 +156,33 @@ export async function handleDeleteProduct(supabase, data) {
   return NextResponse.json({ success: true });
 }
 
-export async function handleDeleteDrink(supabase, data) {
+export async function handleDeleteDrink(supabase: SupabaseClient, data: Record<string, unknown>): Promise<NextResponse> {
   const { error } = await supabase.from('drinks').delete().eq('id', data.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ success: true });
 }
 
-export async function handleDuplicateDrink(supabase, data) {
+export async function handleDuplicateDrink(supabase: SupabaseClient, data: Record<string, unknown>): Promise<NextResponse> {
   const { id } = data;
   const { data: src } = await supabase.from('drinks').select('*').eq('id', id).single();
   if (!src) return NextResponse.json({ error: 'Bebida não encontrada' }, { status: 404 });
-  const { id: _id, created_at, ...rest } = src;
+  const { id: _id, created_at, ...rest } = src as Record<string, unknown>;
   const { data: inserted, error } = await supabase.from('drinks')
-    .insert({ ...rest, name: src.name + ' (cópia)', is_active: false }).select().single();
+    .insert({ ...rest, name: String(src.name) + ' (cópia)', is_active: false }).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ success: true, drink: inserted });
 }
 
-export async function handleRemoveLogo(supabase) {
+export async function handleRemoveLogo(supabase: SupabaseClient): Promise<NextResponse> {
   await supabase.from('settings').upsert({ key: 'logo_url', value: '' }, { onConflict: 'key' });
   return NextResponse.json({ success: true });
 }
 
-export async function handleUpdateProductFlags(supabase, data) {
+export async function handleUpdateProductFlags(supabase: SupabaseClient, data?: Record<string, unknown>): Promise<NextResponse> {
   const { id, is_active, is_hidden } = data || {};
   if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
 
-  const updates = {};
+  const updates: Record<string, boolean> = {};
   if (is_active !== undefined) updates.is_active = !!is_active;
   if (is_hidden !== undefined) updates.is_hidden = !!is_hidden;
 
@@ -173,55 +191,44 @@ export async function handleUpdateProductFlags(supabase, data) {
   }
 
   const { data: current, error: currentErr } = await supabase
-    .from('products')
-    .select('*')
-    .eq('id', id)
-    .single();
+    .from('products').select('*').eq('id', id).single();
 
   if (currentErr || !current) {
     return NextResponse.json({ error: currentErr?.message || 'Produto não encontrado' }, { status: 404 });
   }
 
   const { data: settingsRows } = await supabase
-    .from('settings')
-    .select('key, value')
-    .eq('key', 'catalog_visibility_overrides');
+    .from('settings').select('key, value').eq('key', 'catalog_visibility_overrides');
 
-  let visibility = { products: {}, drinks: {} };
+  let visibility: VisibilityMap = { products: {}, drinks: {} };
   try {
-    if (settingsRows?.[0]?.value) visibility = JSON.parse(settingsRows[0].value);
+    if (settingsRows?.[0]?.value) visibility = JSON.parse(settingsRows[0].value) as VisibilityMap;
   } catch {}
 
   visibility.products = visibility.products || {};
-  visibility.drinks = visibility.drinks || {};
-  const prev = visibility.products[String(id)] || {};
+  visibility.drinks   = visibility.drinks   || {};
+  const prev = (visibility.products[String(id)] || {}) as Record<string, boolean>;
   visibility.products[String(id)] = { ...prev, ...updates };
 
   await supabase
     .from('settings')
     .upsert({ key: 'catalog_visibility_overrides', value: JSON.stringify(visibility) }, { onConflict: 'key' });
 
-  let updated = { ...current, ...updates };
+  let updated = { ...(current as Record<string, unknown>), ...updates };
 
   const { data: dbUpdated, error } = await supabase
-    .from('products')
-    .update(updates)
-    .eq('id', id)
-    .select('*')
-    .single();
+    .from('products').update(updates).eq('id', id).select('*').single();
 
-  if (!error && dbUpdated) {
-    updated = dbUpdated;
-  }
+  if (!error && dbUpdated) updated = dbUpdated as Record<string, unknown>;
 
   return NextResponse.json({ success: true, product: updated, persistedInSettings: true });
 }
 
-export async function handleUpdateDrinkFlags(supabase, data) {
+export async function handleUpdateDrinkFlags(supabase: SupabaseClient, data?: Record<string, unknown>): Promise<NextResponse> {
   const { id, is_active, is_hidden } = data || {};
   if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
 
-  const updates = {};
+  const updates: Record<string, boolean> = {};
   if (is_active !== undefined) updates.is_active = !!is_active;
   if (is_hidden !== undefined) updates.is_hidden = !!is_hidden;
 
@@ -230,46 +237,35 @@ export async function handleUpdateDrinkFlags(supabase, data) {
   }
 
   const { data: current, error: currentErr } = await supabase
-    .from('drinks')
-    .select('*')
-    .eq('id', id)
-    .single();
+    .from('drinks').select('*').eq('id', id).single();
 
   if (currentErr || !current) {
     return NextResponse.json({ error: currentErr?.message || 'Bebida não encontrada' }, { status: 404 });
   }
 
   const { data: settingsRows } = await supabase
-    .from('settings')
-    .select('key, value')
-    .eq('key', 'catalog_visibility_overrides');
+    .from('settings').select('key, value').eq('key', 'catalog_visibility_overrides');
 
-  let visibility = { products: {}, drinks: {} };
+  let visibility: VisibilityMap = { products: {}, drinks: {} };
   try {
-    if (settingsRows?.[0]?.value) visibility = JSON.parse(settingsRows[0].value);
+    if (settingsRows?.[0]?.value) visibility = JSON.parse(settingsRows[0].value) as VisibilityMap;
   } catch {}
 
   visibility.products = visibility.products || {};
-  visibility.drinks = visibility.drinks || {};
-  const prev = visibility.drinks[String(id)] || {};
+  visibility.drinks   = visibility.drinks   || {};
+  const prev = (visibility.drinks[String(id)] || {}) as Record<string, boolean>;
   visibility.drinks[String(id)] = { ...prev, ...updates };
 
   await supabase
     .from('settings')
     .upsert({ key: 'catalog_visibility_overrides', value: JSON.stringify(visibility) }, { onConflict: 'key' });
 
-  let updated = { ...current, ...updates };
+  let updated = { ...(current as Record<string, unknown>), ...updates };
 
   const { data: dbUpdated, error } = await supabase
-    .from('drinks')
-    .update(updates)
-    .eq('id', id)
-    .select('*')
-    .single();
+    .from('drinks').update(updates).eq('id', id).select('*').single();
 
-  if (!error && dbUpdated) {
-    updated = dbUpdated;
-  }
+  if (!error && dbUpdated) updated = dbUpdated as Record<string, unknown>;
 
   return NextResponse.json({ success: true, drink: updated, persistedInSettings: true });
 }
