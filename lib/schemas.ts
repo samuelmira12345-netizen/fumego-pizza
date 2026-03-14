@@ -1,5 +1,6 @@
 /**
- * lib/schemas.js — Schemas Zod compartilhados entre as API routes.
+ * lib/schemas.ts — Schemas Zod compartilhados entre as API routes.
+ * Os tipos inferidos pelo Zod são exportados para uso em componentes e handlers.
  */
 import { z } from 'zod';
 
@@ -68,3 +69,11 @@ export const resetPasswordSchema = z.object({
   token:        z.string().min(1),
   new_password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres').max(128),
 });
+
+// ── Tipos inferidos ───────────────────────────────────────────────────────────
+
+export type LoginInput         = z.infer<typeof loginSchema>;
+export type RegisterInput      = z.infer<typeof registerSchema>;
+export type CreateOrderInput   = z.infer<typeof createOrderSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
