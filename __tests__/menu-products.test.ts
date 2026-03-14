@@ -1,4 +1,4 @@
-const { resolveMenuProducts } = require('../lib/menu-products');
+import { resolveMenuProducts } from '../lib/menu-products';
 
 describe('resolveMenuProducts', () => {
   test('detects featured products by slug and keeps remaining', () => {
@@ -10,7 +10,7 @@ describe('resolveMenuProducts', () => {
       { id: 5, slug: 'frango-catupiry', name: 'Frango c/ catupiry' },
     ];
 
-    const result = resolveMenuProducts(products);
+    const result = resolveMenuProducts(products as any) as any;
 
     expect(result.calabresa.id).toBe(1);
     expect(result.marguerita.id).toBe(2);
@@ -26,7 +26,7 @@ describe('resolveMenuProducts', () => {
       { id: 7, slug: 'pizza-002', name: 'Margarita da Casa' },
     ];
 
-    const result = resolveMenuProducts(products);
+    const result = resolveMenuProducts(products as any) as any;
 
     expect(result.calabresa.id).toBe(6);
     expect(result.marguerita.id).toBe(7);
