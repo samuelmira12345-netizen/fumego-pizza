@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import ManualOrderDrawer, { ProductPicker } from './ManualOrderDrawer';
 import OrdersTab from './OrdersTab';
+import DeliveryQueueTab from './DeliveryQueueTab';
 
 // ── Status config ──────────────────────────────────────────────────────────────
 
@@ -867,6 +868,10 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
   const [dangerAction, setDangerAction]               = useState('cancel');
   const [adminPassword, setAdminPassword]             = useState('');
   const [dangerSaving, setDangerSaving]               = useState(false);
+
+  const [showScheduleDialog, setShowScheduleDialog]   = useState(false);
+  const [scheduledFor, setScheduledFor]               = useState('');
+  const [savingSchedule, setSavingSchedule]           = useState(false);
   const [editingAddress, setEditingAddress]             = useState(false);
   const [savingAddress, setSavingAddress]               = useState(false);
   const [addressDraft, setAddressDraft]                 = useState({
@@ -947,6 +952,7 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
   const isNewCustomer = totalOrders === 1;
 
   const actionButtons = [
+    order.status === 'pending'    && { label: '✓ Confirmar Pedido',     next: 'confirmed',  bg: S.confirmed.headerBg,  primary: true },
     order.status === 'scheduled'  && { label: '✓ Aceitar Agendado',     next: 'confirmed',  bg: S.confirmed.headerBg,  primary: true },
     (order.status === 'confirmed' || order.status === 'preparing')
                                   && { label: '✅ Marcar Pronto',       next: 'ready',      bg: S.ready.headerBg,      primary: true },
@@ -977,6 +983,28 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
     setSelectedFiscalNote(!!order.fiscal_note);
     setPaymentStep('method');
     setShowPaymentFlow(true);
+  }
+
+  async function handleScheduleOrder() {
+    if (!scheduledFor) { alert('Selecione a data e hora do agendamento.'); return; }
+    setSavingSchedule(true);
+    try {
+      // Convert local datetime-local value to ISO with SP timezone offset
+      const spOffset = -3 * 60; // BRT = UTC-3
+      const localDate = new Date(scheduledFor);
+      const utcMs = localDate.getTime() - (localDate.getTimezoneOffset() - spOffset) * 60000;
+      const isoSP = new Date(utcMs).toISOString();
+      await onAction(order.id, 'schedule', { scheduled_for: isoSP });
+      setShowScheduleDialog(false);
+      onClose();
+    } finally {
+      setSavingSchedule(false);
+    }
+  }
+
+  async function handleReopenOrder() {
+    const ok = await onAction(order.id, 'reopen', null);
+    if (ok) onClose();
   }
 
   async function confirmPaymentFlow() {
@@ -1379,26 +1407,49 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
                   </button>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={() => setShowPrintDialog(true)}
                   style={{ flex: 1, padding: '9px', borderRadius: 5, border: '1px solid #E5E7EB', background: '#F9FAFB', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                   <Printer size={13} /> Reimprimir
                 </button>
+                {/* Agendar pedido — disponível para pedidos não finalizados */}
+                {!['delivered', 'cancelled'].includes(order.status) && (
+                  <button
+                    onClick={() => {
+                      // Pre-fill with 1 hour from now in SP timezone
+                      const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+                      now.setHours(now.getHours() + 1, 0, 0, 0);
+                      const pad = n => String(n).padStart(2, '0');
+                      setScheduledFor(`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`);
+                      setShowScheduleDialog(true);
+                    }}
+                    style={{ flex: 1, padding: '9px', borderRadius: 5, border: '1px solid #8B5CF640', background: '#8B5CF610', color: '#6D28D9', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                  >
+                    <Calendar size={13} /> Agendar
+                  </button>
+                )}
                 {actionButtons.filter(a => !a.primary).map(a => (
                   <button key={a.next} onClick={() => { setDangerAction('cancel'); setShowDangerDialog(true); }}
                     style={{ flex: 1, padding: '9px', borderRadius: 5, border: `1px solid ${a.bg}40`, background: a.bg + '10', color: a.bg, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                     {a.label}
                   </button>
                 ))}
-                {!['delivered', 'cancelled'].includes(order.status) && (
-                  <button
-                    onClick={() => { setDangerAction('delete'); setShowDangerDialog(true); }}
-                    style={{ flex: 1, padding: '9px', borderRadius: 5, border: '1px solid #7F1D1D40', background: '#7F1D1D10', color: '#991B1B', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    🗑️ Deletar
-                  </button>
-                )}
+                <button
+                  onClick={() => { setDangerAction('delete'); setShowDangerDialog(true); }}
+                  style={{ flex: 1, padding: '9px', borderRadius: 5, border: '1px solid #7F1D1D40', background: '#7F1D1D10', color: '#991B1B', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  🗑️ Deletar
+                </button>
               </div>
+              {/* Reabrir pedido — disponível para pedidos finalizados ou cancelados */}
+              {['delivered', 'cancelled'].includes(order.status) && (
+                <button
+                  onClick={handleReopenOrder}
+                  style={{ width: '100%', padding: '10px', borderRadius: 5, border: '2px solid #059669', background: '#ECFDF5', color: '#065F46', fontSize: 13, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                >
+                  ↩ Reabrir Pedido
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1461,24 +1512,51 @@ function OrderModal({ order, items, itemsLoading, onClose, onAction, onPaymentUp
         <div style={{ position: 'fixed', inset: 0, zIndex: 2200, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowDangerDialog(false)}>
           <div style={{ width: '100%', maxWidth: 430, background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 16 }} onClick={e => e.stopPropagation()}>
             <p style={{ fontSize: 16, fontWeight: 800, color: dangerAction === 'delete' ? '#991B1B' : '#B91C1C', marginBottom: 6 }}>
-              {dangerAction === 'delete' ? 'Deletar pedido' : 'Cancelar pedido'}
+              {dangerAction === 'delete' ? '🗑️ Inativar pedido' : '✕ Cancelar pedido'}
             </p>
             <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>
               {dangerAction === 'delete'
-                ? 'Esta ação remove o pedido do banco de dados. Digite a senha de admin para confirmar.'
+                ? 'O pedido ficará inativo e visível apenas no histórico. Pode ser reativado depois. Digite a senha de admin para confirmar.'
                 : 'Esta ação altera o status para cancelado. Digite a senha de admin para confirmar.'}
             </p>
             <input
               type="password"
               value={adminPassword}
               onChange={e => setAdminPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && submitDangerAction()}
               placeholder="Senha de admin"
-              style={{ width: '100%', padding: '9px 10px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 13, marginBottom: 12 }}
+              autoFocus
+              style={{ width: '100%', padding: '9px 10px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 13, marginBottom: 12, outline: 'none', boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button onClick={() => setShowDangerDialog(false)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', color: '#6B7280', fontSize: 12, cursor: 'pointer' }}>Voltar</button>
               <button onClick={submitDangerAction} disabled={dangerSaving} style={{ padding: '8px 10px', borderRadius: 6, border: 'none', background: dangerSaving ? '#9CA3AF' : (dangerAction === 'delete' ? '#991B1B' : '#DC2626'), color: '#fff', fontSize: 12, fontWeight: 700, cursor: dangerSaving ? 'not-allowed' : 'pointer' }}>
-                {dangerSaving ? 'Confirmando...' : (dangerAction === 'delete' ? 'Confirmar deleção' : 'Confirmar cancelamento')}
+                {dangerSaving ? 'Confirmando...' : (dangerAction === 'delete' ? 'Confirmar inativação' : 'Confirmar cancelamento')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Diálogo de agendamento */}
+      {showScheduleDialog && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 2200, background: 'rgba(15,23,42,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onClick={() => setShowScheduleDialog(false)}>
+          <div style={{ width: '100%', maxWidth: 400, background: '#fff', borderRadius: 10, border: '1px solid #E5E7EB', padding: 16 }} onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: 16, fontWeight: 800, color: '#6D28D9', marginBottom: 4 }}>📅 Agendar Pedido</p>
+            <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 12 }}>
+              O pedido voltará para a coluna <strong>Agendados</strong>. As métricas de tempo só começarão a contar quando o pedido entrar em preparo.
+            </p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#374151', marginBottom: 6 }}>DATA E HORA DE ENTREGA PREVISTA</p>
+            <input
+              type="datetime-local"
+              value={scheduledFor}
+              onChange={e => setScheduledFor(e.target.value)}
+              style={{ width: '100%', padding: '9px 10px', borderRadius: 6, border: '1px solid #D1D5DB', fontSize: 13, marginBottom: 14, outline: 'none', boxSizing: 'border-box' }}
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowScheduleDialog(false)} style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #D1D5DB', background: '#fff', color: '#6B7280', fontSize: 12, cursor: 'pointer' }}>Cancelar</button>
+              <button onClick={handleScheduleOrder} disabled={savingSchedule || !scheduledFor} style={{ padding: '8px 12px', borderRadius: 6, border: 'none', background: (savingSchedule || !scheduledFor) ? '#9CA3AF' : '#7C3AED', color: '#fff', fontSize: 12, fontWeight: 700, cursor: (savingSchedule || !scheduledFor) ? 'not-allowed' : 'pointer' }}>
+                {savingSchedule ? 'Agendando...' : '✓ Confirmar Agendamento'}
               </button>
             </div>
           </div>
@@ -1934,10 +2012,17 @@ export default function KDSBoard({
   const cutoff24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 
   // Show: today's orders + orders still open from last 24h (cross-midnight)
+  // 'delivered' orders with pending payment stay visible until payment is registered
+  // 'delivered' + paid (approved) orders move to history only
   const visible = orders.filter(o => {
+    if (o.status === 'cancelled') return false;
+    // Delivered + paid → only in history (hidden from kanban)
+    if (o.status === 'delivered' && o.payment_status === 'approved') return false;
     const isToday = orderDateSP(o.created_at) === today;
-    const isOpenRecent = !['cancelled', 'delivered'].includes(o.status) && o.created_at >= cutoff24h;
-    return isToday || isOpenRecent;
+    const isOpenRecent = o.created_at >= cutoff24h;
+    // Unpaid delivered orders stay visible regardless of date (to avoid losing track)
+    const isUnpaidDelivered = o.status === 'delivered' && o.payment_status !== 'approved';
+    return isToday || isOpenRecent || isUnpaidDelivered;
   });
 
   const fetchOrderItems = useCallback(async (orderId) => {
@@ -2135,11 +2220,53 @@ export default function KDSBoard({
           body: JSON.stringify({ action: 'delete_order', data: { id: orderId } }),
         });
         const d = await res.json();
-        if (!res.ok || d.error) throw new Error(d.error || 'Erro ao deletar pedido');
+        if (!res.ok || d.error) throw new Error(d.error || 'Erro ao inativar pedido');
         await refreshOrders();
         return true;
       } catch (e) {
-        alert('Erro ao deletar pedido: ' + (e.message || 'erro desconhecido'));
+        alert('Erro ao inativar pedido: ' + (e.message || 'erro desconhecido'));
+        return false;
+      }
+    }
+
+    // Reabrir pedido (delivered ou cancelled → confirmed)
+    if (field === 'reopen') {
+      try {
+        const res = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+          body: JSON.stringify({ action: 'restore_order', data: { id: orderId } }),
+        });
+        const d = await res.json();
+        if (!res.ok || d.error) throw new Error(d.error || 'Erro ao reabrir pedido');
+        // Optimistic update
+        onUpdateStatus(orderId, 'status', 'confirmed');
+        setModal(prev => prev?.id === orderId ? { ...prev, status: 'confirmed', delivered_at: null } : prev);
+        await refreshOrders();
+        return true;
+      } catch (e) {
+        alert('Erro ao reabrir pedido: ' + (e.message || 'erro desconhecido'));
+        return false;
+      }
+    }
+
+    // Agendar pedido (any active status → scheduled)
+    if (field === 'schedule') {
+      try {
+        const { scheduled_for } = value || {};
+        const res = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+          body: JSON.stringify({ action: 'update_order', data: { id: orderId, status: 'scheduled', scheduled_for } }),
+        });
+        const d = await res.json();
+        if (!res.ok || d.error) throw new Error(d.error || 'Erro ao agendar pedido');
+        onUpdateStatus(orderId, 'status', 'scheduled');
+        onUpdateStatus(orderId, 'scheduled_for', scheduled_for);
+        setModal(prev => prev?.id === orderId ? { ...prev, status: 'scheduled', scheduled_for } : prev);
+        return true;
+      } catch (e) {
+        alert('Erro ao agendar pedido: ' + (e.message || 'erro desconhecido'));
         return false;
       }
     }
@@ -2323,12 +2450,13 @@ export default function KDSBoard({
           </button>
         </div>
 
-        {/* Toggle Kanban / Cozinha / Lista */}
+        {/* Toggle Kanban / Cozinha / Histórico / Entregas */}
         <div style={{ display: 'flex', borderRadius: 5, overflow: 'hidden', border: '1px solid #E5E7EB', flexShrink: 0, marginLeft: 'auto' }}>
           {[
-            { key: 'kanban',  label: 'Kanban',   icon: <ChefHat size={13} /> },
-            { key: 'cozinha', label: 'Cozinha',  icon: <PackageCheck size={13} /> },
-            { key: 'lista',   label: 'Histórico', icon: <LayoutList size={13} /> },
+            { key: 'kanban',   label: 'Kanban',    icon: <ChefHat size={13} /> },
+            { key: 'cozinha',  label: 'Cozinha',   icon: <PackageCheck size={13} /> },
+            { key: 'lista',    label: 'Histórico', icon: <LayoutList size={13} /> },
+            { key: 'entregas', label: '🚴 Entregas', icon: null },
           ].map((m, i) => (
             <button key={m.key}
               onClick={() => setViewMode(m.key)}
@@ -2336,7 +2464,7 @@ export default function KDSBoard({
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '5px 11px', border: 'none', borderLeft: i > 0 ? '1px solid #E5E7EB' : 'none',
                 fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                background: viewMode === m.key ? (m.key === 'cozinha' ? '#1C1C1E' : '#111827') : '#fff',
+                background: viewMode === m.key ? (m.key === 'cozinha' ? '#1C1C1E' : m.key === 'entregas' ? '#7C3AED' : '#111827') : '#fff',
                 color: viewMode === m.key ? (m.key === 'cozinha' ? '#F59E0B' : '#fff') : '#6B7280',
               }}
             >
@@ -2436,6 +2564,13 @@ export default function KDSBoard({
             onLoadMore={onLoadMore}
             adminToken={adminToken}
           />
+        </div>
+      )}
+
+      {/* ── Vista Gestão de Entregas ──────────────────────────────────────── */}
+      {viewMode === 'entregas' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', background: '#1A1A1A' }}>
+          <DeliveryQueueTab adminToken={adminToken} />
         </div>
       )}
 

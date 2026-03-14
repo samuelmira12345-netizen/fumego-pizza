@@ -110,7 +110,7 @@ function persistSavedFilters(filters) {
 }
 
 export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdateStatus, onLoadMore, adminToken }) {
-  const [mainTab, setMainTab] = useState('orders'); // 'orders' | 'queue'
+  const [mainTab, setMainTab] = useState('orders'); // 'orders' | 'inactive' | 'queue'
 
   const [search, setSearch]             = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -122,6 +122,44 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
   const [savedFilters, setSavedFilters]       = useState(() => loadSavedFilters());
   const [showSaveDialog, setShowSaveDialog]   = useState(false);
   const [newFilterName, setNewFilterName]     = useState('');
+
+  // Inactive orders (soft-deleted)
+  const [inactiveOrders, setInactiveOrders]   = useState([]);
+  const [inactiveLoading, setInactiveLoading] = useState(false);
+  const [inactiveLoaded, setInactiveLoaded]   = useState(false);
+
+  async function loadInactiveOrders() {
+    if (inactiveLoading || !adminToken) return;
+    setInactiveLoading(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'get_inactive_orders', data: {} }),
+      });
+      const d = await res.json();
+      setInactiveOrders(d.orders || []);
+      setInactiveLoaded(true);
+    } catch (e) { console.error(e); }
+    finally { setInactiveLoading(false); }
+  }
+
+  async function restoreOrder(orderId) {
+    if (!adminToken) return;
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+        body: JSON.stringify({ action: 'restore_order', data: { id: orderId } }),
+      });
+      const d = await res.json();
+      if (!res.ok || d.error) throw new Error(d.error || 'Erro ao restaurar pedido');
+      setInactiveOrders(prev => prev.filter(o => o.id !== orderId));
+      alert('Pedido restaurado com sucesso!');
+    } catch (e) {
+      alert('Erro ao restaurar: ' + (e.message || 'erro desconhecido'));
+    }
+  }
 
   // Delivery persons (loaded lazily)
   const [deliveryPersons, setDeliveryPersons] = useState([]);
@@ -256,15 +294,19 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
   return (
     <div>
-      {/* ── Sub-tabs: Pedidos / Gestão de Entregas ── */}
+      {/* ── Sub-tabs: Pedidos / Histórico Inativo / Gestão de Entregas ── */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 18, borderBottom: '2px solid #333', width: 'fit-content' }}>
         {[
-          { key: 'orders', label: 'Pedidos' },
-          { key: 'queue',  label: '🚴 Gestão de Entregas', icon: <ListOrdered size={13} style={{ marginRight: 5 }} /> },
+          { key: 'orders',   label: 'Pedidos',             icon: null },
+          { key: 'inactive', label: '🗑️ Inativados',        icon: null },
+          { key: 'queue',    label: '🚴 Gestão de Entregas', icon: <ListOrdered size={13} style={{ marginRight: 5 }} /> },
         ].map(t => (
           <button
             key={t.key}
-            onClick={() => setMainTab(t.key)}
+            onClick={() => {
+              setMainTab(t.key);
+              if (t.key === 'inactive' && !inactiveLoaded) loadInactiveOrders();
+            }}
             style={{
               padding: '8px 18px', background: 'none', border: 'none',
               borderBottom: mainTab === t.key ? `2px solid ${GOLD}` : '2px solid transparent',
@@ -281,6 +323,44 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
       {mainTab === 'queue' && (
         <DeliveryQueueTab adminToken={adminToken} />
+      )}
+
+      {/* ── Histórico de pedidos inativados ── */}
+      {mainTab === 'inactive' && (
+        <div>
+          <p style={{ color: '#aaa', fontSize: 12, marginBottom: 14 }}>
+            Pedidos marcados como inativos pelo admin. Podem ser restaurados a qualquer momento.
+          </p>
+          {inactiveLoading && (
+            <p style={{ color: '#666', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>Carregando...</p>
+          )}
+          {!inactiveLoading && inactiveOrders.length === 0 && (
+            <p style={{ color: '#666', fontSize: 13, textAlign: 'center', padding: '32px 0' }}>Nenhum pedido inativo.</p>
+          )}
+          {inactiveOrders.map(o => (
+            <div key={o.id} style={{ background: '#2D2D2D', borderRadius: 12, padding: 14, marginBottom: 10, border: '1px solid #555', opacity: 0.8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                <span style={{ color: '#E04040', fontWeight: 'bold', textDecoration: 'line-through' }}>#{o.order_number}</span>
+                <span style={{ color: '#888', fontSize: 11 }}>{new Date(o.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
+              </div>
+              <p style={{ color: '#ccc', fontSize: 13 }}>{o.customer_name} — {o.customer_phone}</p>
+              <p style={{ color: '#888', fontSize: 11, marginTop: 2 }}>
+                {o.delivery_street}, {o.delivery_number} — {o.delivery_neighborhood}
+              </p>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                <span style={{ color: GOLD, fontWeight: 'bold', fontSize: 13 }}>
+                  R$ {Number(o.total).toFixed(2).replace('.', ',')}
+                </span>
+                <button
+                  onClick={() => restoreOrder(o.id)}
+                  style={{ marginLeft: 'auto', padding: '5px 12px', borderRadius: 6, border: '2px solid #48BB78', background: 'rgba(72,187,120,0.1)', color: '#48BB78', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  ↩ Restaurar Pedido
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {mainTab === 'orders' && <>
