@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { loginSchema } from '../../../../lib/schemas';
 import bcrypt from 'bcryptjs';
@@ -6,9 +6,8 @@ import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 import { decryptCpf } from '../../../../lib/cpf-crypto';
 import { signUserToken, setAuthCookie } from '../../../../lib/auth';
 
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    // Rate limiting: máximo 10 tentativas por IP a cada 15 minutos
     const ip = getClientIp(request);
     const { allowed, retryAfterMs } = await checkRateLimit(`login:${ip}`, 10, 15 * 60_000);
     if (!allowed) {
@@ -43,15 +42,12 @@ export async function POST(request) {
     const token = signUserToken(user.id, user.email);
 
     const { password_hash, ...safeUser } = user;
-    // Descriptografar CPF antes de retornar ao cliente
     if (safeUser.cpf) safeUser.cpf = decryptCpf(safeUser.cpf) || '';
 
-    // Define token em cookie httpOnly (proteção XSS) e também retorna no body
-    // para retrocompatibilidade com clientes que ainda usam Authorization header.
     const response = NextResponse.json({ token, user: safeUser });
     setAuthCookie(response, token);
     return response;
   } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

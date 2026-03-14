@@ -1,23 +1,23 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import jwt from 'jsonwebtoken';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
-function verifyAdminToken(request) {
+function verifyAdminToken(request: NextRequest): boolean {
   const auth   = request.headers.get('authorization') || '';
   const token  = auth.replace('Bearer ', '').trim();
   const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
   if (!token || !secret) return false;
   try {
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
     return decoded.role === 'admin';
   } catch { return false; }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function toSPHour(isoStr) {
+function toSPHour(isoStr: string): number {
   return parseInt(
     new Date(isoStr).toLocaleString('en-US', {
       timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false,
@@ -25,25 +25,23 @@ function toSPHour(isoStr) {
   );
 }
 
-function toSPDay(isoStr) {
+function toSPDay(isoStr: string): string {
   return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-// Split array into batches (Supabase .in() max ~500 per call)
-function chunks(arr, size = 500) {
-  const result = [];
+function chunks<T>(arr: T[], size = 500): T[][] {
+  const result: T[][] = [];
   for (let i = 0; i < arr.length; i += size) result.push(arr.slice(i, i + size));
   return result;
 }
 
 // ── GET /api/admin/reports?type=...&from=YYYY-MM-DD&to=YYYY-MM-DD ─────────────
 
-export async function GET(request) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!verifyAdminToken(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Service role bypasses RLS — necessary to read orders and order_items
   const supabase = getSupabaseAdmin();
 
   const { searchParams } = new URL(request.url);
@@ -51,7 +49,6 @@ export async function GET(request) {
   const from = searchParams.get('from');
   const to   = searchParams.get('to');
 
-  // Convert date strings to São Paulo-aware ISO range
   const fromISO = from ? new Date(`${from}T00:00:00-03:00`).toISOString() : null;
   const toISO   = to   ? new Date(`${to}T23:59:59-03:00`).toISOString()   : null;
 
@@ -64,10 +61,10 @@ export async function GET(request) {
       const { data: orders, error: oErr } = await q;
       if (oErr) return NextResponse.json({ error: oErr.message }, { status: 500 });
 
-      const orderIds = (orders || []).map(o => o.id);
+      const orderIds = (orders || []).map((o: { id: string }) => o.id);
       if (orderIds.length === 0) return NextResponse.json({ data: [], total_orders: 0 });
 
-      let items = [];
+      let items: { product_name: string; quantity: number; total_price: number }[] = [];
       for (const batch of chunks(orderIds)) {
         const { data, error } = await supabase
           .from('order_items')
@@ -76,12 +73,12 @@ export async function GET(request) {
         if (!error && data) items = items.concat(data);
       }
 
-      const map = {};
+      const map: Record<string, { product_name: string; qty: number; revenue: number }> = {};
       for (const item of items) {
         const name = item.product_name || 'Desconhecido';
         if (!map[name]) map[name] = { product_name: name, qty: 0, revenue: 0 };
         map[name].qty      += item.quantity  || 1;
-        map[name].revenue  += parseFloat(item.total_price) || 0;
+        map[name].revenue  += parseFloat(String(item.total_price)) || 0;
       }
 
       const data = Object.values(map)
@@ -102,13 +99,13 @@ export async function GET(request) {
       const { data: orders, error } = await q;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-      const map = {};
+      const map: Record<string, { neighborhood: string; count: number; revenue: number; delivery_fee: number }> = {};
       for (const o of orders || []) {
         const nb = (o.delivery_neighborhood || 'Não informado').trim();
         if (!map[nb]) map[nb] = { neighborhood: nb, count: 0, revenue: 0, delivery_fee: 0 };
         map[nb].count++;
-        map[nb].revenue      += parseFloat(o.total)        || 0;
-        map[nb].delivery_fee += parseFloat(o.delivery_fee) || 0;
+        map[nb].revenue      += parseFloat(String(o.total))        || 0;
+        map[nb].delivery_fee += parseFloat(String(o.delivery_fee)) || 0;
       }
 
       const data = Object.values(map)
@@ -130,13 +127,13 @@ export async function GET(request) {
       const { data: orders, error } = await q;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-      const map = {};
+      const map: Record<number, { hour: number; label: string; count: number; revenue: number }> = {};
       for (let h = 0; h < 24; h++) map[h] = { hour: h, label: `${String(h).padStart(2,'0')}h`, count: 0, revenue: 0 };
       for (const o of orders || []) {
         const h = toSPHour(o.created_at);
         if (map[h] !== undefined) {
           map[h].count++;
-          map[h].revenue += parseFloat(o.total) || 0;
+          map[h].revenue += parseFloat(String(o.total)) || 0;
         }
       }
 
@@ -157,26 +154,24 @@ export async function GET(request) {
       const { data: orders, error } = await q;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-      // Agrupamento por dia
-      const dayMap = {};
+      const dayMap: Record<string, { day: string; count: number; revenue: number; subtotal: number; discount: number; delivery_fee: number }> = {};
       for (const o of orders || []) {
         const day = toSPDay(o.created_at);
         if (!dayMap[day]) dayMap[day] = { day, count: 0, revenue: 0, subtotal: 0, discount: 0, delivery_fee: 0 };
         dayMap[day].count++;
-        dayMap[day].revenue      += parseFloat(o.total)        || 0;
-        dayMap[day].subtotal     += parseFloat(o.subtotal)     || 0;
-        dayMap[day].discount     += parseFloat(o.discount)     || 0;
-        dayMap[day].delivery_fee += parseFloat(o.delivery_fee) || 0;
+        dayMap[day].revenue      += parseFloat(String(o.total))        || 0;
+        dayMap[day].subtotal     += parseFloat(String(o.subtotal))     || 0;
+        dayMap[day].discount     += parseFloat(String(o.discount))     || 0;
+        dayMap[day].delivery_fee += parseFloat(String(o.delivery_fee)) || 0;
       }
 
-      // Agrupamento por forma de pagamento
-      const pmLabels = { pix: 'PIX', cash: 'Dinheiro', card_delivery: 'Cartão na Entrega' };
-      const pmMap = {};
+      const pmLabels: Record<string, string> = { pix: 'PIX', cash: 'Dinheiro', card_delivery: 'Cartão na Entrega' };
+      const pmMap: Record<string, { method: string; label: string; count: number; revenue: number }> = {};
       for (const o of orders || []) {
         const pm = o.payment_method || 'pix';
         if (!pmMap[pm]) pmMap[pm] = { method: pm, label: pmLabels[pm] || pm, count: 0, revenue: 0 };
         pmMap[pm].count++;
-        pmMap[pm].revenue += parseFloat(o.total) || 0;
+        pmMap[pm].revenue += parseFloat(String(o.total)) || 0;
       }
 
       const days = Object.values(dayMap)
@@ -212,7 +207,14 @@ export async function GET(request) {
         .limit(10000);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-      const map = {};
+      const map: Record<string, {
+        customer_phone: string;
+        customer_name:  string;
+        order_count:    number;
+        lifetime_value: number;
+        first_order:    string;
+        last_order:     string;
+      }> = {};
       for (const o of orders || []) {
         const phone = o.customer_phone || 'sem-telefone';
         if (!map[phone]) {
@@ -226,7 +228,7 @@ export async function GET(request) {
           };
         }
         map[phone].order_count++;
-        map[phone].lifetime_value += parseFloat(o.total) || 0;
+        map[phone].lifetime_value += parseFloat(String(o.total)) || 0;
         if (o.created_at < map[phone].first_order) map[phone].first_order = o.created_at;
         if (o.created_at > map[phone].last_order)  map[phone].last_order  = o.created_at;
       }
@@ -234,7 +236,7 @@ export async function GET(request) {
       const data = Object.values(map)
         .map(c => {
           const daySpan = Math.max(
-            Math.ceil((new Date(c.last_order) - new Date(c.first_order)) / (1000 * 60 * 60 * 24)),
+            Math.ceil((new Date(c.last_order).getTime() - new Date(c.first_order).getTime()) / (1000 * 60 * 60 * 24)),
             1
           );
           const monthsActive = Math.max(daySpan / 30, 1);
@@ -265,6 +267,6 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Tipo inválido' }, { status: 400 });
 
   } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

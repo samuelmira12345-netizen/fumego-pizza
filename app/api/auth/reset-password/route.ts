@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { resetPasswordSchema } from '../../../../lib/schemas';
 import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 import bcrypt from 'bcryptjs';
 
 /** POST /api/auth/reset-password — redefine a senha usando o token enviado por e-mail. */
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   const ip = getClientIp(request);
   const { allowed, retryAfterMs } = await checkRateLimit(`reset-pwd:${ip}`, 5, 15 * 60_000);
   if (!allowed) {
@@ -46,6 +46,6 @@ export async function POST(request) {
     return NextResponse.json({ success: true });
   } catch (e) {
     console.error('Reset password error:', e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

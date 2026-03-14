@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { getCashbackBalance } from '../../../../lib/cashback';
 
@@ -6,7 +6,7 @@ import { getCashbackBalance } from '../../../../lib/cashback';
  * GET /api/cashback/balance?user_id=...
  * Retorna o saldo válido de cashback e o histórico de transações do usuário.
  */
-export async function GET(request) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('user_id');
 
@@ -20,10 +20,10 @@ export async function GET(request) {
       getCashbackBalance(supabase, userId),
       supabase.from('settings').select('value').eq('key', 'cashback_max_percent').single(),
     ]);
-    const cashbackMaxPercent = parseFloat(settingRes.data?.value || '50');
+    const cashbackMaxPercent = parseFloat(String(settingRes.data?.value) || '50');
     return NextResponse.json({ ...result, cashback_max_percent: cashbackMaxPercent });
   } catch (e) {
-    console.error('[Cashback Balance]', e.message);
+    console.error('[Cashback Balance]', (e as Error).message);
     return NextResponse.json({ balance: 0, transactions: [], cashback_max_percent: 50 });
   }
 }

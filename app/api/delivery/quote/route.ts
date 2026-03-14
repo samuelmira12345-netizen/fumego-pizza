@@ -1,19 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { haversineKm, parseRadiusRules, quoteByRadius } from '../../../../lib/delivery-radius';
 
-function normalizeText(value) {
+function normalizeText(value: unknown): string {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
-function formatZipcode(zipcode) {
+function formatZipcode(zipcode: unknown): string {
   const digits = String(zipcode || '').replace(/\D/g, '');
   if (digits.length !== 8) return '';
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
-function ufToStateName(uf) {
-  const map = {
+function ufToStateName(uf: unknown): string {
+  const map: Record<string, string> = {
     AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas', BA: 'Bahia', CE: 'Ceará',
     DF: 'Distrito Federal', ES: 'Espírito Santo', GO: 'Goiás', MA: 'Maranhão', MT: 'Mato Grosso',
     MS: 'Mato Grosso do Sul', MG: 'Minas Gerais', PA: 'Pará', PB: 'Paraíba', PR: 'Paraná',
@@ -24,19 +24,30 @@ function ufToStateName(uf) {
   return map[String(uf || '').toUpperCase()] || '';
 }
 
-function parseAddressDetails(raw) {
+interface AddressDetails {
+  street:       string;
+  number:       string;
+  complement:   string;
+  neighborhood: string;
+  city:         string;
+  state:        string;
+  zipcode:      string;
+}
+
+function parseAddressDetails(raw: unknown): AddressDetails | null {
   if (!raw) return null;
   try {
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!parsed || typeof parsed !== 'object') return null;
+    const p = parsed as Record<string, unknown>;
     return {
-      street: normalizeText(parsed.street),
-      number: normalizeText(parsed.number),
-      complement: normalizeText(parsed.complement),
-      neighborhood: normalizeText(parsed.neighborhood),
-      city: normalizeText(parsed.city),
-      state: normalizeText(parsed.state).toUpperCase(),
-      zipcode: String(parsed.zipcode || '').replace(/\D/g, ''),
+      street:       normalizeText(p.street),
+      number:       normalizeText(p.number),
+      complement:   normalizeText(p.complement),
+      neighborhood: normalizeText(p.neighborhood),
+      city:         normalizeText(p.city),
+      state:        normalizeText(p.state).toUpperCase(),
+      zipcode:      String(p.zipcode || '').replace(/\D/g, ''),
     };
   } catch {
     return null;
@@ -48,15 +59,13 @@ const NOMINATIM_HEADERS = {
   'Accept-Language': 'pt-BR,pt;q=0.9',
 };
 
-function delay(ms) {
+function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Geocode using Nominatim structured query (most accurate for Brazilian addresses).
- * Uses separate street/city/state/postalcode params instead of freeform q=.
- */
-async function geocodeNominatimStructured(details) {
+interface GeoCoords { lat: number; lng: number; }
+
+async function geocodeNominatimStructured(details: AddressDetails): Promise<GeoCoords | null> {
   const params = new URLSearchParams({
     format: 'json',
     limit: '1',
@@ -85,10 +94,7 @@ async function geocodeNominatimStructured(details) {
   return null;
 }
 
-/**
- * Geocode using Nominatim freeform query.
- */
-async function geocodeNominatimFreeform(query) {
+async function geocodeNominatimFreeform(query: string): Promise<GeoCoords | null> {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`,
@@ -104,10 +110,7 @@ async function geocodeNominatimFreeform(query) {
   return null;
 }
 
-/**
- * Geocode a CEP using BrasilAPI (returns lat/lng for many Brazilian zipcodes).
- */
-async function geocodeBrasilApiCep(zipcode) {
+async function geocodeBrasilApiCep(zipcode: string): Promise<GeoCoords | null> {
   const cep = String(zipcode || '').replace(/\D/g, '');
   if (cep.length !== 8) return null;
   try {
@@ -126,21 +129,14 @@ async function geocodeBrasilApiCep(zipcode) {
   return null;
 }
 
-/**
- * Main geocoding function with multiple strategies and rate-limit-safe delays.
- * Tries up to 4 strategies, with 1.1s delay between Nominatim requests.
- */
-async function geocodeAddress(details) {
-  // Strategy 1: BrasilAPI by CEP (fast, no rate limit issues, good for Brazil)
+async function geocodeAddress(details: AddressDetails): Promise<GeoCoords | null> {
   const brasilResult = await geocodeBrasilApiCep(details.zipcode);
   if (brasilResult) return brasilResult;
 
-  // Strategy 2: Nominatim structured query (most accurate)
   await delay(1100);
   const structuredResult = await geocodeNominatimStructured(details);
   if (structuredResult) return structuredResult;
 
-  // Strategy 3: Nominatim freeform with neighborhood + city + state
   await delay(1100);
   const neighborhoodQuery = [details.neighborhood, details.city, ufToStateName(details.state) || details.state, 'Brasil']
     .filter(Boolean)
@@ -148,7 +144,6 @@ async function geocodeAddress(details) {
   const neighborhoodResult = await geocodeNominatimFreeform(neighborhoodQuery);
   if (neighborhoodResult) return neighborhoodResult;
 
-  // Strategy 4: Nominatim freeform with city + state only (rough fallback)
   await delay(1100);
   const cityQuery = [details.city, ufToStateName(details.state) || details.state, 'Brasil']
     .filter(Boolean)
@@ -159,24 +154,21 @@ async function geocodeAddress(details) {
   return null;
 }
 
-/**
- * Get store coordinates — uses cached lat/lng from settings if available,
- * otherwise geocodes the store address and caches the result.
- */
-async function getStoreCoordinates(supabase, settings, originDetails) {
-  // Check for cached coordinates first
+async function getStoreCoordinates(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  settings: Record<string, string>,
+  originDetails: AddressDetails | null,
+): Promise<GeoCoords | null> {
   const cachedLat = Number(settings.delivery_origin_lat);
   const cachedLng = Number(settings.delivery_origin_lng);
   if (Number.isFinite(cachedLat) && Number.isFinite(cachedLng) && cachedLat !== 0 && cachedLng !== 0) {
     return { lat: cachedLat, lng: cachedLng };
   }
 
-  // Geocode the store address
   if (!originDetails) return null;
   const result = await geocodeAddress(originDetails);
   if (!result) return null;
 
-  // Cache the coordinates for future requests (non-blocking)
   supabase
     .from('settings')
     .upsert([
@@ -189,7 +181,7 @@ async function getStoreCoordinates(supabase, settings, originDetails) {
   return result;
 }
 
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
     const { street, number, neighborhood, city, state, zipcode } = body || {};
@@ -205,7 +197,7 @@ export async function POST(request) {
         'delivery_origin_lat', 'delivery_origin_lng',
       ]);
 
-    const settings = Object.fromEntries((settingsRows || []).map((r) => [r.key, r.value]));
+    const settings: Record<string, string> = Object.fromEntries((settingsRows || []).map((r: { key: string; value: string }) => [r.key, r.value]));
     const rules = parseRadiusRules(settings.delivery_radius_rules);
 
     if (rules.length === 0) {
@@ -216,13 +208,14 @@ export async function POST(request) {
       });
     }
 
-    const customerDetails = {
-      street: normalizeText(street),
-      number: normalizeText(number),
+    const customerDetails: AddressDetails = {
+      street:       normalizeText(street),
+      number:       normalizeText(number),
       neighborhood: normalizeText(neighborhood),
-      city: normalizeText(city),
-      state: normalizeText(state).toUpperCase(),
-      zipcode: String(zipcode || '').replace(/\D/g, ''),
+      city:         normalizeText(city),
+      state:        normalizeText(state).toUpperCase(),
+      complement:   '',
+      zipcode:      String(zipcode || '').replace(/\D/g, ''),
     };
 
     const originDetails = parseAddressDetails(settings.delivery_origin_address_details);
@@ -234,7 +227,6 @@ export async function POST(request) {
       && originDetails.city
       && originDetails.state;
 
-    // Check if we have cached store coords OR a complete store address to geocode
     const hasCachedCoords = Number.isFinite(Number(settings.delivery_origin_lat))
       && Number.isFinite(Number(settings.delivery_origin_lng))
       && Number(settings.delivery_origin_lat) !== 0;
@@ -247,7 +239,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Informe pelo menos o bairro ou CEP para calcular a entrega' }, { status: 400 });
     }
 
-    // Geocode store (uses cache if available) and customer in parallel
     const [storeGeo, customerGeo] = await Promise.all([
       getStoreCoordinates(supabase, settings, originDetails),
       geocodeAddress(customerDetails),
@@ -283,6 +274,6 @@ export async function POST(request) {
       distance_km,
     });
   } catch (e) {
-    return NextResponse.json({ error: e.message || 'Erro ao calcular entrega' }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message || 'Erro ao calcular entrega' }, { status: 500 });
   }
 }

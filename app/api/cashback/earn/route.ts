@@ -1,15 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { earnCashback } from '../../../../lib/cashback';
 
 /**
  * POST /api/cashback/earn
  * Registra cashback ganho após confirmação de pagamento (PIX/cartão online).
- * Para cash/card_delivery o earn já ocorre no create-order.
  *
  * Body: { user_id, order_id, order_total }
  */
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const { user_id, order_id, order_total } = await request.json();
 
@@ -22,7 +21,7 @@ export async function POST(request) {
 
     return NextResponse.json({ earned });
   } catch (e) {
-    console.error('[Cashback Earn API]', e.message);
+    console.error('[Cashback Earn API]', (e as Error).message);
     return NextResponse.json({ earned: 0 });
   }
 }

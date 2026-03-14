@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { computeStoreStatus } from '../../../lib/store-hours';
 import { logger } from '../../../lib/logger';
 
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
     const { order_id, order_number, description, payer_email, payer_name, payer_cpf, payment_type } = body;
@@ -33,7 +33,7 @@ export async function POST(request) {
     // Server-side store status check: block payments when store is closed
     const { data: settingsRows } = await supabase
       .from('settings').select('key,value').in('key', ['store_open', 'business_hours']);
-    const settingsMap = Object.fromEntries((settingsRows || []).map(r => [r.key, r.value]));
+    const settingsMap: Record<string, string> = Object.fromEntries((settingsRows || []).map((r: { key: string; value: string }) => [r.key, r.value]));
     const { open: storeIsOpen } = computeStoreStatus(settingsMap);
     if (!storeIsOpen) {
       return NextResponse.json({
@@ -48,7 +48,7 @@ export async function POST(request) {
     if (orderErr || !order) {
       return NextResponse.json({ error: 'Pedido não encontrado' }, { status: 404 });
     }
-    const numAmount = Number(order.total);
+    const numAmount = Number((order as Record<string, unknown>).total);
     if (!numAmount || numAmount <= 0 || isNaN(numAmount)) {
       return NextResponse.json({ error: 'Valor inválido no pedido' }, { status: 400 });
     }
@@ -61,7 +61,7 @@ export async function POST(request) {
     if (payment_type === 'card') {
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
 
-      const prefBody = {
+      const prefBody: Record<string, unknown> = {
         items: [{
           title: description || `FUMEGO Pizza - Pedido #${order_number || 'N/A'}`,
           quantity: 1,
@@ -111,7 +111,7 @@ export async function POST(request) {
       } catch (e) {
         return NextResponse.json({
           error: 'Erro de conexão ao criar checkout',
-          details: e.message,
+          details: (e as Error).message,
         }, { status: 500 });
       }
     }
@@ -120,7 +120,7 @@ export async function POST(request) {
     const firstName = payer_name ? String(payer_name).trim().split(' ')[0] : 'Cliente';
     const lastName = payer_name ? String(payer_name).trim().split(' ').slice(1).join(' ') || 'FUMEGO' : 'FUMEGO';
 
-    const paymentBody = {
+    const paymentBody: Record<string, unknown> = {
       transaction_amount: parseFloat(numAmount.toFixed(2)),
       description: description || `FUMEGO Pizza - Pedido #${order_number || 'N/A'}`,
       payment_method_id: 'pix',
@@ -129,7 +129,7 @@ export async function POST(request) {
 
     if (order_id) paymentBody.external_reference = String(order_id);
     if (cleanCpf.length === 11) {
-      paymentBody.payer.identification = { type: 'CPF', number: cleanCpf };
+      (paymentBody.payer as Record<string, unknown>).identification = { type: 'CPF', number: cleanCpf };
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -139,7 +139,7 @@ export async function POST(request) {
 
     logger.info('Criando pagamento PIX', { order_id, order_number, amount: numAmount });
 
-    let mpResponse;
+    let mpResponse: Response;
     try {
       mpResponse = await fetch('https://api.mercadopago.com/v1/payments', {
         method: 'POST',
@@ -151,10 +151,10 @@ export async function POST(request) {
         body: JSON.stringify(paymentBody),
       });
     } catch (fetchError) {
-      return NextResponse.json({ error: 'Erro de conexão', details: fetchError.message }, { status: 500 });
+      return NextResponse.json({ error: 'Erro de conexão', details: (fetchError as Error).message }, { status: 500 });
     }
 
-    let mpData;
+    let mpData: Record<string, unknown>;
     try { mpData = await mpResponse.json(); } catch {
       return NextResponse.json({ error: 'Resposta inválida do Mercado Pago' }, { status: 500 });
     }
@@ -168,9 +168,9 @@ export async function POST(request) {
         errorDetails = 'Copie o Access Token novamente do Mercado Pago e atualize na Vercel.';
       } else if (mpResponse.status === 400) {
         errorMsg = 'Dados inválidos';
-        errorDetails = mpData.cause?.map(c => `${c.code}: ${c.description || ''}`).join('; ') || mpData.message || '';
+        errorDetails = (mpData.cause as { code: string; description?: string }[] | undefined)?.map(c => `${c.code}: ${c.description || ''}`).join('; ') || mpData.message as string || '';
       } else if (mpResponse.status === 403) {
-        const cause2209 = mpData.cause?.find(c => c.code === 2209);
+        const cause2209 = (mpData.cause as { code: number }[] | undefined)?.find(c => c.code === 2209);
         if (cause2209) {
           errorMsg = 'Token de teste — pagamentos reais bloqueados';
           errorDetails =
@@ -178,25 +178,26 @@ export async function POST(request) {
             'acesse Mercado Pago → Credenciais → Produção e copie o token que começa com "APP_USR-" ' +
             '(sem "TEST" no meio). Atualize na Vercel e faça Redeploy.';
         } else {
-          errorMsg = mpData.message || 'Acesso negado';
+          errorMsg = mpData.message as string || 'Acesso negado';
           errorDetails = JSON.stringify(mpData.cause || mpData);
         }
       } else if (mpData.message === 'internal_error') {
         errorMsg = 'Erro interno do Mercado Pago';
         errorDetails = 'Copie o Access Token novamente, cole na Vercel sem espaços, e faça Redeploy.';
       } else {
-        errorMsg = mpData.message || 'Erro desconhecido';
+        errorMsg = mpData.message as string || 'Erro desconhecido';
         errorDetails = JSON.stringify(mpData);
       }
 
       return NextResponse.json({ error: errorMsg, details: errorDetails, mp_status: mpResponse.status }, { status: 500 });
     }
 
-    const qrCode       = mpData.point_of_interaction?.transaction_data?.qr_code || '';
-    const qrCodeBase64 = mpData.point_of_interaction?.transaction_data?.qr_code_base64 || '';
+    const pointOfInteraction = mpData.point_of_interaction as Record<string, unknown> | undefined;
+    const transactionData = pointOfInteraction?.transaction_data as Record<string, unknown> | undefined;
+    const qrCode       = transactionData?.qr_code as string || '';
+    const qrCodeBase64 = transactionData?.qr_code_base64 as string || '';
     const paymentId    = String(mpData.id);
 
-    // Salva os dados do PIX no pedido (server-side, sem expor ao cliente a necessidade de escrever no DB)
     await supabase.from('orders').update({
       pix_payment_id: paymentId,
       pix_qr_code: qrCode,
@@ -213,6 +214,6 @@ export async function POST(request) {
 
   } catch (e) {
     logger.error('Exceção create-payment', e);
-    return NextResponse.json({ error: 'Erro interno', details: e.message }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno', details: (e as Error).message }, { status: 500 });
   }
 }

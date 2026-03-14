@@ -1,10 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { checkRateLimit, getClientIp } from '../../../lib/rate-limit';
 import { logger } from '../../../lib/logger';
 
-// ── Handlers por domínio ──────────────────────────────────────────────────────
 import {
   handleGetData, handleGetOrdersOnly, handleGetMoreOrders,
   handleGetOrderItems, handleGetOrderChangeHistory, handleUpdateOrder, handleUpdateOrderItems,
@@ -33,24 +32,20 @@ import {
   handleGetDeliveryQueue, handleSetDeliveryPriority,
 } from '../../../lib/admin-actions/delivery';
 
-// ── Auth ──────────────────────────────────────────────────────────────────────
-
-function verifyAdminToken(request) {
+function verifyAdminToken(request: NextRequest): boolean {
   const auth   = request.headers.get('authorization') || '';
   const token  = auth.replace('Bearer ', '').trim();
   const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
   if (!token || !secret) return false;
   try {
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
     return decoded.role === 'admin';
   } catch {
     return false;
   }
 }
 
-// ── Dispatcher ────────────────────────────────────────────────────────────────
-
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const ip = getClientIp(request);
     const { allowed, retryAfterMs } = await checkRateLimit(`admin:${ip}`, 500, 15 * 60_000);
@@ -136,6 +131,6 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
   } catch (e) {
     logger.error('Admin error', e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }
