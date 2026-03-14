@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
 // GET /api/check-token - Verifica se o token do Mercado Pago está configurado
-export async function GET() {
+export async function GET(): Promise<NextResponse> {
   const token = (process.env.MERCADO_PAGO_ACCESS_TOKEN || '').trim();
-  
+
   if (!token) {
     return NextResponse.json({
       status: 'ERROR',
@@ -14,10 +14,9 @@ export async function GET() {
 
   const startsCorrect = token.startsWith('APP_USR-') || token.startsWith('TEST-');
   const tokenType = token.startsWith('TEST-') ? 'TESTE' : token.startsWith('APP_USR-') ? 'PRODUÇÃO' : 'DESCONHECIDO';
-  
-  // Testar se o token funciona fazendo uma chamada simples
+
   let tokenWorks = false;
-  let mpError = null;
+  let mpError: string | null = null;
   try {
     const res = await fetch('https://api.mercadopago.com/v1/payment_methods', {
       headers: { 'Authorization': `Bearer ${token}` },
@@ -25,10 +24,10 @@ export async function GET() {
     tokenWorks = res.ok;
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      mpError = `Status ${res.status}: ${data.message || 'erro desconhecido'}`;
+      mpError = `Status ${res.status}: ${(data as Record<string, string>).message || 'erro desconhecido'}`;
     }
   } catch (e) {
-    mpError = `Erro de conexão: ${e.message}`;
+    mpError = `Erro de conexão: ${(e as Error).message}`;
   }
 
   return NextResponse.json({

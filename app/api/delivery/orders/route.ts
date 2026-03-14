@@ -1,14 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 
-function verifyDeliveryToken(request) {
+function verifyDeliveryToken(request: NextRequest): jwt.JwtPayload | null {
   const auth  = request.headers.get('authorization') || '';
   const token = auth.replace('Bearer ', '').trim();
   const secret = process.env.JWT_SECRET;
   if (!token || !secret) return null;
   try {
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
     if (decoded.role === 'delivery') return decoded;
     return null;
   } catch {
@@ -16,19 +16,16 @@ function verifyDeliveryToken(request) {
   }
 }
 
-// GET: fetch orders assigned to this delivery person (or all pending for admin)
-export async function GET(request) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const person = verifyDeliveryToken(request);
     if (!person) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const supabase = getSupabaseAdmin();
 
-    // Today's start in São Paulo (UTC-3, fixed — Brazil abolished DST in 2019)
     const todaySP = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     const todayStartISO = new Date(`${todaySP}T00:00:00-03:00`).toISOString();
 
-    // Fetch: today's orders (any status) OR still-open orders from any date
     const [{ data: todayOrders, error: e1 }, { data: openOrders, error: e2 }] = await Promise.all([
       supabase
         .from('orders')
@@ -43,22 +40,20 @@ export async function GET(request) {
         .in('status', ['ready', 'delivering']),
     ]);
 
-    if (e1 || e2) return NextResponse.json({ error: (e1 || e2).message }, { status: 500 });
+    if (e1 || e2) return NextResponse.json({ error: (e1 || e2)!.message }, { status: 500 });
 
-    // Merge, deduplicate and sort by delivery_sort_order → created_at
-    const orderMap = new Map();
-    [...(todayOrders || []), ...(openOrders || [])].forEach(o => orderMap.set(o.id, o));
+    const orderMap = new Map<string, Record<string, unknown>>();
+    [...(todayOrders || []), ...(openOrders || [])].forEach((o: Record<string, unknown>) => orderMap.set(o.id as string, o));
     const orders = Array.from(orderMap.values()).sort((a, b) => {
-      const as = a.delivery_sort_order ?? 999999;
-      const bs = b.delivery_sort_order ?? 999999;
+      const as = (a.delivery_sort_order as number) ?? 999999;
+      const bs = (b.delivery_sort_order as number) ?? 999999;
       if (as !== bs) return as - bs;
-      return new Date(a.created_at) - new Date(b.created_at);
+      return new Date(a.created_at as string).getTime() - new Date(b.created_at as string).getTime();
     });
 
     if (!orders.length) return NextResponse.json({ orders: [] });
 
-    // Get order items for each order
-    const ordersWithItems = await Promise.all(orders.map(async order => {
+    const ordersWithItems = await Promise.all(orders.map(async (order) => {
       const { data: items } = await supabase
         .from('order_items')
         .select('product_name, quantity, unit_price, total_price, observations')
@@ -68,12 +63,11 @@ export async function GET(request) {
 
     return NextResponse.json({ orders: ordersWithItems });
   } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }
 
-// POST: update delivery status (collected / delivered) and location
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const person = verifyDeliveryToken(request);
     if (!person) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
@@ -85,7 +79,6 @@ export async function POST(request) {
     const now = new Date().toISOString();
 
     if (action === 'collected') {
-      // Driver picked up the order → status becomes 'delivering'
       await supabase.from('orders').update({
         status: 'delivering',
         delivering_at: now,
@@ -93,7 +86,6 @@ export async function POST(request) {
       }).eq('id', order_id).eq('delivery_person_id', person.id);
 
     } else if (action === 'delivered') {
-      // Driver delivered → status becomes 'delivered'
       await supabase.from('orders').update({
         status: 'delivered',
         delivered_at: now,
@@ -111,13 +103,11 @@ export async function POST(request) {
         return NextResponse.json({ error: 'lat/lng inválidos' }, { status: 400 });
       }
 
-      // Update current position on all active deliveries for this driver
       await supabase.from('orders')
         .update({ driver_location_lat: parsedLat, driver_location_lng: parsedLng, driver_location_at: now })
         .eq('delivery_person_id', person.id)
         .in('status', ['ready', 'delivering']);
 
-      // Always persist heartbeat so admin can track rider even between orders
       await supabase.from('delivery_locations').insert({
         delivery_person_id: person.id,
         order_id: order_id || null,
@@ -131,6 +121,6 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true });
   } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

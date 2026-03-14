@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 
 // GET /api/check-webhook-secret - Verifica se o MERCADO_PAGO_WEBHOOK_SECRET está configurado
-export async function GET() {
+export async function GET(): Promise<NextResponse> {
   const secret = (process.env.MERCADO_PAGO_WEBHOOK_SECRET || '').trim();
 
   if (!secret) {
@@ -15,18 +15,16 @@ export async function GET() {
     });
   }
 
-  // Validar o formato básico: deve ser uma string não vazia com comprimento razoável
   const lengthOk = secret.length >= 10;
 
-  // Testar se o segredo consegue gerar um HMAC válido (verifica integridade funcional)
   let hmacWorks = false;
-  let hmacError = null;
+  let hmacError: string | null = null;
   try {
     const testMessage = 'id:123456;request-id:test-req;ts:1234567890;';
     const hash = createHmac('sha256', secret).update(testMessage).digest('hex');
     hmacWorks = typeof hash === 'string' && hash.length === 64;
   } catch (e) {
-    hmacError = `Erro ao gerar HMAC: ${e.message}`;
+    hmacError = `Erro ao gerar HMAC: ${(e as Error).message}`;
   }
 
   const allOk = lengthOk && hmacWorks;

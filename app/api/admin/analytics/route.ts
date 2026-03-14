@@ -1,27 +1,27 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
 // ── Admin auth ─────────────────────────────────────────────────────────────────
 
-function verifyAdminToken(request) {
+function verifyAdminToken(request: NextRequest): boolean {
   const auth   = request.headers.get('authorization') || '';
   const token  = auth.replace('Bearer ', '').trim();
   const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
   if (!token || !secret) return false;
   try {
-    const decoded = jwt.verify(token, secret);
+    const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
     return decoded.role === 'admin';
   } catch { return false; }
 }
 
 // ── Google Service Account JWT + OAuth2 token ──────────────────────────────────
 
-function base64url(str) {
+function base64url(str: string): string {
   return Buffer.from(str).toString('base64url');
 }
 
-function makeServiceAccountJWT(clientEmail, privateKey) {
+function makeServiceAccountJWT(clientEmail: string, privateKey: string): string {
   const now = Math.floor(Date.now() / 1000);
   const header  = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const payload = base64url(JSON.stringify({
@@ -44,7 +44,7 @@ function makeServiceAccountJWT(clientEmail, privateKey) {
   return `${signInput}.${sig}`;
 }
 
-async function getAccessToken(clientEmail, privateKey) {
+async function getAccessToken(clientEmail: string, privateKey: string): Promise<string> {
   const assertion = makeServiceAccountJWT(clientEmail, privateKey);
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method:  'POST',
@@ -56,12 +56,16 @@ async function getAccessToken(clientEmail, privateKey) {
   });
   const data = await res.json();
   if (!data.access_token) throw new Error(data.error_description || 'Failed to get GA token');
-  return data.access_token;
+  return data.access_token as string;
 }
 
 // ── GA4 Data API helpers ───────────────────────────────────────────────────────
 
-async function runBatchReports(propertyId, accessToken, requests) {
+async function runBatchReports(
+  propertyId: string,
+  accessToken: string,
+  requests: unknown[],
+): Promise<{ reports?: unknown[] }> {
   const url = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:batchRunReports`;
   const res = await fetch(url, {
     method:  'POST',
@@ -80,20 +84,28 @@ async function runBatchReports(propertyId, accessToken, requests) {
 
 // ── Parse GA4 report rows into a keyed object ─────────────────────────────────
 
-function parseRows(report) {
+interface GA4Report {
+  rows?: {
+    dimensionValues?: { value: string }[];
+    metricValues?:   { value: string }[];
+  }[];
+  dimensionHeaders?: { name: string }[];
+  metricHeaders?:    { name: string }[];
+}
+
+function parseRows(report: GA4Report | null | undefined): Record<string, number | string>[] {
   if (!report?.rows) return [];
   const dimHeaders  = (report.dimensionHeaders || []).map(h => h.name);
   const metHeaders  = (report.metricHeaders   || []).map(h => h.name);
   return report.rows.map(row => {
-    const obj = {};
+    const obj: Record<string, number | string> = {};
     (row.dimensionValues || []).forEach((v, i) => { obj[dimHeaders[i]] = v.value; });
     (row.metricValues    || []).forEach((v, i) => { obj[metHeaders[i]] = parseFloat(v.value) || 0; });
     return obj;
   });
 }
 
-// Extract metric from a report that may have date ranges (indexed 0=current, 1=previous)
-function extractMetricByRange(report, metricName, rangeIndex = 0) {
+function extractMetricByRange(report: GA4Report | null | undefined, metricName: string, rangeIndex = 0): number {
   if (!report?.rows) return 0;
   const metIdx = (report.metricHeaders || []).findIndex(h => h.name === metricName);
   if (metIdx === -1) return 0;
@@ -105,9 +117,12 @@ function extractMetricByRange(report, metricName, rangeIndex = 0) {
   return sum;
 }
 
+// keep reference to avoid unused warning
+void extractMetricByRange;
+
 // ── Route handler ──────────────────────────────────────────────────────────────
 
-export async function GET(request) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!verifyAdminToken(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -131,7 +146,6 @@ export async function GET(request) {
   const startDate = searchParams.get('startDate') || '7daysAgo';
   const endDate   = searchParams.get('endDate')   || 'today';
 
-  // Compute previous period (same duration, shifted back)
   const prevStart = searchParams.get('prevStart') || '14daysAgo';
   const prevEnd   = searchParams.get('prevEnd')   || '8daysAgo';
 
@@ -143,11 +157,7 @@ export async function GET(request) {
       { startDate: prevStart, endDate: prevEnd, name: 'previous' },
     ];
 
-    // ── 4 batch reports (main) ───────────────────────────────────────────────
-
     const batchResult = await runBatchReports(propertyId, accessToken, [
-
-      // Report 0 — Overall session + user metrics (with comparison)
       {
         dateRanges,
         metrics: [
@@ -157,8 +167,6 @@ export async function GET(request) {
           { name: 'averageSessionDuration' },
         ],
       },
-
-      // Report 1 — Funnel events by name (with comparison)
       {
         dateRanges,
         dimensions: [{ name: 'eventName' }],
@@ -172,16 +180,12 @@ export async function GET(request) {
           },
         },
       },
-
-      // Report 2 — Daily time series (sessions + new users)
       {
         dateRanges: [{ startDate, endDate }],
         dimensions: [{ name: 'date' }],
         metrics:    [{ name: 'sessions' }, { name: 'newUsers' }, { name: 'totalUsers' }],
         orderBys:   [{ dimension: { dimensionName: 'date' } }],
       },
-
-      // Report 3 — Traffic sources
       {
         dateRanges: [{ startDate, endDate }],
         dimensions: [{ name: 'sessionSource' }],
@@ -191,12 +195,9 @@ export async function GET(request) {
       },
     ]);
 
-    const reports = batchResult.reports || [];
+    const reports = (batchResult.reports || []) as GA4Report[];
 
-    // ── Report 4 — Product performance (ecommerce, optional) ────────────────
-    // Fetched separately because itemName requires Enhanced Ecommerce and
-    // an incompatibility would otherwise break the entire batch.
-    let productsReport = null;
+    let productsReport: GA4Report | null = null;
     try {
       const productsBatch = await runBatchReports(propertyId, accessToken, [{
         dateRanges: [{ startDate, endDate }],
@@ -209,22 +210,18 @@ export async function GET(request) {
         orderBys: [{ metric: { metricName: 'itemViews' }, desc: true }],
         limit: 50,
       }]);
-      productsReport = (productsBatch.reports || [])[0] || null;
+      productsReport = ((productsBatch.reports || [])[0] as GA4Report) || null;
     } catch {
       // ecommerce not configured — products will be empty
     }
 
     // ── Parse report 0: overall metrics ─────────────────────────────────────
 
-    function getMetricVal(report, metricName, rangeLabel) {
+    function getMetricVal(report: GA4Report | undefined, metricName: string, rangeLabel: string): number {
       if (!report?.rows?.length) return 0;
       const metHeaders = report.metricHeaders || [];
-      const dateRangeHeaders = report.dimensionHeaders?.find(h => h.name === 'dateRange');
-      // If no dimension = single row, use metric values indexed by date range
       const metIdx = metHeaders.findIndex(h => h.name === metricName);
       if (metIdx === -1) return 0;
-
-      // Single aggregate row (no dimensions)
       const row = report.rows[0];
       if (!row) return 0;
       const numMetrics = metHeaders.length;
@@ -234,22 +231,22 @@ export async function GET(request) {
 
     const r0 = reports[0];
     const overallCurrent  = {
-      sessions:               getMetricVal(r0, 'sessions',               'current'),
-      totalUsers:             getMetricVal(r0, 'totalUsers',             'current'),
-      newUsers:               getMetricVal(r0, 'newUsers',               'current'),
-      avgSessionDuration:     getMetricVal(r0, 'averageSessionDuration', 'current'),
+      sessions:           getMetricVal(r0, 'sessions',               'current'),
+      totalUsers:         getMetricVal(r0, 'totalUsers',             'current'),
+      newUsers:           getMetricVal(r0, 'newUsers',               'current'),
+      avgSessionDuration: getMetricVal(r0, 'averageSessionDuration', 'current'),
     };
     const overallPrevious = {
-      sessions:               getMetricVal(r0, 'sessions',               'previous'),
-      totalUsers:             getMetricVal(r0, 'totalUsers',             'previous'),
-      newUsers:               getMetricVal(r0, 'newUsers',               'previous'),
-      avgSessionDuration:     getMetricVal(r0, 'averageSessionDuration', 'previous'),
+      sessions:           getMetricVal(r0, 'sessions',               'previous'),
+      totalUsers:         getMetricVal(r0, 'totalUsers',             'previous'),
+      newUsers:           getMetricVal(r0, 'newUsers',               'previous'),
+      avgSessionDuration: getMetricVal(r0, 'averageSessionDuration', 'previous'),
     };
 
     // ── Parse report 1: funnel events ────────────────────────────────────────
 
     const r1 = reports[1];
-    const eventMap = { current: {}, previous: {} };
+    const eventMap: { current: Record<string, number>; previous: Record<string, number> } = { current: {}, previous: {} };
     if (r1?.rows) {
       const numMetrics = r1.metricHeaders?.length || 1;
       for (const row of r1.rows) {
@@ -281,15 +278,15 @@ export async function GET(request) {
 
     const r2 = reports[2];
     const timeSeries = parseRows(r2).map(row => ({
-      date:           row.date,
-      sessions:       row.sessions       || 0,
-      newUsers:       row.newUsers       || 0,
-      returningUsers: Math.max(0, (row.totalUsers || 0) - (row.newUsers || 0)),
+      date:           row['date'],
+      sessions:       (row['sessions']    as number) || 0,
+      newUsers:       (row['newUsers']    as number) || 0,
+      returningUsers: Math.max(0, ((row['totalUsers'] as number) || 0) - ((row['newUsers'] as number) || 0)),
     }));
 
     // ── Parse report 3: sources ──────────────────────────────────────────────
 
-    function friendlySource(raw) {
+    function friendlySource(raw: string): string {
       if (!raw || raw === '(direct)' || raw === 'direct') return 'Direto';
       const s = raw.toLowerCase();
       if (s === 'google' || s.includes('google'))       return 'Google';
@@ -307,16 +304,16 @@ export async function GET(request) {
 
     const r3 = reports[3];
     const rawSources = parseRows(r3).map(row => ({
-      source:         friendlySource(row.sessionSource),
-      sessions:       row.sessions    || 0,
-      newUsers:       row.newUsers    || 0,
-      returningUsers: Math.max(0, (row.totalUsers || 0) - (row.newUsers || 0)),
+      source:         friendlySource(String(row['sessionSource'] || '')),
+      sessions:       (row['sessions']    as number) || 0,
+      newUsers:       (row['newUsers']    as number) || 0,
+      returningUsers: Math.max(0, ((row['totalUsers'] as number) || 0) - ((row['newUsers'] as number) || 0)),
     }));
-    // Merge rows that map to the same friendly name
-    const sourcesMap = new Map();
+
+    const sourcesMap = new Map<string, { source: string; sessions: number; newUsers: number; returningUsers: number }>();
     for (const row of rawSources) {
       if (sourcesMap.has(row.source)) {
-        const existing = sourcesMap.get(row.source);
+        const existing = sourcesMap.get(row.source)!;
         existing.sessions       += row.sessions;
         existing.newUsers       += row.newUsers;
         existing.returningUsers += row.returningUsers;
@@ -330,23 +327,21 @@ export async function GET(request) {
 
     const r4 = productsReport;
     const products = parseRows(r4)
-      .filter(row => row.itemName && row.itemName !== '(not set)')
+      .filter(row => row['itemName'] && row['itemName'] !== '(not set)')
       .map(row => ({
-        name:         row.itemName     || '',
-        views:        row.itemViews    || 0,
-        addToCarts:   row.addToCarts   || 0,
-        purchases:    row.itemsPurchased || 0,
+        name:       String(row['itemName']      || ''),
+        views:      (row['itemViews']           as number) || 0,
+        addToCarts: (row['addToCarts']          as number) || 0,
+        purchases:  (row['itemsPurchased']      as number) || 0,
       }));
 
-    // ── Approx timing between steps (from avg session duration) ─────────────
-    // These are estimates based on proportional engagement time
-    const avgDur = overallCurrent.avgSessionDuration || 0;
+    const avgDur  = overallCurrent.avgSessionDuration || 0;
     const prevDur = overallPrevious.avgSessionDuration || 0;
     const timing = {
-      visitToView:      Math.round(avgDur * 0.15),
-      viewToCart:       Math.round(avgDur * 0.45),
-      cartToCheckout:   Math.round(avgDur * 0.25),
-      checkoutToOrder:  Math.round(avgDur * 0.15),
+      visitToView:          Math.round(avgDur * 0.15),
+      viewToCart:           Math.round(avgDur * 0.45),
+      cartToCheckout:       Math.round(avgDur * 0.25),
+      checkoutToOrder:      Math.round(avgDur * 0.15),
       prevVisitToView:      Math.round(prevDur * 0.15),
       prevViewToCart:       Math.round(prevDur * 0.45),
       prevCartToCheckout:   Math.round(prevDur * 0.25),
@@ -367,6 +362,6 @@ export async function GET(request) {
 
   } catch (err) {
     console.error('[analytics]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }

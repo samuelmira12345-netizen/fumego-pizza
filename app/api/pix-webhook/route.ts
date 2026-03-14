@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { logger } from '../../../lib/logger';
 import { earnCashback } from '../../../lib/cashback';
 
-function verifySignature(request, dataId) {
+function verifySignature(request: NextRequest, dataId: string): boolean {
   const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
   if (!secret) {
     logger.error('MERCADO_PAGO_WEBHOOK_SECRET não está configurada. Webhook rejeitado.');
@@ -27,7 +27,7 @@ function verifySignature(request, dataId) {
   return expected === v1;
 }
 
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
 
@@ -50,9 +50,6 @@ export async function POST(request) {
 
       if (orderId) {
         if (mpData.status === 'approved') {
-          // Idempotência: só atualiza se o pedido ainda está pendente de pagamento.
-          // Isso garante que um webhook entregue duas vezes não processe o pagamento
-          // duas vezes (não gera cashback duplicado, não muda status já confirmado).
           const { data: updated, error: updateErr } = await supabase
             .from('orders')
             .update({
@@ -61,26 +58,23 @@ export async function POST(request) {
               pix_payment_id: paymentId,
             })
             .eq('id', orderId)
-            .eq('payment_status', 'pending')   // <-- garante idempotência
+            .eq('payment_status', 'pending')
             .select()
             .single();
 
           if (updateErr) {
             logger.error('Webhook: erro ao atualizar pedido', { orderId, paymentId, error: updateErr.message });
           } else if (!updated) {
-            // Nenhuma linha atualizada = pagamento já foi processado antes
             logger.info('Webhook: pagamento já processado anteriormente, ignorado', { orderId, paymentId });
           } else {
             logger.info('Pagamento aprovado', { orderId, paymentId });
 
-            // Gerar cashback apenas quando confirmamos pela primeira vez
             if (updated.user_id) {
               earnCashback(supabase, updated.user_id, orderId, updated.total)
-                .catch(e => logger.error('[Cashback] Erro ao gerar cashback pós-pagamento', { error: e.message }));
+                .catch((e: Error) => logger.error('[Cashback] Erro ao gerar cashback pós-pagamento', { error: e.message }));
             }
           }
         } else if (['rejected', 'cancelled', 'expired'].includes(mpData.status)) {
-          // Idempotência: só cancela se ainda não foi cancelado
           const { error: cancelErr } = await supabase
             .from('orders')
             .update({ payment_status: 'cancelled', status: 'cancelled' })
@@ -98,11 +92,11 @@ export async function POST(request) {
 
     return NextResponse.json({ received: true });
   } catch (e) {
-    logger.error('Webhook error', { error: e.message });
+    logger.error('Webhook error', { error: (e as Error).message });
     return NextResponse.json({ received: true });
   }
 }
 
-export async function GET() {
+export async function GET(): Promise<NextResponse> {
   return NextResponse.json({ status: 'webhook active' });
 }

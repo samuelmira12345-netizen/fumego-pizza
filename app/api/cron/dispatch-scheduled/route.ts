@@ -1,17 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { isCWPartnerEnabled, pushOrderToCW } from '../../../../lib/cardapioweb-partner';
 import { logger } from '../../../../lib/logger';
 
 /**
  * GET /api/cron/dispatch-scheduled
- * Executa a cada 5 minutos via Vercel Cron (ou pelo auto-dispatch do admin).
- * Busca pedidos agendados cujo horário já passou e os confirma,
- * enviando-os ao CardápioWeb via Partner API para que a cozinha receba.
- *
- * Autenticação: Bearer token via CRON_SECRET env var.
+ * Executa a cada 5 minutos via Vercel Cron.
  */
-export async function GET(request) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const authHeader = request.headers.get('authorization') || '';
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
@@ -22,7 +18,6 @@ export async function GET(request) {
     const supabase = getSupabaseAdmin();
     const now = new Date().toISOString();
 
-    // ── 1. Pedidos agendados que chegaram no horário e ainda estão pendentes ──
     const { data: scheduledOrders, error } = await supabase.from('orders')
       .select('*')
       .not('scheduled_for', 'is', null)
@@ -32,23 +27,21 @@ export async function GET(request) {
 
     if (error) throw error;
 
-    // ── 2. Pedidos com push falho para retry (máx. 6 tentativas) ─────────────
     const { data: failedOrders } = await supabase.from('orders')
       .select('*')
       .eq('cw_push_status', 'failed')
       .lt('cw_push_attempts', 6)
       .not('status', 'eq', 'cancelled');
 
-    const toDispatch   = scheduledOrders || [];
-    const toRetry      = (failedOrders || []).filter(
-      o => !toDispatch.some(d => d.id === o.id)
+    const toDispatch = scheduledOrders || [];
+    const toRetry    = (failedOrders || []).filter(
+      (o: { id: string }) => !toDispatch.some((d: { id: string }) => d.id === o.id)
     );
 
     if (!toDispatch.length && !toRetry.length) {
       return NextResponse.json({ dispatched: 0, retried: 0 });
     }
 
-    // ── Despacha pedidos agendados ────────────────────────────────────────────
     let dispatched = 0;
     for (const order of toDispatch) {
       await supabase.from('orders').update({ status: 'confirmed' }).eq('id', order.id);
@@ -58,7 +51,7 @@ export async function GET(request) {
 
       if (isCWPartnerEnabled()) {
         pushOrderToCW(order, orderItems || [])
-          .then(async r => {
+          .then(async (r: { ok: boolean; data?: { id?: string }; error?: string; errors?: string[] }) => {
             if (r.ok) {
               logger.info('[Cron] Pedido agendado enviado ao CardápioWeb', {
                 orderId: order.id, cwOrderId: r.data?.id, scheduled_for: order.scheduled_for,
@@ -80,7 +73,7 @@ export async function GET(request) {
               }).eq('id', order.id);
             }
           })
-          .catch(async e => {
+          .catch(async (e: Error) => {
             logger.error('[Cron] Exceção ao enviar pedido agendado ao CardápioWeb', {
               orderId: order.id, error: e.message,
             });
@@ -95,7 +88,6 @@ export async function GET(request) {
       dispatched++;
     }
 
-    // ── Retry de pedidos com push falho ───────────────────────────────────────
     let retried = 0;
     if (isCWPartnerEnabled()) {
       for (const order of toRetry) {
@@ -103,7 +95,7 @@ export async function GET(request) {
           .from('order_items').select('*').eq('order_id', order.id);
 
         pushOrderToCW(order, orderItems || [])
-          .then(async r => {
+          .then(async (r: { ok: boolean; data?: { id?: string }; error?: string; errors?: string[] }) => {
             if (r.ok) {
               logger.info('[Cron] Retry CW bem-sucedido', {
                 orderId: order.id, cwOrderId: r.data?.id, attempt: (order.cw_push_attempts || 0) + 1,
@@ -125,7 +117,7 @@ export async function GET(request) {
               }).eq('id', order.id);
             }
           })
-          .catch(async e => {
+          .catch(async (e: Error) => {
             await supabase.from('orders').update({
               cw_push_status:     'failed',
               cw_push_attempts:   (order.cw_push_attempts || 0) + 1,
@@ -141,6 +133,6 @@ export async function GET(request) {
     return NextResponse.json({ dispatched, retried });
   } catch (e) {
     logger.error('[Cron] Erro em dispatch-scheduled:', e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

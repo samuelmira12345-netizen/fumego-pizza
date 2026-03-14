@@ -1,16 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-function normalizeText(value) {
+function normalizeText(value: unknown): string {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
-function formatZipcode(zipcode) {
+function formatZipcode(zipcode: unknown): string {
   const digits = String(zipcode || '').replace(/\D/g, '');
   if (digits.length !== 8) return '';
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
-const UF_MAP = {
+const UF_MAP: Record<string, string> = {
   AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas', BA: 'Bahia', CE: 'Ceará',
   DF: 'Distrito Federal', ES: 'Espírito Santo', GO: 'Goiás', MA: 'Maranhão', MT: 'Mato Grosso',
   MS: 'Mato Grosso do Sul', MG: 'Minas Gerais', PA: 'Pará', PB: 'Paraíba', PR: 'Paraná',
@@ -24,11 +24,22 @@ const HEADERS = {
   'Accept-Language': 'pt-BR,pt;q=0.9',
 };
 
-function delay(ms) {
+function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function tryBrasilApi(zipcode) {
+interface GeoCoords { lat: number; lng: number; }
+
+interface AddressDetails {
+  street: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zipcode: string;
+}
+
+async function tryBrasilApi(zipcode: string): Promise<GeoCoords | null> {
   const cep = String(zipcode || '').replace(/\D/g, '');
   if (cep.length !== 8) return null;
   try {
@@ -47,7 +58,7 @@ async function tryBrasilApi(zipcode) {
   return null;
 }
 
-async function tryNominatimStructured(details) {
+async function tryNominatimStructured(details: AddressDetails): Promise<GeoCoords | null> {
   const params = new URLSearchParams({
     format: 'json',
     limit: '1',
@@ -74,7 +85,7 @@ async function tryNominatimStructured(details) {
   return null;
 }
 
-async function tryNominatimFreeform(query) {
+async function tryNominatimFreeform(query: string): Promise<GeoCoords | null> {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`,
@@ -90,16 +101,16 @@ async function tryNominatimFreeform(query) {
   return null;
 }
 
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
-    const details = {
-      street: normalizeText(body.street),
-      number: normalizeText(body.number),
+    const details: AddressDetails = {
+      street:       normalizeText(body.street),
+      number:       normalizeText(body.number),
       neighborhood: normalizeText(body.neighborhood),
-      city: normalizeText(body.city),
-      state: normalizeText(body.state).toUpperCase(),
-      zipcode: String(body.zipcode || '').replace(/\D/g, ''),
+      city:         normalizeText(body.city),
+      state:        normalizeText(body.state).toUpperCase(),
+      zipcode:      String(body.zipcode || '').replace(/\D/g, ''),
     };
 
     // Strategy 1: BrasilAPI by CEP
@@ -127,6 +138,6 @@ export async function POST(request) {
 
     return NextResponse.json({ error: 'Não foi possível geocodificar o endereço' }, { status: 400 });
   } catch (e) {
-    return NextResponse.json({ error: e.message || 'Erro ao geocodificar' }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message || 'Erro ao geocodificar' }, { status: 500 });
   }
 }

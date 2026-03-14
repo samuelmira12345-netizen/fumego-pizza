@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { sendVerificationEmail } from '../../../../lib/email';
 import { registerSchema } from '../../../../lib/schemas';
@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { signUserToken, setAuthCookie } from '../../../../lib/auth';
 
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const raw = await request.json();
     const parsed = registerSchema.safeParse(raw);
@@ -49,26 +49,23 @@ export async function POST(request) {
 
     const token = signUserToken(user.id, user.email);
 
-    // Enviar e-mail de verificação (não bloqueia a resposta se falhar)
     const verificationToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // 24 horas
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     supabase.from('email_verification_tokens').insert({
       user_id: user.id, token: verificationToken, expires_at: expiresAt,
     }).then(() => {
-      const appUrl   = process.env.NEXT_PUBLIC_APP_URL || '';
+      const appUrl    = process.env.NEXT_PUBLIC_APP_URL || '';
       const verifyUrl = `${appUrl}/verify-email?token=${verificationToken}`;
       sendVerificationEmail(user.email, user.name, verifyUrl)
-        .catch(err => console.error('Erro ao enviar e-mail de verificação:', err));
+        .catch((err: Error) => console.error('Erro ao enviar e-mail de verificação:', err));
     });
 
     const { password_hash: _, ...safeUser } = user;
 
-    // Define token em cookie httpOnly (proteção XSS) e também retorna no body
-    // para retrocompatibilidade com clientes que ainda usam Authorization header.
     const response = NextResponse.json({ token, user: safeUser });
     setAuthCookie(response, token);
     return response;
   } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

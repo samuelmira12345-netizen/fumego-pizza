@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { checkRateLimit, getClientIp } from '../../../lib/rate-limit';
 import { getAuthUser } from '../../../lib/auth';
 
 /** GET /api/orders — retorna os pedidos do usuário autenticado. */
-export async function GET(request) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const ip = getClientIp(request);
   const { allowed, retryAfterMs } = await checkRateLimit(`orders:${ip}`, 30, 60_000);
   if (!allowed) {
@@ -15,7 +15,6 @@ export async function GET(request) {
     );
   }
 
-  // Aceita token via cookie httpOnly (preferencial) ou Authorization header
   const decoded = getAuthUser(request);
   if (!decoded?.userId) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
@@ -34,6 +33,6 @@ export async function GET(request) {
 
     return NextResponse.json({ orders: data || [] });
   } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

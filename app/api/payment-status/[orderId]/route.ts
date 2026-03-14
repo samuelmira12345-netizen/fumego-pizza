@@ -1,9 +1,12 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 
 /** GET /api/payment-status/:orderId — retorna payment_status + status do pedido. */
-export async function GET(request, { params }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { orderId: string } }
+): Promise<NextResponse> {
   const ip = getClientIp(request);
   const { allowed, retryAfterMs } = await checkRateLimit(`payment-status:${ip}`, 120, 60_000);
   if (!allowed) {
@@ -33,12 +36,15 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({ payment_status: data.payment_status, status: data.status });
   } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }
 
 /** POST /api/payment-status/:orderId — cancela o pedido (chamado após timeout do PIX). */
-export async function POST(request, { params }) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { orderId: string } }
+): Promise<NextResponse> {
   const ip = getClientIp(request);
   const { allowed, retryAfterMs } = await checkRateLimit(`payment-cancel:${ip}`, 20, 60_000);
   if (!allowed) {
@@ -61,7 +67,6 @@ export async function POST(request, { params }) {
     }
 
     const supabase = getSupabaseAdmin();
-    // Só cancela se ainda não foi aprovado
     const { data: order } = await supabase
       .from('orders')
       .select('payment_status')
@@ -77,6 +82,6 @@ export async function POST(request, { params }) {
 
     return NextResponse.json({ success: true });
   } catch (e) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

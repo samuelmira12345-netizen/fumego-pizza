@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 
 /** GET /api/auth/verify-email?token=... — verifica o token de e-mail. */
-export async function GET(request) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const token = searchParams.get('token');
 
@@ -26,13 +26,11 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Token expirado. Faça login para receber um novo link.' }, { status: 400 });
     }
 
-    // Marcar e-mail como verificado (coluna email_verified na tabela users, se existir)
-    // Se a coluna não existir, apenas marca o token como usado
     await supabase.from('email_verification_tokens').update({ used_at: new Date().toISOString() }).eq('id', record.id);
 
     return NextResponse.json({ success: true, message: 'E-mail verificado com sucesso!' });
   } catch (e) {
     console.error('Verify email error:', e);
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

@@ -1,12 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 
 /**
  * GET /api/checkout/available-slots?date=YYYY-MM-DD
  * Retorna os horários disponíveis para agendamento em uma data específica.
- * Um horário é exibido apenas se ainda não atingiu o limite de pedidos.
  */
-export async function GET(request) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get('date');
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -16,25 +15,22 @@ export async function GET(request) {
   try {
     const supabase = getSupabaseAdmin();
 
-    // Carregar configurações de agendamento
     const { data: settings } = await supabase.from('settings').select('key, value')
       .in('key', ['scheduling_enabled', 'scheduling_slots']);
 
-    const settingsMap = {};
-    (settings || []).forEach(s => { settingsMap[s.key] = s.value; });
+    const settingsMap: Record<string, string> = {};
+    (settings || []).forEach((s: { key: string; value: string }) => { settingsMap[s.key] = s.value; });
 
     if (settingsMap.scheduling_enabled !== 'true') {
       return NextResponse.json({ enabled: false, slots: [] });
     }
 
-    let slots = [];
+    let slots: Array<{ time: string; max_orders: number }> = [];
     try { slots = JSON.parse(settingsMap.scheduling_slots || '[]'); } catch {}
     if (!slots.length) return NextResponse.json({ enabled: true, slots: [] });
 
-    // Contar pedidos já agendados para cada slot nessa data (janela de 30 min)
-    const available = [];
+    const available: Array<{ time: string; max_orders: number; booked: number }> = [];
     for (const slot of slots) {
-      const [h, m] = slot.time.split(':').map(Number);
       const slotStart = new Date(`${date}T${slot.time}:00-03:00`);
       const slotEnd   = new Date(slotStart.getTime() + 30 * 60 * 1000);
 

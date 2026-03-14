@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { hashCpf, validateCpf } from '../../../../lib/cpf-crypto';
 import { sendOrderConfirmationEmail } from '../../../../lib/email';
@@ -14,7 +14,7 @@ import { earnCashback, useCashback } from '../../../../lib/cashback';
  * Idempotência: o cliente pode enviar o header X-Idempotency-Key (UUID gerado no client).
  * Se um pedido já foi criado com a mesma chave, retorna o pedido existente sem criar duplicata.
  */
-export async function POST(request) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const raw = await request.json();
     const parsed = createOrderSchema.safeParse(raw);
@@ -44,24 +44,19 @@ export async function POST(request) {
     // ─────────────────────────────────────────────────────────────────────────
 
     // ── Decrementar estoque de forma atômica (lock no banco) ──────────────────
-    // A função decrement_stock_atomic usa pg_advisory_xact_lock para garantir
-    // que dois pedidos simultâneos não possam vender o mesmo produto esgotado.
     const { data: stockResult, error: stockErr } = await supabase.rpc(
       'decrement_stock_atomic',
       { p_items: items }
     );
 
     if (stockErr) {
-      // A função RPC não existe ainda — fallback para validação simples (sem lock)
-      // ATENÇÃO: execute supabase-stock-atomic.sql no Supabase SQL Editor para ativar o lock atômico
       logger.warn('[Stock] decrement_stock_atomic não disponível, usando fallback sem lock', {
         error: stockErr.message,
       });
 
-      // Fallback: validação de estoque sem lock usando tabelas product_stock / drink_stock
       try {
-        const productIds = items.filter(i => i.product_id).map(i => i.product_id);
-        const drinkIds   = items.filter(i => i.drink_id).map(i => i.drink_id);
+        const productIds = items.filter((i: Record<string, unknown>) => i.product_id).map((i: Record<string, unknown>) => i.product_id);
+        const drinkIds   = items.filter((i: Record<string, unknown>) => i.drink_id).map((i: Record<string, unknown>) => i.drink_id);
 
         if (productIds.length > 0) {
           const { data: stocks } = await supabase
@@ -70,11 +65,11 @@ export async function POST(request) {
             .in('product_id', productIds)
             .eq('enabled', true);
 
-          for (const item of items) {
+          for (const item of items as Record<string, unknown>[]) {
             if (!item.product_id) continue;
-            const entry = stocks?.find(s => s.product_id === item.product_id);
+            const entry = (stocks as Record<string, unknown>[] | null)?.find((s: Record<string, unknown>) => s.product_id === item.product_id);
             if (!entry?.enabled) continue;
-            if (entry.quantity < (item.quantity || 1)) {
+            if ((entry.quantity as number) < ((item.quantity as number) || 1)) {
               return NextResponse.json({ error: `"${item.product_name}" está esgotado e não pode ser pedido.` }, { status: 409 });
             }
           }
@@ -87,20 +82,20 @@ export async function POST(request) {
             .in('drink_id', drinkIds)
             .eq('enabled', true);
 
-          for (const item of items) {
+          for (const item of items as Record<string, unknown>[]) {
             if (!item.drink_id) continue;
-            const entry = stocks?.find(s => String(s.drink_id) === String(item.drink_id));
+            const entry = (stocks as Record<string, unknown>[] | null)?.find((s: Record<string, unknown>) => String(s.drink_id) === String(item.drink_id));
             if (!entry?.enabled) continue;
-            if (entry.quantity < (item.quantity || 1)) {
+            if ((entry.quantity as number) < ((item.quantity as number) || 1)) {
               return NextResponse.json({ error: `"${item.product_name}" não tem estoque suficiente.` }, { status: 409 });
             }
           }
         }
       } catch (validationErr) {
-        logger.error('[Stock] Erro na validação de estoque fallback', { error: validationErr.message });
+        logger.error('[Stock] Erro na validação de estoque fallback', { error: (validationErr as Error).message });
       }
-    } else if (stockResult && !stockResult.ok) {
-      return NextResponse.json({ error: stockResult.error }, { status: 409 });
+    } else if (stockResult && !(stockResult as Record<string, unknown>).ok) {
+      return NextResponse.json({ error: (stockResult as Record<string, unknown>).error }, { status: 409 });
     }
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -115,17 +110,15 @@ export async function POST(request) {
     // Hash do CPF no servidor (não expõe o dado em texto puro)
     const cpfHash = cpf ? hashCpf(cpf) : null;
 
-    const securePayload = {
+    const securePayload: Record<string, unknown> = {
       ...orderPayload,
       customer_cpf: cpfHash,
     };
 
-    // Adicionar idempotency_key ao pedido se fornecido
     if (idempotencyKey) {
       securePayload.idempotency_key = idempotencyKey;
     }
 
-    // Não enviar scheduled_for: null para o banco — evita erro se a coluna ainda não existe.
     if (!securePayload.scheduled_for) {
       delete securePayload.scheduled_for;
     }
@@ -141,25 +134,21 @@ export async function POST(request) {
     }
 
     // Inserir itens do pedido
-    const orderItems = items.map(item => ({ ...item, order_id: order.id }));
+    const orderItems = (items as Record<string, unknown>[]).map(item => ({ ...item, order_id: order.id }));
     const { error: itemsErr } = await supabase.from('order_items').insert(orderItems);
     if (itemsErr) {
       logger.error('Erro ao inserir itens do pedido', { orderId: order.id, error: itemsErr.message });
     }
 
-    // Nota: quando a função RPC de estoque atômico está disponível, o decremento
-    // já foi feito na chamada rpc() acima. O fallback abaixo só executa quando
-    // a RPC não está disponível (stockErr != null).
     if (stockErr) {
-      // Fallback: decrementar estoque usando tabelas product_stock / drink_stock (sem lock)
       try {
-        for (const item of items) {
+        for (const item of items as Record<string, unknown>[]) {
           if (!item.product_id) continue;
-          const need = item.quantity || 1;
+          const need = (item.quantity as number) || 1;
           const { data: row } = await supabase
             .from('product_stock').select('quantity, enabled').eq('product_id', item.product_id).single();
-          if (!row?.enabled) continue;
-          const newQty = Math.max(0, row.quantity - need);
+          if (!(row as Record<string, unknown> | null)?.enabled) continue;
+          const newQty = Math.max(0, (row as Record<string, unknown>).quantity as number - need);
           await supabase.from('product_stock')
             .update({ quantity: newQty, updated_at: new Date().toISOString() })
             .eq('product_id', item.product_id);
@@ -168,17 +157,17 @@ export async function POST(request) {
           }
         }
       } catch (stockDecrErr) {
-        logger.error('[Stock] Erro ao decrementar estoque (fallback)', { error: stockDecrErr.message });
+        logger.error('[Stock] Erro ao decrementar estoque (fallback)', { error: (stockDecrErr as Error).message });
       }
 
       try {
-        for (const item of items) {
+        for (const item of items as Record<string, unknown>[]) {
           if (!item.drink_id) continue;
-          const need = item.quantity || 1;
+          const need = (item.quantity as number) || 1;
           const { data: row } = await supabase
             .from('drink_stock').select('quantity, enabled').eq('drink_id', item.drink_id).single();
-          if (!row?.enabled) continue;
-          const newQty = Math.max(0, row.quantity - need);
+          if (!(row as Record<string, unknown> | null)?.enabled) continue;
+          const newQty = Math.max(0, (row as Record<string, unknown>).quantity as number - need);
           await supabase.from('drink_stock')
             .update({ quantity: newQty, updated_at: new Date().toISOString() })
             .eq('drink_id', item.drink_id);
@@ -187,42 +176,39 @@ export async function POST(request) {
           }
         }
       } catch (drinkStockErr) {
-        logger.error('[DrinkStock] Erro ao decrementar estoque de bebidas (fallback)', { error: drinkStockErr.message });
+        logger.error('[DrinkStock] Erro ao decrementar estoque de bebidas (fallback)', { error: (drinkStockErr as Error).message });
       }
     }
 
     // ── Cashback: consumir saldo (FIFO) se o cliente usou cashback ───────────
-    const cashbackUsed = orderPayload.cashback_used || 0;
-    if (cashbackUsed > 0 && orderPayload.user_id) {
-      useCashback(supabase, orderPayload.user_id, order.id, cashbackUsed)
-        .catch(e => logger.error('[Cashback] Erro ao consumir saldo', { error: e.message }));
+    const cashbackUsed = (orderPayload as Record<string, unknown>).cashback_used as number || 0;
+    if (cashbackUsed > 0 && (orderPayload as Record<string, unknown>).user_id) {
+      useCashback(supabase, (orderPayload as Record<string, unknown>).user_id as string, order.id, cashbackUsed)
+        .catch((e: Error) => logger.error('[Cashback] Erro ao consumir saldo', { error: e.message }));
     }
     // ─────────────────────────────────────────────────────────────────────────
 
     // Registrar uso de cupom com CPF hasheado
     if (coupon && cpf) {
       await supabase.from('coupon_usage').insert({
-        coupon_id: coupon.id,
+        coupon_id: (coupon as Record<string, unknown>).id,
         cpf: cpfHash,
-        user_id: orderPayload.user_id || null,
+        user_id: (orderPayload as Record<string, unknown>).user_id || null,
       });
       await supabase
         .from('coupons')
-        .update({ times_used: coupon.times_used + 1 })
-        .eq('id', coupon.id);
+        .update({ times_used: (coupon as Record<string, unknown>).times_used as number + 1 })
+        .eq('id', (coupon as Record<string, unknown>).id);
     }
 
     // ── Cardápio Web Partner API ──────────────────────────────────────────────
-    // Envia o pedido ao painel do CardápioWeb (não bloqueia a resposta ao cliente).
-    // Após 3 tentativas com backoff registra o status em cw_push_status para
-    // que o cron de retry possa retentar pedidos com falha persistente.
     if (isCWPartnerEnabled()) {
       pushOrderToCW(order, orderItems)
-        .then(async result => {
+        .then(async (result: Record<string, unknown>) => {
           if (result.ok) {
             logger.info('[CW Partner] Pedido enviado com sucesso ao CardápioWeb', {
               orderId:   order.id,
-              cwOrderId: result.data?.id,
+              cwOrderId: (result.data as Record<string, unknown>)?.id,
             });
             await supabase.from('orders').update({
               cw_push_status:      'success',
@@ -230,7 +216,7 @@ export async function POST(request) {
               cw_push_last_error:  null,
             }).eq('id', order.id);
           } else {
-            const errMsg = result.error || (result.errors || []).join('; ') || `HTTP ${result.status}`;
+            const errMsg = result.error || ((result.errors as string[] || []).join('; ')) || `HTTP ${result.status}`;
             logger.error('[CW Partner] Falha ao enviar pedido ao CardápioWeb', {
               orderId: order.id,
               status:  result.status,
@@ -240,11 +226,11 @@ export async function POST(request) {
             await supabase.from('orders').update({
               cw_push_status:     'failed',
               cw_push_attempts:   (order.cw_push_attempts || 0) + 1,
-              cw_push_last_error: errMsg.slice(0, 500),
+              cw_push_last_error: (errMsg as string).slice(0, 500),
             }).eq('id', order.id);
           }
         })
-        .catch(async e => {
+        .catch(async (e: Error) => {
           logger.error('[CW Partner] Exceção ao enviar pedido ao CardápioWeb', {
             orderId: order.id,
             error:   e.message,
@@ -264,21 +250,21 @@ export async function POST(request) {
     // ─────────────────────────────────────────────────────────────────────────
 
     // Enviar e-mail de confirmação (não bloqueia a resposta se falhar)
-    if (orderPayload.customer_email) {
-      const deliveryTime = orderPayload.delivery_time || '40–60 min';
+    if ((orderPayload as Record<string, unknown>).customer_email) {
+      const deliveryTime = (orderPayload as Record<string, unknown>).delivery_time as string || '40–60 min';
       sendOrderConfirmationEmail(
-        orderPayload.customer_email,
-        orderPayload.customer_name,
+        (orderPayload as Record<string, unknown>).customer_email as string,
+        (orderPayload as Record<string, unknown>).customer_name as string,
         order.order_number,
         order.total,
         items,
         deliveryTime,
-      ).catch(err => logger.error('Erro ao enviar e-mail de confirmação', { error: err.message }));
+      ).catch((err: Error) => logger.error('Erro ao enviar e-mail de confirmação', { error: err.message }));
     }
 
     return NextResponse.json({ order });
   } catch (e) {
-    logger.error('Erro ao criar pedido', { error: e.message });
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    logger.error('Erro ao criar pedido', { error: (e as Error).message });
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }
