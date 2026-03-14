@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Check, Loader2, X, Trash2, RefreshCw,
   Tag, BarChart2, Clock, Users, TrendingUp, TrendingDown,
@@ -17,16 +17,16 @@ const C = {
   purple: '#7C3AED', blue: '#2563EB',
 };
 
-function fmtBRL(v) {
+function fmtBRL(v: any): string {
   return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function fmtDate(iso) {
+function fmtDate(iso: any): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-function fmtDateShort(iso) {
+function fmtDateShort(iso: any): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
@@ -61,9 +61,9 @@ const BLANK_COUPON = {
 
 // ── Mini bar chart ──────────────────────────────────────────────────────────
 
-function BarChartSimple({ data, color = C.gold, height = 60 }) {
+function BarChartSimple({ data, color = C.gold, height = 60 }: { data: { label: string; value: number }[]; color?: string; height?: number }) {
   if (!data || data.length === 0) return <p style={{ fontSize: 12, color: C.light, textAlign: 'center', padding: 16 }}>Sem dados</p>;
-  const max = Math.max(...data.map(d => d.value), 1);
+  const max = Math.max(...data.map((d: { label: string; value: number }) => d.value), 1);
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height, padding: '0 4px' }}>
       {data.map((d, i) => (
@@ -78,7 +78,7 @@ function BarChartSimple({ data, color = C.gold, height = 60 }) {
 
 // ── Coupon form ──────────────────────────────────────────────────────────────
 
-function CouponForm({ initial, onSave, onCancel, saving }) {
+function CouponForm({ initial, onSave, onCancel, saving }: { initial: any, onSave: any, onCancel: any, saving: any }) {
   const [form, setForm] = useState(() => {
     const base = initial || { ...BLANK_COUPON };
     return {
@@ -88,22 +88,22 @@ function CouponForm({ initial, onSave, onCancel, saving }) {
     };
   });
 
-  function set(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
+  function set(field: any, value: any) { setForm((prev: any) => ({ ...prev, [field]: value })); }
 
-  function toggleDay(day) {
-    setForm(prev => ({
+  function toggleDay(day: any) {
+    setForm((prev: any) => ({
       ...prev,
       available_days: prev.available_days.includes(day)
-        ? prev.available_days.filter(d => d !== day)
+        ? prev.available_days.filter((d: any) => d !== day)
         : [...prev.available_days, day],
     }));
   }
 
-  function togglePayment(method) {
-    setForm(prev => ({
+  function togglePayment(method: any) {
+    setForm((prev: any) => ({
       ...prev,
       payment_methods: prev.payment_methods.includes(method)
-        ? prev.payment_methods.filter(m => m !== method)
+        ? prev.payment_methods.filter((m: any) => m !== method)
         : [...prev.payment_methods, method],
     }));
   }
@@ -114,8 +114,8 @@ function CouponForm({ initial, onSave, onCancel, saving }) {
     set('code', code);
   }
 
-  const inputStyle = { width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', background: '#F9FAFB', color: C.text, boxSizing: 'border-box' };
-  const labelStyle = { fontSize: 10, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.4 };
+  const inputStyle: React.CSSProperties = { width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 13, outline: 'none', background: '#F9FAFB', color: C.text, boxSizing: 'border-box' };
+  const labelStyle: React.CSSProperties = { fontSize: 10, color: C.muted, fontWeight: 700, display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.4 };
 
   return (
     <div style={{ background: C.card, borderRadius: 12, border: '1px solid ' + C.border, padding: 24 }}>
@@ -276,7 +276,7 @@ function CouponForm({ initial, onSave, onCancel, saving }) {
 
 // ── Coupon Card (single coupon display) ──────────────────────────────────────
 
-function CouponCard({ coupon, usage, onDelete, onToggle, onEdit }) {
+function CouponCard({ coupon, usage, onDelete, onToggle, onEdit }: { coupon: any, usage: any, onDelete: any, onToggle: any, onEdit: any }) {
   const [expanded, setExpanded] = useState(false);
 
   const isExpired = coupon.valid_until && new Date(coupon.valid_until) < new Date();
@@ -361,10 +361,10 @@ function CouponCard({ coupon, usage, onDelete, onToggle, onEdit }) {
             {coupon.valid_until && <span>Válido até: <strong style={{ color: isExpired ? C.danger : C.text }}>{fmtDate(coupon.valid_until)}</strong></span>}
             {(coupon.new_customers_only || coupon.is_first_order_only) && <span style={{ color: C.purple, fontWeight: 600 }}>Apenas {coupon.new_customers_only ? 'novos clientes' : 'primeiro pedido'}</span>}
             {coupon.available_days?.length > 0 && (
-              <span>Dias: <strong style={{ color: C.text }}>{coupon.available_days.map(d => DAYS_PT[DAY_KEYS.indexOf(d)]).join(', ')}</strong></span>
+              <span>Dias: <strong style={{ color: C.text }}>{coupon.available_days.map((d: any) => DAYS_PT[DAY_KEYS.indexOf(d)]).join(', ')}</strong></span>
             )}
             {coupon.payment_methods?.length > 0 && (
-              <span>Pagamento: <strong style={{ color: C.text }}>{coupon.payment_methods.map(m => PAYMENT_OPTIONS.find(p => p.key === m)?.label || m).join(', ')}</strong></span>
+              <span>Pagamento: <strong style={{ color: C.text }}>{coupon.payment_methods.map((m: any) => PAYMENT_OPTIONS.find(p => p.key === m)?.label || m).join(', ')}</strong></span>
             )}
           </div>
 
@@ -373,7 +373,7 @@ function CouponCard({ coupon, usage, onDelete, onToggle, onEdit }) {
             <div style={{ marginTop: 12 }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Histórico de Uso</p>
               <div style={{ maxHeight: 140, overflowY: 'auto', border: '1px solid ' + C.border, borderRadius: 6, overflow: 'hidden' }}>
-                {usage.slice(0, 20).map((u, i) => (
+                {usage.slice(0, 20).map((u: any, i: any) => (
                   <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, padding: '7px 10px', borderBottom: i < usage.length - 1 ? '1px solid ' + C.border + '60' : 'none', background: i % 2 === 0 ? '#fff' : '#FAFAFA', fontSize: 11 }}>
                     <span style={{ color: C.text }}>{u.customer_name || 'Cliente'}</span>
                     <span style={{ color: C.muted }}>{u.cpf ? '***.' + u.cpf.slice(-6) : '—'}</span>
@@ -391,13 +391,13 @@ function CouponCard({ coupon, usage, onDelete, onToggle, onEdit }) {
 
 // ── Main CouponsTab ──────────────────────────────────────────────────────────
 
-export default function CouponsTab({ adminToken }) {
-  const [coupons, setCoupons]       = useState([]);
-  const [usage, setUsage]           = useState([]);     // coupon_usage records
-  const [orders, setOrders]         = useState([]);     // orders with coupon
+export default function CouponsTab({ adminToken }: { adminToken: any }) {
+  const [coupons, setCoupons]       = useState<any[]>([]);
+  const [usage, setUsage]           = useState<any[]>([]);     // coupon_usage records
+  const [orders, setOrders]         = useState<any[]>([]);     // orders with coupon
   const [loading, setLoading]       = useState(true);
   const [analyticsTab, setAnalyticsTab] = useState('overview'); // 'overview' | 'history' | 'charts'
-  const [formMode, setFormMode]     = useState(null); // null | 'new' | coupon_object (editing)
+  const [formMode, setFormMode]     = useState<any>(null); // null | 'new' | coupon_object (editing)
   const [saving, setSaving]         = useState(false);
   const [msg, setMsg]               = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'active' | 'inactive' | 'expired'
@@ -452,7 +452,7 @@ export default function CouponsTab({ adminToken }) {
   const avgDiscountPerOrder = couponOrders.length > 0 ? totalDiscountGiven / couponOrders.length : 0;
 
   // Usage by coupon code in period
-  const usageByCoupon = {};
+  const usageByCoupon: Record<string, any> = {};
   for (const o of couponOrders) {
     const code = o.coupon_code?.toUpperCase();
     if (!usageByCoupon[code]) usageByCoupon[code] = { count: 0, totalDiscount: 0, totalRevenue: 0 };
@@ -476,7 +476,7 @@ export default function CouponsTab({ adminToken }) {
   }
 
   // Daily trend in period (last 14 days default)
-  const dailyTrend = {};
+  const dailyTrend: Record<string, any> = {};
   for (const o of couponOrders) {
     const day = o.created_at.slice(0, 10);
     if (!dailyTrend[day]) dailyTrend[day] = { count: 0, discount: 0 };
@@ -491,7 +491,7 @@ export default function CouponsTab({ adminToken }) {
 
   // ── Coupon CRUD ───────────────────────────────────────────────────────────
 
-  async function handleSaveCoupon(form) {
+  async function handleSaveCoupon(form: any) {
     setSaving(true);
     try {
       const payload = {
@@ -512,7 +512,7 @@ export default function CouponsTab({ adminToken }) {
         payment_methods:     form.payment_methods.length > 0 ? form.payment_methods : null,
       };
       const action = form.id ? 'update_coupon' : 'add_coupon';
-      if (form.id) payload.id = form.id;
+      if (form.id) (payload as any).id = form.id;
       const res = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
@@ -524,21 +524,21 @@ export default function CouponsTab({ adminToken }) {
       setTimeout(() => setMsg(''), 3000);
       setFormMode(null);
       await load();
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setSaving(false); }
   }
 
-  async function handleDeleteCoupon(id) {
+  async function handleDeleteCoupon(id: any) {
     if (!confirm('Excluir este cupom? Esta ação não pode ser desfeita.')) return;
     try {
       await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` }, body: JSON.stringify({ action: 'delete_coupon', data: { id } }) });
       setCoupons(prev => prev.filter(c => c.id !== id));
       setMsg('✅ Cupom excluído');
       setTimeout(() => setMsg(''), 2500);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
   }
 
-  async function handleToggleCoupon(coupon) {
+  async function handleToggleCoupon(coupon: any) {
     try {
       const res = await fetch('/api/admin', {
         method: 'POST',
@@ -548,7 +548,7 @@ export default function CouponsTab({ adminToken }) {
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
       setCoupons(prev => prev.map(c => c.id === coupon.id ? { ...c, is_active: !c.is_active } : c));
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
   }
 
   // ── Filtered coupon list ──────────────────────────────────────────────────
@@ -686,7 +686,7 @@ export default function CouponsTab({ adminToken }) {
                   <span key={i} style={{ fontSize: 10, fontWeight: 700, color: C.light, textTransform: 'uppercase', textAlign: i > 0 ? 'right' : 'left' }}>{h}</span>
                 ))}
               </div>
-              {Object.entries(usageByCoupon).sort((a, b) => b[1].count - a[1].count).map(([code, stats], i) => (
+              {Object.entries(usageByCoupon).sort((a: any, b: any) => b[1].count - a[1].count).map(([code, stats]: [string, any], i) => (
                 <div key={code} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 120px 120px', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid ' + C.border + '60', background: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
                   <div>
                     <code style={{ fontSize: 12, fontWeight: 700, color: C.purple }}>{code}</code>
@@ -734,7 +734,7 @@ export default function CouponsTab({ adminToken }) {
                   usage={usage.filter(u => u.coupon_id === coupon.id)}
                   onDelete={handleDeleteCoupon}
                   onToggle={handleToggleCoupon}
-                  onEdit={c => { setFormMode(c); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  onEdit={(c: any) => { setFormMode(c); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 />
               ))}
             </div>
@@ -772,7 +772,7 @@ export default function CouponsTab({ adminToken }) {
             <p style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Comparação de Cupons</p>
             <p style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>Quantidade de usos por cupom no período.</p>
             <BarChartSimple
-              data={Object.entries(usageByCoupon).sort((a, b) => b[1].count - a[1].count).slice(0, 10).map(([code, stats]) => ({ label: code, value: stats.count }))}
+              data={Object.entries(usageByCoupon).sort((a: any, b: any) => b[1].count - a[1].count).slice(0, 10).map(([code, stats]: [string, any]) => ({ label: code, value: stats.count }))}
               color={C.success}
               height={80}
             />
@@ -825,7 +825,7 @@ export default function CouponsTab({ adminToken }) {
               <p style={{ fontSize: 13 }}>Nenhum pedido com cupom no período selecionado.</p>
             </div>
           ) : (
-            couponOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map((order, i) => (
+            couponOrders.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((order: any, i: any) => (
               <div key={order.id || i} style={{ display: 'grid', gridTemplateColumns: '140px 1fr 1fr 100px 120px', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid ' + C.border + '60', background: i % 2 === 0 ? '#fff' : '#FAFAFA' }}>
                 <span style={{ fontSize: 11, color: C.muted, fontFamily: 'monospace' }}>{fmtDate(order.created_at)}</span>
                 <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>{order.customer_name || '—'}</span>

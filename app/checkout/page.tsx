@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import {
@@ -19,11 +19,11 @@ const RED    = '#E04040';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const [cart, setCart] = useState([]);
-  const [user, setUser] = useState(null);
+  const [cart, setCart] = useState<any[]>([]);
+  const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [couponCode, setCouponCode] = useState('');
-  const [couponApplied, setCouponApplied] = useState(null);
+  const [couponApplied, setCouponApplied] = useState<any>(null);
   const [couponError, setCouponError] = useState('');
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryTime, setDeliveryTime] = useState('40–60 min');
@@ -31,12 +31,12 @@ export default function CheckoutPage() {
   const [deliveryCalculating, setDeliveryCalculating] = useState(false);
   const [deliveryFeeReady, setDeliveryFeeReady] = useState(false);
   const [instagramUrl, setInstagramUrl] = useState('');
-  const [pixData, setPixData] = useState(null);
+  const [pixData, setPixData] = useState<any>(null);
   const [orderCreated, setOrderCreated] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
-  const [pixError, setPixError] = useState(null);
+  const [pixError, setPixError] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [cashOrderDone, setCashOrderDone] = useState(false);
   const [cashChange, setCashChange] = useState('');
@@ -46,7 +46,7 @@ export default function CheckoutPage() {
 
   // Cashback
   const [cashbackBalance, setCashbackBalance] = useState(0);
-  const [cashbackTxs, setCashbackTxs]         = useState([]);
+  const [cashbackTxs, setCashbackTxs]         = useState<any[]>([]);
   const [useCashbackBalance, setUseCashbackBalance] = useState(false);
   const [cashbackMaxPercent, setCashbackMaxPercent] = useState(50);
 
@@ -55,13 +55,13 @@ export default function CheckoutPage() {
   const [schedulingMaxDays, setSchedulingMaxDays] = useState(3);
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
-  const [availableSlots, setAvailableSlots] = useState([]);
+  const [availableSlots, setAvailableSlots] = useState<any[]>([]);
   const [selectedSlot, setSelectedSlot] = useState('');
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   // Refs para limpeza de timers ao desmontar o componente
-  const pollingIntervalRef = useRef(null);
-  const pollingTimeoutRef = useRef(null);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Chave de idempotência: gerada uma vez por sessão de checkout.
   // Enviada ao server via X-Idempotency-Key para evitar pedidos duplicados
@@ -107,10 +107,10 @@ export default function CheckoutPage() {
     if (!c || JSON.parse(c).length === 0) { router.push('/teste'); return; }
     const parsedCart = JSON.parse(c);
     setCart(parsedCart);
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', 'begin_checkout', {
+    if (typeof window !== 'undefined' && (window as any).gtag) {
+      (window as any).gtag('event', 'begin_checkout', {
         currency: 'BRL',
-        items: parsedCart.map(i => ({ item_name: i.product?.name, item_id: i.product?.slug })),
+        items: parsedCart.map((i: any) => ({ item_name: i.product?.name, item_id: i.product?.slug })),
       });
     }
 
@@ -162,7 +162,7 @@ export default function CheckoutPage() {
       });
   }, []);
 
-  function updateForm(field, value) {
+  function updateForm(field: string, value: any) {
     setForm(prev => ({ ...prev, [field]: value }));
     if (['street', 'number', 'neighborhood', 'city', 'state', 'zipcode'].includes(field)) {
       setDeliveryQuoteError('');
@@ -209,7 +209,7 @@ export default function CheckoutPage() {
     }
   }
 
-  async function loadAvailableSlots(date) {
+  async function loadAvailableSlots(date: string) {
     if (!date) { setAvailableSlots([]); setSelectedSlot(''); return; }
     setLoadingSlots(true);
     try {
@@ -237,7 +237,7 @@ export default function CheckoutPage() {
     return new Date(`${scheduledDate}T${selectedSlot}:00-03:00`).toISOString();
   }
 
-  async function handleCepBlur(e) {
+  async function handleCepBlur(e: React.FocusEvent<HTMLInputElement>) {
     // Usa e.target.value diretamente para evitar closure stale com estado React
     const rawValue = e?.target?.value ?? form.zipcode;
     const cep = rawValue.replace(/\D/g, '');
@@ -270,7 +270,7 @@ export default function CheckoutPage() {
     cart.forEach(item => {
       total += Number(item.product.price);
       if (item.option?.extra_price) total += item.option.extra_price;
-      item.drinks?.forEach(d => { total += Number(d.price) * d.quantity; });
+      item.drinks?.forEach((d: any) => { total += Number(d.price) * d.quantity; });
     });
     return total;
   }
@@ -307,7 +307,7 @@ export default function CheckoutPage() {
     } catch (e) { setCouponError('Erro ao validar'); }
   }
 
-  function removeCartItem(itemId) {
+  function removeCartItem(itemId: any) {
     const newCart = cart.filter(c => c.id !== itemId);
     setCart(newCart);
     localStorage.setItem('fumego_cart', JSON.stringify(newCart));
@@ -346,7 +346,7 @@ export default function CheckoutPage() {
       scheduled_for: scheduledFor || null,
     };
 
-    const items = [];
+    const items: any[] = [];
     cart.forEach(cartItem => {
       const optionPrice = cartItem.option?.extra_price || 0;
       const optionNote  = cartItem.option ? cartItem.option.label : null;
@@ -359,7 +359,7 @@ export default function CheckoutPage() {
         total_price: Number(cartItem.product.price) + optionPrice,
         observations: fullObs,
       });
-      cartItem.drinks?.forEach(d => {
+      cartItem.drinks?.forEach((d: any) => {
         items.push({
           drink_id: d.id, product_name: `${d.name} ${d.size}`,
           quantity: d.quantity, unit_price: Number(d.price), total_price: Number(d.price) * d.quantity,
@@ -442,12 +442,12 @@ export default function CheckoutPage() {
     try {
       const order = await createOrder();
 
-      if (typeof window !== 'undefined' && window.gtag) {
-        window.gtag('event', 'purchase', {
+      if (typeof window !== 'undefined' && (window as any).gtag) {
+        (window as any).gtag('event', 'purchase', {
           transaction_id: String(order.id),
           value:          calcTotal(),
           currency:       'BRL',
-          items: cart.map(i => ({ item_name: i.product?.name, item_id: i.product?.slug, price: i.product?.price })),
+          items: cart.map((i: any) => ({ item_name: i.product?.name, item_id: i.product?.slug, price: i.product?.price })),
         });
       }
 
@@ -500,7 +500,7 @@ export default function CheckoutPage() {
 
     } catch (e) {
       console.error('Erro:', e);
-      setFormError(e.message || 'Erro ao processar pedido. Verifique os dados e tente novamente.');
+      setFormError((e as Error).message || 'Erro ao processar pedido. Verifique os dados e tente novamente.');
       // Libera a guarda de submissão para o usuário poder tentar novamente
       isSubmittingRef.current = false;
     } finally {
@@ -508,7 +508,7 @@ export default function CheckoutPage() {
     }
   }
 
-  function startPaymentCheck(orderId, userId, orderTotal) {
+  function startPaymentCheck(orderId: any, userId: any, orderTotal: any) {
     setCheckingPayment(true);
     let expired = false;
 
@@ -733,12 +733,12 @@ export default function CheckoutPage() {
                 <div>
                   <p style={{ fontSize: 15, fontWeight: 'bold', color: '#fff' }}>{item.product.name}</p>
                   {item.option && <p style={{ fontSize: 12, color: GOLD, marginTop: 2 }}>{item.option.label}{item.option.extra_price > 0 ? ` (+R$ ${Number(item.option.extra_price).toFixed(2).replace('.', ',')})` : ''}</p>}
-                  {item.drinks?.map(d => <p key={d.id} style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>+ {d.name} {d.size} x{d.quantity}</p>)}
+                  {item.drinks?.map((d: any) => <p key={d.id} style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>+ {d.name} {d.size} x{d.quantity}</p>)}
                   {item.observations && <p style={{ fontSize: 11, color: '#3A2810', fontStyle: 'italic', marginTop: 2 }}>Obs: {item.observations}</p>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontWeight: 'bold', color: '#fff' }}>
-                    R$ {(Number(item.product.price) + (item.option?.extra_price || 0) + (item.drinks?.reduce((s, d) => s + Number(d.price) * d.quantity, 0) || 0)).toFixed(2).replace('.', ',')}
+                    R$ {(Number(item.product.price) + (item.option?.extra_price || 0) + (item.drinks?.reduce((s: any, d: any) => s + Number(d.price) * d.quantity, 0) || 0)).toFixed(2).replace('.', ',')}
                   </span>
                   <button onClick={() => removeCartItem(item.id)}
                     style={{ background: 'none', border: 'none', color: RED, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>

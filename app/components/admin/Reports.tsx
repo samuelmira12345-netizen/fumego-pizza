@@ -195,7 +195,7 @@ function ProductsReport({ result }: { result: any }) {
         </div>
         <Table
           rows={data}
-          getKey={r => r.product_name}
+          getKey={(r: any) => r.product_name}
           columns={[
             { key: 'rank',         label: '#',           align: 'center', bold: true, render: (r: any) => `#${r.rank}` },
             { key: 'product_name', label: 'Produto',     bold: true },
@@ -234,7 +234,7 @@ function NeighborhoodsReport({ result }: { result: any }) {
         </div>
         <Table
           rows={data}
-          getKey={r => r.neighborhood}
+          getKey={(r: any) => r.neighborhood}
           columns={[
             { key: 'rank',         label: '#',            align: 'center', bold: true, render: (r: any) => `#${r.rank}` },
             { key: 'neighborhood', label: 'Bairro',       bold: true },
@@ -284,14 +284,14 @@ function HoursReport({ result }: { result: any }) {
           <p style={{ fontWeight: 600, color: C.text, fontSize: 14 }}>Detalhamento por Hora</p>
         </div>
         <Table
-          rows={active.sort((a, b) => b.count - a.count)}
-          getKey={r => r.hour}
+          rows={active.sort((a: any, b: any) => b.count - a.count)}
+          getKey={(r: any) => r.hour}
           columns={[
             { key: 'label',      label: 'Hora',       bold: true },
-            { key: 'count',      label: 'Pedidos',    align: 'right', render: r => r.count.toLocaleString('pt-BR') },
-            { key: 'revenue',    label: 'Faturamento',align: 'right', render: r => fmtBRL(r.revenue), color: () => C.success },
-            { key: 'avg_ticket', label: 'Ticket Médio',align: 'right', render: r => fmtBRL(r.count > 0 ? r.revenue / r.count : 0) },
-            { key: 'share',      label: 'Share',      align: 'right', render: r => `${total_orders > 0 ? ((r.count / total_orders) * 100).toFixed(1) : 0}%`, color: () => C.muted },
+            { key: 'count',      label: 'Pedidos',    align: 'right', render: (r: any) => r.count.toLocaleString('pt-BR') },
+            { key: 'revenue',    label: 'Faturamento',align: 'right', render: (r: any) => fmtBRL(r.revenue), color: () => C.success },
+            { key: 'avg_ticket', label: 'Ticket Médio',align: 'right', render: (r: any) => fmtBRL(r.count > 0 ? r.revenue / r.count : 0) },
+            { key: 'share',      label: 'Share',      align: 'right', render: (r: any) => `${total_orders > 0 ? ((r.count / total_orders) * 100).toFixed(1) : 0}%`, color: () => C.muted },
           ]}
         />
       </Card>
@@ -304,7 +304,7 @@ function HoursReport({ result }: { result: any }) {
 const PM_COLORS = { pix: C.blue, cash: C.success, card_delivery: C.purple };
 const PM_ICONS  = { pix: '⚡', cash: '💵', card_delivery: '💳' };
 
-function TicketReport({ result }) {
+function TicketReport({ result }: { result: any }) {
   if (!result?.totals) return <Empty />;
   const { days, payment_methods, totals } = result;
 
@@ -331,14 +331,14 @@ function TicketReport({ result }) {
           </div>
           <Table
             rows={[...days].reverse()}
-            getKey={r => r.day}
+            getKey={(r: any) => r.day}
             columns={[
-              { key: 'day',         label: 'Data',          render: r => fmtDate(r.day) },
+              { key: 'day',         label: 'Data',          render: (r: any) => fmtDate(r.day) },
               { key: 'count',       label: 'Pedidos',       align: 'right' },
-              { key: 'avg_ticket',  label: 'Ticket Médio',  align: 'right', bold: true, render: r => fmtBRL(r.avg_ticket), color: () => C.gold },
-              { key: 'revenue',     label: 'Faturamento',   align: 'right', render: r => fmtBRL(r.revenue), color: () => C.success },
-              { key: 'discount',    label: 'Descontos',     align: 'right', render: r => r.discount > 0 ? fmtBRL(r.discount) : '—', color: r => r.discount > 0 ? C.danger : C.light },
-              { key: 'delivery_fee',label: 'Taxa Entrega',  align: 'right', render: r => fmtBRL(r.delivery_fee), color: () => C.muted },
+              { key: 'avg_ticket',  label: 'Ticket Médio',  align: 'right', bold: true, render: (r: any) => fmtBRL(r.avg_ticket), color: () => C.gold },
+              { key: 'revenue',     label: 'Faturamento',   align: 'right', render: (r: any) => fmtBRL(r.revenue), color: () => C.success },
+              { key: 'discount',    label: 'Descontos',     align: 'right', render: (r: any) => r.discount > 0 ? fmtBRL(r.discount) : '—', color: (r: any) => r.discount > 0 ? C.danger : C.light },
+              { key: 'delivery_fee',label: 'Taxa Entrega',  align: 'right', render: (r: any) => fmtBRL(r.delivery_fee), color: () => C.muted },
             ]}
           />
         </Card>
@@ -349,13 +349,13 @@ function TicketReport({ result }) {
         <Card style={{ padding: '20px 24px' }}>
           <p style={{ fontWeight: 600, color: C.text, fontSize: 14, marginBottom: 16 }}>Formas de Pagamento</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-            {payment_methods.map(pm => {
-              const color = PM_COLORS[pm.method] || C.muted;
+            {payment_methods.map((pm: any) => {
+              const color = (PM_COLORS as any)[pm.method] || C.muted;
               const pct = totals.total_orders > 0 ? ((pm.count / totals.total_orders) * 100).toFixed(1) : 0;
               return (
                 <div key={pm.method} style={{ padding: 16, borderRadius: 10, background: color + '10', border: `1px solid ${color}30` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color }}>{PM_ICONS[pm.method] || '💰'} {pm.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color }}>{(PM_ICONS as any)[pm.method] || '💰'} {pm.label}</span>
                     <span style={{ fontSize: 12, color: C.muted }}>{pct}%</span>
                   </div>
                   <p style={{ fontSize: 20, fontWeight: 700, color, marginBottom: 2 }}>{pm.count}</p>
@@ -375,7 +375,7 @@ function TicketReport({ result }) {
 
 // ── Report: LTV ───────────────────────────────────────────────────────────────
 
-function LTVReport({ result }) {
+function LTVReport({ result }: { result: any }) {
   if (!result?.data?.length) return <Empty />;
   const { data, stats } = result;
 
@@ -395,16 +395,16 @@ function LTVReport({ result }) {
         </div>
         <Table
           rows={data}
-          getKey={r => r.customer_phone}
+          getKey={(r: any) => r.customer_phone}
           columns={[
-            { key: 'rank',           label: '#',          align: 'center', bold: true, render: (r, i) => `#${data.indexOf(r) + 1}` },
-            { key: 'customer_name',  label: 'Cliente',    bold: true, render: r => r.customer_name || '—' },
-            { key: 'customer_phone', label: 'Telefone',   render: r => fmtPhone(r.customer_phone), noWrap: true },
-            { key: 'order_count',    label: 'Pedidos',    align: 'right', render: r => r.order_count.toLocaleString('pt-BR') },
-            { key: 'avg_ticket',     label: 'Ticket Méd.', align: 'right', render: r => fmtBRL(r.avg_ticket) },
-            { key: 'orders_month',   label: 'Ped./mês',   align: 'right', render: r => r.orders_month.toFixed(1) },
-            { key: 'lifetime_value', label: 'LTV Total',  align: 'right', bold: true, render: r => fmtBRL(r.lifetime_value), color: () => C.success },
-            { key: 'last_order',     label: 'Último pedido', render: r => fmtDate(r.last_order?.slice(0,10)), noWrap: true, color: () => C.muted },
+            { key: 'rank',           label: '#',          align: 'center', bold: true, render: (r: any) => `#${data.indexOf(r) + 1}` },
+            { key: 'customer_name',  label: 'Cliente',    bold: true, render: (r: any) => r.customer_name || '—' },
+            { key: 'customer_phone', label: 'Telefone',   render: (r: any) => fmtPhone(r.customer_phone), noWrap: true },
+            { key: 'order_count',    label: 'Pedidos',    align: 'right', render: (r: any) => r.order_count.toLocaleString('pt-BR') },
+            { key: 'avg_ticket',     label: 'Ticket Méd.', align: 'right', render: (r: any) => fmtBRL(r.avg_ticket) },
+            { key: 'orders_month',   label: 'Ped./mês',   align: 'right', render: (r: any) => r.orders_month.toFixed(1) },
+            { key: 'lifetime_value', label: 'LTV Total',  align: 'right', bold: true, render: (r: any) => fmtBRL(r.lifetime_value), color: () => C.success },
+            { key: 'last_order',     label: 'Último pedido', render: (r: any) => fmtDate(r.last_order?.slice(0,10)), noWrap: true, color: () => C.muted },
           ]}
         />
       </Card>
@@ -414,7 +414,7 @@ function LTVReport({ result }) {
 
 // ── Main Reports Component ─────────────────────────────────────────────────────
 
-export default function Reports({ adminToken }) {
+export default function Reports({ adminToken }: { adminToken: string }) {
   const [dateRange, setDateRange] = useState({ from: daysAgo(29), to: todaySP(), fromTime: '00:00', toTime: '23:59' });
   const [reportType, setReportType] = useState('products');
   const [result, setResult]       = useState(null);
@@ -425,7 +425,7 @@ export default function Reports({ adminToken }) {
     return { from: dateRange.from, to: dateRange.to };
   }
 
-  const fetchReport = useCallback(async (type, from, to) => {
+  const fetchReport = useCallback(async (type: string, from: string, to: string) => {
     setLoading(true);
     setError('');
     setResult(null);
@@ -444,7 +444,7 @@ export default function Reports({ adminToken }) {
       if (!res.ok || data.error) { setError(data.error || 'Erro ao carregar'); return; }
       setResult(data);
     } catch (e) {
-      setError('Erro de conexão: ' + e.message);
+      setError('Erro de conexão: ' + (e as Error).message);
     } finally {
       setLoading(false);
     }

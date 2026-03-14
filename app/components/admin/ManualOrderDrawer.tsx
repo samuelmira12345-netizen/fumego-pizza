@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   X, Phone, Search, User, UserPlus, MapPin, ChefHat,
   Plus, Minus, GlassWater, Trash2, Check, ArrowRight,
@@ -25,11 +25,11 @@ const COMBO_SLUGS = ['combo-classico'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtBRL(v) {
+function fmtBRL(v: any) {
   return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function fmtPhone(p) {
+function fmtPhone(p: any) {
   if (!p) return '';
   const d = p.replace(/\D/g, '');
   if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
@@ -52,7 +52,7 @@ const PM_OPTIONS = [
 
 // ── Sub-component: Option row (radio estilo site) ─────────────────────────────
 
-function OptionRow({ opt, selected, onSelect }) {
+function OptionRow({ opt, selected, onSelect }: { opt: any, selected: any, onSelect: any }) {
   return (
     <div
       onClick={() => onSelect(opt)}
@@ -81,30 +81,30 @@ function OptionRow({ opt, selected, onSelect }) {
 
 // ── Sub-component: Product picker modal (inline) ───────────────────────────────
 
-export function ProductPicker({ products, drinks, onAdd, onClose }) {
+export function ProductPicker({ products, drinks, onAdd, onClose }: { products: any, drinks: any, onAdd: any, onClose: any }) {
   const [step, setStep]       = useState('products'); // 'products' | 'configure'
-  const [selected, setSelected] = useState(null);
-  const [option, setOption]   = useState(null);
-  const [option2, setOption2] = useState(null);
-  const [selDrinks, setSelDrinks] = useState([]);
+  const [selected, setSelected] = useState<any>(null);
+  const [option, setOption]   = useState<any>(null);
+  const [option2, setOption2] = useState<any>(null);
+  const [selDrinks, setSelDrinks] = useState<any[]>([]);
   const [obs, setObs]         = useState('');
   const [search, setSearch]   = useState('');
 
   // Admin pode selecionar qualquer produto não-oculto (independente de estoque)
-  const active = products.filter(p => !p.is_hidden);
+  const active = products.filter((p: any) => !p.is_hidden);
   const filteredProducts = search.trim()
-    ? active.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    ? active.filter((p: any) => p.name.toLowerCase().includes(search.toLowerCase()))
     : active;
 
   const isCombo    = selected && COMBO_SLUGS.includes(selected.slug);
-  const singleOpts = selected ? PRODUCT_OPTIONS[selected.slug] : null;
+  const singleOpts = selected ? (PRODUCT_OPTIONS as any)[selected.slug] : null;
   const needsOption = isCombo || !!singleOpts;
 
   const extraPrice = (option?.extra_price || 0) + (option2?.extra_price || 0);
   const drinkTotal = selDrinks.reduce((s, d) => s + d.price * d.qty, 0);
   const itemTotal  = selected ? parseFloat(selected.price) + extraPrice : 0;
 
-  function pickProduct(p) {
+  function pickProduct(p: any) {
     setSelected(p);
     setOption(null);
     setOption2(null);
@@ -113,7 +113,7 @@ export function ProductPicker({ products, drinks, onAdd, onClose }) {
     setStep('configure');
   }
 
-  function toggleDrink(drink) {
+  function toggleDrink(drink: any) {
     setSelDrinks(prev => {
       const has = prev.find(d => d.id === drink.id);
       if (has) return prev.filter(d => d.id !== drink.id);
@@ -121,7 +121,7 @@ export function ProductPicker({ products, drinks, onAdd, onClose }) {
     });
   }
 
-  function changeDrinkQty(id, delta) {
+  function changeDrinkQty(id: any, delta: any) {
     setSelDrinks(prev => prev
       .map(d => d.id === id ? { ...d, qty: d.qty + delta } : d)
       .filter(d => d.qty > 0)
@@ -207,7 +207,7 @@ export function ProductPicker({ products, drinks, onAdd, onClose }) {
           <div style={{ marginBottom: 14 }}>
             <p style={{ fontSize: 11, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Opções</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {singleOpts.map(opt => (
+              {singleOpts.map((opt: any) => (
                 <OptionRow key={opt.label} opt={opt} selected={option?.label === opt.label} onSelect={setOption} />
               ))}
             </div>
@@ -215,14 +215,14 @@ export function ProductPicker({ products, drinks, onAdd, onClose }) {
         )}
 
         {/* Bebidas */}
-        {drinks.filter(d => d.is_active).length > 0 && (
+        {drinks.filter((d: any) => d.is_active).length > 0 && (
           <div style={{ marginBottom: 14 }}>
             <p style={{ fontSize: 11, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
               <GlassWater size={11} style={{ display: 'inline', marginRight: 5 }} />Bebidas
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {drinks.filter(d => d.is_active).map(drink => {
-                const sel = selDrinks.find(d => d.id === drink.id);
+              {drinks.filter((d: any) => d.is_active).map((drink: any) => {
+                const sel = selDrinks.find((d: any) => d.id === drink.id);
                 return (
                   <div key={drink.id} onClick={() => toggleDrink(drink)} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -304,7 +304,7 @@ export function ProductPicker({ products, drinks, onAdd, onClose }) {
         />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
-        {filteredProducts.map(p => (
+        {filteredProducts.map((p: any) => (
           <div key={p.id} onClick={() => pickProduct(p)} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '10px 13px', borderRadius: 5, border: '1px solid ' + C.border,
@@ -333,17 +333,17 @@ export function ProductPicker({ products, drinks, onAdd, onClose }) {
 
 // ── Main Drawer ───────────────────────────────────────────────────────────────
 
-export default function ManualOrderDrawer({ adminToken, products, drinks, onClose, onSuccess }) {
+export default function ManualOrderDrawer({ adminToken, products, drinks, onClose, onSuccess }: { adminToken: any, products: any, drinks: any, onClose: any, onSuccess: any }) {
   const [step, setStep]           = useState('phone'); // 'phone' | 'order'
   const [phone, setPhone]         = useState('');
   const [searching, setSearching] = useState(false);
-  const [customer, setCustomer]   = useState(null); // found customer
+  const [customer, setCustomer]   = useState<any>(null); // found customer
   const [isNew, setIsNew]         = useState(false); // clicked "novo cadastro"
   const [form, setForm]           = useState({
     name: '', phone: '', street: '', number: '', complement: '',
     neighborhood: '', city: '',
   });
-  const [cartItems, setCartItems] = useState([]);
+  const [cartItems, setCartItems] = useState<any[]>([]);
   const [deliveryFee, setDeliveryFee] = useState('');
   const [payMethod, setPayMethod] = useState('cash');
   const [payStatus, setPayStatus] = useState('pending');
@@ -352,15 +352,15 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
   const [error, setError]         = useState('');
   const [showPicker, setShowPicker] = useState(false);
 
-  const searchDebounce = useRef(null);
-  const [suffixResults, setSuffixResults] = useState([]); // when searching by 4 digits
+  const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [suffixResults, setSuffixResults] = useState<any[]>([]); // when searching by 4 digits
 
-  function handlePhoneChange(v) {
+  function handlePhoneChange(v: any) {
     setPhone(v);
     setCustomer(null);
     setIsNew(false);
     setSuffixResults([]);
-    clearTimeout(searchDebounce.current);
+    if (searchDebounce.current) clearTimeout(searchDebounce.current);
     const digits = v.replace(/\D/g, '');
     if (digits.length === 4) {
       searchDebounce.current = setTimeout(() => searchBySuffix(digits), 500);
@@ -369,7 +369,7 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
     }
   }
 
-  async function searchBySuffix(suffix) {
+  async function searchBySuffix(suffix: any) {
     setSearching(true);
     try {
       const res = await fetch('/api/admin', {
@@ -383,7 +383,7 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
     finally { setSearching(false); }
   }
 
-  function selectSuffixCustomer(c) {
+  function selectSuffixCustomer(c: any) {
     setSuffixResults([]);
     setPhone(c.customer_phone || '');
     setForm(prev => ({
@@ -398,7 +398,7 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
     setCustomer({ phone: c.customer_phone, name: c.customer_name });
   }
 
-  async function searchCustomer(digits) {
+  async function searchCustomer(digits: any) {
     setSearching(true);
     try {
       const res = await fetch('/api/admin', {
@@ -431,12 +431,12 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
     setStep('order');
   }
 
-  function addItem(item) {
+  function addItem(item: any) {
     // Adiciona ao carrinho mas mantém o picker aberto para o cliente poder pedir mais itens
     setCartItems(prev => [...prev, { ...item, _id: Date.now() + Math.random() }]);
   }
 
-  function removeItem(id) {
+  function removeItem(id: any) {
     setCartItems(prev => prev.filter(i => i._id !== id));
   }
 
@@ -630,15 +630,15 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
                     {isNew ? '📋 Dados do Novo Cliente' : '📋 Confirmar / Editar Dados'}
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                    <FF label="Nome *" value={form.name} onChange={v => setForm(p => ({...p, name: v}))} placeholder="Nome completo" />
-                    <FF label="Telefone" value={form.phone} onChange={v => setForm(p => ({...p, phone: v}))} placeholder="(11) 99999-9999" />
+                    <FF label="Nome *" value={form.name} onChange={(v: any) => setForm((p: any) => ({...p, name: v}))} placeholder="Nome completo" />
+                    <FF label="Telefone" value={form.phone} onChange={(v: any) => setForm((p: any) => ({...p, phone: v}))} placeholder="(11) 99999-9999" />
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 8 }}>
-                      <FF label="Rua / Av." value={form.street} onChange={v => setForm(p => ({...p, street: v}))} placeholder="Rua..." />
-                      <FF label="Nº" value={form.number} onChange={v => setForm(p => ({...p, number: v}))} placeholder="Nº" />
+                      <FF label="Rua / Av." value={form.street} onChange={(v: any) => setForm((p: any) => ({...p, street: v}))} placeholder="Rua..." />
+                      <FF label="Nº" value={form.number} onChange={(v: any) => setForm((p: any) => ({...p, number: v}))} placeholder="Nº" />
                     </div>
-                    <FF label="Complemento" value={form.complement} onChange={v => setForm(p => ({...p, complement: v}))} placeholder="Apto, Casa..." />
-                    <FF label="Bairro" value={form.neighborhood} onChange={v => setForm(p => ({...p, neighborhood: v}))} placeholder="Bairro" />
-                    <FF label="Cidade" value={form.city} onChange={v => setForm(p => ({...p, city: v}))} placeholder="Cidade" />
+                    <FF label="Complemento" value={form.complement} onChange={(v: any) => setForm((p: any) => ({...p, complement: v}))} placeholder="Apto, Casa..." />
+                    <FF label="Bairro" value={form.neighborhood} onChange={(v: any) => setForm((p: any) => ({...p, neighborhood: v}))} placeholder="Bairro" />
+                    <FF label="Cidade" value={form.city} onChange={(v: any) => setForm((p: any) => ({...p, city: v}))} placeholder="Cidade" />
                   </div>
                 </div>
               )}
@@ -817,8 +817,8 @@ export default function ManualOrderDrawer({ adminToken, products, drinks, onClos
   );
 }
 
-function FF({ label, value, onChange, placeholder, type, multiline }) {
-  const s = {
+function FF({ label, value, onChange, placeholder, type, multiline }: { label: any, value: any, onChange: any, placeholder: any, type?: any, multiline?: any }) {
+  const s: React.CSSProperties = {
     width: '100%', padding: '7px 10px', borderRadius: 4, border: '1px solid #E5E7EB',
     fontSize: 12, outline: 'none', background: '#fff', boxSizing: 'border-box', fontFamily: 'inherit',
   };

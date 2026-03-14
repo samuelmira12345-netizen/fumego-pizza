@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Plus, Loader2, X, Trash2, RefreshCw, Save, Edit2,
@@ -36,11 +36,11 @@ const C = {
   purple: '#7C3AED', blue: '#2563EB',
 };
 
-function fmtBRL(v) {
+function fmtBRL(v: any) {
   return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function fmtDate(iso) {
+function fmtDate(iso: any) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: '2-digit',
@@ -52,7 +52,7 @@ function todaySP() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-function daysAgoSP(n) {
+function daysAgoSP(n: any) {
   const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
   d.setDate(d.getDate() - n);
   return d.toLocaleDateString('en-CA');
@@ -63,7 +63,7 @@ const BLANK_ZONE   = { neighborhood: '', city: '', fee: '', estimated_mins: '30'
 
 // ── Shared fetch helper ───────────────────────────────────────────────────────
 
-async function adminPost(action, data, token) {
+async function adminPost(action: any, data: any, token: any) {
   const res = await fetch('/api/admin', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -87,13 +87,13 @@ const TABS = [
 // Persons Tab
 // ═════════════════════════════════════════════════════════════════════════════
 
-function PersonsTab({ adminToken }) {
-  const [persons, setPersons]           = useState([]);
+function PersonsTab({ adminToken }: { adminToken: any }) {
+  const [persons, setPersons]           = useState<any[]>([]);
   const [loading, setLoading]           = useState(true);
   const [saving, setSaving]             = useState(false);
-  const [form, setForm]                 = useState(null); // null = closed, {} = new, {id,...} = edit
-  const [showHistory, setShowHistory]   = useState(null); // person id
-  const [history, setHistory]           = useState([]);
+  const [form, setForm]                 = useState<any>(null); // null = closed, {} = new, {id,...} = edit
+  const [showHistory, setShowHistory]   = useState<any>(null); // person id
+  const [history, setHistory]           = useState<any[]>([]);
   const [histLoading, setHistLoading]   = useState(false);
   const [showPwd, setShowPwd]           = useState(false);
   const [msg, setMsg]                   = useState('');
@@ -119,26 +119,26 @@ function PersonsTab({ adminToken }) {
       setMsg('✅ Salvo com sucesso!');
       setForm(null);
       load();
-    } catch (e) { setMsg('Erro: ' + e.message); }
+    } catch (e) { setMsg('Erro: ' + (e as Error).message); }
     finally { setSaving(false); }
   }
 
-  async function toggleActive(person) {
+  async function toggleActive(person: any) {
     try {
       await adminPost('save_delivery_person', { ...person, is_active: !person.is_active }, adminToken);
       load();
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
   }
 
-  async function deletePerson(id) {
+  async function deletePerson(id: any) {
     if (!confirm('Desativar este entregador?')) return;
     try {
       await adminPost('delete_delivery_person', { id }, adminToken);
       load();
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
   }
 
-  async function loadHistory(personId) {
+  async function loadHistory(personId: any) {
     if (showHistory === personId) { setShowHistory(null); return; }
     setShowHistory(personId);
     setHistLoading(true);
@@ -178,15 +178,15 @@ function PersonsTab({ adminToken }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
               <label style={labelStyle}>Nome *</label>
-              <input style={inputStyle} placeholder="Nome completo" value={form.name || ''} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+              <input style={inputStyle} placeholder="Nome completo" value={form.name || ''} onChange={e => setForm((f: any) => ({ ...f, name: e.target.value }))} />
             </div>
             <div>
               <label style={labelStyle}>Telefone</label>
-              <input style={inputStyle} placeholder="(11) 99999-9999" value={form.phone || ''} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+              <input style={inputStyle} placeholder="(11) 99999-9999" value={form.phone || ''} onChange={e => setForm((f: any) => ({ ...f, phone: e.target.value }))} />
             </div>
             <div>
               <label style={labelStyle}>Email *</label>
-              <input style={inputStyle} type="email" placeholder="email@exemplo.com" value={form.email || ''} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+              <input style={inputStyle} type="email" placeholder="email@exemplo.com" value={form.email || ''} onChange={e => setForm((f: any) => ({ ...f, email: e.target.value }))} />
             </div>
             <div>
               <label style={labelStyle}>{form.id ? 'Nova senha (deixe em branco para manter)' : 'Senha *'}</label>
@@ -196,7 +196,7 @@ function PersonsTab({ adminToken }) {
                   type={showPwd ? 'text' : 'password'}
                   placeholder={form.id ? 'Nova senha…' : 'Senha de acesso'}
                   value={form.password || ''}
-                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  onChange={e => setForm((f: any) => ({ ...f, password: e.target.value }))}
                 />
                 <button
                   onClick={() => setShowPwd(v => !v)}
@@ -209,7 +209,7 @@ function PersonsTab({ adminToken }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: C.text }}>
-              <input type="checkbox" checked={!!form.is_active} onChange={e => setForm(f => ({ ...f, is_active: e.target.checked }))} />
+              <input type="checkbox" checked={!!form.is_active} onChange={e => setForm((f: any) => ({ ...f, is_active: e.target.checked }))} />
               Ativo
             </label>
           </div>
@@ -339,7 +339,7 @@ function PersonsTab({ adminToken }) {
 
 const RING_COLORS = ['#15803D', '#22C55E', '#4ADE80', '#86EFAC', '#BBF7D0'];
 
-function ZonesTab({ adminToken }) {
+function ZonesTab({ adminToken }: { adminToken: any }) {
   const [originAddress, setOriginAddress] = useState({
     zipcode: '',
     street: '',
@@ -360,7 +360,7 @@ function ZonesTab({ adminToken }) {
     try {
       const j = await adminPost('get_data', {}, adminToken);
       const settings = j.settings || [];
-      const map = Object.fromEntries(settings.map(s => [s.key, s.value]));
+      const map: Record<string, any> = Object.fromEntries(settings.map((s: any) => [s.key, s.value]));
       let details = null;
       if (map.delivery_origin_address_details) {
         try {
@@ -407,11 +407,11 @@ function ZonesTab({ adminToken }) {
     setRules(prev => [...prev, { radius_km: '', fee: '', estimated_mins: '40', is_active: true }]);
   }
 
-  function updateOrigin(field, value) {
+  function updateOrigin(field: any, value: any) {
     setOriginAddress(prev => ({ ...prev, [field]: value }));
   }
 
-  function buildOriginAddressLine(address) {
+  function buildOriginAddressLine(address: any) {
     return [
       `${address.street || ''}${address.number ? `, ${address.number}` : ''}`,
       address.complement,
@@ -422,11 +422,11 @@ function ZonesTab({ adminToken }) {
     ].filter(Boolean).join(', ');
   }
 
-  function updateRule(index, patch) {
+  function updateRule(index: any, patch: any) {
     setRules(prev => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   }
 
-  function removeRule(index) {
+  function removeRule(index: any) {
     setRules(prev => prev.filter((_, i) => i !== index));
   }
 
@@ -445,7 +445,7 @@ function ZonesTab({ adminToken }) {
         ['state', 'UF'],
       ];
       const missing = requiredStoreFields
-        .filter(([field]) => !String(originAddress[field] || '').trim())
+        .filter(([field]) => !String((originAddress as any)[field] || '').trim())
         .map(([, label]) => label);
       if (missing.length > 0) {
         setMsg(`Preencha o endereço completo da loja ou informe as coordenadas manualmente: ${missing.join(', ')}`);
@@ -508,7 +508,7 @@ function ZonesTab({ adminToken }) {
         }
       }
     } catch (e) {
-      setMsg('Erro: ' + e.message);
+      setMsg('Erro: ' + (e as Error).message);
     } finally {
       setSaving(false);
     }
@@ -521,7 +521,7 @@ function ZonesTab({ adminToken }) {
       setOriginCoords({ lat: '', lng: '' });
       setMsg('Coordenadas removidas. O sistema geocodificará o endereço automaticamente no próximo salvamento.');
     } catch (e) {
-      setMsg('Erro ao limpar coordenadas: ' + e.message);
+      setMsg('Erro ao limpar coordenadas: ' + (e as Error).message);
     }
   }
 
@@ -740,10 +740,10 @@ function ZonesTab({ adminToken }) {
 // Tracking Tab
 // ═════════════════════════════════════════════════════════════════════════════
 
-function TrackingTab({ adminToken }) {
-  const [locations, setLocations] = useState([]);
+function TrackingTab({ adminToken }: { adminToken: any }) {
+  const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading]     = useState(true);
-  const [lastUpdate, setLastUpdate] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState<any>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -807,7 +807,7 @@ function TrackingTab({ adminToken }) {
               {locations.map((loc, idx) => {
                 const name  = loc.delivery_persons?.name || 'Entregador';
                 const age   = loc.driver_location_at
-                  ? Math.floor((Date.now() - new Date(loc.driver_location_at)) / 60000)
+                  ? Math.floor((Date.now() - new Date(loc.driver_location_at).getTime()) / 60000)
                   : null;
                 const color = DRIVER_COLORS[idx % DRIVER_COLORS.length];
                 return (
@@ -838,7 +838,7 @@ function TrackingTab({ adminToken }) {
               {locations.map((loc, idx) => {
                 const name  = loc.delivery_persons?.name || 'Entregador';
                 const age   = loc.driver_location_at
-                  ? Math.floor((Date.now() - new Date(loc.driver_location_at)) / 60000)
+                  ? Math.floor((Date.now() - new Date(loc.driver_location_at).getTime()) / 60000)
                   : null;
                 const color = DRIVER_COLORS[idx % DRIVER_COLORS.length];
                 const statusColor = age === null ? C.muted : age < 5 ? C.success : age < 15 ? C.gold : C.danger;
@@ -871,17 +871,17 @@ function TrackingTab({ adminToken }) {
   );
 }
 
-function fmtMins(mins) {
+function fmtMins(mins: any) {
   if (!Number.isFinite(mins)) return '—';
   if (mins < 60) return `${mins} min`;
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
-function MetricsTab({ adminToken }) {
+function MetricsTab({ adminToken }: { adminToken: any }) {
   const [periodRange, setPeriodRange] = useState(() => ({ from: daysAgoSP(30), to: todaySP() }));
   const [loading, setLoading] = useState(true);
-  const [summary, setSummary] = useState(null);
-  const [rows, setRows] = useState([]);
+  const [summary, setSummary] = useState<any>(null);
+  const [rows, setRows] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -962,7 +962,7 @@ function MetricsTab({ adminToken }) {
   );
 }
 
-function MetricCard({ label, value, color }) {
+function MetricCard({ label, value, color }: { label: any, value: any, color: any }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 12px' }}>
       <p style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>{label}</p>
@@ -975,7 +975,7 @@ function MetricCard({ label, value, color }) {
 // Main DeliveryTab
 // ═════════════════════════════════════════════════════════════════════════════
 
-export default function DeliveryTab({ adminToken }) {
+export default function DeliveryTab({ adminToken }: { adminToken: any }) {
   const [activeTab, setActiveTab] = useState('persons');
 
   return (
@@ -1027,12 +1027,12 @@ const btnGhost = {
   background: C.card, color: C.text, fontSize: 13, fontWeight: 500,
 };
 
-const labelStyle = {
+const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: 11, fontWeight: 600, color: C.muted,
   textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5,
 };
 
-const inputStyle = {
+const inputStyle: React.CSSProperties = {
   width: '100%', padding: '9px 11px', borderRadius: 8,
   border: `1px solid ${C.border}`, background: '#fff',
   color: C.text, fontSize: 13, outline: 'none', boxSizing: 'border-box',

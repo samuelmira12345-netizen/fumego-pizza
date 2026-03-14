@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   ShoppingBag, DollarSign, TrendingUp, ChefHat,
   Truck, CheckCircle, XCircle, Clock, BarChart2, RefreshCw,
@@ -13,10 +13,10 @@ import { costWithFC } from '@/lib/correction-factor';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function toSPDate(isoStr) {
+function toSPDate(isoStr: string) {
   return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
-function toSPHour(isoStr) {
+function toSPHour(isoStr: string) {
   return parseInt(
     new Date(isoStr).toLocaleString('en-US', {
       timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false,
@@ -41,18 +41,18 @@ function currentHourSP() {
     timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false,
   }));
 }
-function weekdayShortSP(yyyymmdd) {
+function weekdayShortSP(yyyymmdd: string) {
   return new Date(yyyymmdd + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' });
 }
-function fmtBRL(v) {
+function fmtBRL(v: any) {
   return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
-function fmtDate(yyyymmdd) {
+function fmtDate(yyyymmdd: string) {
   if (!yyyymmdd) return '';
-  const [y, m, d] = yyyymmdd.split('-');
+  const [, m, d] = yyyymmdd.split('-');
   return `${d}/${m}`;
 }
-function fmtMinutes(mins) {
+function fmtMinutes(mins: any) {
   if (mins === null || mins === undefined) return '—';
   if (mins < 60) return `${Math.round(mins)}min`;
   return `${Math.floor(mins / 60)}h${Math.round(mins % 60) > 0 ? Math.round(mins % 60) + 'm' : ''}`;
@@ -60,7 +60,7 @@ function fmtMinutes(mins) {
 
 // ── Gráfico de barras simples ─────────────────────────────────────────────────
 
-function fmtShort(v, isCurrency) {
+function fmtShort(v: any, isCurrency: any) {
   if (!v) return '—';
   if (isCurrency) {
     if (v >= 1000) return `R$${(v / 1000).toFixed(1)}k`;
@@ -69,9 +69,9 @@ function fmtShort(v, isCurrency) {
   return String(v);
 }
 
-function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, height = 220, isCurrency = false }) {
-  const [hovered, setHovered] = useState(null);
-  const max = Math.max(...data.map(d => d[valueKey]), 1);
+function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, height = 220, isCurrency = false }: { data: any, labelKey: any, valueKey: any, color?: any, formatValue?: any, height?: any, isCurrency?: any }) {
+  const [hovered, setHovered] = useState<any>(null);
+  const max = Math.max(...data.map((d: any) => d[valueKey]), 1);
   const n = data.length;
 
   return (
@@ -95,7 +95,7 @@ function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, he
         </div>
       )}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: height + 32, paddingTop: 28 }}>
-        {data.map((item, i) => {
+        {data.map((item: any, i: any) => {
           const pct = max > 0 ? (item[valueKey] / max) * 100 : 0;
           const hasValue = item[valueKey] > 0;
           return (
@@ -131,13 +131,13 @@ function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, he
 
 // ── Gráfico duplo (barras de faturamento + linha de pedidos) ──────────────────
 
-function DualChart({ data, height = 200 }) {
-  const [hovered, setHovered] = useState(null);
+function DualChart({ data, height = 200 }: { data: any, height?: any }) {
+  const [hovered, setHovered] = useState<any>(null);
   const n = data.length;
   if (n === 0) return null;
 
-  const maxRev = Math.max(...data.map(d => d.revenue), 1);
-  const maxCnt = Math.max(...data.map(d => d.count), 1);
+  const maxRev = Math.max(...data.map((d: any) => d.revenue), 1);
+  const maxCnt = Math.max(...data.map((d: any) => d.count), 1);
 
   const W = 700, padL = 8, padR = 8, padT = 24, padB = 26;
   const chartW = W - padL - padR;
@@ -146,11 +146,11 @@ function DualChart({ data, height = 200 }) {
   const barW   = slotW * 0.35;
   const gap    = slotW * 0.05;
 
-  function revBarX(i) { return padL + i * slotW + (slotW - 2 * barW - gap) / 2; }
-  function cntBarX(i) { return revBarX(i) + barW + gap; }
-  function revBarH(v) { return Math.max((v / maxRev) * chartH * 0.88, v > 0 ? 3 : 0); }
-  function cntBarH(v) { return Math.max((v / maxCnt) * chartH * 0.88, v > 0 ? 3 : 0); }
-  function labelX(i)  { return padL + i * slotW + slotW * 0.5; }
+  function revBarX(i: any) { return padL + i * slotW + (slotW - 2 * barW - gap) / 2; }
+  function cntBarX(i: any) { return revBarX(i) + barW + gap; }
+  function revBarH(v: any) { return Math.max((v / maxRev) * chartH * 0.88, v > 0 ? 3 : 0); }
+  function cntBarH(v: any) { return Math.max((v / maxCnt) * chartH * 0.88, v > 0 ? 3 : 0); }
+  function labelX(i: any)  { return padL + i * slotW + slotW * 0.5; }
 
   return (
     <div style={{ position: 'relative' }}>
@@ -197,7 +197,7 @@ function DualChart({ data, height = 200 }) {
         })}
 
         {/* Barras de faturamento (dourado) */}
-        {data.map((d, i) => {
+        {data.map((d: any, i: any) => {
           const bh = revBarH(d.revenue);
           return (
             <rect key={`rev-${i}`}
@@ -210,7 +210,7 @@ function DualChart({ data, height = 200 }) {
         })}
 
         {/* Barras de pedidos (índigo) */}
-        {data.map((d, i) => {
+        {data.map((d: any, i: any) => {
           const bh = cntBarH(d.count);
           return (
             <rect key={`cnt-${i}`}
@@ -223,7 +223,7 @@ function DualChart({ data, height = 200 }) {
         })}
 
         {/* X labels */}
-        {data.map((d, i) => (
+        {data.map((d: any, i: any) => (
           <text key={i} x={labelX(i)} y={height - 4} textAnchor="middle" fontSize="10"
             fill={hovered === i ? '#374151' : '#9CA3AF'}
             fontWeight={hovered === i ? '700' : '400'}>
@@ -232,7 +232,7 @@ function DualChart({ data, height = 200 }) {
         ))}
 
         {/* Zonas de hover transparentes (sobre tudo) */}
-        {data.map((d, i) => (
+        {data.map((d: any, i: any) => (
           <rect key={`hz-${i}`}
             x={padL + i * slotW} y={padT}
             width={slotW} height={chartH}
@@ -248,7 +248,7 @@ function DualChart({ data, height = 200 }) {
 
 // ── KPI Card ──────────────────────────────────────────────────────────────────
 
-function KpiCard({ icon: Icon, iconColor, iconBg, label, value, sub, highlight, delta, deltaLabel }) {
+function KpiCard({ icon: Icon, iconColor, iconBg, label, value, sub, highlight, delta, deltaLabel }: { icon: any, iconColor?: any, iconBg?: any, label: any, value: any, sub?: any, highlight?: any, delta?: any, deltaLabel?: any }) {
   const hasDelta = delta !== null && delta !== undefined;
   const isPositive = delta > 0;
   const isNeutral  = delta === 0;
@@ -286,7 +286,7 @@ function KpiCard({ icon: Icon, iconColor, iconBg, label, value, sub, highlight, 
 
 // ── Section Title ─────────────────────────────────────────────────────────────
 
-function SectionTitle({ children }) {
+function SectionTitle({ children }: { children: any }) {
   return (
     <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12, marginTop: 4 }}>
       {children}
@@ -302,8 +302,8 @@ const PM_META = {
   card_delivery:{ label: 'Cartão na Entrega', icon: CreditCard, color: '#8B5CF6' },
 };
 
-function PaymentMethodCard({ method, count, revenue, total }) {
-  const meta  = PM_META[method] || { label: method, icon: CreditCard, color: '#6B7280' };
+function PaymentMethodCard({ method, count, revenue, total }: { method: any, count: any, revenue: any, total: any }) {
+  const meta  = (PM_META as any)[method] || { label: method, icon: CreditCard, color: '#6B7280' };
   const Icon  = meta.icon;
   const pct   = total > 0 ? ((count / total) * 100) : 0;
 
@@ -332,15 +332,15 @@ function PaymentMethodCard({ method, count, revenue, total }) {
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
-export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
+export default function Dashboard({ orders, onRefresh, loading, adminToken }: { orders: any, onRefresh: any, loading: any, adminToken: any }) {
   const today     = todaySP();
   const yesterday = yesterdaySP();
 
   const [dateRange, setDateRange] = useState({ from: today, to: today, fromTime: '00:00', toTime: '23:59' });
 
   // ── Ingredients + Recipes for CMV ─────────────────────────────────────────
-  const [ingredients, setIngredients] = useState([]);
-  const [recipes, setRecipes]         = useState({});
+  const [ingredients, setIngredients] = useState<any[]>([]);
+  const [recipes, setRecipes]         = useState<any>({});
 
   useEffect(() => {
     if (!adminToken) return;
@@ -352,7 +352,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
       .then(r => r.json())
       .then(extra => {
         setIngredients(extra.ingredients || []);
-        const map = {};
+        const map: Record<string, any[]> = {};
         for (const item of (extra.recipes || [])) {
           if (!map[item.product_id]) map[item.product_id] = [];
           map[item.product_id].push({ ingredient_id: item.ingredient_id, quantity: item.quantity });
@@ -384,43 +384,43 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
     // Pedidos do período selecionado
     let todayOrders;
     if (filterMode === 'today') {
-      todayOrders = orders.filter(o => toSPDate(o.created_at) === today);
+      todayOrders = orders.filter((o: any) => toSPDate(o.created_at) === today);
     } else if (filterMode === 'yesterday') {
-      todayOrders = orders.filter(o => toSPDate(o.created_at) === yesterday);
+      todayOrders = orders.filter((o: any) => toSPDate(o.created_at) === yesterday);
     } else {
-      todayOrders = orders.filter(o => { const d = toSPDate(o.created_at); return d >= dateFrom && d <= dateTo; });
+      todayOrders = orders.filter((o: any) => { const d = toSPDate(o.created_at); return d >= dateFrom && d <= dateTo; });
     }
 
     // Comparativo: mesmo dia da semana anterior, mesmo horário (só no modo "hoje")
     const lastWeekOrders = filterMode === 'today'
-      ? orders.filter(o => toSPDate(o.created_at) === lastWeekDate && toSPHour(o.created_at) <= currentHour)
+      ? orders.filter((o: any) => toSPDate(o.created_at) === lastWeekDate && toSPHour(o.created_at) <= currentHour)
       : [];
 
     // Todos os pedidos do mesmo dia da semana anterior (para projeção)
     const lastWeekAllOrders = filterMode === 'today'
-      ? orders.filter(o => toSPDate(o.created_at) === lastWeekDate)
+      ? orders.filter((o: any) => toSPDate(o.created_at) === lastWeekDate)
       : [];
 
     // ── Helpers de agregação ──────────────────────────────────────────────
-    function agg(list) {
-      const active    = list.filter(o => o.status !== 'cancelled');
-      const revenue   = active.reduce((s, o) => s + (parseFloat(o.total)        || 0), 0);
-      const subtotal  = active.reduce((s, o) => s + (parseFloat(o.subtotal)     || 0), 0);
-      const discount  = active.reduce((s, o) => s + (parseFloat(o.discount)     || 0), 0);
-      const delivFee  = active.reduce((s, o) => s + (parseFloat(o.delivery_fee) || 0), 0);
-      const cancelled = list.filter(o => o.status === 'cancelled').length;
+    function agg(list: any[]) {
+      const active    = list.filter((o: any) => o.status !== 'cancelled');
+      const revenue   = active.reduce((s: any, o: any) => s + (parseFloat(o.total)        || 0), 0);
+      const subtotal  = active.reduce((s: any, o: any) => s + (parseFloat(o.subtotal)     || 0), 0);
+      const discount  = active.reduce((s: any, o: any) => s + (parseFloat(o.discount)     || 0), 0);
+      const delivFee  = active.reduce((s: any, o: any) => s + (parseFloat(o.delivery_fee) || 0), 0);
+      const cancelled = list.filter((o: any) => o.status === 'cancelled').length;
       const cancelPct = list.length > 0 ? (cancelled / list.length) * 100 : 0;
       const avgTicket = active.length > 0 ? revenue / active.length : 0;
 
-      const byStatus  = (s) => list.filter(o => o.status === s).length;
-      const byPayment = {};
+      const byStatus  = (s: any) => list.filter((o: any) => o.status === s).length;
+      const byPayment: Record<string, any> = {};
       for (const o of active) {
         const pm = o.payment_method || 'pix';
         if (!byPayment[pm]) byPayment[pm] = { count: 0, revenue: 0 };
         byPayment[pm].count++;
         byPayment[pm].revenue += parseFloat(o.total) || 0;
       }
-      const awaitingPix = list.filter(o =>
+      const awaitingPix = list.filter((o: any) =>
         o.payment_method === 'pix' &&
         o.payment_status === 'pending' &&
         !['cancelled', 'delivered'].includes(o.status)
@@ -441,7 +441,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
     const lwAll = agg(lastWeekAllOrders); // mesma semana, dia completo
 
     // Delta % vs semana passada (mesma hora)
-    function delta(todayV, lwV) {
+    function delta(todayV: any, lwV: any) {
       if (lwV === 0) return null;
       return ((todayV - lwV) / lwV) * 100;
     }
@@ -451,20 +451,20 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
     const deltaLabel  = filterMode === 'today' ? `${lwDayShort} passado` : null;
 
     // ── Tempo médio de produção ───────────────────────────────────────────
-    const ordersWithProd = todayOrders.filter(o =>
+    const ordersWithProd = todayOrders.filter((o: any) =>
       o.delivering_at && o.status !== 'cancelled'
     );
     const avgProductionMins = ordersWithProd.length > 0
-      ? ordersWithProd.reduce((s, o) =>
-          s + (new Date(o.delivering_at) - new Date(o.created_at)) / 60000, 0
+      ? ordersWithProd.reduce((s: any, o: any) =>
+          s + (new Date(o.delivering_at).getTime() - new Date(o.created_at).getTime()) / 60000, 0
         ) / ordersWithProd.length
       : null;
 
     // Produção semana passada (mesma janela de horário)
-    const lwWithProd = lastWeekOrders.filter(o => o.delivering_at && o.status !== 'cancelled');
+    const lwWithProd = lastWeekOrders.filter((o: any) => o.delivering_at && o.status !== 'cancelled');
     const avgProductionMinsLW = lwWithProd.length > 0
-      ? lwWithProd.reduce((s, o) =>
-          s + (new Date(o.delivering_at) - new Date(o.created_at)) / 60000, 0
+      ? lwWithProd.reduce((s: any, o: any) =>
+          s + (new Date(o.delivering_at).getTime() - new Date(o.created_at).getTime()) / 60000, 0
         ) / lwWithProd.length
       : null;
 
@@ -485,8 +485,8 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
       const h = i + 10;
       const total = isSingleDay
         ? todayOrders
-            .filter(o => o.status !== 'cancelled' && toSPHour(o.created_at) === h)
-            .reduce((s, o) => s + (parseFloat(o.total) || 0), 0)
+            .filter((o: any) => o.status !== 'cancelled' && toSPHour(o.created_at) === h)
+            .reduce((s: any, o: any) => s + (parseFloat(o.total) || 0), 0)
         : 0;
       return { hour: `${String(h).padStart(2,'0')}h`, total };
     });
@@ -502,8 +502,8 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
       }
       dailyData = days.map(date => ({
         date: fmtDate(date),
-        total: orders.filter(o => toSPDate(o.created_at) === date && o.status !== 'cancelled')
-                     .reduce((s, o) => s + (parseFloat(o.total) || 0), 0),
+        total: orders.filter((o: any) => toSPDate(o.created_at) === date && o.status !== 'cancelled')
+                     .reduce((s: any, o: any) => s + (parseFloat(o.total) || 0), 0),
       }));
     }
 
@@ -517,9 +517,9 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
     const dualWeeklyData = last7.map(date => ({
       date:    fmtDate(date),
       revenue: orders
-        .filter(o => toSPDate(o.created_at) === date && o.status !== 'cancelled')
-        .reduce((s, o) => s + (parseFloat(o.total) || 0), 0),
-      count: orders.filter(o => toSPDate(o.created_at) === date && o.status !== 'cancelled').length,
+        .filter((o: any) => toSPDate(o.created_at) === date && o.status !== 'cancelled')
+        .reduce((s: any, o: any) => s + (parseFloat(o.total) || 0), 0),
+      count: orders.filter((o: any) => toSPDate(o.created_at) === date && o.status !== 'cancelled').length,
     }));
 
     return {
@@ -542,13 +542,13 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
     if (!ingredients.length || !Object.keys(recipes).length) return [];
 
     // Sales per product name in current period (from order items)
-    const salesMap = {}; // productName → { qty, revenue }
+    const salesMap: Record<string, any> = {}; // productName → { qty, revenue }
     const periodOrders = (() => {
-      if (filterMode === 'today') return orders.filter(o => toSPDate(o.created_at) === today);
-      if (filterMode === 'yesterday') return orders.filter(o => toSPDate(o.created_at) === yesterday);
-      return orders.filter(o => { const d = toSPDate(o.created_at); return d >= dateFrom && d <= dateTo; });
+      if (filterMode === 'today') return orders.filter((o: any) => toSPDate(o.created_at) === today);
+      if (filterMode === 'yesterday') return orders.filter((o: any) => toSPDate(o.created_at) === yesterday);
+      return orders.filter((o: any) => { const d = toSPDate(o.created_at); return d >= dateFrom && d <= dateTo; });
     })();
-    for (const o of periodOrders.filter(o => o.status !== 'cancelled')) {
+    for (const o of periodOrders.filter((o: any) => o.status !== 'cancelled')) {
       const items = Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : []);
       for (const it of items) {
         const name = it.name || it.productName || it.product_name || '';
@@ -562,7 +562,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
     // For each product that has recipes, compute CMV
     const result = [];
     for (const [productIdStr, recipeItems] of Object.entries(recipes)) {
-      const cmv = recipeItems.reduce((s, ri) => {
+      const cmv = (recipeItems as any[]).reduce((s: any, ri: any) => {
         const ing = ingredients.find(g => g.id === ri.ingredient_id || String(g.id) === String(ri.ingredient_id));
         return s + (parseFloat(ri.quantity) || 0) * costWithFC((parseFloat(ing?.cost_per_unit) || 0), ing?.correction_factor);
       }, 0);
@@ -573,7 +573,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
       let bestName = null;
       for (const o of periodOrders) {
         const items = Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : []);
-        const match = items.find(it => String(it.product_id || it.productId) === productIdStr);
+        const match = items.find((it: any) => String(it.product_id || it.productId) === productIdStr);
         if (match) { bestName = match.name || match.productName || match.product_name; break; }
       }
       if (!bestName) continue;
@@ -596,7 +596,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
 
     return result
       .filter(r => r.margin !== null)
-      .sort((a, b) => b.margin - a.margin)
+      .sort((a: any, b: any) => (b.margin as number) - (a.margin as number))
       .slice(0, 8);
   }, [ingredients, recipes, orders, filterMode, today, yesterday, dateFrom, dateTo]);
 
@@ -655,10 +655,10 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
               value={fmtMinutes(avgProductionMins)}
               sub={avgProductionMins !== null ? `${metrics.td?.inProduction ?? 0} em preparo` : 'sem dados ainda'}
               delta={avgProductionMins !== null && avgProductionMinsLW !== null
-                ? delta(avgProductionMins, avgProductionMinsLW) * -1  // inverso: menor é melhor
+                ? delta(avgProductionMins, avgProductionMinsLW)! * -1  // inverso: menor é melhor
                 : null}
               deltaLabel={avgProductionMinsLW !== null ? `${deltaLabel}: ${fmtMinutes(avgProductionMinsLW)}` : null}
-              highlight={avgProductionMins > 40 ? '#EF4444' : avgProductionMins > 25 ? '#D97706' : '#10B981'}
+              highlight={(avgProductionMins ?? 0) > 40 ? '#EF4444' : (avgProductionMins ?? 0) > 25 ? '#D97706' : '#10B981'}
             />
           </div>
         </>
@@ -698,7 +698,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
             label="Tempo médio de produção"
             value={fmtMinutes(avgProductionMins)}
             sub={avgProductionMins !== null ? 'recebido → saiu p/ entrega' : 'sem dados ainda'}
-            highlight={avgProductionMins !== null && avgProductionMins > 40 ? '#EF4444' : avgProductionMins > 25 ? '#D97706' : '#10B981'}
+            highlight={avgProductionMins !== null && avgProductionMins > 40 ? '#EF4444' : (avgProductionMins ?? 0) > 25 ? '#D97706' : '#10B981'}
           />
         )}
       </div>
@@ -766,8 +766,8 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
               ))}
             </div>
             {topFlavors.map((f, idx) => {
-              const marginColor = f.margin >= 65 ? '#059669' : f.margin >= 45 ? '#D97706' : '#EF4444';
-              const marginBg    = f.margin >= 65 ? '#ECFDF5' : f.margin >= 45 ? '#FFFBEB' : '#FEF2F2';
+              const marginColor = (f.margin ?? 0) >= 65 ? '#059669' : (f.margin ?? 0) >= 45 ? '#D97706' : '#EF4444';
+              const marginBg    = (f.margin ?? 0) >= 65 ? '#ECFDF5' : (f.margin ?? 0) >= 45 ? '#FFFBEB' : '#FEF2F2';
               return (
                 <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 100px 100px 100px 90px', gap: 0, padding: '12px 18px', borderBottom: '1px solid #F3F4F6', alignItems: 'center' }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: idx === 0 ? '#F2A800' : '#9CA3AF' }}>
@@ -779,7 +779,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }) {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 5, background: marginBg, color: marginColor }}>
-                      {f.margin.toFixed(0)}%
+                      {(f.margin ?? 0).toFixed(0)}%
                     </span>
                   </div>
                   <p style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textAlign: 'right' }}>{fmtBRL(f.cmv)}</p>

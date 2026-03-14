@@ -47,7 +47,8 @@ const C = {
 // ── Global order beep (used by the page-level notification watcher) ───────────
 function playBeep() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const AudioCtx = window.AudioContext || (window as Window & typeof globalThis & { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AudioCtx();
     [[880, 0, 0.25], [1100, 0.20, 0.25], [1320, 0.40, 0.25], [1100, 0.60, 0.20], [1320, 0.80, 0.35]].forEach(([freq, t, dur]) => {
       const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -101,7 +102,7 @@ const NAV_GROUPS = [
   },
 ];
 
-function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize, isOpen, onToggle }) {
+function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize, isOpen, onToggle }: { section: any, onNavigate: any, onLogout: any, logoUrl: any, logoSize: any, isOpen: any, onToggle: any }) {
   const w = isOpen ? 240 : 64;
   return (
     <aside style={{
@@ -217,7 +218,7 @@ function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize, isOpen, onT
 
 // ── Coming Soon placeholder ───────────────────────────────────────────────────
 
-function ComingSoon({ label }) {
+function ComingSoon({ label }: { label: any }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 400, gap: 12 }}>
       <div style={{ width: 56, height: 56, borderRadius: 16, background: C.goldDim, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -231,7 +232,7 @@ function ComingSoon({ label }) {
 
 // ── Page Header ───────────────────────────────────────────────────────────────
 
-function PageHeader({ section }) {
+function PageHeader({ section }: { section: any }) {
   const labels = {
     dashboard:   'Dashboard',
     orders:      'Pedidos',
@@ -244,7 +245,7 @@ function PageHeader({ section }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, fontSize: 12, color: C.textLight }}>
         <span>Admin</span>
         <ChevronRight size={12} />
-        <span style={{ color: C.text, fontWeight: 600 }}>{labels[section] || section}</span>
+        <span style={{ color: C.text, fontWeight: 600 }}>{(labels as any)[section] || section}</span>
       </div>
     </div>
   );
@@ -258,7 +259,7 @@ export default function AdminPage() {
   const [authenticated, setAuthenticated]     = useState(false);
   const [section, setSection]                 = useState('dashboard');
   const [sidebarOpen, setSidebarOpen]         = useState(true);
-  const [data, setData]                       = useState({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
+  const [data, setData]                       = useState<{ products: any[], drinks: any[], coupons: any[], settings: any[], orders: any[] }>({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
   const [hasMoreOrders, setHasMoreOrders]     = useState(false);
   const [loadingMore, setLoadingMore]         = useState(false);
   const [loading, setLoading]                 = useState(false);
@@ -266,16 +267,16 @@ export default function AdminPage() {
   const [msg, setMsg]                         = useState('');
 
   // ── CardápioWeb ─────────────────────────────────────────────────────────────
-  const [cwOrders, setCwOrders]       = useState([]);
+  const [cwOrders, setCwOrders]       = useState<any[]>([]);
   const [cwLoading, setCwLoading]     = useState(false);
   const [cwSyncing, setCwSyncing]     = useState(false);
   const [cwMsg, setCwMsg]             = useState('');
 
   // ── CardápioWeb Partner API ─────────────────────────────────────────────────
-  const [cwPartnerStatus, setCwPartnerStatus]   = useState(null);
+  const [cwPartnerStatus, setCwPartnerStatus]   = useState<any>(null);
   const [cwPartnerLoading, setCwPartnerLoading] = useState(false);
 
-  const [uploadingId, setUploadingId]   = useState(null);
+  const [uploadingId, setUploadingId]   = useState<any>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [newDrink, setNewDrink]         = useState({ name: '', size: '', price: '' });
   const [addingDrink, setAddingDrink]   = useState(false);
@@ -316,7 +317,7 @@ export default function AdminPage() {
   }, [authenticated]);
 
   // ── adminFetch helper ───────────────────────────────────────────────────────
-  const adminFetch = useCallback(async (action, actionData, token) => {
+  const adminFetch = useCallback(async (action: any, actionData: any, token?: any) => {
     const tok = token || adminToken;
     const res = await fetch('/api/admin', {
       method: 'POST',
@@ -340,13 +341,13 @@ export default function AdminPage() {
       const d = await res.json();
       setCwPartnerStatus(d);
     } catch (e) {
-      setCwPartnerStatus({ enabled: false, error: 'Erro ao conectar: ' + e.message });
+      setCwPartnerStatus({ enabled: false, error: 'Erro ao conectar: ' + (e as Error).message });
     } finally {
       setCwPartnerLoading(false);
     }
   }
 
-  function copyToClipboard(text) {
+  function copyToClipboard(text: any) {
     navigator.clipboard.writeText(text).catch(() => {});
   }
 
@@ -381,7 +382,7 @@ export default function AdminPage() {
     finally { setCwSyncing(false); }
   }
 
-  async function cwOrderAction(cwOrderId, action, cancellationReason) {
+  async function cwOrderAction(cwOrderId: any, action: any, cancellationReason: any) {
     try {
       const res = await fetch('/api/cardapioweb/orders', {
         method: 'POST',
@@ -450,7 +451,7 @@ export default function AdminPage() {
       const d = await res.json();
       if (d.orders) {
         setData(prev => {
-          const freshIds = new Set(d.orders.map(o => o.id));
+          const freshIds = new Set(d.orders.map((o: any) => o.id));
           // Preserva pedidos mais antigos que não estão no batch novo
           const olderOrders = prev.orders.filter(o => !freshIds.has(o.id));
           return { ...prev, orders: [...d.orders, ...olderOrders] };
@@ -460,7 +461,7 @@ export default function AdminPage() {
   }, [adminFetch]);
 
   // ── Global order notification (plays regardless of active tab) ──────────────
-  const globalSeenIdsRef = useRef(null);
+  const globalSeenIdsRef = useRef<Set<any> | null>(null);
   const [globalSoundOn, setGlobalSoundOn] = useState(() => {
     try { return localStorage.getItem('admin_sound') !== 'off'; } catch { return true; }
   });
@@ -488,8 +489,8 @@ export default function AdminPage() {
       globalSeenIdsRef.current = new Set(cur);
       return;
     }
-    const added = [...cur].filter(id => !globalSeenIdsRef.current.has(id));
-    cur.forEach(id => globalSeenIdsRef.current.add(id));
+    const added = [...cur].filter(id => !globalSeenIdsRef.current!.has(id));
+    cur.forEach(id => globalSeenIdsRef.current!.add(id));
     if (added.length > 0 && globalSoundOn && sectionRef.current !== 'orders') {
       playBeep();
     }
@@ -510,7 +511,7 @@ export default function AdminPage() {
 
   // ── CRUD helpers ────────────────────────────────────────────────────────────
 
-  function updateProduct(idx, field, value) {
+  function updateProduct(idx: any, field: any, value: any) {
     setData(prev => {
       const p = [...prev.products];
       p[idx] = { ...p[idx], [field]: value };
@@ -518,7 +519,7 @@ export default function AdminPage() {
     });
   }
 
-  function updateDrink(idx, field, value) {
+  function updateDrink(idx: any, field: any, value: any) {
     setData(prev => {
       const d = [...prev.drinks];
       d[idx] = { ...d[idx], [field]: value };
@@ -526,7 +527,7 @@ export default function AdminPage() {
     });
   }
 
-  function updateSetting(key, value) {
+  function updateSetting(key: any, value: any) {
     setData(prev => {
       const s = [...prev.settings];
       const idx = s.findIndex(i => i.key === key);
@@ -536,7 +537,7 @@ export default function AdminPage() {
     });
   }
 
-  function getSetting(key) {
+  function getSetting(key: any) {
     return data.settings.find(s => s.key === key)?.value || '';
   }
 
@@ -546,7 +547,7 @@ export default function AdminPage() {
     try { return { ...DEFAULT_BUSINESS_HOURS, ...JSON.parse(raw) }; } catch { return DEFAULT_BUSINESS_HOURS; }
   }
 
-  function updateDayHours(day, field, value) {
+  function updateDayHours(day: any, field: any, value: any) {
     const current = getBusinessHours();
     const updated = { ...current, [day]: { ...current[day], [field]: value } };
     updateSetting('business_hours', JSON.stringify(updated));
@@ -558,7 +559,7 @@ export default function AdminPage() {
     try { return JSON.parse(raw); } catch { return {}; }
   }
 
-  function updateStockLimit(productId, field, value) {
+  function updateStockLimit(productId: any, field: any, value: any) {
     const current = getStockLimits();
     const updated = {
       ...current,
@@ -573,7 +574,7 @@ export default function AdminPage() {
     try { return JSON.parse(raw); } catch { return {}; }
   }
 
-  function updateImagePosition(productId, x, y) {
+  function updateImagePosition(productId: any, x: any, y: any) {
     const current = getImagePositions();
     const updated = { ...current, [String(productId)]: { x, y } };
     updateSetting('image_positions', JSON.stringify(updated));
@@ -585,12 +586,12 @@ export default function AdminPage() {
     try { return JSON.parse(raw); } catch { return {}; }
   }
 
-  function updateDrinkStockLimit(drinkId, field, value) {
+  function updateDrinkStockLimit(drinkId: any, field: any, value: any) {
     setData(prev => {
       const raw = prev.settings.find(s => s.key === 'drink_stock_limits')?.value;
       let current = {};
       try { current = JSON.parse(raw || '{}'); } catch {}
-      const existing = current[String(drinkId)] || { enabled: false, qty: 0 };
+      const existing = (current as any)[String(drinkId)] || { enabled: false, qty: 0 };
       const entry = { ...existing, [field]: value };
       const newMap = { ...current, [String(drinkId)]: entry };
 
@@ -614,13 +615,13 @@ export default function AdminPage() {
     try { return JSON.parse(raw); } catch { return []; }
   }
 
-  function updateSchedulingSlots(slots) {
+  function updateSchedulingSlots(slots: any) {
     updateSetting('scheduling_slots', JSON.stringify(slots));
   }
 
   // ── Uploads ─────────────────────────────────────────────────────────────────
 
-  async function handleImageUpload(productIdx, file) {
+  async function handleImageUpload(productIdx: any, file: any) {
     const product = data.products[productIdx];
     if (!file || !product) return;
     setUploadingId(product.id);
@@ -640,11 +641,11 @@ export default function AdminPage() {
       if (!res.ok) { alert(`Erro no upload: ${result.error}`); return; }
       updateProduct(productIdx, 'image_url', result.url);
       alert('✅ Foto enviada e salva!');
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setUploadingId(null); }
   }
 
-  async function handleLogoUpload(file) {
+  async function handleLogoUpload(file: any) {
     if (!file) return;
     setUploadingLogo(true);
     try {
@@ -662,7 +663,7 @@ export default function AdminPage() {
       if (!res.ok) { alert(`Erro no upload: ${result.error}`); return; }
       updateSetting('logo_url', result.url);
       alert('✅ Logo enviada com sucesso!');
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setUploadingLogo(false); }
   }
 
@@ -680,11 +681,11 @@ export default function AdminPage() {
       setNewDrink({ name: '', size: '', price: '' });
       setMsg('✅ Bebida adicionada!');
       setTimeout(() => setMsg(''), 2500);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setAddingDrink(false); }
   }
 
-  async function handleDeleteDrink(drinkId) {
+  async function handleDeleteDrink(drinkId: any) {
     if (!confirm('Excluir esta bebida?')) return;
     try {
       const res = await adminFetch('delete_drink', { id: drinkId });
@@ -693,7 +694,7 @@ export default function AdminPage() {
       setData(prev => ({ ...prev, drinks: prev.drinks.filter(dr => dr.id !== drinkId) }));
       setMsg('✅ Bebida excluída!');
       setTimeout(() => setMsg(''), 2500);
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
   }
 
   async function removeLogo() {
@@ -703,10 +704,10 @@ export default function AdminPage() {
       if (d.error) { alert('Erro: ' + d.error); return; }
       updateSetting('logo_url', '');
       alert('Logo removida. O nome "FUMÊGO" será exibido.');
-    } catch (e) { alert('Erro: ' + e.message); }
+    } catch (e) { alert('Erro: ' + (e as Error).message); }
   }
 
-  async function updateOrderStatus(orderId, field, value) {
+  async function updateOrderStatus(orderId: any, field: any, value: any) {
     // Optimistic update first so UI is instant and polling doesn't revert it
     setData(prev => ({
       ...prev, orders: prev.orders.map(o => o.id === orderId ? { ...o, [field]: value } : o),
@@ -720,7 +721,7 @@ export default function AdminPage() {
     }
   }
 
-  async function updateOrderPayment(orderId, updates) {
+  async function updateOrderPayment(orderId: any, updates: any) {
     try {
       await adminFetch('update_order', { id: orderId, ...updates });
       setData(prev => ({
@@ -744,7 +745,7 @@ export default function AdminPage() {
   }
 
   // ── Handle section change ───────────────────────────────────────────────────
-  function handleNavigate(key) {
+  function handleNavigate(key: any) {
     setSection(key);
     if (key === 'cardapioweb' && cwOrders.length === 0) loadCWOrders();
     setMsg('');
@@ -899,7 +900,7 @@ export default function AdminPage() {
                         ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
                         : <><Upload size={13} /> Enviar foto</>
                       }
-                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleImageUpload(idx, e.target.files[0]); }} disabled={uploadingId === p.id} />
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) handleImageUpload(idx, e.target.files[0]); }} disabled={uploadingId === p.id} />
                     </label>
                   </div>
 

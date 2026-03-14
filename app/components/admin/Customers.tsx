@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search, User, Phone, MapPin, ShoppingBag, TrendingUp, Clock,
   Star, Award, UserCheck, UserX, ChevronRight, X, Plus, Minus,
@@ -11,11 +11,11 @@ import {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtBRL(v) {
+function fmtBRL(v: any) {
   return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function fmtPhone(p) {
+function fmtPhone(p: any) {
   if (!p) return '—';
   const d = p.replace(/\D/g, '');
   if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
@@ -23,19 +23,19 @@ function fmtPhone(p) {
   return p;
 }
 
-function fmtDate(isoStr) {
+function fmtDate(isoStr: any) {
   if (!isoStr) return '—';
   return new Date(isoStr).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
-function daysSince(isoStr) {
+function daysSince(isoStr: any) {
   if (!isoStr) return 9999;
   return Math.floor((Date.now() - new Date(isoStr).getTime()) / 86400000);
 }
 
 // ── Classificação RFV (Recência + Frequência + Valor) ─────────────────────────
 
-function classifyRFV(c) {
+function classifyRFV(c: any) {
   const days = daysSince(c.last_order);
   const freq = c.orders || 0;
   const val  = c.total_spent || 0;
@@ -67,7 +67,7 @@ const C = {
 
 // ── Badge RFV ──────────────────────────────────────────────────────────────────
 
-function RFVBadge({ customer }) {
+function RFVBadge({ customer }: { customer: any }) {
   const cl = classifyRFV(customer);
   const Icon = cl.icon;
   return (
@@ -84,10 +84,10 @@ function RFVBadge({ customer }) {
 
 // ── Exportações ───────────────────────────────────────────────────────────────
 
-function exportCSV(customers) {
+function exportCSV(customers: any[]) {
   const BOM = '\uFEFF';
   const headers = ['Nome', 'Telefone', 'Bairro', 'Cidade', 'Pedidos', 'Total gasto (R$)', 'Ticket médio (R$)', 'Primeiro pedido', 'Último pedido', 'Segmento RFV'];
-  const rows = customers.map(c => [
+  const rows = customers.map((c: any) => [
     c.name || '', c.phone || '', c.neighborhood || '', c.city || '',
     c.orders,
     (c.total_spent || 0).toFixed(2).replace('.', ','),
@@ -96,7 +96,7 @@ function exportCSV(customers) {
     c.last_order  ? new Date(c.last_order).toLocaleDateString('pt-BR')  : '',
     classifyRFV(c).label,
   ]);
-  const csv = BOM + [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n');
+  const csv = BOM + [headers, ...rows].map((r: any) => r.map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -106,9 +106,9 @@ function exportCSV(customers) {
   URL.revokeObjectURL(url);
 }
 
-function exportXLS(customers) {
+function exportXLS(customers: any[]) {
   const headers = ['Nome', 'Telefone', 'Bairro', 'Cidade', 'Pedidos', 'Total gasto', 'Ticket médio', 'Primeiro pedido', 'Último pedido', 'Segmento RFV'];
-  const rows = customers.map(c => [
+  const rows = customers.map((c: any) => [
     c.name || '', c.phone || '', c.neighborhood || '', c.city || '',
     c.orders,
     (c.total_spent || 0).toFixed(2),
@@ -117,7 +117,7 @@ function exportXLS(customers) {
     c.last_order  ? new Date(c.last_order).toLocaleDateString('pt-BR')  : '',
     classifyRFV(c).label,
   ]);
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"/></head><body><table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"/></head><body><table><thead><tr>${headers.map((h: any) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map((r: any) => `<tr>${r.map((v: any) => `<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`;
   const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -142,7 +142,7 @@ const PRODUCT_OPTIONS = {
 };
 const COMBO_SLUGS = ['combo-classico'];
 
-function OptionRow({ opt, selected, onSelect }) {
+function OptionRow({ opt, selected, onSelect }: { opt: any; selected: any; onSelect: any }) {
   return (
     <div onClick={() => onSelect(opt)} style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -165,41 +165,41 @@ function OptionRow({ opt, selected, onSelect }) {
   );
 }
 
-function ProductPicker({ products, drinks, onAdd, onClose }) {
+function ProductPicker({ products, drinks, onAdd, onClose }: { products: any; drinks: any; onAdd: any; onClose: any }) {
   const [step, setStep]         = useState('products');
-  const [selected, setSelected] = useState(null);
-  const [option, setOption]     = useState(null);
-  const [option2, setOption2]   = useState(null);
-  const [selDrinks, setSelDrinks] = useState([]);
+  const [selected, setSelected] = useState<any>(null);
+  const [option, setOption]     = useState<any>(null);
+  const [option2, setOption2]   = useState<any>(null);
+  const [selDrinks, setSelDrinks] = useState<any[]>([]);
   const [obs, setObs]           = useState('');
   const [search, setSearch]     = useState('');
 
-  const active = (products || []).filter(p => p.is_active);
+  const active = (products || []).filter((p: any) => p.is_active);
   const filtered = search.trim()
-    ? active.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    ? active.filter((p: any) => p.name.toLowerCase().includes(search.toLowerCase()))
     : active;
 
   const isCombo    = selected && COMBO_SLUGS.includes(selected.slug);
-  const singleOpts = selected ? PRODUCT_OPTIONS[selected.slug] : null;
+  const singleOpts = selected ? (PRODUCT_OPTIONS as any)[selected.slug] : null;
   const needsOption = isCombo || !!singleOpts;
   const extraPrice  = (option?.extra_price || 0) + (option2?.extra_price || 0);
   const canAdd      = !needsOption || (option && (!isCombo || option2));
 
-  function pickProduct(p) {
+  function pickProduct(p: any) {
     setSelected(p); setOption(null); setOption2(null);
     setSelDrinks([]); setObs(''); setStep('configure');
   }
 
-  function toggleDrink(drink) {
-    setSelDrinks(prev => {
-      const has = prev.find(d => d.id === drink.id);
-      if (has) return prev.filter(d => d.id !== drink.id);
+  function toggleDrink(drink: any) {
+    setSelDrinks((prev: any[]) => {
+      const has = prev.find((d: any) => d.id === drink.id);
+      if (has) return prev.filter((d: any) => d.id !== drink.id);
       return [...prev, { ...drink, qty: 1 }];
     });
   }
 
-  function changeDrinkQty(id, delta) {
-    setSelDrinks(prev => prev.map(d => d.id === id ? { ...d, qty: d.qty + delta } : d).filter(d => d.qty > 0));
+  function changeDrinkQty(id: any, delta: any) {
+    setSelDrinks((prev: any[]) => prev.map((d: any) => d.id === id ? { ...d, qty: d.qty + delta } : d).filter((d: any) => d.qty > 0));
   }
 
   function doAdd() {
@@ -258,21 +258,21 @@ function ProductPicker({ products, drinks, onAdd, onClose }) {
           <div style={{ marginBottom: 14 }}>
             <p style={{ fontSize: 11, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Opções</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {singleOpts.map(opt => (
+              {singleOpts.map((opt: any) => (
                 <OptionRow key={opt.label} opt={opt} selected={option?.label === opt.label} onSelect={setOption} />
               ))}
             </div>
           </div>
         )}
 
-        {(drinks || []).filter(d => d.is_active).length > 0 && (
+        {(drinks || []).filter((d: any) => d.is_active).length > 0 && (
           <div style={{ marginBottom: 14 }}>
             <p style={{ fontSize: 11, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
               <GlassWater size={11} style={{ display: 'inline', marginRight: 5 }} />Bebidas (opcional)
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {(drinks || []).filter(d => d.is_active).map(drink => {
-                const sel = selDrinks.find(d => d.id === drink.id);
+              {(drinks || []).filter((d: any) => d.is_active).map((drink: any) => {
+                const sel = selDrinks.find((d: any) => d.id === drink.id);
                 return (
                   <div key={drink.id} onClick={() => toggleDrink(drink)} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -309,7 +309,7 @@ function ProductPicker({ products, drinks, onAdd, onClose }) {
           fontSize: 13, fontWeight: 800, cursor: canAdd ? 'pointer' : 'not-allowed',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
         }}>
-          <Plus size={14} /> Adicionar · {fmtBRL(parseFloat(selected.price) + extraPrice + selDrinks.reduce((s, d) => s + d.price * d.qty, 0))}
+          <Plus size={14} /> Adicionar · {fmtBRL(parseFloat(selected.price) + extraPrice + selDrinks.reduce((s: any, d: any) => s + d.price * d.qty, 0))}
         </button>
       </div>
     );
@@ -323,7 +323,7 @@ function ProductPicker({ products, drinks, onAdd, onClose }) {
           style={{ width: '100%', padding: '7px 10px 7px 28px', borderRadius: 5, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#F9FAFB' }} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
-        {filtered.map(p => (
+        {filtered.map((p: any) => (
           <div key={p.id} onClick={() => pickProduct(p)} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             padding: '10px 13px', borderRadius: 5, border: '1px solid ' + C.border,
@@ -349,15 +349,15 @@ function ProductPicker({ products, drinks, onAdd, onClose }) {
 
 // ── Formulário de Pedido Manual ───────────────────────────────────────────────
 
-function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSuccess, onCancel }) {
-  const [customer, setCustomer] = useState({
+function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSuccess, onCancel }: { prefillCustomer: any; products: any; drinks: any; adminToken: any; onSuccess: any; onCancel: any }) {
+  const [customer, setCustomer] = useState<any>({
     name: prefillCustomer?.name || '',
     phone: prefillCustomer?.phone || '',
     street: '', number: '', complement: '',
     neighborhood: prefillCustomer?.neighborhood || '',
     city: prefillCustomer?.city || '',
   });
-  const [cartItems, setCartItems]     = useState([]);
+  const [cartItems, setCartItems]     = useState<any[]>([]);
   const [showPicker, setShowPicker]   = useState(false);
   const [deliveryFee, setDeliveryFee] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
@@ -366,14 +366,14 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
 
-  function addItem(item) {
-    setCartItems(prev => [...prev, { ...item, _id: Date.now() + Math.random() }]);
+  function addItem(item: any) {
+    setCartItems((prev: any[]) => [...prev, { ...item, _id: Date.now() + Math.random() }]);
     setShowPicker(false);
   }
 
-  function removeItem(id) { setCartItems(prev => prev.filter(i => i._id !== id)); }
+  function removeItem(id: any) { setCartItems((prev: any[]) => prev.filter((i: any) => i._id !== id)); }
 
-  const subtotal = cartItems.reduce((s, i) => s + i.unit_price * i.quantity, 0);
+  const subtotal = cartItems.reduce((s: any, i: any) => s + i.unit_price * i.quantity, 0);
   const fee   = parseFloat(deliveryFee) || 0;
   const total = subtotal + fee;
 
@@ -412,7 +412,7 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
       const d = await res.json();
       if (!d.success) { setError(d.error || 'Erro ao criar pedido'); return; }
       onSuccess(d.order);
-    } catch { setError('Erro de conexão'); }
+    } catch (e) { setError((e as Error).message || 'Erro de conexão'); }
     finally { setSaving(false); }
   }
 
@@ -431,8 +431,8 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
           <div style={{ background: C.card, borderRadius: 6, padding: 18, border: '1px solid ' + C.border }}>
             <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>Cliente</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <FormField label="Nome *" value={customer.name} onChange={v => setCustomer(p => ({...p, name: v}))} placeholder="Nome completo" />
-              <FormField label="Telefone" value={customer.phone} onChange={v => setCustomer(p => ({...p, phone: v}))} placeholder="(11) 99999-9999" />
+              <FormField label="Nome *" value={customer.name} onChange={(v: any) => setCustomer((p: any) => ({...p, name: v}))} placeholder="Nome completo" />
+              <FormField label="Telefone" value={customer.phone} onChange={(v: any) => setCustomer((p: any) => ({...p, phone: v}))} placeholder="(11) 99999-9999" />
             </div>
           </div>
 
@@ -440,12 +440,12 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
             <h3 style={{ fontSize: 12, fontWeight: 800, color: C.light, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 14 }}>Endereço</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
-                <FormField label="Rua" value={customer.street} onChange={v => setCustomer(p => ({...p, street: v}))} placeholder="Rua/Av" />
-                <FormField label="Número" value={customer.number} onChange={v => setCustomer(p => ({...p, number: v}))} placeholder="Nº" />
+                <FormField label="Rua" value={customer.street} onChange={(v: any) => setCustomer((p: any) => ({...p, street: v}))} placeholder="Rua/Av" />
+                <FormField label="Número" value={customer.number} onChange={(v: any) => setCustomer((p: any) => ({...p, number: v}))} placeholder="Nº" />
               </div>
-              <FormField label="Complemento" value={customer.complement} onChange={v => setCustomer(p => ({...p, complement: v}))} placeholder="Apto, casa..." />
-              <FormField label="Bairro" value={customer.neighborhood} onChange={v => setCustomer(p => ({...p, neighborhood: v}))} placeholder="Bairro" />
-              <FormField label="Cidade" value={customer.city} onChange={v => setCustomer(p => ({...p, city: v}))} placeholder="Cidade" />
+              <FormField label="Complemento" value={customer.complement} onChange={(v: any) => setCustomer((p: any) => ({...p, complement: v}))} placeholder="Apto, casa..." />
+              <FormField label="Bairro" value={customer.neighborhood} onChange={(v: any) => setCustomer((p: any) => ({...p, neighborhood: v}))} placeholder="Bairro" />
+              <FormField label="Cidade" value={customer.city} onChange={(v: any) => setCustomer((p: any) => ({...p, city: v}))} placeholder="Cidade" />
             </div>
           </div>
 
@@ -586,8 +586,8 @@ function CreateOrderForm({ prefillCustomer, products, drinks, adminToken, onSucc
   );
 }
 
-function FormField({ label, value, onChange, placeholder, type, multiline }) {
-  const style = {
+function FormField({ label, value, onChange, placeholder, type, multiline }: { label: any; value: any; onChange: any; placeholder: any; type?: any; multiline?: any }) {
+  const style: React.CSSProperties = {
     width: '100%', padding: '7px 10px', borderRadius: 4, border: '1px solid #E5E7EB',
     fontSize: 12, outline: 'none', background: '#F9FAFB', boxSizing: 'border-box',
     fontFamily: 'inherit',
@@ -605,10 +605,10 @@ function FormField({ label, value, onChange, placeholder, type, multiline }) {
 
 // ── Perfil do Cliente ─────────────────────────────────────────────────────────
 
-function CustomerProfile({ customer, adminToken, products, drinks, onBack, onCreateOrder }) {
-  const [orders, setOrders]     = useState([]);
-  const [topItems, setTopItems] = useState([]);
-  const [peakHour, setPeakHour] = useState(null);
+function CustomerProfile({ customer, adminToken, products, drinks, onBack, onCreateOrder }: { customer: any; adminToken: any; products: any; drinks: any; onBack: any; onCreateOrder: any }) {
+  const [orders, setOrders]     = useState<any[]>([]);
+  const [topItems, setTopItems] = useState<any[]>([]);
+  const [peakHour, setPeakHour] = useState<any>(null);
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
@@ -706,8 +706,8 @@ function CustomerProfile({ customer, adminToken, products, drinks, onBack, onCre
             <p style={{ fontSize: 13, color: C.light }}>Nenhum pedido encontrado</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto' }}>
-              {orders.map((o) => {
-                const pm = PM_LABELS[o.payment_method];
+              {orders.map((o: any) => {
+                const pm = (PM_LABELS as any)[o.payment_method];
                 const PMIcon = pm?.icon || CreditCard;
                 return (
                   <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: 4, background: '#F9FAFB', border: '1px solid ' + C.border }}>
@@ -735,7 +735,7 @@ function CustomerProfile({ customer, adminToken, products, drinks, onBack, onCre
   );
 }
 
-function StatCard({ label, value, color }) {
+function StatCard({ label, value, color }: { label: any; value: any; color: any }) {
   return (
     <div style={{ background: '#F9FAFB', borderRadius: 5, padding: '10px 13px', border: '1px solid #E5E7EB' }}>
       <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 5 }}>{label}</p>
@@ -746,8 +746,8 @@ function StatCard({ label, value, color }) {
 
 // ── Tabela de Clientes ────────────────────────────────────────────────────────
 
-function CustomersTable({ customers, onSelect, sortKey, sortDir, onSort }) {
-  const cols = [
+function CustomersTable({ customers, onSelect, sortKey, sortDir, onSort }: { customers: any; onSelect: any; sortKey: any; sortDir: any; onSort: any }) {
+  const cols: { key: string; label: string; align?: React.CSSProperties['textAlign']; noSort?: boolean }[] = [
     { key: 'name',        label: 'Nome' },
     { key: 'phone',       label: 'Telefone' },
     { key: 'neighborhood',label: 'Bairro' },
@@ -787,7 +787,7 @@ function CustomersTable({ customers, onSelect, sortKey, sortDir, onSort }) {
           </tr>
         </thead>
         <tbody>
-          {customers.map((c) => {
+          {customers.map((c: any) => {
             const cl = classifyRFV(c);
             const ClIcon = cl.icon;
             return (
@@ -825,7 +825,7 @@ function CustomersTable({ customers, onSelect, sortKey, sortDir, onSort }) {
 
 // ── MiniStat ──────────────────────────────────────────────────────────────────
 
-function MiniStat({ label, value, color }) {
+function MiniStat({ label, value, color }: { label: any; value: any; color: any }) {
   return (
     <div style={{ textAlign: 'center', padding: '5px 12px', background: color + '10', borderRadius: 4, border: `1px solid ${color}20` }}>
       <p style={{ fontSize: 14, fontWeight: 800, color }}>{value}</p>
@@ -836,14 +836,14 @@ function MiniStat({ label, value, color }) {
 
 // ── Customers Main ────────────────────────────────────────────────────────────
 
-export default function Customers({ adminToken, products, drinks, onRefresh }) {
-  const [customers, setCustomers]   = useState([]);
+export default function Customers({ adminToken, products, drinks, onRefresh }: { adminToken: any; products: any; drinks: any; onRefresh: any }) {
+  const [customers, setCustomers]   = useState<any[]>([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
   const [filterRfv, setFilterRfv]   = useState('all');
-  const [selected, setSelected]     = useState(null);
+  const [selected, setSelected]     = useState<any>(null);
   const [view, setView]             = useState('list');
-  const [createPrefill, setCreatePrefill] = useState(null);
+  const [createPrefill, setCreatePrefill] = useState<any>(null);
 
   // View mode: 'cards' | 'table'
   const [viewMode, setViewMode]     = useState('cards');
@@ -877,7 +877,7 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
 
-  function handleSort(key) {
+  function handleSort(key: any) {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortKey(key); setSortDir('desc'); }
   }
@@ -887,7 +887,7 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(c =>
+      list = list.filter((c: any) =>
         (c.name || '').toLowerCase().includes(q) ||
         (c.phone || '').includes(q) ||
         (c.neighborhood || '').toLowerCase().includes(q)
@@ -895,27 +895,27 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
     }
 
     if (filterRfv !== 'all') {
-      list = list.filter(c => classifyRFV(c).key === filterRfv);
+      list = list.filter((c: any) => classifyRFV(c).key === filterRfv);
     }
 
     if (filterPhoneEnd.trim()) {
       const end = filterPhoneEnd.replace(/\D/g, '');
-      if (end) list = list.filter(c => (c.phone || '').replace(/\D/g, '').endsWith(end));
+      if (end) list = list.filter((c: any) => (c.phone || '').replace(/\D/g, '').endsWith(end));
     }
-    if (filterMinOrders !== '') list = list.filter(c => (c.orders || 0) >= parseInt(filterMinOrders));
-    if (filterMaxOrders !== '') list = list.filter(c => (c.orders || 0) <= parseInt(filterMaxOrders));
-    if (filterMinTicket !== '') list = list.filter(c => (c.avg_ticket || 0) >= parseFloat(filterMinTicket));
-    if (filterMaxTicket !== '') list = list.filter(c => (c.avg_ticket || 0) <= parseFloat(filterMaxTicket));
-    if (filterLastDays  !== '') list = list.filter(c => daysSince(c.last_order) <= parseInt(filterLastDays));
+    if (filterMinOrders !== '') list = list.filter((c: any) => (c.orders || 0) >= parseInt(filterMinOrders));
+    if (filterMaxOrders !== '') list = list.filter((c: any) => (c.orders || 0) <= parseInt(filterMaxOrders));
+    if (filterMinTicket !== '') list = list.filter((c: any) => (c.avg_ticket || 0) >= parseFloat(filterMinTicket));
+    if (filterMaxTicket !== '') list = list.filter((c: any) => (c.avg_ticket || 0) <= parseFloat(filterMaxTicket));
+    if (filterLastDays  !== '') list = list.filter((c: any) => daysSince(c.last_order) <= parseInt(filterLastDays));
 
     return list;
   }, [customers, search, filterRfv, filterPhoneEnd, filterMinOrders, filterMaxOrders, filterMinTicket, filterMaxTicket, filterLastDays]);
 
   const sorted = useMemo(() => {
     if (viewMode !== 'table') return filtered;
-    return [...filtered].sort((a, b) => {
-      let aVal = sortKey === 'rfv' ? classifyRFV(a).label : (a[sortKey] ?? '');
-      let bVal = sortKey === 'rfv' ? classifyRFV(b).label : (b[sortKey] ?? '');
+    return [...filtered].sort((a: any, b: any) => {
+      let aVal = sortKey === 'rfv' ? classifyRFV(a).label : ((a as any)[sortKey] ?? '');
+      let bVal = sortKey === 'rfv' ? classifyRFV(b).label : ((b as any)[sortKey] ?? '');
       if (typeof aVal === 'number' && typeof bVal === 'number')
         return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
       return sortDir === 'asc'
@@ -925,7 +925,7 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
   }, [filtered, viewMode, sortKey, sortDir]);
 
   const stats = useMemo(() => {
-    const seg = label => customers.filter(c => classifyRFV(c).label === label).length;
+    const seg = (label: any) => customers.filter((c: any) => classifyRFV(c).label === label).length;
     return {
       total:      customers.length,
       campeoes:   seg('Campeão'),
@@ -954,7 +954,7 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
           products={products}
           drinks={drinks}
           onBack={() => setView('list')}
-          onCreateOrder={(c) => { setCreatePrefill(c); setView('create'); }}
+          onCreateOrder={(c: any) => { setCreatePrefill(c); setView('create'); }}
         />
       </div>
     );
@@ -1118,14 +1118,14 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
         ) : viewMode === 'table' ? (
           <CustomersTable
             customers={sorted}
-            onSelect={c => { setSelected(c); setView('profile'); }}
+            onSelect={(c: any) => { setSelected(c); setView('profile'); }}
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}
           />
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 10 }}>
-            {filtered.map(c => (
+            {filtered.map((c: any) => (
               <CustomerCard key={c.phone || c.name} customer={c} onClick={() => { setSelected(c); setView('profile'); }} />
             ))}
           </div>
@@ -1135,7 +1135,7 @@ export default function Customers({ adminToken, products, drinks, onRefresh }) {
   );
 }
 
-function CustomerCard({ customer, onClick }) {
+function CustomerCard({ customer, onClick }: { customer: any; onClick: any }) {
   const cl = classifyRFV(customer);
   const ClIcon = cl.icon;
   return (
