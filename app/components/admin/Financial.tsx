@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   DollarSign, TrendingUp, TrendingDown, ShoppingBag, Tag, Bike,
   Wallet, AlertTriangle, RefreshCw, Search, Printer, X, Plus,
@@ -43,8 +43,8 @@ const TYPE_COLORS = { venda: C.success, sangria: C.danger, suprimento: C.blue, c
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const fmtBRL = v => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtShort = v => {
+const fmtBRL = (v: any) => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtShort = (v: any) => {
   const n = parseFloat(v) || 0;
   if (n >= 1000) return 'R$' + (n / 1000).toFixed(1) + 'k';
   return fmtBRL(n);
@@ -55,11 +55,11 @@ function firstOfMonth() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
-function fmtDT(iso) {
+function fmtDT(iso: any) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
-function fmtDateShort(yyyymmdd) {
+function fmtDateShort(yyyymmdd: any) {
   if (!yyyymmdd) return '';
   const [, m, d] = yyyymmdd.split('-');
   return `${d}/${m}`;
@@ -67,21 +67,21 @@ function fmtDateShort(yyyymmdd) {
 
 // ── SVG Bar Chart ─────────────────────────────────────────────────────────────
 
-function RevenueBarChart({ data }) {
+function RevenueBarChart({ data }: { data: any }) {
   const [hovered, setHovered] = useState(null);
   if (!data?.length) return <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.light, fontSize: 13 }}>Sem dados</div>;
 
   const W = 800, H = 180, padL = 48, padR = 12, padT = 12, padB = 28;
   const cW = W - padL - padR;
   const cH = H - padT - padB;
-  const maxV = Math.max(...data.map(d => d.revenue), 1);
+  const maxV = Math.max(...data.map((d: any) => d.revenue), 1);
   const barW = Math.max(4, cW / data.length * 0.65);
   const gap  = cW / data.length;
 
-  function bx(i) { return padL + i * gap + gap / 2; }
-  function bh(v) { return (v / maxV) * cH; }
+  function bx(i: number) { return padL + i * gap + gap / 2; }
+  function bh(v: number) { return (v / maxV) * cH; }
 
-  const yTicks = [0, maxV * 0.5, maxV].map(v => Math.round(v));
+  const yTicks = [0, maxV * 0.5, maxV].map((v: number) => Math.round(v));
 
   return (
     <div style={{ position: 'relative' }}>

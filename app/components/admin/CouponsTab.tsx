@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Check, Loader2, X, Trash2, RefreshCw,
   Tag, BarChart2, Clock, Users, TrendingUp, TrendingDown,
@@ -17,16 +17,16 @@ const C = {
   purple: '#7C3AED', blue: '#2563EB',
 };
 
-function fmtBRL(v) {
+function fmtBRL(v: any): string {
   return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function fmtDate(iso) {
+function fmtDate(iso: any): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-function fmtDateShort(iso) {
+function fmtDateShort(iso: any): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
@@ -61,9 +61,9 @@ const BLANK_COUPON = {
 
 // ── Mini bar chart ──────────────────────────────────────────────────────────
 
-function BarChartSimple({ data, color = C.gold, height = 60 }) {
+function BarChartSimple({ data, color = C.gold, height = 60 }: { data: { label: string; value: number }[]; color?: string; height?: number }) {
   if (!data || data.length === 0) return <p style={{ fontSize: 12, color: C.light, textAlign: 'center', padding: 16 }}>Sem dados</p>;
-  const max = Math.max(...data.map(d => d.value), 1);
+  const max = Math.max(...data.map((d: { label: string; value: number }) => d.value), 1);
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height, padding: '0 4px' }}>
       {data.map((d, i) => (

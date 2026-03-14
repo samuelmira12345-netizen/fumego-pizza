@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   ShoppingBag, DollarSign, TrendingUp, ChefHat,
   Truck, CheckCircle, XCircle, Clock, BarChart2, RefreshCw,
@@ -13,10 +13,10 @@ import { costWithFC } from '@/lib/correction-factor';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function toSPDate(isoStr) {
+function toSPDate(isoStr: string) {
   return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
-function toSPHour(isoStr) {
+function toSPHour(isoStr: string) {
   return parseInt(
     new Date(isoStr).toLocaleString('en-US', {
       timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false,
@@ -41,18 +41,18 @@ function currentHourSP() {
     timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false,
   }));
 }
-function weekdayShortSP(yyyymmdd) {
+function weekdayShortSP(yyyymmdd: string) {
   return new Date(yyyymmdd + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' });
 }
-function fmtBRL(v) {
+function fmtBRL(v: any) {
   return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
-function fmtDate(yyyymmdd) {
+function fmtDate(yyyymmdd: string) {
   if (!yyyymmdd) return '';
-  const [y, m, d] = yyyymmdd.split('-');
+  const [, m, d] = yyyymmdd.split('-');
   return `${d}/${m}`;
 }
-function fmtMinutes(mins) {
+function fmtMinutes(mins: any) {
   if (mins === null || mins === undefined) return '—';
   if (mins < 60) return `${Math.round(mins)}min`;
   return `${Math.floor(mins / 60)}h${Math.round(mins % 60) > 0 ? Math.round(mins % 60) + 'm' : ''}`;
@@ -60,7 +60,7 @@ function fmtMinutes(mins) {
 
 // ── Gráfico de barras simples ─────────────────────────────────────────────────
 
-function fmtShort(v, isCurrency) {
+function fmtShort(v: any, isCurrency: any) {
   if (!v) return '—';
   if (isCurrency) {
     if (v >= 1000) return `R$${(v / 1000).toFixed(1)}k`;
