@@ -81,7 +81,7 @@ export async function handleGetDeliveryHistory(supabase: SupabaseClient, data?: 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const totalEarned = (orders || []).filter(o => o.status === 'delivered')
-    .reduce((sum, o) => sum + (parseFloat(o.delivery_fee) || 0), 0);
+    .reduce((sum, o) => sum + (parseFloat(String(o.delivery_fee)) || 0), 0);
 
   return NextResponse.json({ orders: orders || [], totalEarned });
 }
@@ -306,8 +306,8 @@ export async function handleGetDeliveryMetrics(supabase: SupabaseClient, data?: 
 
     if (o.status === 'delivered') {
       item.delivered_count       += 1;
-      item.delivery_fees_total   += parseFloat(o.delivery_fee || 0) || 0;
-      item.orders_total_value    += parseFloat(o.total || 0) || 0;
+      item.delivery_fees_total   += parseFloat(String(o.delivery_fee)) || 0;
+      item.orders_total_value    += parseFloat(String(o.total))        || 0;
       const deliveredAt = o.driver_delivered_at || o.delivered_at;
       if (!item.last_delivery_at || (deliveredAt && new Date(deliveredAt) > new Date(item.last_delivery_at))) {
         item.last_delivery_at = deliveredAt;

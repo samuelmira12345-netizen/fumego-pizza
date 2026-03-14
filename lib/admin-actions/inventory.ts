@@ -34,7 +34,7 @@ export async function handleSaveIngredient(supabase: SupabaseClient, data?: Reco
 
   if (id) {
     const { data: existing } = await supabase.from('ingredients').select('cost_per_unit').eq('id', id).single();
-    const oldPrice = parseFloat((existing as Record<string, unknown>)?.cost_per_unit as string);
+    const oldPrice = parseFloat(String((existing as unknown as Record<string, unknown>)?.cost_per_unit));
     const newPrice = parseFloat(String(cost_per_unit));
     let priceHistoryEntry = null;
     if (!isNaN(oldPrice) && !isNaN(newPrice) && oldPrice !== newPrice) {
@@ -69,7 +69,7 @@ export async function handleSaveCompoundRecipe(supabase: SupabaseClient, data?: 
 
   if (computed_cost !== undefined && Number(computed_cost) > 0) {
     const { data: existing } = await supabase.from('ingredients').select('cost_per_unit').eq('id', compound_id).single();
-    const oldPrice = parseFloat((existing as Record<string, unknown>)?.cost_per_unit as string);
+    const oldPrice = parseFloat(String((existing as unknown as Record<string, unknown>)?.cost_per_unit));
     const newPrice = parseFloat(String(computed_cost));
     if (!isNaN(oldPrice) && oldPrice !== newPrice) {
       await supabase.from('ingredient_price_history').insert({ ingredient_id: compound_id, old_price: oldPrice, new_price: newPrice });

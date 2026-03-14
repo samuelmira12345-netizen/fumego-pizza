@@ -32,7 +32,7 @@ export async function handleGetCustomers(supabase: SupabaseClient): Promise<Next
       };
     }
     map[key].orders += 1;
-    if (o.status !== 'cancelled') map[key].total_spent += parseFloat(o.total) || 0;
+    if (o.status !== 'cancelled') map[key].total_spent += parseFloat(String(o.total)) || 0;
     if (o.created_at < map[key].first_order) map[key].first_order = o.created_at;
     if (o.created_at > map[key].last_order)  map[key].last_order  = o.created_at;
   }

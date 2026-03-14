@@ -25,7 +25,7 @@ interface RawItem {
   product_name?: string;
   quantity?: number | string;
   unit_price?: number | string;
-  observations?: string;
+  observations?: string | null;
 }
 
 // ── Helpers internos ──────────────────────────────────────────────────────────
@@ -248,7 +248,7 @@ export async function handleUpdateOrder(supabase: SupabaseClient, data: Record<s
             const ing = ri.ingredients as unknown as { id: string; unit: string; current_stock: number; name: string } | null;
             if (!ing) continue;
             const needsConv = (ing.unit === 'kg' && ri.recipe_unit === 'g') || (ing.unit === 'L' && ri.recipe_unit === 'ml');
-            const toDeduct = (parseFloat(ri.quantity) || 0) * (needsConv ? 0.001 : 1) * (parseInt(oi.quantity) || 1);
+            const toDeduct = (parseFloat(String(ri.quantity)) || 0) * (needsConv ? 0.001 : 1) * (parseInt(String(oi.quantity), 10) || 1);
             if (toDeduct <= 0) continue;
 
             const newStock = Math.max(0, (parseFloat(String(ing.current_stock)) || 0) - toDeduct);
@@ -313,8 +313,8 @@ export async function handleUpdateOrderItems(supabase: SupabaseClient, data?: Re
 
   if (orderErr) return NextResponse.json({ error: orderErr.message }, { status: 500 });
 
-  const discount    = parseFloat(order?.discount) || 0;
-  const deliveryFee = parseFloat(order?.delivery_fee) || 0;
+  const discount    = parseFloat(String(order?.discount))    || 0;
+  const deliveryFee = parseFloat(String(order?.delivery_fee)) || 0;
   const total       = Math.max(0, subtotal - discount + deliveryFee);
 
   const { data: previousItems } = await supabase
