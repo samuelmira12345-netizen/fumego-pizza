@@ -307,13 +307,13 @@ export function AnalisePagamentosTab({ adminToken, refreshTick }: { adminToken: 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16, alignItems: 'start' }}>
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Distribuição por Categoria</div>
-            <DonutChart data={data?.byCategory} palette={PALETTE.map((_, i) => PALETTE[i])} />
+            <DonutChart data={data?.byCategory ?? []} palette={PALETTE.map((_, i) => PALETTE[i])} />
           </div>
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700, color: C.text }}>
               Categorias de Despesas
             </div>
-            <RankedTable items={data?.byCategory} total={data?.total} labelCol="Categoria" />
+            <RankedTable items={data?.byCategory ?? []} total={data?.total ?? 0} labelCol="Categoria" />
           </div>
         </div>
       )}
@@ -321,7 +321,7 @@ export function AnalisePagamentosTab({ adminToken, refreshTick }: { adminToken: 
       {subTab === 'diario' && (
         <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Despesas por Dia</div>
-          <DailyBarChart data={data?.timeSeries} color={C.danger} />
+          <DailyBarChart data={data?.timeSeries ?? []} color={C.danger} />
         </div>
       )}
     </div>
@@ -404,8 +404,8 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }: { adminToken
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Formas de Pagamento</div>
             <DonutChart
-              data={data?.byPaymentMethod?.map((p: PaymentMethodItem) => ({ ...p, name: p.label }))}
-              palette={data?.byPaymentMethod?.map((p: PaymentMethodItem) => pmPalette[p.method] || C.gold)}
+              data={data?.byPaymentMethod?.map((p: PaymentMethodItem) => ({ ...p, name: p.label })) ?? []}
+              palette={data?.byPaymentMethod?.map((p: PaymentMethodItem) => pmPalette[p.method] || C.gold) ?? []}
             />
           </div>
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
@@ -413,8 +413,8 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }: { adminToken
               Receitas por Forma de Pagamento
             </div>
             <RankedTable
-              items={data?.byPaymentMethod?.map((p: PaymentMethodItem) => ({ ...p, name: p.label }))}
-              total={data?.total}
+              items={data?.byPaymentMethod?.map((p: PaymentMethodItem) => ({ ...p, name: p.label })) ?? []}
+              total={data?.total ?? 0}
               labelCol="Forma de Pagamento"
             />
           </div>
@@ -425,13 +425,13 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }: { adminToken
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 380px) 1fr', gap: 16, alignItems: 'start' }}>
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Categorias de Receita</div>
-            <DonutChart data={data?.byCategory} />
+            <DonutChart data={data?.byCategory ?? []} />
           </div>
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
             <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700, color: C.text }}>
               Categorias de Receitas
             </div>
-            <RankedTable items={data?.byCategory} total={data?.total} labelCol="Categoria" />
+            <RankedTable items={data?.byCategory ?? []} total={data?.total ?? 0} labelCol="Categoria" />
           </div>
         </div>
       )}
@@ -439,7 +439,7 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }: { adminToken
       {subTab === 'diario' && (
         <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Receitas por Dia</div>
-          <DailyBarChart data={data?.timeSeries} color={C.success} />
+          <DailyBarChart data={data?.timeSeries ?? []} color={C.success} />
         </div>
       )}
     </div>
