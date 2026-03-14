@@ -3,6 +3,17 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Loader2, Landmark, CreditCard, Banknote, Clock, Search, X, Calendar, Bookmark, Plus, Trash2, ListOrdered } from 'lucide-react';
 import DeliveryQueueTab from './DeliveryQueueTab';
+import type { Order, OrderItem, DeliveryPerson } from '../../../types';
+
+interface SavedFilter {
+  id: number;
+  name: string;
+  search: string;
+  statusFilter: string;
+  datePreset: string;
+  customFrom: string;
+  customTo: string;
+}
 
 const GOLD = '#D4A528';
 const SAVED_FILTERS_KEY = 'fumego_saved_filters';
@@ -90,7 +101,7 @@ function resolveDateRange(preset: string, customFrom: string, customTo: string) 
 // ── Filtros salvos ─────────────────────────────────────────────────────────────
 
 
-function buildAddress(order: any) {
+function buildAddress(order: Order) {
   return [
     order.delivery_street,
     order.delivery_number,
@@ -105,11 +116,18 @@ function loadSavedFilters() {
     return JSON.parse(localStorage.getItem(SAVED_FILTERS_KEY) || '[]');
   } catch { return []; }
 }
-function persistSavedFilters(filters: any) {
+function persistSavedFilters(filters: SavedFilter[]) {
   try { localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filters)); } catch {}
 }
 
-export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdateStatus, onLoadMore, adminToken }: { orders: any[]; hasMoreOrders: boolean; loadingMore: boolean; onUpdateStatus: any; onLoadMore: any; adminToken: string }) {
+export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdateStatus, onLoadMore, adminToken }: {
+  orders: Order[];
+  hasMoreOrders: boolean;
+  loadingMore: boolean;
+  onUpdateStatus: (id: string, field: string, value: string | null) => void;
+  onLoadMore: () => void;
+  adminToken: string;
+}) {
   const [mainTab, setMainTab] = useState('orders'); // 'orders' | 'inactive' | 'queue'
 
   const [search, setSearch]             = useState('');
@@ -119,12 +137,12 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
   const [customTo, setCustomTo]         = useState('');
 
   // Filtros salvos
-  const [savedFilters, setSavedFilters]       = useState(() => loadSavedFilters());
+  const [savedFilters, setSavedFilters]       = useState<SavedFilter[]>(() => loadSavedFilters());
   const [showSaveDialog, setShowSaveDialog]   = useState(false);
   const [newFilterName, setNewFilterName]     = useState('');
 
   // Inactive orders (soft-deleted)
-  const [inactiveOrders, setInactiveOrders]   = useState<any[]>([]);
+  const [inactiveOrders, setInactiveOrders]   = useState<Order[]>([]);
   const [inactiveLoading, setInactiveLoading] = useState(false);
   const [inactiveLoaded, setInactiveLoaded]   = useState(false);
 
@@ -144,7 +162,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
     finally { setInactiveLoading(false); }
   }
 
-  async function restoreOrder(orderId: any) {
+  async function restoreOrder(orderId: string) {
     if (!adminToken) return;
     try {
       const res = await fetch('/api/admin', {
@@ -162,7 +180,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
   }
 
   // Delivery persons (loaded lazily)
-  const [deliveryPersons, setDeliveryPersons] = useState<any[]>([]);
+  const [deliveryPersons, setDeliveryPersons] = useState<DeliveryPerson[]>([]);
   const [deliveryModal, setDeliveryModal] = useState({ open: false, orderId: null, deliveryPersonId: '' });
   const dpLoadedRef = useMemo(() => ({ current: false }), []);
 
@@ -176,11 +194,11 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
         body: JSON.stringify({ action: 'get_delivery_persons', data: {} }),
       });
       const j = await res.json();
-      setDeliveryPersons((j.persons || []).filter((p: any) => p.is_active));
+      setDeliveryPersons((j.persons || []).filter((p: DeliveryPerson) => p.is_active));
     } catch (e) { console.error(e); }
   }
 
-  async function assignDeliveryPerson(orderId: any, personId: any, startDelivery = false) {
+  async function assignDeliveryPerson(orderId: string, personId: string | null, startDelivery = false) {
     if (!adminToken) return false;
     try {
       const res = await fetch('/api/admin', {
@@ -198,7 +216,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
     }
   }
 
-  function openAddressOnMap(order: any, provider = 'google') {
+  function openAddressOnMap(order: Order, provider = 'google') {
     const address = buildAddress(order);
     if (!address) return;
     const url = provider === 'waze'
@@ -207,7 +225,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  async function startDeliveringWithModal(order: any) {
+  async function startDeliveringWithModal(order: Order) {
     await ensureDeliveryPersons();
     setDeliveryModal({
       open: true,
@@ -227,7 +245,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
   useEffect(() => { persistSavedFilters(savedFilters); }, [savedFilters]);
 
-  function applyFilter(f: any) {
+  function applyFilter(f: SavedFilter) {
     setSearch(f.search || '');
     setStatusFilter(f.statusFilter || '');
     setDatePreset(f.datePreset || 'all');
@@ -242,13 +260,13 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
       name: newFilterName.trim(),
       search, statusFilter, datePreset, customFrom, customTo,
     };
-    setSavedFilters((prev: any) => [...prev, newFilter]);
+    setSavedFilters((prev: SavedFilter[]) => [...prev, newFilter]);
     setNewFilterName('');
     setShowSaveDialog(false);
   }
 
-  function deleteFilter(id: any) {
-    setSavedFilters((prev: any) => prev.filter((f: any) => f.id !== id));
+  function deleteFilter(id: number) {
+    setSavedFilters((prev: SavedFilter[]) => prev.filter((f: SavedFilter) => f.id !== id));
   }
 
   const { fromDate, toDate } = useMemo(
@@ -258,7 +276,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
   const filteredByDateAndSearch = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return orders.filter((o: any) => {
+    return orders.filter((o: Order) => {
       if (fromDate || toDate) {
         const d = toLocalDate(o.created_at);
         if (fromDate && d < fromDate) return false;
@@ -280,14 +298,14 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
     for (const tab of STATUS_TABS) {
       counts[tab.key] = tab.key === ''
         ? filteredByDateAndSearch.length
-        : filteredByDateAndSearch.filter((o: any) => o.status === tab.key).length;
+        : filteredByDateAndSearch.filter((o: Order) => o.status === tab.key).length;
     }
     return counts;
   }, [filteredByDateAndSearch]);
 
   const filtered = useMemo(() => {
     if (!statusFilter) return filteredByDateAndSearch;
-    return filteredByDateAndSearch.filter((o: any) => o.status === statusFilter);
+    return filteredByDateAndSearch.filter((o: Order) => o.status === statusFilter);
   }, [filteredByDateAndSearch, statusFilter]);
 
   const hasFilter = search || statusFilter || datePreset !== 'all';
@@ -369,7 +387,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
         <div style={{ marginBottom: 10 }}>
           <p style={{ fontSize: 10, fontWeight: 700, color: '#666', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>Filtros salvos</p>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {savedFilters.map((f: any) => (
+            {savedFilters.map((f: SavedFilter) => (
               <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#2D2D2D', borderRadius: 20, border: '1px solid #444', overflow: 'hidden' }}>
                 <button
                   onClick={() => applyFilter(f)}
@@ -621,7 +639,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
             {o.order_items && o.order_items.length > 0 && (
               <div style={{ background: '#1A1A1A', borderRadius: 8, padding: '8px 10px', margin: '8px 0' }}>
-                {o.order_items.map((item: any, i: number) => (
+                {o.order_items.map((item: OrderItem, i: number) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#ccc', marginBottom: i < o.order_items.length - 1 ? 3 : 0 }}>
                     <span>{item.quantity}x {item.product_name}</span>
                     <span style={{ color: GOLD }}>R$ {Number(item.total_price).toFixed(2).replace('.', ',')}</span>
