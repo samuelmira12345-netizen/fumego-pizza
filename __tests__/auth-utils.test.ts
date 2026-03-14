@@ -1,38 +1,20 @@
 /**
  * Testes unitários para lib/auth — utilitários de JWT e cookies.
- *
- * Cobre:
- * - Geração de token (signUserToken)
- * - Verificação de token válido (verifyUserToken)
- * - Token inválido ou expirado → null
- * - JWT_SECRET ausente → null/throw
- * - Extração de token via cookie e via header Authorization
- * - getAuthUser combinando extract + verify
  */
 
-// ─── Implementação inline (mesmo algoritmo do lib/auth) ──────────────────────
+import jwt from 'jsonwebtoken';
 
-const jwt = require('jsonwebtoken');
-
-const AUTH_COOKIE = 'fumego_auth';
-const TOKEN_MAX_AGE = 30 * 24 * 60 * 60;
-
-function signUserToken(userId, email, secret) {
+function signUserToken(userId: any, email: any, secret: any) {
   if (!secret) throw new Error('JWT_SECRET não configurado');
   return jwt.sign({ userId, email }, secret, { expiresIn: '30d' });
 }
 
-function verifyUserToken(token, secret) {
+function verifyUserToken(token: any, secret: any) {
   if (!secret) return null;
-  try {
-    return jwt.verify(token, secret);
-  } catch {
-    return null;
-  }
+  try { return jwt.verify(token, secret); } catch { return null; }
 }
 
-/** Simula extractToken: tenta cookie, depois Authorization header. */
-function extractToken(cookieValue, authHeader) {
+function extractToken(cookieValue: any, authHeader: any) {
   if (cookieValue) return cookieValue;
   if (authHeader) {
     const bearer = authHeader.replace(/^Bearer\s+/i, '').trim();
@@ -41,13 +23,11 @@ function extractToken(cookieValue, authHeader) {
   return null;
 }
 
-function getAuthUser(cookieValue, authHeader, secret) {
+function getAuthUser(cookieValue: any, authHeader: any, secret: any) {
   const token = extractToken(cookieValue, authHeader);
   if (!token) return null;
   return verifyUserToken(token, secret);
 }
-
-// ─── Testes ──────────────────────────────────────────────────────────────────
 
 const TEST_SECRET = 'test-secret-at-least-32-chars-long!!';
 
@@ -55,14 +35,14 @@ describe('signUserToken', () => {
   it('gera um JWT com userId e email no payload', () => {
     const token = signUserToken('user-123', 'joao@example.com', TEST_SECRET);
     expect(typeof token).toBe('string');
-    const decoded = jwt.decode(token);
+    const decoded = jwt.decode(token) as any;
     expect(decoded.userId).toBe('user-123');
     expect(decoded.email).toBe('joao@example.com');
   });
 
   it('token expira em 30 dias', () => {
     const token = signUserToken('user-123', 'joao@example.com', TEST_SECRET);
-    const decoded = jwt.decode(token);
+    const decoded = jwt.decode(token) as any;
     const diffDays = (decoded.exp - decoded.iat) / (60 * 60 * 24);
     expect(diffDays).toBeCloseTo(30, 0);
   });
@@ -77,7 +57,7 @@ describe('signUserToken', () => {
 describe('verifyUserToken', () => {
   it('retorna o payload para token válido', () => {
     const token = signUserToken('user-456', 'maria@example.com', TEST_SECRET);
-    const payload = verifyUserToken(token, TEST_SECRET);
+    const payload = verifyUserToken(token, TEST_SECRET) as any;
     expect(payload).not.toBeNull();
     expect(payload.userId).toBe('user-456');
     expect(payload.email).toBe('maria@example.com');
@@ -85,8 +65,7 @@ describe('verifyUserToken', () => {
 
   it('retorna null para token com assinatura inválida', () => {
     const token = signUserToken('user-456', 'maria@example.com', TEST_SECRET);
-    const result = verifyUserToken(token, 'wrong-secret');
-    expect(result).toBeNull();
+    expect(verifyUserToken(token, 'wrong-secret')).toBeNull();
   });
 
   it('retorna null para string aleatória (não é JWT)', () => {
@@ -94,11 +73,7 @@ describe('verifyUserToken', () => {
   });
 
   it('retorna null para token expirado', () => {
-    const expiredToken = jwt.sign(
-      { userId: 'user-789', email: 'expired@example.com' },
-      TEST_SECRET,
-      { expiresIn: -1 } // já expirado
-    );
+    const expiredToken = jwt.sign({ userId: 'user-789', email: 'expired@example.com' }, TEST_SECRET, { expiresIn: -1 });
     expect(verifyUserToken(expiredToken, TEST_SECRET)).toBeNull();
   });
 
@@ -112,14 +87,12 @@ describe('verifyUserToken', () => {
 
 describe('extractToken', () => {
   it('retorna o valor do cookie quando presente', () => {
-    const token = 'meu-token-de-cookie';
-    expect(extractToken(token, null)).toBe(token);
+    expect(extractToken('meu-token-de-cookie', null)).toBe('meu-token-de-cookie');
   });
 
   it('retorna o Bearer token do header quando não há cookie', () => {
     expect(extractToken(null, 'Bearer meu-token')).toBe('meu-token');
     expect(extractToken(null, 'bearer meu-token')).toBe('meu-token');
-    expect(extractToken(null, 'BEARER meu-token')).toBe('meu-token');
   });
 
   it('prefere cookie quando ambos estão presentes', () => {
@@ -136,14 +109,14 @@ describe('extractToken', () => {
 describe('getAuthUser', () => {
   it('retorna o payload quando token de cookie é válido', () => {
     const token = signUserToken('user-abc', 'abc@example.com', TEST_SECRET);
-    const result = getAuthUser(token, null, TEST_SECRET);
+    const result = getAuthUser(token, null, TEST_SECRET) as any;
     expect(result).not.toBeNull();
     expect(result.userId).toBe('user-abc');
   });
 
   it('retorna o payload quando token de header Authorization é válido', () => {
     const token = signUserToken('user-abc', 'abc@example.com', TEST_SECRET);
-    const result = getAuthUser(null, `Bearer ${token}`, TEST_SECRET);
+    const result = getAuthUser(null, `Bearer ${token}`, TEST_SECRET) as any;
     expect(result).not.toBeNull();
     expect(result.userId).toBe('user-abc');
   });

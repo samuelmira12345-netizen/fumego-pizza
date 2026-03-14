@@ -1,29 +1,22 @@
 /**
  * Testes de integração do fluxo de pagamento.
- *
- * Cobre:
- * - Verificação de assinatura do webhook (Mercado Pago)
- * - Rate limiting (login e admin)
- * - Criptografia/hash do CPF
- * - Validação de MIME type nos uploads
- * - Criação de pedido server-side
  */
 
 // ============================================================
 // 1. WEBHOOK — Verificação de assinatura HMAC-SHA256
 // ============================================================
 
-const { createHmac } = require('crypto');
+import { createHmac, createHash, randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 
-function verifySignature(headers, dataId, secret) {
-  if (!secret) return false; // MERCADO_PAGO_WEBHOOK_SECRET obrigatório
+function verifySignature(headers: any, dataId: any, secret: any) {
+  if (!secret) return false;
 
   const signatureHeader = headers['x-signature'];
   const requestId = headers['x-request-id'];
   if (!signatureHeader || !requestId) return false;
 
   const parts = Object.fromEntries(
-    signatureHeader.split(',').map(p => {
+    signatureHeader.split(',').map((p: any) => {
       const [k, v] = p.split('=');
       return [k.trim(), v?.trim()];
     })
@@ -42,34 +35,25 @@ describe('Webhook — verificação de assinatura', () => {
   const requestId = 'req-abc';
   const ts = String(Date.now());
 
-  function buildSignature(msg) {
+  function buildSignature(msg: any) {
     const sig = createHmac('sha256', secret).update(msg).digest('hex');
     return `ts=${ts},v1=${sig}`;
   }
 
   it('aceita assinatura correta', () => {
     const message = `id:${dataId};request-id:${requestId};ts:${ts};`;
-    const headers = {
-      'x-signature': buildSignature(message),
-      'x-request-id': requestId,
-    };
+    const headers = { 'x-signature': buildSignature(message), 'x-request-id': requestId };
     expect(verifySignature(headers, dataId, secret)).toBe(true);
   });
 
   it('rejeita assinatura incorreta', () => {
-    const headers = {
-      'x-signature': `ts=${ts},v1=assinatura-errada`,
-      'x-request-id': requestId,
-    };
+    const headers = { 'x-signature': `ts=${ts},v1=assinatura-errada`, 'x-request-id': requestId };
     expect(verifySignature(headers, dataId, secret)).toBe(false);
   });
 
   it('rejeita quando o segredo não está configurado', () => {
     const message = `id:${dataId};request-id:${requestId};ts:${ts};`;
-    const headers = {
-      'x-signature': buildSignature(message),
-      'x-request-id': requestId,
-    };
+    const headers = { 'x-signature': buildSignature(message), 'x-request-id': requestId };
     expect(verifySignature(headers, dataId, undefined)).toBe(false);
     expect(verifySignature(headers, dataId, '')).toBe(false);
   });
@@ -81,10 +65,7 @@ describe('Webhook — verificação de assinatura', () => {
 
   it('rejeita quando dataId é diferente', () => {
     const message = `id:${dataId};request-id:${requestId};ts:${ts};`;
-    const headers = {
-      'x-signature': buildSignature(message),
-      'x-request-id': requestId,
-    };
+    const headers = { 'x-signature': buildSignature(message), 'x-request-id': requestId };
     expect(verifySignature(headers, 'outro-id', secret)).toBe(false);
   });
 });
@@ -93,23 +74,20 @@ describe('Webhook — verificação de assinatura', () => {
 // 2. RATE LIMITING
 // ============================================================
 
-// Versão síncrona simplificada para teste (mesma lógica do lib/rate-limit.js)
 function makeRateLimiter() {
-  const store = new Map();
-  return function checkRateLimit(key, maxAttempts, windowMs) {
+  const store = new Map<string, { count: number; windowStart: number }>();
+  return function checkRateLimit(key: any, maxAttempts: any, windowMs: any) {
     const now = Date.now();
     if (!store.has(key)) {
       store.set(key, { count: 1, windowStart: now });
       return { allowed: true };
     }
-    const entry = store.get(key);
+    const entry = store.get(key)!;
     if (now - entry.windowStart > windowMs) {
       store.set(key, { count: 1, windowStart: now });
       return { allowed: true };
     }
-    if (entry.count >= maxAttempts) {
-      return { allowed: false };
-    }
+    if (entry.count >= maxAttempts) return { allowed: false };
     entry.count += 1;
     return { allowed: true };
   };
@@ -118,9 +96,7 @@ function makeRateLimiter() {
 describe('Rate limiting', () => {
   it('permite tentativas dentro do limite', () => {
     const rl = makeRateLimiter();
-    for (let i = 0; i < 5; i++) {
-      expect(rl('ip:1.2.3.4', 5, 60000).allowed).toBe(true);
-    }
+    for (let i = 0; i < 5; i++) expect(rl('ip:1.2.3.4', 5, 60000).allowed).toBe(true);
   });
 
   it('bloqueia após exceder o limite', () => {
@@ -141,30 +117,28 @@ describe('Rate limiting', () => {
 // 3. CRIPTOGRAFIA DE CPF
 // ============================================================
 
-const crypto = require('crypto');
-
-function encryptCpf(cpf, key) {
+function encryptCpf(cpf: any, key: any) {
   if (!cpf) return null;
   const clean = String(cpf).replace(/\D/g, '');
   if (!clean) return null;
-  const derivedKey = crypto.createHash('sha256').update(key).digest();
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', derivedKey, iv);
+  const derivedKey = createHash('sha256').update(key).digest();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', derivedKey, iv);
   const encrypted = Buffer.concat([cipher.update(clean, 'utf8'), cipher.final()]);
   const authTag = cipher.getAuthTag();
   return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted.toString('hex')}`;
 }
 
-function decryptCpf(stored, key) {
+function decryptCpf(stored: any, key: any) {
   if (!stored || !stored.includes(':')) return null;
   try {
     const [ivHex, tagHex, encHex] = stored.split(':');
     if (!ivHex || !tagHex || !encHex) return null;
-    const derivedKey = crypto.createHash('sha256').update(key).digest();
+    const derivedKey = createHash('sha256').update(key).digest();
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(tagHex, 'hex');
     const encData = Buffer.from(encHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-gcm', derivedKey, iv);
+    const decipher = createDecipheriv('aes-256-gcm', derivedKey, iv);
     decipher.setAuthTag(authTag);
     return decipher.update(encData).toString('utf8') + decipher.final('utf8');
   } catch {
@@ -172,11 +146,11 @@ function decryptCpf(stored, key) {
   }
 }
 
-function hashCpf(cpf, secret) {
+function hashCpf(cpf: any, secret: any) {
   if (!cpf) return null;
   const clean = String(cpf).replace(/\D/g, '');
   if (clean.length !== 11) return null;
-  return crypto.createHmac('sha256', secret).update(clean).digest('hex');
+  return createHmac('sha256', secret).update(clean).digest('hex');
 }
 
 describe('Criptografia de CPF', () => {
@@ -189,9 +163,7 @@ describe('Criptografia de CPF', () => {
       const encrypted = encryptCpf(cpfValido, key);
       expect(encrypted).toBeTruthy();
       expect(encrypted).not.toContain('12345678909');
-
-      const decrypted = decryptCpf(encrypted, key);
-      expect(decrypted).toBe(cpfLimpo);
+      expect(decryptCpf(encrypted, key)).toBe(cpfLimpo);
     });
 
     it('retorna null para CPF vazio', () => {
@@ -200,28 +172,22 @@ describe('Criptografia de CPF', () => {
     });
 
     it('cada criptografia gera um valor diferente (IV aleatório)', () => {
-      const enc1 = encryptCpf(cpfValido, key);
-      const enc2 = encryptCpf(cpfValido, key);
-      expect(enc1).not.toBe(enc2);
+      expect(encryptCpf(cpfValido, key)).not.toBe(encryptCpf(cpfValido, key));
     });
 
     it('falha ao descriptografar com chave errada', () => {
-      const encrypted = encryptCpf(cpfValido, key);
-      const result = decryptCpf(encrypted, 'chave-errada');
-      expect(result).toBeNull();
+      expect(decryptCpf(encryptCpf(cpfValido, key), 'chave-errada')).toBeNull();
     });
 
     it('retorna null para valor não criptografado', () => {
-      expect(decryptCpf(cpfLimpo, key)).toBeNull(); // sem ":"
+      expect(decryptCpf(cpfLimpo, key)).toBeNull();
       expect(decryptCpf(null, key)).toBeNull();
     });
   });
 
   describe('hashCpf (HMAC-SHA256)', () => {
     it('gera hash consistente para o mesmo CPF', () => {
-      const h1 = hashCpf(cpfValido, key);
-      const h2 = hashCpf(cpfValido, key);
-      expect(h1).toBe(h2);
+      expect(hashCpf(cpfValido, key)).toBe(hashCpf(cpfValido, key));
     });
 
     it('formata com ou sem máscara e gera o mesmo hash', () => {
@@ -238,8 +204,7 @@ describe('Criptografia de CPF', () => {
     });
 
     it('o hash não contém o CPF em texto puro', () => {
-      const h = hashCpf(cpfValido, key);
-      expect(h).not.toContain(cpfLimpo);
+      expect(hashCpf(cpfValido, key)).not.toContain(cpfLimpo);
     });
   });
 });
@@ -248,51 +213,33 @@ describe('Criptografia de CPF', () => {
 // 4. VALIDAÇÃO DE MIME TYPE (magic bytes)
 // ============================================================
 
-function detectMimeType(bytes) {
+function detectMimeType(bytes: any) {
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'image/png';
   if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return 'image/gif';
-  if (
-    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
-    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
-  ) return 'image/webp';
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp';
   return 'application/octet-stream';
 }
 
 describe('Validação de MIME type por magic bytes', () => {
   it('detecta JPEG', () => {
-    const bytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]);
-    expect(detectMimeType(bytes)).toBe('image/jpeg');
+    expect(detectMimeType(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]))).toBe('image/jpeg');
   });
-
   it('detecta PNG', () => {
-    const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-    expect(detectMimeType(bytes)).toBe('image/png');
+    expect(detectMimeType(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))).toBe('image/png');
   });
-
   it('detecta GIF', () => {
-    const bytes = Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
-    expect(detectMimeType(bytes)).toBe('image/gif');
+    expect(detectMimeType(Buffer.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]))).toBe('image/gif');
   });
-
   it('detecta WebP', () => {
-    const bytes = Buffer.from([
-      0x52, 0x49, 0x46, 0x46, // RIFF
-      0x00, 0x00, 0x00, 0x00, // tamanho (dummy)
-      0x57, 0x45, 0x42, 0x50, // WEBP
-    ]);
-    expect(detectMimeType(bytes)).toBe('image/webp');
+    expect(detectMimeType(Buffer.from([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]))).toBe('image/webp');
   });
-
   it('rejeita arquivo executável disfarçado de imagem', () => {
-    // Arquivo EXE (MZ header) com extensão .jpg
-    const bytes = Buffer.from([0x4d, 0x5a, 0x90, 0x00]);
-    expect(detectMimeType(bytes)).toBe('application/octet-stream');
+    expect(detectMimeType(Buffer.from([0x4d, 0x5a, 0x90, 0x00]))).toBe('application/octet-stream');
   });
-
   it('rejeita arquivo de texto disfarçado de imagem', () => {
-    const bytes = Buffer.from('<html><body>malware</body></html>', 'utf8');
-    expect(detectMimeType(bytes)).toBe('application/octet-stream');
+    expect(detectMimeType(Buffer.from('<html><body>malware</body></html>', 'utf8'))).toBe('application/octet-stream');
   });
 });
 
@@ -301,8 +248,8 @@ describe('Validação de MIME type por magic bytes', () => {
 // ============================================================
 
 describe('Validação do payload de criação de pedido', () => {
-  function validateOrderPayload(payload) {
-    const errors = [];
+  function validateOrderPayload(payload: any) {
+    const errors: string[] = [];
     if (!payload.customer_name?.trim()) errors.push('Nome obrigatório');
     if (!payload.customer_phone?.trim()) errors.push('Telefone obrigatório');
     if (!payload.delivery_street?.trim()) errors.push('Rua obrigatória');
@@ -316,26 +263,17 @@ describe('Validação do payload de criação de pedido', () => {
 
   it('aceita payload válido', () => {
     const errors = validateOrderPayload({
-      customer_name: 'João Silva',
-      customer_phone: '31999999999',
-      delivery_street: 'Rua das Flores',
-      delivery_number: '123',
-      delivery_neighborhood: 'Centro',
-      total: 59.90,
-      payment_method: 'pix',
+      customer_name: 'João Silva', customer_phone: '31999999999',
+      delivery_street: 'Rua das Flores', delivery_number: '123',
+      delivery_neighborhood: 'Centro', total: 59.90, payment_method: 'pix',
     });
     expect(errors).toHaveLength(0);
   });
 
   it('rejeita payload sem campos obrigatórios', () => {
     const errors = validateOrderPayload({
-      customer_name: '',
-      customer_phone: '',
-      delivery_street: '',
-      delivery_number: '',
-      delivery_neighborhood: '',
-      total: -1,
-      payment_method: 'bitcoin',
+      customer_name: '', customer_phone: '', delivery_street: '',
+      delivery_number: '', delivery_neighborhood: '', total: -1, payment_method: 'bitcoin',
     });
     expect(errors.length).toBeGreaterThan(0);
     expect(errors).toContain('Nome obrigatório');
@@ -345,25 +283,18 @@ describe('Validação do payload de criação de pedido', () => {
 
   it('rejeita método de pagamento desconhecido', () => {
     const errors = validateOrderPayload({
-      customer_name: 'Ana',
-      customer_phone: '31999999999',
-      delivery_street: 'Rua A',
-      delivery_number: '1',
-      delivery_neighborhood: 'Bairro',
-      total: 50,
-      payment_method: 'boleto',
+      customer_name: 'Ana', customer_phone: '31999999999',
+      delivery_street: 'Rua A', delivery_number: '1',
+      delivery_neighborhood: 'Bairro', total: 50, payment_method: 'boleto',
     });
     expect(errors).toContain('Método de pagamento inválido');
   });
 
   it('aceita todos os métodos de pagamento válidos', () => {
     const base = {
-      customer_name: 'Maria',
-      customer_phone: '31988888888',
-      delivery_street: 'Rua B',
-      delivery_number: '2',
-      delivery_neighborhood: 'Vila',
-      total: 45.00,
+      customer_name: 'Maria', customer_phone: '31988888888',
+      delivery_street: 'Rua B', delivery_number: '2',
+      delivery_neighborhood: 'Vila', total: 45.00,
     };
     ['pix', 'card', 'cash', 'card_delivery'].forEach(method => {
       expect(validateOrderPayload({ ...base, payment_method: method })).toHaveLength(0);

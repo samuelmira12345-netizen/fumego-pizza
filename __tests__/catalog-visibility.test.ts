@@ -1,14 +1,14 @@
-const { parseCatalogVisibilityOverrides, applyCatalogVisibilityOverrides } = require('../lib/catalog-visibility');
+import { parseCatalogVisibilityOverrides, applyCatalogVisibilityOverrides } from '../lib/catalog-visibility';
 
 describe('catalog visibility overrides', () => {
   test('parse empty settings', () => {
-    const parsed = parseCatalogVisibilityOverrides([]);
+    const parsed = parseCatalogVisibilityOverrides([]) as any;
     expect(parsed).toEqual({ products: {}, drinks: {} });
   });
 
   test('parse valid json', () => {
     const settings = [{ key: 'catalog_visibility_overrides', value: JSON.stringify({ products: { a: { is_hidden: true } }, drinks: {} }) }];
-    const parsed = parseCatalogVisibilityOverrides(settings);
+    const parsed = parseCatalogVisibilityOverrides(settings) as any;
     expect(parsed.products.a.is_hidden).toBe(true);
   });
 
@@ -20,7 +20,7 @@ describe('catalog visibility overrides', () => {
       drinks: { d1: { is_active: false } },
     };
 
-    const merged = applyCatalogVisibilityOverrides(products, drinks, overrides);
+    const merged = applyCatalogVisibilityOverrides(products, drinks, overrides) as any;
     expect(merged.products[0].is_hidden).toBe(true);
     expect(merged.products[0].is_active).toBe(true);
     expect(merged.drinks[0].is_active).toBe(false);
@@ -35,7 +35,7 @@ describe('catalog visibility overrides', () => {
       drinks: { d1: { is_active: 'false', is_hidden: 'true' } },
     };
 
-    const merged = applyCatalogVisibilityOverrides(products, drinks, overrides);
+    const merged = applyCatalogVisibilityOverrides(products, drinks, overrides) as any;
     expect(merged.products[0].is_active).toBe(true);
     expect(merged.products[0].is_hidden).toBe(true);
     expect(merged.drinks[0].is_active).toBe(false);

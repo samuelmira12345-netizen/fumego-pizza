@@ -13,7 +13,7 @@
 
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
-function computeStoreStatus(settings, nowOverride) {
+function computeStoreStatus(settings: any, nowOverride?: any) {
   if ((settings.store_open ?? 'true') !== 'true') {
     return { open: false, todayLabel: null };
   }

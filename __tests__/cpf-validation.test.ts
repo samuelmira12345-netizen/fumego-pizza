@@ -10,7 +10,7 @@
 
 // ── Implementação inline (mesmo algoritmo do lib/cpf-crypto.js) ──────────────
 
-function validateCpf(cpf) {
+function validateCpf(cpf: any) {
   if (!cpf) return false;
   const clean = String(cpf).replace(/\D/g, '');
   if (clean.length !== 11) return false;

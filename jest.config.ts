@@ -10,6 +10,12 @@ const config: Config = {
     '^.+\\.js$': ['babel-jest', {
       presets: [['@babel/preset-env', { targets: { node: 'current' } }]],
     }],
+    '^.+\\.ts$': ['babel-jest', {
+      presets: [
+        ['@babel/preset-env', { targets: { node: 'current' } }],
+        ['@babel/preset-typescript'],
+      ],
+    }],
   },
 };
 
