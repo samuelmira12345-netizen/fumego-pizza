@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
 
 const C = {
@@ -15,27 +15,27 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
 
 const PALETTE = [C.blue, C.orange, C.success, C.purple, C.teal, C.danger, '#F59E0B', '#6366F1', '#EC4899', '#14B8A6'];
 
-const fmtBRL   = v => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtShort = v => {
+const fmtBRL   = (v: any) => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtShort = (v: any) => {
   const n = parseFloat(v) || 0;
   if (Math.abs(n) >= 1000) return 'R$' + (Math.abs(n) / 1000).toFixed(1) + 'k';
   return fmtBRL(n);
 };
 
 // ── Donut Chart ──────────────────────────────────────────────────────────────
-function DonutChart({ data, palette }) {
-  const [hovered, setHovered] = useState(null);
+function DonutChart({ data, palette }: { data: any; palette?: any[] }) {
+  const [hovered, setHovered] = useState<number | null>(null);
   if (!data?.length) return (
     <div style={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.light, fontSize: 13 }}>
       Sem dados
     </div>
   );
 
-  const total = data.reduce((s, d) => s + d.value, 0);
+  const total = data.reduce((s: number, d: any) => s + d.value, 0);
   const cx = 90, cy = 90, R = 75, r = 50;
   let angle = -Math.PI / 2;
 
-  const slices = data.map((d, i) => {
+  const slices = data.map((d: any, i: number) => {
     const pct  = total > 0 ? d.value / total : 0;
     const span = pct * 2 * Math.PI;
     const x1 = cx + R * Math.cos(angle),          y1 = cy + R * Math.sin(angle);
@@ -52,7 +52,7 @@ function DonutChart({ data, palette }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
       <svg viewBox="0 0 180 180" style={{ width: 160, height: 160, flexShrink: 0 }}>
-        {slices.map((s, i) => (
+        {slices.map((s: any, i: number) => (
           <path key={i} d={s.path} fill={s.color}
             opacity={hovered !== null && hovered !== i ? 0.4 : 1}
             style={{ cursor: 'pointer', transition: 'opacity 0.15s' }}
@@ -75,7 +75,7 @@ function DonutChart({ data, palette }) {
       </svg>
       {/* Legend — single column, scrollable if many items */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
-        {slices.map((s, i) => (
+        {slices.map((s: any, i: number) => (
           <div key={i}
             style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'default', minWidth: 0, padding: '2px 0' }}
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
@@ -92,9 +92,9 @@ function DonutChart({ data, palette }) {
 }
 
 // ── Bar chart (daily) ─────────────────────────────────────────────────────────
-function DailyBarChart({ data, color }) {
+function DailyBarChart({ data, color }: { data: any; color?: string }) {
   if (!data?.length) return null;
-  const maxV = Math.max(...data.map(d => d.value), 0.01);
+  const maxV = Math.max(...data.map((d: any) => d.value), 0.01);
   const W = 700, H = 140, padL = 8, padR = 8, padT = 10, padB = 28;
   const cW = W - padL - padR;
   const cH = H - padT - padB;
@@ -102,7 +102,7 @@ function DailyBarChart({ data, color }) {
   const barW = Math.max(4, Math.min(16, (cW / n) * 0.6));
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: H }}>
-      {data.map((d, i) => {
+      {data.map((d: any, i: number) => {
         const x  = padL + (i + 0.5) * (cW / n);
         const h  = (d.value / maxV) * cH;
         const y  = padT + cH - h;
@@ -120,7 +120,7 @@ function DailyBarChart({ data, color }) {
 }
 
 // ── Table with rank ───────────────────────────────────────────────────────────
-function RankedTable({ items, total, labelCol }) {
+function RankedTable({ items, total, labelCol }: { items: any; total: any; labelCol?: string }) {
   if (!items?.length) return (
     <div style={{ padding: 24, textAlign: 'center', color: C.light, fontSize: 13 }}>Sem dados</div>
   );
@@ -135,7 +135,7 @@ function RankedTable({ items, total, labelCol }) {
         </tr>
       </thead>
       <tbody>
-        {items.map((item, i) => {
+        {items.map((item: any, i: number) => {
           const pct = total > 0 ? (item.value / total) * 100 : 0;
           const color = PALETTE[i % PALETTE.length];
           return (
@@ -166,7 +166,7 @@ function RankedTable({ items, total, labelCol }) {
 }
 
 // ── Period picker ─────────────────────────────────────────────────────────────
-function PeriodPicker({ period, onPrev, onNext }) {
+function PeriodPicker({ period, onPrev, onNext }: { period: { year: number; month: number }; onPrev: () => void; onNext: () => void }) {
   const now = new Date();
   const isCurrent = period.year === now.getFullYear() && period.month === now.getMonth() + 1;
   return (
@@ -193,9 +193,9 @@ function todaySP2() {
 }
 
 // ── Análise de Pagamentos ─────────────────────────────────────────────────────
-export function AnalisePagamentosTab({ adminToken, refreshTick }) {
+export function AnalisePagamentosTab({ adminToken, refreshTick }: { adminToken: string; refreshTick: number }) {
   const [subTab, setSubTab] = useState('categorias');
-  const [data, setData]     = useState(null);
+  const [data, setData]     = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState({ from: firstOfMonthSP(), to: todaySP2(), fromTime: '00:00', toTime: '23:59' });
 
@@ -280,9 +280,9 @@ export function AnalisePagamentosTab({ adminToken, refreshTick }) {
 }
 
 // ── Análise de Recebimentos ───────────────────────────────────────────────────
-export function AnaliseRecebimentosTab({ adminToken, refreshTick }) {
+export function AnaliseRecebimentosTab({ adminToken, refreshTick }: { adminToken: string; refreshTick: number }) {
   const [subTab, setSubTab] = useState('forma_pagamento');
-  const [data, setData]     = useState(null);
+  const [data, setData]     = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState({ from: firstOfMonthSP(), to: todaySP2(), fromTime: '00:00', toTime: '23:59' });
 
@@ -307,7 +307,7 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }) {
     { key: 'diario',          label: 'Evolução Diária' },
   ];
 
-  const pmPalette = { pix: C.gold, card: C.blue, cash: C.success, card_delivery: C.orange };
+  const pmPalette: Record<string, string> = { pix: C.gold, card: C.blue, cash: C.success, card_delivery: C.orange };
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -355,8 +355,8 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }) {
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 16 }}>Formas de Pagamento</div>
             <DonutChart
-              data={data?.byPaymentMethod?.map(p => ({ ...p, name: p.label }))}
-              palette={data?.byPaymentMethod?.map(p => pmPalette[p.method] || C.gold)}
+              data={data?.byPaymentMethod?.map((p: any) => ({ ...p, name: p.label }))}
+              palette={data?.byPaymentMethod?.map((p: any) => pmPalette[p.method] || C.gold)}
             />
           </div>
           <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
@@ -364,7 +364,7 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }) {
               Receitas por Forma de Pagamento
             </div>
             <RankedTable
-              items={data?.byPaymentMethod?.map(p => ({ ...p, name: p.label }))}
+              items={data?.byPaymentMethod?.map((p: any) => ({ ...p, name: p.label }))}
               total={data?.total}
               labelCol="Forma de Pagamento"
             />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Loader2, Truck, DollarSign,
   Package, X, CheckCircle, AlertCircle, RefreshCw, BarChart2, GripVertical,
@@ -24,16 +24,16 @@ const C = {
 
 const DRIVER_COLORS = ['#2563EB', '#7C3AED', '#059669', '#DC2626', '#D97706', '#0891B2', '#BE185D'];
 
-function fmtBRL(v) {
+function fmtBRL(v: any) {
   return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function fmtTime(iso) {
+function fmtTime(iso: string) {
   if (!iso) return '—';
   return new Date(iso).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
 }
 
-async function adminPost(action, data, token) {
+async function adminPost(action: string, data: any, token: string) {
   const res = await fetch('/api/admin', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -44,13 +44,13 @@ async function adminPost(action, data, token) {
   return json;
 }
 
-const STATUS_LABEL = {
+const STATUS_LABEL: Record<string, string> = {
   ready:      '📦 Aguardando',
   delivering: '🏍️ Em rota',
   delivered:  '✅ Entregue',
   cancelled:  '❌ Cancelado',
 };
-const STATUS_COLOR = {
+const STATUS_COLOR: Record<string, string> = {
   ready:      '#D97706',
   delivering: '#7C3AED',
   delivered:  '#059669',
@@ -59,11 +59,11 @@ const STATUS_COLOR = {
 
 // ── Night Summary Modal ───────────────────────────────────────────────────────
 
-function NightModal({ person, orders, totalEarned, loading, onClose }) {
-  const delivered   = orders.filter(o => o.status === 'delivered');
-  const inProgress  = orders.filter(o => ['ready', 'delivering'].includes(o.status));
-  const cancelled   = orders.filter(o => o.status === 'cancelled');
-  const totalOrders = orders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
+function NightModal({ person, orders, totalEarned, loading, onClose }: { person: any; orders: any[]; totalEarned: any; loading: boolean; onClose: () => void }) {
+  const delivered   = orders.filter((o: any) => o.status === 'delivered');
+  const inProgress  = orders.filter((o: any) => ['ready', 'delivering'].includes(o.status));
+  const cancelled   = orders.filter((o: any) => o.status === 'cancelled');
+  const totalOrders = orders.reduce((s: number, o: any) => s + (parseFloat(o.total) || 0), 0);
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
@@ -110,7 +110,7 @@ function NightModal({ person, orders, totalEarned, loading, onClose }) {
             {orders.length === 0 ? (
               <p style={{ textAlign: 'center', color: C.muted, padding: '20px 0', fontSize: 13 }}>Nenhum pedido esta noite</p>
             ) : (
-              orders.map((o, idx) => (
+              orders.map((o: any, idx: number) => (
                 <div key={o.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, background: C.subHeader }}>
                   <div style={{ width: 28, height: 28, borderRadius: 6, background: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <span style={{ fontSize: 11, fontWeight: 800, color: C.muted }}>#{idx + 1}</span>
@@ -154,7 +154,7 @@ function NightModal({ person, orders, totalEarned, loading, onClose }) {
 
 // ── Queue Row (drag-and-drop) ─────────────────────────────────────────────────
 
-function QueueRow({ order, index, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd }) {
+function QueueRow({ order, index, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd }: { order: any; index: number; isDragging: boolean; isDragOver: boolean; onDragStart: any; onDragOver: any; onDrop: any; onDragEnd: any }) {
   const isDelivered = order.status === 'delivered';
   const isActive    = order.status === 'delivering';
 
@@ -215,33 +215,33 @@ function QueueRow({ order, index, isDragging, isDragOver, onDragStart, onDragOve
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function DeliveryQueueTab({ adminToken }) {
-  const [persons, setPersons]               = useState([]);
+export default function DeliveryQueueTab({ adminToken }: { adminToken: string }) {
+  const [persons, setPersons]               = useState<any[]>([]);
   const [loadingPersons, setLoadingPersons] = useState(true);
-  const [selectedId, setSelectedId]         = useState(null);
-  const [queue, setQueue]                   = useState([]);
+  const [selectedId, setSelectedId]         = useState<string | null>(null);
+  const [queue, setQueue]                   = useState<any[]>([]);
   const [loadingQueue, setLoadingQueue]     = useState(false);
   const [reordering, setReordering]         = useState(false);
 
   // Drag state
-  const dragIndex = useRef(null);
-  const [draggingId, setDraggingId]   = useState(null);
-  const [dragOverId, setDragOverId]   = useState(null);
+  const dragIndex = useRef<number | null>(null);
+  const [draggingId, setDraggingId]   = useState<string | null>(null);
+  const [dragOverId, setDragOverId]   = useState<string | null>(null);
 
   // Night summary modal
-  const [nightModal, setNightModal]     = useState(null);
+  const [nightModal, setNightModal]     = useState<any>(null);
   const [loadingModal, setLoadingModal] = useState(false);
 
   // Load delivery persons
   useEffect(() => {
     setLoadingPersons(true);
     adminPost('get_delivery_persons', {}, adminToken)
-      .then(j => setPersons((j.persons || []).filter(p => p.is_active)))
+      .then(j => setPersons((j.persons || []).filter((p: any) => p.is_active)))
       .catch(() => {})
       .finally(() => setLoadingPersons(false));
   }, [adminToken]);
 
-  const loadQueue = useCallback(async (personId) => {
+  const loadQueue = useCallback(async (personId: string) => {
     setLoadingQueue(true);
     try {
       const j = await adminPost('get_delivery_queue', { person_id: personId }, adminToken);
@@ -250,12 +250,12 @@ export default function DeliveryQueueTab({ adminToken }) {
     finally { setLoadingQueue(false); }
   }, [adminToken]);
 
-  function selectPerson(id) {
+  function selectPerson(id: string) {
     setSelectedId(id);
     loadQueue(id);
   }
 
-  async function openNightModal(person) {
+  async function openNightModal(person: any) {
     const todaySP = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     setNightModal({ person, orders: [], totalEarned: 0 });
     setLoadingModal(true);
@@ -268,17 +268,17 @@ export default function DeliveryQueueTab({ adminToken }) {
 
   // ── Drag & Drop handlers ────────────────────────────────────────────────────
 
-  function handleDragStart(order) {
+  function handleDragStart(order: any) {
     dragIndex.current = openOrders.findIndex(o => o.id === order.id);
     setDraggingId(order.id);
   }
 
-  function handleDragOver(e, order) {
+  function handleDragOver(e: React.DragEvent, order: any) {
     e.preventDefault();
     setDragOverId(order.id);
   }
 
-  async function handleDrop(targetOrder) {
+  async function handleDrop(targetOrder: any) {
     const fromIdx = dragIndex.current;
     const toIdx   = openOrders.findIndex(o => o.id === targetOrder.id);
     if (fromIdx === null || fromIdx === toIdx) return;
@@ -462,7 +462,7 @@ export default function DeliveryQueueTab({ adminToken }) {
                           isDragging={draggingId === order.id}
                           isDragOver={dragOverId === order.id}
                           onDragStart={() => handleDragStart(order)}
-                          onDragOver={(e) => handleDragOver(e, order)}
+                          onDragOver={(e: React.DragEvent) => handleDragOver(e, order)}
                           onDrop={() => handleDrop(order)}
                           onDragEnd={handleDragEnd}
                         />

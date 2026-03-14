@@ -2,14 +2,14 @@
 
 import { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Tooltip, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import L, { LatLngExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ── Uma cor por entregador ────────────────────────────────────────────────────
 const DRIVER_COLORS = ['#2563EB', '#7C3AED', '#059669', '#DC2626', '#D97706', '#0891B2', '#BE185D'];
 
 // ── Ícone circular com inicial do nome ───────────────────────────────────────
-function makeDriverIcon(name, colorIdx, isRecent) {
+function makeDriverIcon(name: string, colorIdx: number, isRecent: boolean) {
   const initial = (name || '?').trim()[0].toUpperCase();
   const color   = DRIVER_COLORS[colorIdx % DRIVER_COLORS.length];
 
@@ -52,7 +52,7 @@ function makeDriverIcon(name, colorIdx, isRecent) {
 }
 
 // ── Ajusta o viewport para englobar todos os entregadores ────────────────────
-function MapFitter({ locations }) {
+function MapFitter({ locations }: { locations: any[] }) {
   const map = useMap();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -66,21 +66,21 @@ function MapFitter({ locations }) {
       return;
     }
     const bounds = L.latLngBounds(
-      locations.map(l => [parseFloat(l.driver_location_lat), parseFloat(l.driver_location_lng)])
+      locations.map((l: any) => [parseFloat(l.driver_location_lat), parseFloat(l.driver_location_lng)])
     );
     map.flyToBounds(bounds.pad(0.35), { duration: 0.8, maxZoom: 16 });
-  }, [locations.map(l => `${l.driver_location_lat},${l.driver_location_lng}`).join('|')]); // eslint-disable-line
+  }, [locations.map((l: any) => `${l.driver_location_lat},${l.driver_location_lng}`).join('|')]); // eslint-disable-line
   return null;
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function DriverTrackingMap({ locations }) {
+export default function DriverTrackingMap({ locations }: { locations: any[] }) {
   const valid = (locations || []).filter(
-    l => Number.isFinite(parseFloat(l.driver_location_lat))
+    (l: any) => Number.isFinite(parseFloat(l.driver_location_lat))
       && Number.isFinite(parseFloat(l.driver_location_lng))
   );
 
-  const center = valid.length > 0
+  const center: LatLngExpression = valid.length > 0
     ? [parseFloat(valid[0].driver_location_lat), parseFloat(valid[0].driver_location_lng)]
     : [-15.7942, -47.8822]; // Brasil como fallback
 
@@ -98,12 +98,12 @@ export default function DriverTrackingMap({ locations }) {
 
       <MapFitter locations={valid} />
 
-      {valid.map((loc, idx) => {
+      {valid.map((loc: any, idx: number) => {
         const lat    = parseFloat(loc.driver_location_lat);
         const lng    = parseFloat(loc.driver_location_lng);
         const name   = loc.delivery_persons?.name || 'Entregador';
         const age    = loc.driver_location_at
-          ? Math.floor((Date.now() - new Date(loc.driver_location_at)) / 60000)
+          ? Math.floor((Date.now() - new Date(loc.driver_location_at).getTime()) / 60000)
           : null;
         const isRecent = age !== null && age < 5;
 

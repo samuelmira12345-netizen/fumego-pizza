@@ -9,17 +9,17 @@ function todayStr() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-function yyyymmdd(d) {
+function yyyymmdd(d: Date) {
   return d.toLocaleDateString('en-CA');
 }
 
-function addDays(dateStr, n) {
+function addDays(dateStr: string, n: number) {
   const d = new Date(dateStr + 'T12:00:00');
   d.setDate(d.getDate() + n);
   return yyyymmdd(d);
 }
 
-function buildPresets(today) {
+function buildPresets(today: string) {
   const ref = new Date(today + 'T12:00:00');
   const yest = addDays(today, -1);
 
@@ -72,7 +72,7 @@ const DOW_PT   = ['Do', 'Se', 'Te', 'Qu', 'Qu', 'Se', 'Sá'];
 
 // ── MiniCalendar ──────────────────────────────────────────────────────────────
 
-function MiniCalendar({ year, month, onPrev, onNext, from, to, onSelectDay, timeValue, onTimeChange }) {
+function MiniCalendar({ year, month, onPrev, onNext, from, to, onSelectDay, timeValue, onTimeChange }: { year: number; month: number; onPrev: () => void; onNext: () => void; from: string; to: string; onSelectDay: (dateStr: string) => void; timeValue: string; onTimeChange: (v: string) => void }) {
   const firstDow  = new Date(year, month, 1).getDay();
   const daysInMon = new Date(year, month + 1, 0).getDate();
   const prevMDays = new Date(year, month, 0).getDate();
@@ -85,7 +85,7 @@ function MiniCalendar({ year, month, onPrev, onNext, from, to, onSelectDay, time
   while (cells.length < 42)
     cells.push({ d: cells.length - firstDow - daysInMon + 1, cur: false });
 
-  function ds(d) {
+  function ds(d: number) {
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   }
 
@@ -152,7 +152,7 @@ function MiniCalendar({ year, month, onPrev, onNext, from, to, onSelectDay, time
  *   value:    { from: 'YYYY-MM-DD', to: 'YYYY-MM-DD', fromTime?: 'HH:MM', toTime?: 'HH:MM' }
  *   onChange: (value) => void   — called when user clicks OK
  */
-export default function DateRangePicker({ value, onChange }) {
+export default function DateRangePicker({ value, onChange }: { value: { from?: string; to?: string; fromTime?: string; toTime?: string } | null | undefined; onChange: (v: { from: string; to: string; fromTime: string; toTime: string }) => void }) {
   const today = todayStr();
   const [open, setOpen]           = useState(false);
   const [tempFrom, setTempFrom]   = useState(value?.from || today);
@@ -163,7 +163,7 @@ export default function DateRangePicker({ value, onChange }) {
   const [leftYear, setLeftYear]   = useState(() => parseInt((value?.from || today).split('-')[0]));
   const [leftMonth, setLeftMonth] = useState(() => parseInt((value?.from || today).split('-')[1]) - 1);
   const [dropPos, setDropPos]     = useState({ top: 0, left: 0 });
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement | null>(null);
 
   const rightYear  = leftMonth === 11 ? leftYear + 1 : leftYear;
   const rightMonth = (leftMonth + 1) % 12;
@@ -178,8 +178,8 @@ export default function DateRangePicker({ value, onChange }) {
   }, [value?.from, value?.to]);
 
   useEffect(() => {
-    function outside(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    function outside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     if (open) document.addEventListener('mousedown', outside);
     return () => document.removeEventListener('mousedown', outside);
@@ -201,7 +201,7 @@ export default function DateRangePicker({ value, onChange }) {
     setOpen(v => !v);
   }
 
-  function handleSelectDay(dateStr) {
+  function handleSelectDay(dateStr: string) {
     if (pickStep === 0) {
       setTempFrom(dateStr);
       setTempTo(dateStr);
@@ -217,7 +217,7 @@ export default function DateRangePicker({ value, onChange }) {
     }
   }
 
-  function applyPreset(p) {
+  function applyPreset(p: { from: string; to: string; label?: string }) {
     setTempFrom(p.from);
     setTempTo(p.to);
     setFromTime('00:00');
@@ -242,14 +242,14 @@ export default function DateRangePicker({ value, onChange }) {
     else setLeftMonth(m => m + 1);
   }
 
-  function fmtDisplay(from, to, ft, tt) {
+  function fmtDisplay(from: string | undefined, to: string | undefined, ft: string | undefined, tt: string | undefined) {
     if (!from) return 'Selecionar período';
     const f = from.split('-').reverse().join('/');
     const t = to  ? to.split('-').reverse().join('/') : f;
     return `${f} ${ft || '00:00'} ~ ${t} ${tt || '23:59'}`;
   }
 
-  const isPresetActive = (p) => tempFrom === p.from && tempTo === p.to;
+  const isPresetActive = (p: { from: string; to: string }) => tempFrom === p.from && tempTo === p.to;
 
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>

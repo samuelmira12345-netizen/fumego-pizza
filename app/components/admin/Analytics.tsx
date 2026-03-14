@@ -26,16 +26,16 @@ const C = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtBRL(v) {
+function fmtBRL(v: any) {
   return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function pct(a, b) {
+function pct(a: any, b: any) {
   if (!b) return null;
   return ((a - b) / b) * 100;
 }
 
-function fmtSeconds(s) {
+function fmtSeconds(s: any) {
   if (!s || s === 0) return '—';
   const m = Math.floor(s / 60);
   const sec = Math.round(s % 60);
@@ -47,21 +47,21 @@ function todaySP() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-function daysAgoSP(n) {
+function daysAgoSP(n: number) {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
 // Format YYYYMMDD → "08/03"
-function fmtGADate(d) {
+function fmtGADate(d: any) {
   if (!d || d.length !== 8) return d;
   return `${d.slice(6, 8)}/${d.slice(4, 6)}`;
 }
 
 // ── Delta badge ───────────────────────────────────────────────────────────────
 
-function DeltaBadge({ delta, suffix = '%', size = 11 }) {
+function DeltaBadge({ delta, suffix = '%', size = 11 }: { delta: any; suffix?: string; size?: number }) {
   if (delta === null || delta === undefined) return null;
   const isUp   = delta > 0;
   const isFlat = delta === 0;
@@ -82,7 +82,7 @@ function DeltaBadge({ delta, suffix = '%', size = 11 }) {
 const FUNNEL_HEIGHT = 280; // total card height
 const FILL_H       = 130;  // height of the purple fill area
 
-function FunnelCard({ label, icon: Icon, value, desc, delta, convPct, prevConvPct, leftConvPct, rightConvPct }) {
+function FunnelCard({ label, icon: Icon, value, desc, delta, convPct, prevConvPct, leftConvPct, rightConvPct }: { label: any; icon: any; value: any; desc: any; delta: any; convPct: any; prevConvPct: any; leftConvPct: any; rightConvPct: any }) {
   // leftConvPct = conversion % at entry of this step (shapes left edge of trapezoid)
   // rightConvPct = conversion % at exit (entry of next step, shapes right edge)
   const leftH  = Math.round((leftConvPct  / 100) * FILL_H);
@@ -143,7 +143,7 @@ function FunnelCard({ label, icon: Icon, value, desc, delta, convPct, prevConvPc
 
 // ── Time Step Card ────────────────────────────────────────────────────────────
 
-function TimeStepCard({ from, to, seconds, prevSeconds, icon: Icon, color }) {
+function TimeStepCard({ from, to, seconds, prevSeconds, icon: Icon, color }: { from: any; to: any; seconds: any; prevSeconds: any; icon: any; color: any }) {
   const delta = prevSeconds ? ((seconds - prevSeconds) / prevSeconds * 100) : null;
   const isPositive = delta !== null && delta > 0; // taking longer = bad (positive delta)
   return (
@@ -171,7 +171,7 @@ function TimeStepCard({ from, to, seconds, prevSeconds, icon: Icon, color }) {
 
 // ── Visitor Card ──────────────────────────────────────────────────────────────
 
-function VisitorCard({ title, desc, value, pctOfTotal, prevValue }) {
+function VisitorCard({ title, desc, value, pctOfTotal, prevValue }: { title: any; desc: any; value: any; pctOfTotal: any; prevValue: any }) {
   const d = pct(value, prevValue);
   return (
     <div style={{ background: C.card, borderRadius: 12, padding: '20px 24px', border: '1px solid ' + C.border, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', flex: 1 }}>
@@ -198,8 +198,8 @@ const CHART_COLORS = {
   returningUsers: '#B87800',
 };
 
-function VisitLineChart({ data }) {
-  const [hovered, setHovered] = useState(null);
+function VisitLineChart({ data }: { data: any }) {
+  const [hovered, setHovered] = useState<number | null>(null);
   if (!data || data.length < 2) {
     return (
       <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.light, fontSize: 13 }}>
@@ -213,16 +213,16 @@ function VisitLineChart({ data }) {
   const chartH = H - padT - padB;
   const n = data.length;
 
-  const allVals = data.flatMap(d => [d.sessions, d.newUsers, d.returningUsers]);
+  const allVals = data.flatMap((d: any) => [d.sessions, d.newUsers, d.returningUsers]);
   const maxV = Math.max(...allVals, 1);
   const yTicks = [0, Math.round(maxV * 0.33), Math.round(maxV * 0.66), maxV];
 
-  function px(i) { return padL + (i / (n - 1)) * chartW; }
-  function py(v) { return padT + chartH - (v / maxV) * chartH; }
+  function px(i: number) { return padL + (i / (n - 1)) * chartW; }
+  function py(v: number) { return padT + chartH - (v / maxV) * chartH; }
 
   // Smooth cubic-bezier path (Catmull-Rom style tension)
-  function smoothPath(key) {
-    const pts = data.map((d, i) => [px(i), py(d[key])]);
+  function smoothPath(key: string) {
+    const pts = data.map((d: any, i: number) => [px(i), py(d[key])]);
     if (pts.length === 0) return '';
     let d = `M ${pts[0][0]},${pts[0][1]}`;
     for (let i = 0; i < pts.length - 1; i++) {
@@ -241,7 +241,7 @@ function VisitLineChart({ data }) {
   }
 
   // Area fill path (same curve + close at bottom)
-  function areaPath(key) {
+  function areaPath(key: string) {
     const line = smoothPath(key);
     const lastX = px(n - 1);
     const baseY = padT + chartH;
@@ -254,10 +254,10 @@ function VisitLineChart({ data }) {
     { key: 'returningUsers', label: 'Visitas de clientes recorrentes', color: CHART_COLORS.returningUsers, gradId: 'gReturning' },
   ];
 
-  const totals = {
-    sessions:       data.reduce((s, d) => s + d.sessions, 0),
-    newUsers:       data.reduce((s, d) => s + d.newUsers, 0),
-    returningUsers: data.reduce((s, d) => s + d.returningUsers, 0),
+  const totals: Record<string, number> = {
+    sessions:       data.reduce((s: number, d: any) => s + d.sessions, 0),
+    newUsers:       data.reduce((s: number, d: any) => s + d.newUsers, 0),
+    returningUsers: data.reduce((s: number, d: any) => s + d.returningUsers, 0),
   };
 
   return (
@@ -385,7 +385,7 @@ function VisitLineChart({ data }) {
           ))}
 
           {/* X labels */}
-          {data.map((d, i) => {
+          {data.map((d: any, i: number) => {
             const show = n <= 10 || i % Math.ceil(n / 10) === 0 || i === n - 1;
             if (!show) return null;
             return (
@@ -396,7 +396,7 @@ function VisitLineChart({ data }) {
           })}
 
           {/* Invisible hover zones */}
-          {data.map((_, i) => (
+          {data.map((_: any, i: number) => (
             <rect key={i}
               x={i === 0 ? padL : (px(i - 1) + px(i)) / 2}
               y={padT}
@@ -468,7 +468,7 @@ function SetupBanner() {
 
 // ── Main Analytics Component ──────────────────────────────────────────────────
 
-export default function Analytics({ adminToken }) {
+export default function Analytics({ adminToken }: { adminToken: string }) {
   const today = todaySP();
 
   const [dateRange, setDateRange] = useState({
@@ -478,17 +478,17 @@ export default function Analytics({ adminToken }) {
     toTime:   '23:59',
   });
 
-  const [data,       setData]       = useState(null);
+  const [data,       setData]       = useState<any>(null);
   const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState(null);
-  const [dbProducts, setDbProducts] = useState([]);
+  const [error,      setError]      = useState<string | null>(null);
+  const [dbProducts, setDbProducts] = useState<any[]>([]);
   const [productSearch, setProductSearch] = useState('');
 
   // Compute previous period (same duration)
   const prevRange = useMemo(() => {
     const from = new Date(dateRange.from + 'T12:00:00');
     const to   = new Date(dateRange.to   + 'T12:00:00');
-    const days = Math.round((to - from) / 86400000) + 1;
+    const days = Math.round((to.getTime() - from.getTime()) / 86400000) + 1;
     const prevTo  = new Date(from); prevTo.setDate(prevTo.getDate() - 1);
     const prevFrom = new Date(prevTo); prevFrom.setDate(prevFrom.getDate() - days + 1);
     return {
@@ -515,7 +515,7 @@ export default function Analytics({ adminToken }) {
       if (d.error) { setError(d.error); return; }
       setData(d);
     } catch (e) {
-      setError(e.message);
+      setError((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -548,17 +548,17 @@ export default function Analytics({ adminToken }) {
   ] : [];
 
   // Conversion % relative to sessions (top of funnel)
-  function convPct(key) {
+  function convPct(key: string) {
     if (!funnel || !funnel.current.sessions) return 0;
     return (funnel.current[key] / funnel.current.sessions) * 100;
   }
-  function prevConvPct(key) {
+  function prevConvPct(key: string) {
     if (!funnel || !funnel.previous.sessions) return 0;
     return (funnel.previous[key] / funnel.previous.sessions) * 100;
   }
 
   // Trapezoid edges: leftConvPct = this step's %, rightConvPct = next step's %
-  function trapEdges(idx) {
+  function trapEdges(idx: number) {
     const leftKey  = steps[idx]?.key;
     const rightKey = steps[idx + 1]?.key;
     const left  = leftKey  ? convPct(leftKey)  : 0;
@@ -574,11 +574,11 @@ export default function Analytics({ adminToken }) {
   const filteredProducts = useMemo(() => {
     const q = productSearch.toLowerCase();
     if (data?.products?.length) {
-      return data.products.filter(p => !q || p.name.toLowerCase().includes(q));
+      return data.products.filter((p: any) => !q || p.name.toLowerCase().includes(q));
     }
     return dbProducts
-      .filter(p => !q || p.product_name.toLowerCase().includes(q))
-      .map(p => ({ name: p.product_name, qty: p.qty, revenue: p.revenue, isDb: true }));
+      .filter((p: any) => !q || p.product_name.toLowerCase().includes(q))
+      .map((p: any) => ({ name: p.product_name, qty: p.qty, revenue: p.revenue, isDb: true }));
   }, [data?.products, dbProducts, productSearch]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -719,7 +719,7 @@ export default function Analytics({ adminToken }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.sources.map((src, i) => (
+                  {data.sources.map((src: any, i: number) => (
                     <tr key={i} style={{ borderBottom: '1px solid ' + C.border }}>
                       <td style={{ padding: '12px 20px', fontSize: 13, fontWeight: 500, color: C.purple }}>{src.source}</td>
                       <td style={{ padding: '12px 20px', textAlign: 'right', fontSize: 13, fontWeight: 700, color: C.text }}>{src.sessions.toLocaleString('pt-BR')}</td>
@@ -770,7 +770,7 @@ export default function Analytics({ adminToken }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((p, i) => (
+                  {filteredProducts.map((p: any, i: number) => (
                     <tr key={i} style={{ borderBottom: '1px solid ' + C.border }}>
                       <td style={{ padding: '12px 20px' }}>
                         <p style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.name}</p>
@@ -798,7 +798,7 @@ export default function Analytics({ adminToken }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProducts.map((p, i) => {
+                  {filteredProducts.map((p: any, i: number) => {
                     const cartPct  = p.views > 0 ? (p.addToCarts / p.views * 100) : null;
                     const orderPct = p.views > 0 ? (p.purchases  / p.views * 100) : null;
                     return (

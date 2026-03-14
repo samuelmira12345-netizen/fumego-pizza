@@ -30,6 +30,19 @@ export default function SettingsTab({
   cwPartnerLoading,
   cwPartnerStatus,
   testCWPartner,
+}: {
+  getSetting: (key: string) => string;
+  updateSetting: (key: string, value: string) => void;
+  getBusinessHours: () => Record<string, any>;
+  updateDayHours: (day: string, field: string, value: any) => void;
+  getSchedulingSlots: () => any[];
+  updateSchedulingSlots: (slots: any[]) => void;
+  uploadingLogo: boolean;
+  handleLogoUpload: (file: File) => void;
+  removeLogo: () => void;
+  cwPartnerLoading: boolean;
+  cwPartnerStatus: any;
+  testCWPartner: () => void;
 }) {
   return (
     <div style={{ padding: '24px 32px', paddingBottom: 100, maxWidth: 720 }}>
@@ -63,7 +76,7 @@ export default function SettingsTab({
               {uploadingLogo
                 ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Enviando...</>
                 : <><Upload size={13} /> Enviar Logo</>}
-              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) handleLogoUpload(e.target.files[0]); }} disabled={uploadingLogo} />
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { if (e.target.files && e.target.files[0]) handleLogoUpload(e.target.files[0]); }} disabled={uploadingLogo} />
             </label>
             {getSetting('logo_url') && (
               <button onClick={removeLogo} style={{ padding: '8px 16px', background: '#F3F4F6', color: C.textMuted, border: '1px solid ' + C.border, borderRadius: 8, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -142,7 +155,7 @@ export default function SettingsTab({
                   <input type="time" value={slot.time} onChange={e => { const slots = [...getSchedulingSlots()]; slots[i] = { ...slots[i], time: e.target.value }; updateSchedulingSlots(slots); }} style={{ flex: 1, background: '#F9FAFB', color: C.text, border: '1px solid ' + C.border, borderRadius: 8, padding: '6px 8px', fontSize: 13 }} />
                   <input type="number" min="1" max="99" value={slot.max_orders} onChange={e => { const slots = [...getSchedulingSlots()]; slots[i] = { ...slots[i], max_orders: parseInt(e.target.value) || 1 }; updateSchedulingSlots(slots); }} style={{ width: 60, background: '#F9FAFB', color: C.text, border: '1px solid ' + C.border, borderRadius: 8, padding: '6px 8px', fontSize: 13, textAlign: 'center' }} />
                   <span style={{ color: C.textMuted, fontSize: 11 }}>pedidos</span>
-                  <button onClick={() => { const slots = getSchedulingSlots().filter((_, j) => j !== i); updateSchedulingSlots(slots); }} style={{ background: 'none', border: 'none', color: C.danger, cursor: 'pointer', padding: 4 }}><X size={14} /></button>
+                  <button onClick={() => { const slots = getSchedulingSlots().filter((_: any, j: number) => j !== i); updateSchedulingSlots(slots); }} style={{ background: 'none', border: 'none', color: C.danger, cursor: 'pointer', padding: 4 }}><X size={14} /></button>
                 </div>
               ))}
               <button onClick={() => { const slots = [...getSchedulingSlots(), { time: '12:00', max_orders: 3 }]; updateSchedulingSlots(slots); }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: 'rgba(242,168,0,0.1)', color: C.gold, border: '1px solid rgba(242,168,0,0.3)', borderRadius: 8, fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
@@ -241,7 +254,7 @@ export default function SettingsTab({
               {cwPartnerStatus.payment_methods?.length > 0 && (
                 <div>
                   <p style={{ color: C.textMuted, fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Métodos de pagamento disponíveis:</p>
-                  {cwPartnerStatus.payment_methods.map(m => (
+                  {cwPartnerStatus.payment_methods.map((m: any) => (
                     <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, padding: '5px 8px', background: '#F9FAFB', borderRadius: 6, border: '1px solid ' + C.border }}>
                       <span style={{ color: C.gold, fontSize: 10, fontFamily: 'monospace', minWidth: 28 }}>#{m.id}</span>
                       <span style={{ color: C.text, fontSize: 12 }}>{m.name}</span>

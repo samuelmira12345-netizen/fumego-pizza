@@ -14,34 +14,34 @@ const C = {
   gold: '#F2A800', success: '#10B981', danger: '#EF4444',
 };
 
-function fmtBRL(v) {
+function fmtBRL(v: any) {
   return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function fmtDate(iso) {
+function fmtDate(iso: string) {
   if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) +
     ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-function toLocalDateStr(date) {
+function toLocalDateStr(date: Date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
 
-const MOVEMENT_LABELS = {
+const MOVEMENT_LABELS: Record<string, { label: string; color: string; bg: string; icon: string }> = {
   in:         { label: 'Entrada',  color: '#059669', bg: '#ECFDF5', icon: '▲' },
   out:        { label: 'Saída',    color: '#EF4444', bg: '#FEF2F2', icon: '▼' },
   adjustment: { label: 'Ajuste',   color: '#D97706', bg: '#FFFBEB', icon: '◆' },
   sale:       { label: 'Venda',    color: '#7C3AED', bg: '#EDE9FE', icon: '●' },
 };
 
-export default function StockMovements({ adminToken }) {
-  const [movements, setMovements]       = useState([]);
-  const [ingredients, setIngredients]   = useState([]);
+export default function StockMovements({ adminToken }: { adminToken: string }) {
+  const [movements, setMovements]       = useState<any[]>([]);
+  const [ingredients, setIngredients]   = useState<any[]>([]);
   const [loading, setLoading]           = useState(true);
   const [filterType, setFilterType]     = useState('all');
   const [filterIng, setFilterIng]       = useState('');

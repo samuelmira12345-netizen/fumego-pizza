@@ -6,7 +6,7 @@ import {
 
 const GOLD = '#D4A528';
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
   waiting_confirmation: '#F6AD55',
   confirmed:            '#63B3ED',
   released:             '#68D391',
@@ -17,7 +17,7 @@ const STATUS_COLORS = {
   scheduled_confirmed:  '#B794F4',
 };
 
-const STATUS_LABELS = {
+const STATUS_LABELS: Record<string, string> = {
   waiting_confirmation: 'Aguardando',
   confirmed:            'Confirmado',
   released:             'Em Entrega',
@@ -28,8 +28,8 @@ const STATUS_LABELS = {
   scheduled_confirmed:  'Agendado',
 };
 
-const ORDER_TYPE_LABEL = { delivery: 'Delivery', takeout: 'Retirada', onsite: 'Mesa', closed_table: 'Comanda' };
-const PAYMENT_METHOD_LABEL = {
+const ORDER_TYPE_LABEL: Record<string, string> = { delivery: 'Delivery', takeout: 'Retirada', onsite: 'Mesa', closed_table: 'Comanda' };
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
   money: 'Dinheiro', credit_card: 'Cartão Crédito',
   debit_card: 'Cartão Débito', pix: 'PIX', online_credit_card: 'Cartão Online',
 };
@@ -37,6 +37,14 @@ const PAYMENT_METHOD_LABEL = {
 export default function CardapioWebTab({
   orders, loading, syncing, msg,
   onRefresh, onSync, onOrderAction,
+}: {
+  orders: any[];
+  loading: boolean;
+  syncing: boolean;
+  msg: string;
+  onRefresh: () => void;
+  onSync: () => void;
+  onOrderAction: (id: any, action: string, reason?: string) => void;
 }) {
   return (
     <div>
@@ -141,7 +149,7 @@ export default function CardapioWebTab({
 
             {items.length > 0 && (
               <div style={{ background: '#1C1500', borderRadius: 8, padding: '8px 10px', marginBottom: 8 }}>
-                {items.map((item, i) => (
+                {items.map((item: any, i: number) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#ccc', marginBottom: i < items.length - 1 ? 4 : 0 }}>
                     <span>{item.quantity}x {item.name}</span>
                     <span style={{ color: GOLD }}>R$ {Number(item.total_price || 0).toFixed(2).replace('.', ',')}</span>
@@ -158,7 +166,7 @@ export default function CardapioWebTab({
 
             {payments.length > 0 && (
               <p style={{ color: '#888', fontSize: 11, marginBottom: 6 }}>
-                {payments.map(p => PAYMENT_METHOD_LABEL[p.payment_method] || p.payment_method).join(' + ')}
+                {payments.map((p: any) => PAYMENT_METHOD_LABEL[p.payment_method] || p.payment_method).join(' + ')}
               </p>
             )}
 

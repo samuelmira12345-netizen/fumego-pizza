@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { MapContainer, TileLayer, Circle, Tooltip, Marker, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import L, { LatLngExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // ── Colors por zona (menor → maior raio) ─────────────────────────────────────
@@ -25,7 +25,7 @@ function makeStoreIcon() {
 }
 
 // ── Zoom baseado no raio máximo ───────────────────────────────────────────────
-function calcZoom(maxKm) {
+function calcZoom(maxKm: number) {
   if (maxKm <= 0.5) return 15;
   if (maxKm <= 1)   return 14;
   if (maxKm <= 2)   return 13;
@@ -36,7 +36,7 @@ function calcZoom(maxKm) {
 }
 
 // ── Subcomponente: reposiciona o mapa quando coordenadas/zoom mudam ───────────
-function MapController({ lat, lng, zoom }) {
+function MapController({ lat, lng, zoom }: { lat: number; lng: number; zoom: number }) {
   const map = useMap();
   useEffect(() => {
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
@@ -47,13 +47,13 @@ function MapController({ lat, lng, zoom }) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function DeliveryZoneMap({ rules, originCoords }) {
-  const lat = parseFloat(originCoords?.lat);
-  const lng = parseFloat(originCoords?.lng);
+export default function DeliveryZoneMap({ rules, originCoords }: { rules: any[]; originCoords: { lat: string | number; lng: string | number } | null }) {
+  const lat = parseFloat(String(originCoords?.lat));
+  const lng = parseFloat(String(originCoords?.lng));
   const hasCoords = Number.isFinite(lat) && lat !== 0 && Number.isFinite(lng) && lng !== 0;
 
   // Centro: coordenadas da loja ou centro do Brasil
-  const center = hasCoords ? [lat, lng] : [-15.7942, -47.8822];
+  const center: LatLngExpression = hasCoords ? [lat, lng] : [-15.7942, -47.8822];
 
   const activeRules = [...(rules || [])]
     .filter(r => parseFloat(r.radius_km) > 0)

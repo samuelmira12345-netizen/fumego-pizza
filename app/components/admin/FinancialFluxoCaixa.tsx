@@ -17,15 +17,15 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                    'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DAYS_PT   = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
-const fmtBRL = v => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-const fmtShort = v => {
+const fmtBRL = (v: any) => (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtShort = (v: any) => {
   const n = parseFloat(v) || 0;
   if (Math.abs(n) >= 1000) return (n < 0 ? '-' : '') + 'R$' + (Math.abs(n) / 1000).toFixed(1) + 'k';
   return fmtBRL(n);
 };
 
 // ── Table view: columns=dates, rows=categories ─────────────────────────────────
-function TableView({ data }) {
+function TableView({ data }: { data: any }) {
   const [expanded, setExpanded] = useState(false);
   if (!data?.timeSeries?.length) return <EmptyState />;
   const ts = data.timeSeries;
@@ -35,14 +35,14 @@ function TableView({ data }) {
       <table style={{ borderCollapse: 'collapse', fontSize: 12, minWidth: 600 }}>
         <colgroup>
           <col style={{ width: 180, minWidth: 180 }} />
-          {ts.map(d => <col key={d.date} style={{ minWidth: 100 }} />)}
+          {ts.map((d: any) => <col key={d.date} style={{ minWidth: 100 }} />)}
         </colgroup>
         <thead>
           <tr style={{ background: '#F9FAFB', borderBottom: `2px solid ${C.border}` }}>
             <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: C.light, textTransform: 'uppercase', letterSpacing: 0.4, position: 'sticky', left: 0, background: '#F9FAFB', zIndex: 1 }}>
               Categoria
             </th>
-            {ts.map(d => (
+            {ts.map((d: any) => (
               <th key={d.date} style={{ padding: '10px 12px', textAlign: 'center', fontSize: 11, fontWeight: 600, color: C.muted, whiteSpace: 'nowrap' }}>
                 {d.date.slice(8)}/{d.date.slice(5,7)}
               </th>
@@ -51,10 +51,10 @@ function TableView({ data }) {
         </thead>
         <tbody>
           {/* Saldo Inicial */}
-          <StickyRow label="Saldo inicial do período" values={ts.map(d => d.opening)} color={C.blue} bold />
+          <StickyRow label="Saldo inicial do período" values={ts.map((d: any) => d.opening)} color={C.blue} bold signed={false} />
 
           {/* Receitas */}
-          <StickyRow label="Total de receitas" values={ts.map(d => d.revenue)} color={C.success} bold />
+          <StickyRow label="Total de receitas" values={ts.map((d: any) => d.revenue)} color={C.success} bold signed={false} />
 
           {/* Despesas */}
           <tr style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -64,7 +64,7 @@ function TableView({ data }) {
             >
               <span style={{ fontSize: 10 }}>{expanded ? '▼' : '▶'}</span> Total de despesas
             </td>
-            {ts.map(d => (
+            {ts.map((d: any) => (
               <td key={d.date} style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700, color: d.expenses > 0 ? C.danger : C.light }}>
                 {d.expenses > 0 ? `- ${fmtShort(d.expenses)}` : '—'}
               </td>
@@ -75,7 +75,7 @@ function TableView({ data }) {
               <td style={{ padding: '6px 14px 6px 30px', fontSize: 11, color: C.muted, position: 'sticky', left: 0, background: '#FAFAFA', zIndex: 1 }}>
                 Custos operacionais
               </td>
-              {ts.map(d => (
+              {ts.map((d: any) => (
                 <td key={d.date} style={{ padding: '6px 12px', textAlign: 'center', fontSize: 11, color: d.expenses > 0 ? C.danger : C.light }}>
                   {d.expenses > 0 ? `- ${fmtShort(d.expenses)}` : '0,00'}
                 </td>
@@ -84,21 +84,21 @@ function TableView({ data }) {
           )}
 
           {/* Saldo final */}
-          <StickyRow label="Saldo final do período" values={ts.map(d => d.revenue - d.expenses)} color={C.text} bold signed />
-          <StickyRow label="Saldo total"             values={ts.map(d => d.closing)}              color={C.blue} bold />
+          <StickyRow label="Saldo final do período" values={ts.map((d: any) => d.revenue - d.expenses)} color={C.text} bold signed />
+          <StickyRow label="Saldo total"             values={ts.map((d: any) => d.closing)}              color={C.blue} bold signed={false} />
         </tbody>
       </table>
     </div>
   );
 }
 
-function StickyRow({ label, values, color, bold, signed }) {
+function StickyRow({ label, values, color, bold, signed }: { label: any; values: any; color: any; bold: any; signed: any }) {
   return (
     <tr style={{ borderBottom: `1px solid ${C.border}` }}>
       <td style={{ padding: '8px 14px', fontWeight: bold ? 700 : 400, color, position: 'sticky', left: 0, background: C.card, zIndex: 1, fontSize: 12 }}>
         {label}
       </td>
-      {values.map((v, i) => (
+      {values.map((v: any, i: number) => (
         <td key={i} style={{ padding: '8px 12px', textAlign: 'center', fontWeight: bold ? 700 : 400, color: signed ? (v >= 0 ? C.success : C.danger) : (v > 0 ? color : C.light), fontSize: 12 }}>
           {v !== 0 ? (signed && v > 0 ? '+' : '') + fmtShort(v) : '—'}
         </td>
@@ -108,12 +108,12 @@ function StickyRow({ label, values, color, bold, signed }) {
 }
 
 // ── Chart view ────────────────────────────────────────────────────────────────
-function ChartView({ data }) {
+function ChartView({ data }: { data: any }) {
   if (!data?.timeSeries?.length) return <EmptyState />;
   const ts = data.timeSeries;
 
-  const maxVal = Math.max(...ts.map(d => d.closing), 1);
-  const minVal = Math.min(...ts.map(d => d.closing), 0);
+  const maxVal = Math.max(...ts.map((d: any) => d.closing), 1);
+  const minVal = Math.min(...ts.map((d: any) => d.closing), 0);
   const range  = Math.max(maxVal - minVal, 1);
 
   const W = 800, H = 200, padL = 60, padR = 20, padT = 20, padB = 30;
@@ -121,10 +121,10 @@ function ChartView({ data }) {
   const cH = H - padT - padB;
   const n  = ts.length;
 
-  function px(i) { return padL + (i / Math.max(n - 1, 1)) * cW; }
-  function py(v) { return padT + cH - ((v - minVal) / range) * cH; }
+  function px(i: number) { return padL + (i / Math.max(n - 1, 1)) * cW; }
+  function py(v: number) { return padT + cH - ((v - minVal) / range) * cH; }
 
-  const points = ts.map((d, i) => `${px(i)},${py(d.closing)}`).join(' ');
+  const points = ts.map((d: any, i: number) => `${px(i)},${py(d.closing)}`).join(' ');
   const fillPts = `${px(0)},${padT + cH} ${points} ${px(n-1)},${padT + cH}`;
 
   return (
@@ -152,10 +152,10 @@ function ChartView({ data }) {
           })}
           <polygon points={fillPts} fill="url(#fcGrad)" />
           <polyline points={points} fill="none" stroke={C.blue} strokeWidth={2.5} strokeLinejoin="round" />
-          {ts.map((d, i) => (
+          {ts.map((d: any, i: number) => (
             <circle key={i} cx={px(i)} cy={py(d.closing)} r={3} fill={C.blue} />
           ))}
-          {ts.map((d, i) => {
+          {ts.map((d: any, i: number) => {
             const show = n <= 14 || i % Math.ceil(n / 7) === 0 || i === n - 1;
             return show ? (
               <text key={i} x={px(i)} y={H - 4} textAnchor="middle" fontSize={9} fill={C.light}>
@@ -177,7 +177,7 @@ function ChartView({ data }) {
             </tr>
           </thead>
           <tbody>
-            {ts.map((d, i) => {
+            {ts.map((d: any, i: number) => {
               const saldoPeriodo = d.revenue - d.expenses + d.transfers;
               return (
                 <tr key={i} style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -201,7 +201,7 @@ function ChartView({ data }) {
 }
 
 // ── Day Detail Modal ───────────────────────────────────────────────────────────
-function DayDetailModal({ day, month, year, d, onClose }) {
+function DayDetailModal({ day, month, year, d, onClose }: { day: any; month: any; year: any; d: any; onClose: () => void }) {
   const saldoPeriodo = d.revenue - d.expenses + d.transfers;
   const dateStr = `${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}/${year}`;
   const rowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: `1px solid ${C.border}` };
@@ -297,8 +297,8 @@ function DayDetailModal({ day, month, year, d, onClose }) {
 }
 
 // ── Calendar view ─────────────────────────────────────────────────────────────
-function CalendarView({ data, period }) {
-  const [selectedDay, setSelectedDay] = useState(null);
+function CalendarView({ data, period }: { data: any; period: any }) {
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
   if (!data?.timeSeries) return <EmptyState />;
   const ts = data.timeSeries;
@@ -308,7 +308,7 @@ function CalendarView({ data, period }) {
   const daysInMonth = new Date(year, month, 0).getDate();
 
   // Build map day -> data
-  const dayMap = {};
+  const dayMap: Record<number, any> = {};
   for (const d of ts) {
     const day = parseInt(d.date.slice(8), 10);
     dayMap[day] = d;
@@ -420,9 +420,9 @@ function todaySP2() {
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────────
-export default function FluxoCaixaTab({ adminToken, refreshTick }) {
+export default function FluxoCaixaTab({ adminToken, refreshTick }: { adminToken: string; refreshTick: number }) {
   const [view, setView]       = useState('chart');
-  const [data, setData]       = useState(null);
+  const [data, setData]       = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState({ from: firstOfMonthSP(), to: todaySP2(), fromTime: '00:00', toTime: '23:59' });
 
@@ -442,8 +442,8 @@ export default function FluxoCaixaTab({ adminToken, refreshTick }) {
   useEffect(() => { load(); }, [load, refreshTick]);
 
   const ts = data?.timeSeries || [];
-  const totalReceitas = ts.reduce((s, d) => s + d.revenue, 0);
-  const totalDespesas = ts.reduce((s, d) => s + d.expenses, 0);
+  const totalReceitas = ts.reduce((s: number, d: any) => s + d.revenue, 0);
+  const totalDespesas = ts.reduce((s: number, d: any) => s + d.expenses, 0);
   const saldoFinal    = ts.length ? ts[ts.length - 1].closing : (data?.openingBalance || 0);
 
   const VIEWS = [

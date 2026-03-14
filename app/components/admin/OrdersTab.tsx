@@ -33,7 +33,7 @@ const DATE_PRESETS = [
   { key: 'custom',     label: 'Período'          },
 ];
 
-function toLocalDate(isoStr) {
+function toLocalDate(isoStr: string) {
   return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
@@ -44,7 +44,7 @@ function yesterdayStr() {
   const d = new Date(); d.setDate(d.getDate() - 1);
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
-function daysAgoStr(n) {
+function daysAgoStr(n: number) {
   const d = new Date(); d.setDate(d.getDate() - n);
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
@@ -70,7 +70,7 @@ function lastMonthEndStr() {
   return new Date(now.getFullYear(), now.getMonth(), 0).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 
-function resolveDateRange(preset, customFrom, customTo) {
+function resolveDateRange(preset: string, customFrom: string, customTo: string) {
   const t = todayStr();
   switch (preset) {
     case 'today':      return { fromDate: t,                  toDate: t };
@@ -90,7 +90,7 @@ function resolveDateRange(preset, customFrom, customTo) {
 // ── Filtros salvos ─────────────────────────────────────────────────────────────
 
 
-function buildAddress(order) {
+function buildAddress(order: any) {
   return [
     order.delivery_street,
     order.delivery_number,
@@ -105,11 +105,11 @@ function loadSavedFilters() {
     return JSON.parse(localStorage.getItem(SAVED_FILTERS_KEY) || '[]');
   } catch { return []; }
 }
-function persistSavedFilters(filters) {
+function persistSavedFilters(filters: any) {
   try { localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(filters)); } catch {}
 }
 
-export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdateStatus, onLoadMore, adminToken }) {
+export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdateStatus, onLoadMore, adminToken }: { orders: any[]; hasMoreOrders: boolean; loadingMore: boolean; onUpdateStatus: any; onLoadMore: any; adminToken: string }) {
   const [mainTab, setMainTab] = useState('orders'); // 'orders' | 'inactive' | 'queue'
 
   const [search, setSearch]             = useState('');
@@ -124,7 +124,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
   const [newFilterName, setNewFilterName]     = useState('');
 
   // Inactive orders (soft-deleted)
-  const [inactiveOrders, setInactiveOrders]   = useState([]);
+  const [inactiveOrders, setInactiveOrders]   = useState<any[]>([]);
   const [inactiveLoading, setInactiveLoading] = useState(false);
   const [inactiveLoaded, setInactiveLoaded]   = useState(false);
 
@@ -144,7 +144,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
     finally { setInactiveLoading(false); }
   }
 
-  async function restoreOrder(orderId) {
+  async function restoreOrder(orderId: any) {
     if (!adminToken) return;
     try {
       const res = await fetch('/api/admin', {
@@ -157,12 +157,12 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
       setInactiveOrders(prev => prev.filter(o => o.id !== orderId));
       alert('Pedido restaurado com sucesso!');
     } catch (e) {
-      alert('Erro ao restaurar: ' + (e.message || 'erro desconhecido'));
+      alert('Erro ao restaurar: ' + ((e as Error).message || 'erro desconhecido'));
     }
   }
 
   // Delivery persons (loaded lazily)
-  const [deliveryPersons, setDeliveryPersons] = useState([]);
+  const [deliveryPersons, setDeliveryPersons] = useState<any[]>([]);
   const [deliveryModal, setDeliveryModal] = useState({ open: false, orderId: null, deliveryPersonId: '' });
   const dpLoadedRef = useMemo(() => ({ current: false }), []);
 
@@ -176,11 +176,11 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
         body: JSON.stringify({ action: 'get_delivery_persons', data: {} }),
       });
       const j = await res.json();
-      setDeliveryPersons((j.persons || []).filter(p => p.is_active));
+      setDeliveryPersons((j.persons || []).filter((p: any) => p.is_active));
     } catch (e) { console.error(e); }
   }
 
-  async function assignDeliveryPerson(orderId, personId, startDelivery = false) {
+  async function assignDeliveryPerson(orderId: any, personId: any, startDelivery = false) {
     if (!adminToken) return false;
     try {
       const res = await fetch('/api/admin', {
@@ -193,12 +193,12 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
       return true;
     } catch (e) {
       console.error(e);
-      alert('Erro ao atribuir entregador: ' + (e.message || 'erro desconhecido'));
+      alert('Erro ao atribuir entregador: ' + ((e as Error).message || 'erro desconhecido'));
       return false;
     }
   }
 
-  function openAddressOnMap(order, provider = 'google') {
+  function openAddressOnMap(order: any, provider = 'google') {
     const address = buildAddress(order);
     if (!address) return;
     const url = provider === 'waze'
@@ -207,7 +207,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  async function startDeliveringWithModal(order) {
+  async function startDeliveringWithModal(order: any) {
     await ensureDeliveryPersons();
     setDeliveryModal({
       open: true,
@@ -227,7 +227,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
   useEffect(() => { persistSavedFilters(savedFilters); }, [savedFilters]);
 
-  function applyFilter(f) {
+  function applyFilter(f: any) {
     setSearch(f.search || '');
     setStatusFilter(f.statusFilter || '');
     setDatePreset(f.datePreset || 'all');
@@ -242,13 +242,13 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
       name: newFilterName.trim(),
       search, statusFilter, datePreset, customFrom, customTo,
     };
-    setSavedFilters(prev => [...prev, newFilter]);
+    setSavedFilters((prev: any) => [...prev, newFilter]);
     setNewFilterName('');
     setShowSaveDialog(false);
   }
 
-  function deleteFilter(id) {
-    setSavedFilters(prev => prev.filter(f => f.id !== id));
+  function deleteFilter(id: any) {
+    setSavedFilters((prev: any) => prev.filter((f: any) => f.id !== id));
   }
 
   const { fromDate, toDate } = useMemo(
@@ -258,7 +258,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
   const filteredByDateAndSearch = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return orders.filter(o => {
+    return orders.filter((o: any) => {
       if (fromDate || toDate) {
         const d = toLocalDate(o.created_at);
         if (fromDate && d < fromDate) return false;
@@ -276,18 +276,18 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
   }, [orders, fromDate, toDate, search]);
 
   const countByStatus = useMemo(() => {
-    const counts = {};
+    const counts: Record<string, number> = {};
     for (const tab of STATUS_TABS) {
       counts[tab.key] = tab.key === ''
         ? filteredByDateAndSearch.length
-        : filteredByDateAndSearch.filter(o => o.status === tab.key).length;
+        : filteredByDateAndSearch.filter((o: any) => o.status === tab.key).length;
     }
     return counts;
   }, [filteredByDateAndSearch]);
 
   const filtered = useMemo(() => {
     if (!statusFilter) return filteredByDateAndSearch;
-    return filteredByDateAndSearch.filter(o => o.status === statusFilter);
+    return filteredByDateAndSearch.filter((o: any) => o.status === statusFilter);
   }, [filteredByDateAndSearch, statusFilter]);
 
   const hasFilter = search || statusFilter || datePreset !== 'all';
@@ -369,7 +369,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
         <div style={{ marginBottom: 10 }}>
           <p style={{ fontSize: 10, fontWeight: 700, color: '#666', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 5 }}>Filtros salvos</p>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {savedFilters.map(f => (
+            {savedFilters.map((f: any) => (
               <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 0, background: '#2D2D2D', borderRadius: 20, border: '1px solid #444', overflow: 'hidden' }}>
                 <button
                   onClick={() => applyFilter(f)}
@@ -621,7 +621,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
             {o.order_items && o.order_items.length > 0 && (
               <div style={{ background: '#1A1A1A', borderRadius: 8, padding: '8px 10px', margin: '8px 0' }}>
-                {o.order_items.map((item, i) => (
+                {o.order_items.map((item: any, i: number) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#ccc', marginBottom: i < o.order_items.length - 1 ? 3 : 0 }}>
                     <span>{item.quantity}x {item.product_name}</span>
                     <span style={{ color: GOLD }}>R$ {Number(item.total_price).toFixed(2).replace('.', ',')}</span>
