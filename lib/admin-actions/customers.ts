@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-export async function handleGetCustomers(supabase) {
+interface CustomerSummary {
+  phone: string | null;
+  name: string;
+  neighborhood: string | null;
+  city: string | null;
+  orders: number;
+  total_spent: number;
+  first_order: string;
+  last_order: string;
+  avg_ticket?: number;
+}
+
+export async function handleGetCustomers(supabase: SupabaseClient): Promise<NextResponse> {
   const { data: orders, error } = await supabase
     .from('orders')
     .select('id, customer_name, customer_phone, total, status, created_at, delivery_neighborhood, delivery_city')
@@ -8,7 +21,7 @@ export async function handleGetCustomers(supabase) {
     .limit(10000);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const map = {};
+  const map: Record<string, CustomerSummary> = {};
   for (const o of (orders || [])) {
     const key = o.customer_phone || o.customer_name || 'unknown';
     if (!map[key]) {
@@ -30,7 +43,7 @@ export async function handleGetCustomers(supabase) {
   return NextResponse.json({ customers });
 }
 
-export async function handleGetCustomerProfile(supabase, data) {
+export async function handleGetCustomerProfile(supabase: SupabaseClient, data?: Record<string, unknown>): Promise<NextResponse> {
   const { phone } = data || {};
   if (!phone) return NextResponse.json({ error: 'phone obrigatório' }, { status: 400 });
 
@@ -43,12 +56,12 @@ export async function handleGetCustomerProfile(supabase, data) {
   if (oErr) return NextResponse.json({ error: oErr.message }, { status: 500 });
 
   const orderIds = (orders || []).map(o => o.id);
-  let topItems = [];
+  let topItems: Array<{ name: string; qty: number }> = [];
   if (orderIds.length > 0) {
     const { data: items } = await supabase
       .from('order_items').select('product_name, quantity').in('order_id', orderIds.slice(0, 100));
     if (items) {
-      const itemMap = {};
+      const itemMap: Record<string, number> = {};
       for (const i of items) itemMap[i.product_name] = (itemMap[i.product_name] || 0) + (i.quantity || 1);
       topItems = Object.entries(itemMap)
         .map(([name, qty]) => ({ name, qty }))
@@ -57,7 +70,7 @@ export async function handleGetCustomerProfile(supabase, data) {
     }
   }
 
-  const hourMap = {};
+  const hourMap: Record<string, number> = {};
   for (const o of (orders || [])) {
     const h = new Date(o.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit' });
     hourMap[h] = (hourMap[h] || 0) + 1;
@@ -67,9 +80,9 @@ export async function handleGetCustomerProfile(supabase, data) {
   return NextResponse.json({ orders: orders || [], topItems, peakHour });
 }
 
-export async function handleSearchPhoneSuffix(supabase, data) {
+export async function handleSearchPhoneSuffix(supabase: SupabaseClient, data?: Record<string, unknown>): Promise<NextResponse> {
   const { suffix } = data || {};
-  if (!suffix || suffix.length < 4) return NextResponse.json({ customers: [] });
+  if (!suffix || String(suffix).length < 4) return NextResponse.json({ customers: [] });
 
   const { data: rows, error: sErr } = await supabase
     .from('orders')
@@ -79,7 +92,7 @@ export async function handleSearchPhoneSuffix(supabase, data) {
     .limit(200);
   if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 });
 
-  const map = {};
+  const map: Record<string, unknown> = {};
   for (const r of (rows || [])) {
     const key = r.customer_phone || r.customer_name;
     if (!map[key]) map[key] = r;
