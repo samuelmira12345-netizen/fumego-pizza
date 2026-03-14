@@ -1,24 +1,25 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Loader2, ChevronUp, ChevronDown, Truck, DollarSign,
-  Package, Clock, X, CheckCircle, AlertCircle, RefreshCw,
+  Loader2, Truck, DollarSign,
+  Package, X, CheckCircle, AlertCircle, RefreshCw, BarChart2, GripVertical,
 } from 'lucide-react';
 
-// ── Theme ─────────────────────────────────────────────────────────────────────
+// ── Theme (light mode) ────────────────────────────────────────────────────────
 const C = {
-  gold:    '#D4A528',
-  bg:      '#1A1A1A',
-  card:    '#232323',
-  border:  '#3A3A3A',
-  text:    '#F3F4F6',
-  muted:   '#9CA3AF',
-  light:   '#6B7280',
-  success: '#10B981',
+  gold:    '#D97706',
+  bg:      '#F8FAFC',
+  card:    '#FFFFFF',
+  border:  '#E5E7EB',
+  text:    '#111827',
+  muted:   '#6B7280',
+  light:   '#9CA3AF',
+  success: '#059669',
   danger:  '#EF4444',
   purple:  '#7C3AED',
   blue:    '#2563EB',
+  subHeader: '#F9FAFB',
 };
 
 const DRIVER_COLORS = ['#2563EB', '#7C3AED', '#059669', '#DC2626', '#D97706', '#0891B2', '#BE185D'];
@@ -50,9 +51,9 @@ const STATUS_LABEL = {
   cancelled:  '❌ Cancelado',
 };
 const STATUS_COLOR = {
-  ready:      '#F59E0B',
-  delivering: '#A78BFA',
-  delivered:  '#34D399',
+  ready:      '#D97706',
+  delivering: '#7C3AED',
+  delivered:  '#059669',
   cancelled:  '#EF4444',
 };
 
@@ -65,11 +66,11 @@ function NightModal({ person, orders, totalEarned, loading, onClose }) {
   const totalOrders = orders.reduce((s, o) => s + (parseFloat(o.total) || 0), 0);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
-      <div style={{ width: '100%', maxWidth: 560, maxHeight: '85dvh', display: 'flex', flexDirection: 'column', background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }}>
+      <div style={{ width: '100%', maxWidth: 560, maxHeight: '85dvh', display: 'flex', flexDirection: 'column', background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
 
         {/* Header */}
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#1A1A1A' }}>
+        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: C.subHeader }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: C.purple, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>{(person.name || '?')[0].toUpperCase()}</span>
@@ -87,12 +88,12 @@ function NightModal({ person, orders, totalEarned, loading, onClose }) {
         {/* Summary cards */}
         <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}`, display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10 }}>
           {[
-            { label: 'Entregues',   value: delivered.length,        color: C.success },
-            { label: 'Em rota',     value: inProgress.length,       color: '#A78BFA' },
-            { label: 'Cancelados',  value: cancelled.length,        color: C.danger  },
-            { label: 'Taxa receb.', value: fmtBRL(totalEarned),     color: C.gold    },
+            { label: 'Entregues',   value: delivered.length,    color: C.success },
+            { label: 'Em rota',     value: inProgress.length,   color: C.purple  },
+            { label: 'Cancelados',  value: cancelled.length,    color: C.danger  },
+            { label: 'Taxa receb.', value: fmtBRL(totalEarned), color: C.gold    },
           ].map(({ label, value, color }) => (
-            <div key={label} style={{ background: '#2A2A2A', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
+            <div key={label} style={{ background: '#F3F4F6', borderRadius: 8, padding: '10px 12px', textAlign: 'center' }}>
               <p style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.5, marginBottom: 4 }}>{label}</p>
               <p style={{ fontSize: 17, fontWeight: 800, color }}>{value}</p>
             </div>
@@ -110,8 +111,8 @@ function NightModal({ person, orders, totalEarned, loading, onClose }) {
               <p style={{ textAlign: 'center', color: C.muted, padding: '20px 0', fontSize: 13 }}>Nenhum pedido esta noite</p>
             ) : (
               orders.map((o, idx) => (
-                <div key={o.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, background: '#1E1E1E' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 6, background: '#2A2A2A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div key={o.id} style={{ border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, background: C.subHeader }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 6, background: '#E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <span style={{ fontSize: 11, fontWeight: 800, color: C.muted }}>#{idx + 1}</span>
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -140,9 +141,9 @@ function NightModal({ person, orders, totalEarned, loading, onClose }) {
         )}
 
         {/* Footer total */}
-        <div style={{ padding: '12px 20px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1A1A1A' }}>
+        <div style={{ padding: '12px 20px', borderTop: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.subHeader }}>
           <p style={{ fontSize: 12, color: C.muted }}>
-            {delivered.length} pedido(s) entregue(s) · valor total dos pedidos: <strong style={{ color: C.text }}>{fmtBRL(totalOrders)}</strong>
+            {delivered.length} pedido(s) entregue(s) · valor total: <strong style={{ color: C.text }}>{fmtBRL(totalOrders)}</strong>
           </p>
           <p style={{ fontSize: 16, fontWeight: 800, color: C.gold }}>Taxa: {fmtBRL(totalEarned)}</p>
         </div>
@@ -151,32 +152,47 @@ function NightModal({ person, orders, totalEarned, loading, onClose }) {
   );
 }
 
-// ── Queue Row ─────────────────────────────────────────────────────────────────
+// ── Queue Row (drag-and-drop) ─────────────────────────────────────────────────
 
-function QueueRow({ order, index, total, onMoveUp, onMoveDown, reordering }) {
+function QueueRow({ order, index, isDragging, isDragOver, onDragStart, onDragOver, onDrop, onDragEnd }) {
   const isDelivered = order.status === 'delivered';
   const isActive    = order.status === 'delivering';
-  const isPending   = order.status === 'ready';
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10,
-      padding: '10px 14px', borderRadius: 10, background: '#1E1E1E',
-      border: `1px solid ${isDelivered ? '#065F46' : isActive ? '#4C1D95' : C.border}`,
-      opacity: isDelivered ? 0.65 : 1,
-    }}>
+    <div
+      draggable={!isDelivered}
+      onDragStart={isDelivered ? undefined : onDragStart}
+      onDragOver={isDelivered ? undefined : onDragOver}
+      onDrop={isDelivered ? undefined : onDrop}
+      onDragEnd={isDelivered ? undefined : onDragEnd}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '10px 14px', borderRadius: 10, background: isDragOver ? '#EEF2FF' : C.card,
+        border: `1px solid ${isDragOver ? '#818CF8' : isDelivered ? '#D1FAE5' : isActive ? '#EDE9FE' : C.border}`,
+        opacity: isDragging ? 0.4 : isDelivered ? 0.7 : 1,
+        cursor: isDelivered ? 'default' : 'grab',
+        transition: 'background 0.15s, border-color 0.15s, opacity 0.15s',
+        userSelect: 'none',
+      }}
+    >
+      {/* Drag handle */}
+      {!isDelivered ? (
+        <GripVertical size={16} color={C.light} style={{ flexShrink: 0 }} />
+      ) : (
+        <CheckCircle size={16} color={C.success} style={{ flexShrink: 0 }} />
+      )}
+
       {/* Priority badge */}
-      <div style={{
-        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-        background: isDelivered ? '#065F46' : isActive ? '#4C1D95' : '#2A2A2A',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: `2px solid ${isDelivered ? C.success : isActive ? '#A78BFA' : C.border}`,
-      }}>
-        {isDelivered
-          ? <CheckCircle size={14} color={C.success} />
-          : <span style={{ fontSize: 11, fontWeight: 800, color: isActive ? '#A78BFA' : C.muted }}>{index + 1}°</span>
-        }
-      </div>
+      {!isDelivered && (
+        <div style={{
+          width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+          background: isActive ? '#EDE9FE' : '#F3F4F6',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          border: `2px solid ${isActive ? '#A78BFA' : C.border}`,
+        }}>
+          <span style={{ fontSize: 10, fontWeight: 800, color: isActive ? C.purple : C.muted }}>{index + 1}°</span>
+        </div>
+      )}
 
       {/* Info */}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -193,26 +209,6 @@ function QueueRow({ order, index, total, onMoveUp, onMoveDown, reordering }) {
           <span style={{ color: C.light }}> · {fmtBRL(order.delivery_fee)} taxa</span>
         </p>
       </div>
-
-      {/* Reorder buttons */}
-      {!isDelivered && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-          <button
-            onClick={() => onMoveUp(index)}
-            disabled={index === 0 || reordering}
-            style={{ padding: '4px 6px', background: index === 0 ? '#2A2A2A' : '#333', border: `1px solid ${C.border}`, borderRadius: 5, cursor: index === 0 ? 'not-allowed' : 'pointer', opacity: index === 0 ? 0.35 : 1 }}
-          >
-            <ChevronUp size={13} color={C.muted} />
-          </button>
-          <button
-            onClick={() => onMoveDown(index)}
-            disabled={index === total - 1 || reordering}
-            style={{ padding: '4px 6px', background: index === total - 1 ? '#2A2A2A' : '#333', border: `1px solid ${C.border}`, borderRadius: 5, cursor: index === total - 1 ? 'not-allowed' : 'pointer', opacity: index === total - 1 ? 0.35 : 1 }}
-          >
-            <ChevronDown size={13} color={C.muted} />
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -220,15 +216,20 @@ function QueueRow({ order, index, total, onMoveUp, onMoveDown, reordering }) {
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function DeliveryQueueTab({ adminToken }) {
-  const [persons, setPersons]         = useState([]);
+  const [persons, setPersons]               = useState([]);
   const [loadingPersons, setLoadingPersons] = useState(true);
-  const [selectedId, setSelectedId]   = useState(null);
-  const [queue, setQueue]             = useState([]);
-  const [loadingQueue, setLoadingQueue] = useState(false);
-  const [reordering, setReordering]   = useState(false);
+  const [selectedId, setSelectedId]         = useState(null);
+  const [queue, setQueue]                   = useState([]);
+  const [loadingQueue, setLoadingQueue]     = useState(false);
+  const [reordering, setReordering]         = useState(false);
+
+  // Drag state
+  const dragIndex = useRef(null);
+  const [draggingId, setDraggingId]   = useState(null);
+  const [dragOverId, setDragOverId]   = useState(null);
 
   // Night summary modal
-  const [nightModal, setNightModal]   = useState(null); // { person, orders, totalEarned }
+  const [nightModal, setNightModal]     = useState(null);
   const [loadingModal, setLoadingModal] = useState(false);
 
   // Load delivery persons
@@ -254,19 +255,6 @@ export default function DeliveryQueueTab({ adminToken }) {
     loadQueue(id);
   }
 
-  async function move(index, direction) {
-    const target = index + direction;
-    if (target < 0 || target >= queue.length) return;
-    const next = [...queue];
-    [next[index], next[target]] = [next[target], next[index]];
-    setQueue(next);
-    setReordering(true);
-    try {
-      await adminPost('set_delivery_priority', { ordered_ids: next.map(o => o.id) }, adminToken);
-    } catch (e) { console.error(e); }
-    finally { setReordering(false); }
-  }
-
   async function openNightModal(person) {
     const todaySP = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     setNightModal({ person, orders: [], totalEarned: 0 });
@@ -278,22 +266,64 @@ export default function DeliveryQueueTab({ adminToken }) {
     finally { setLoadingModal(false); }
   }
 
+  // ── Drag & Drop handlers ────────────────────────────────────────────────────
+
+  function handleDragStart(order) {
+    dragIndex.current = openOrders.findIndex(o => o.id === order.id);
+    setDraggingId(order.id);
+  }
+
+  function handleDragOver(e, order) {
+    e.preventDefault();
+    setDragOverId(order.id);
+  }
+
+  async function handleDrop(targetOrder) {
+    const fromIdx = dragIndex.current;
+    const toIdx   = openOrders.findIndex(o => o.id === targetOrder.id);
+    if (fromIdx === null || fromIdx === toIdx) return;
+
+    // Reorder openOrders
+    const reordered = [...openOrders];
+    const [moved]   = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+
+    // Rebuild full queue: reordered open orders + delivered orders at end
+    const next = [...reordered, ...doneOrders];
+    setQueue(next);
+    setDraggingId(null);
+    setDragOverId(null);
+    dragIndex.current = null;
+
+    setReordering(true);
+    try {
+      await adminPost('set_delivery_priority', { ordered_ids: next.map(o => o.id) }, adminToken);
+    } catch (e) { console.error(e); }
+    finally { setReordering(false); }
+  }
+
+  function handleDragEnd() {
+    setDraggingId(null);
+    setDragOverId(null);
+    dragIndex.current = null;
+  }
+
   const selectedPerson = persons.find(p => p.id === selectedId);
   const openOrders     = queue.filter(o => !['delivered', 'cancelled'].includes(o.status));
   const doneOrders     = queue.filter(o => o.status === 'delivered');
   const totalFees      = doneOrders.reduce((s, o) => s + (parseFloat(o.delivery_fee) || 0), 0);
 
   return (
-    <div>
+    <div style={{ background: C.bg, borderRadius: 12, padding: 0 }}>
       <style>{`@keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }`}</style>
 
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 16, minHeight: 480 }}>
 
         {/* ── Driver list (left panel) ── */}
-        <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', background: C.card }}>
-          <div style={{ padding: '12px 14px', borderBottom: `1px solid ${C.border}`, background: '#1A1A1A' }}>
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', background: C.card, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div style={{ padding: '12px 14px', borderBottom: `1px solid ${C.border}`, background: C.subHeader }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Entregadores</p>
-            <p style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Selecione para ver fila</p>
+            <p style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Clique para ver a fila de entregas</p>
           </div>
 
           {loadingPersons ? (
@@ -305,34 +335,55 @@ export default function DeliveryQueueTab({ adminToken }) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
               {persons.map((p, idx) => {
-                const color     = DRIVER_COLORS[idx % DRIVER_COLORS.length];
-                const isActive  = p.id === selectedId;
+                const color    = DRIVER_COLORS[idx % DRIVER_COLORS.length];
+                const isActive = p.id === selectedId;
                 return (
-                  <button
+                  <div
                     key={p.id}
-                    onClick={() => selectPerson(p.id)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
-                      background: isActive ? '#2A2A2A' : 'transparent',
-                      border: 'none', borderBottom: `1px solid ${C.border}`,
-                      cursor: 'pointer', textAlign: 'left', width: '100%',
+                      background: isActive ? '#EEF2FF' : C.card,
+                      borderBottom: `1px solid ${C.border}`,
                       borderLeft: isActive ? `3px solid ${color}` : '3px solid transparent',
                     }}
                   >
-                    <div style={{ width: 34, height: 34, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '2px solid rgba(255,255,255,0.15)' }}>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{(p.name || '?')[0].toUpperCase()}</span>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p
-                        style={{ fontSize: 13, fontWeight: 700, color: isActive ? '#fff' : C.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                        onClick={(e) => { e.stopPropagation(); openNightModal(p); }}
-                        title="Clique no nome para ver o resumo da noite"
-                      >
-                        {p.name}
-                      </p>
-                      <p style={{ fontSize: 10, color: C.light }}>ver resumo →</p>
-                    </div>
-                  </button>
+                    {/* Main select area */}
+                    <button
+                      onClick={() => selectPerson(p.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        flex: 1, minWidth: 0, background: 'none', border: 'none',
+                        cursor: 'pointer', textAlign: 'left', padding: 0,
+                      }}
+                      title="Clique para ver a fila de pedidos"
+                    >
+                      <div style={{ width: 34, height: 34, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '2px solid rgba(255,255,255,0.3)', boxShadow: '0 1px 4px rgba(0,0,0,0.12)' }}>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{(p.name || '?')[0].toUpperCase()}</span>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: isActive ? C.blue : C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {p.name}
+                        </p>
+                        <p style={{ fontSize: 10, color: C.muted }}>
+                          {isActive ? '✓ Selecionado' : 'Ver fila →'}
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Night summary button — clearly separated */}
+                    <button
+                      onClick={() => openNightModal(p)}
+                      title="Resumo da noite"
+                      style={{
+                        flexShrink: 0, padding: '5px 7px', borderRadius: 7,
+                        background: '#F3F4F6', border: `1px solid ${C.border}`,
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                        color: C.muted, fontSize: 10, fontWeight: 600,
+                      }}
+                    >
+                      <BarChart2 size={13} />
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -340,16 +391,16 @@ export default function DeliveryQueueTab({ adminToken }) {
         </div>
 
         {/* ── Queue panel (right) ── */}
-        <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', background: C.card }}>
+        <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'hidden', background: C.card, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           {!selectedId ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 40, color: C.muted, gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 40, gap: 10 }}>
               <Truck size={36} color={C.light} />
-              <p style={{ fontSize: 14, color: C.muted }}>Selecione um entregador à esquerda</p>
+              <p style={{ fontSize: 14, color: C.muted }}>Selecione um entregador à esquerda para ver a fila</p>
             </div>
           ) : (
             <>
               {/* Queue header */}
-              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, background: '#1A1A1A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}`, background: C.subHeader, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
                     Fila de entregas — {selectedPerson?.name}
@@ -358,12 +409,12 @@ export default function DeliveryQueueTab({ adminToken }) {
                     {openOrders.length} pendente(s) · {doneOrders.length} entregue(s) · taxa acumulada: <span style={{ color: C.gold, fontWeight: 700 }}>{fmtBRL(totalFees)}</span>
                   </p>
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   {reordering && <Loader2 size={14} color={C.gold} style={{ animation: 'spin 1s linear infinite' }} />}
                   <button
                     onClick={() => loadQueue(selectedId)}
                     disabled={loadingQueue}
-                    style={{ padding: '6px 10px', background: '#2A2A2A', border: `1px solid ${C.border}`, borderRadius: 7, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: C.muted, fontSize: 12 }}
+                    style={{ padding: '6px 10px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 7, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: C.muted, fontSize: 12 }}
                   >
                     <RefreshCw size={13} style={loadingQueue ? { animation: 'spin 1s linear infinite' } : {}} />
                     Atualizar
@@ -383,18 +434,18 @@ export default function DeliveryQueueTab({ adminToken }) {
                   <Loader2 size={22} color={C.gold} style={{ animation: 'spin 1s linear infinite' }} />
                 </div>
               ) : queue.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 20px', gap: 8, color: C.muted }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 20px', gap: 8 }}>
                   <Package size={32} color={C.light} />
-                  <p style={{ fontSize: 13 }}>Nenhum pedido hoje para este entregador</p>
+                  <p style={{ fontSize: 13, color: C.muted }}>Nenhum pedido hoje para este entregador</p>
                 </div>
               ) : (
                 <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', maxHeight: 520 }}>
                   {/* Info note */}
                   {openOrders.length > 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.25)', borderRadius: 8, marginBottom: 4 }}>
-                      <AlertCircle size={13} color='#A78BFA' />
-                      <p style={{ fontSize: 11, color: '#A78BFA' }}>
-                        Use as setas para reordenar a fila. O entregador só acessa o próximo pedido quando o atual for entregue.
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px', background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 8, marginBottom: 4 }}>
+                      <AlertCircle size={13} color={C.blue} />
+                      <p style={{ fontSize: 11, color: C.blue }}>
+                        Arraste os pedidos para reordenar a fila. O entregador só acessa o próximo pedido quando o atual for entregue.
                       </p>
                     </div>
                   )}
@@ -408,17 +459,12 @@ export default function DeliveryQueueTab({ adminToken }) {
                           key={order.id}
                           order={order}
                           index={idx}
-                          total={openOrders.length}
-                          onMoveUp={(i) => {
-                            // Find real index in full queue
-                            const ri = queue.indexOf(openOrders[i]);
-                            move(ri, -1);
-                          }}
-                          onMoveDown={(i) => {
-                            const ri = queue.indexOf(openOrders[i]);
-                            move(ri, 1);
-                          }}
-                          reordering={reordering}
+                          isDragging={draggingId === order.id}
+                          isDragOver={dragOverId === order.id}
+                          onDragStart={() => handleDragStart(order)}
+                          onDragOver={(e) => handleDragOver(e, order)}
+                          onDrop={() => handleDrop(order)}
+                          onDragEnd={handleDragEnd}
                         />
                       ))}
                     </>
@@ -433,10 +479,12 @@ export default function DeliveryQueueTab({ adminToken }) {
                           key={order.id}
                           order={order}
                           index={idx}
-                          total={0}
-                          onMoveUp={() => {}}
-                          onMoveDown={() => {}}
-                          reordering={false}
+                          isDragging={false}
+                          isDragOver={false}
+                          onDragStart={() => {}}
+                          onDragOver={() => {}}
+                          onDrop={() => {}}
+                          onDragEnd={() => {}}
                         />
                       ))}
                     </>
