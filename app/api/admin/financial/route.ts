@@ -190,9 +190,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         }));
 
         entries = [
-          ...(manualEntries || []).map((e: Record<string, unknown>) => ({ ...e, isManual: true })),
-          ...orderEntries,
-        ].sort((a, b) => new Date(b.created_at as string).getTime() - new Date(a.created_at as string).getTime());
+          ...(manualEntries || []).map((e: Record<string, unknown>) => ({ ...e, isManual: true })) as Record<string, unknown>[],
+          ...orderEntries as Record<string, unknown>[],
+        ].sort((a, b) => new Date(b['created_at'] as string).getTime() - new Date(a['created_at'] as string).getTime());
       }
     } catch {
       currentSession = null;
