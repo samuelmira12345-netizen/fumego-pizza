@@ -259,7 +259,7 @@ export default function AdminPage() {
   const [authenticated, setAuthenticated]     = useState(false);
   const [section, setSection]                 = useState('dashboard');
   const [sidebarOpen, setSidebarOpen]         = useState(true);
-  const [data, setData]                       = useState({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
+  const [data, setData]                       = useState<{ products: any[], drinks: any[], coupons: any[], settings: any[], orders: any[] }>({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
   const [hasMoreOrders, setHasMoreOrders]     = useState(false);
   const [loadingMore, setLoadingMore]         = useState(false);
   const [loading, setLoading]                 = useState(false);
@@ -267,16 +267,16 @@ export default function AdminPage() {
   const [msg, setMsg]                         = useState('');
 
   // ── CardápioWeb ─────────────────────────────────────────────────────────────
-  const [cwOrders, setCwOrders]       = useState([]);
+  const [cwOrders, setCwOrders]       = useState<any[]>([]);
   const [cwLoading, setCwLoading]     = useState(false);
   const [cwSyncing, setCwSyncing]     = useState(false);
   const [cwMsg, setCwMsg]             = useState('');
 
   // ── CardápioWeb Partner API ─────────────────────────────────────────────────
-  const [cwPartnerStatus, setCwPartnerStatus]   = useState(null);
+  const [cwPartnerStatus, setCwPartnerStatus]   = useState<any>(null);
   const [cwPartnerLoading, setCwPartnerLoading] = useState(false);
 
-  const [uploadingId, setUploadingId]   = useState(null);
+  const [uploadingId, setUploadingId]   = useState<any>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [newDrink, setNewDrink]         = useState({ name: '', size: '', price: '' });
   const [addingDrink, setAddingDrink]   = useState(false);
