@@ -1,7 +1,9 @@
-/** @type {import('jest').Config} */
-const config = {
+import type { Config } from 'jest';
+
+const config: Config = {
   testEnvironment: 'node',
-  testMatch: ['**/__tests__/**/*.test.js'],
+  // Suporta .test.js (existente) e .test.ts (após migração dos testes)
+  testMatch: ['**/__tests__/**/*.test.[jt]s'],
   // Configura o Babel inline, sem criar um babel.config.js global
   // (que interferiria no build do Next.js desativando o SWC)
   transform: {
@@ -11,4 +13,4 @@ const config = {
   },
 };
 
-module.exports = config;
+export default config;
