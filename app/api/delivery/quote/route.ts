@@ -169,14 +169,14 @@ async function getStoreCoordinates(
   const result = await geocodeAddress(originDetails);
   if (!result) return null;
 
-  supabase
-    .from('settings')
-    .upsert([
-      { key: 'delivery_origin_lat', value: String(result.lat) },
-      { key: 'delivery_origin_lng', value: String(result.lng) },
-    ])
-    .then(() => {})
-    .catch(() => {});
+  void Promise.resolve(
+    supabase
+      .from('settings')
+      .upsert([
+        { key: 'delivery_origin_lat', value: String(result.lat) },
+        { key: 'delivery_origin_lng', value: String(result.lng) },
+      ])
+  ).catch(() => {});
 
   return result;
 }
