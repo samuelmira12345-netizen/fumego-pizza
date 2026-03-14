@@ -111,7 +111,7 @@ export interface OrderChangeHistory {
 // ── Catálogo ──────────────────────────────────────────────────────────────────
 
 export interface Product {
-  id: number | string;
+  id: number;
   slug: string;
   name: string;
   description: string;
@@ -128,7 +128,7 @@ export interface Product {
 }
 
 export interface Drink {
-  id: number | string;
+  id: number;
   name: string;
   price: number | string;
   size: string;
