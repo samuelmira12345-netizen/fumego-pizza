@@ -245,7 +245,7 @@ export async function handleUpdateOrder(supabase: SupabaseClient, data: Record<s
             .eq('product_id', oi.product_id);
 
           for (const ri of (recipe || [])) {
-            const ing = ri.ingredients as { id: string; unit: string; current_stock: number; name: string } | null;
+            const ing = ri.ingredients as unknown as { id: string; unit: string; current_stock: number; name: string } | null;
             if (!ing) continue;
             const needsConv = (ing.unit === 'kg' && ri.recipe_unit === 'g') || (ing.unit === 'L' && ri.recipe_unit === 'ml');
             const toDeduct = (parseFloat(ri.quantity) || 0) * (needsConv ? 0.001 : 1) * (parseInt(oi.quantity) || 1);
