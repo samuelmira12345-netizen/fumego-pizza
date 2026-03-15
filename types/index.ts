@@ -181,7 +181,7 @@ export interface Coupon {
   value: number;
   min_order_value: number | null;
   max_uses: number | null;
-  used_count: number;
+  times_used: number;
   is_active: boolean;
   expires_at: string | null;
   created_at: string;
