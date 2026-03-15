@@ -181,7 +181,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
   // Delivery persons (loaded lazily)
   const [deliveryPersons, setDeliveryPersons] = useState<DeliveryPerson[]>([]);
-  const [deliveryModal, setDeliveryModal] = useState({ open: false, orderId: null, deliveryPersonId: '' });
+  const [deliveryModal, setDeliveryModal] = useState<{ open: boolean; orderId: string | null; deliveryPersonId: string }>({ open: false, orderId: null, deliveryPersonId: '' });
   const dpLoadedRef = useMemo(() => ({ current: false }), []);
 
   async function ensureDeliveryPersons() {
@@ -639,8 +639,8 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
 
             {o.order_items && o.order_items.length > 0 && (
               <div style={{ background: '#1A1A1A', borderRadius: 8, padding: '8px 10px', margin: '8px 0' }}>
-                {o.order_items.map((item: OrderItem, i: number) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#ccc', marginBottom: i < o.order_items.length - 1 ? 3 : 0 }}>
+                {o.order_items?.map((item: OrderItem, i: number) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#ccc', marginBottom: i < (o.order_items?.length ?? 0) - 1 ? 3 : 0 }}>
                     <span>{item.quantity}x {item.product_name}</span>
                     <span style={{ color: GOLD }}>R$ {Number(item.total_price).toFixed(2).replace('.', ',')}</span>
                   </div>
