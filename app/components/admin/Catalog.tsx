@@ -68,9 +68,13 @@ export default function Catalog({ adminToken }: { adminToken: any }) {
   const [expandedDrinkId, setExpandedDrinkId] = useState<any>(null);
 
   // New ingredient form
-  const [newIng, setNewIng]       = useState({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '0.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
+  const [newIng, setNewIng]       = useState({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '0.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000', density: '' });
   const [addingIng, setAddingIng] = useState(false);
   const [showNewIngModal, setShowNewIngModal] = useState(false);
+
+  // Density popup: shown when a liquid unit (L or ml) is selected
+  const LIQUID_UNITS = ['L', 'ml'];
+  const [densityPrompt, setDensityPrompt] = useState<{ target: 'new' | string; pendingUnit: string; value: string } | null>(null);
 
   // Edit ingredient inline
   const [editingIng, setEditingIng] = useState<any>(null); // ingredient id
@@ -444,17 +448,23 @@ export default function Catalog({ adminToken }: { adminToken: any }) {
         max_stock: parseFloat(newIng.max_stock) || 0,
         purchase_origin: newIng.purchase_origin || '',
         weight_volume: parseFloat(newIng.weight_volume) || 1.0,
+        density: LIQUID_UNITS.includes(newIng.unit) && newIng.density ? parseFloat(newIng.density) || null : null,
       } }) });
       const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
       if (d.ingredient) setIngredients((prev: any[]) => [...prev, d.ingredient].sort((a: any, b: any) => a.name.localeCompare(b.name, 'pt-BR')));
-      setNewIng({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '0.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000' });
+      setNewIng({ name: '', unit: 'unid', cost_per_unit: '', ingredient_type: 'simple', correction_factor: '0.00', min_stock: '', max_stock: '', purchase_origin: '', weight_volume: '1.000', density: '' });
       setShowNewIngModal(false);
     } catch (e) { alert('Erro: ' + (e as Error).message); }
     finally { setAddingIng(false); }
   }
 
   async function handleUpdateIngredient(id: any, field: any, value: any) {
+    // When switching to a liquid unit, ask for density before applying
+    if (field === 'unit' && LIQUID_UNITS.includes(value)) {
+      setDensityPrompt({ target: id, pendingUnit: value, value: '' });
+      return;
+    }
     setIngredients((prev: any[]) => prev.map((i: any) => i.id === id ? { ...i, [field]: value } : i));
   }
 
@@ -641,6 +651,7 @@ export default function Catalog({ adminToken }: { adminToken: any }) {
   }
 
   return (
+    <>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
 
       {/* Tab bar */}
@@ -1202,6 +1213,23 @@ export default function Catalog({ adminToken }: { adminToken: any }) {
                             )}
                           </div>
 
+                          {/* Densidade — visível somente para unidades líquidas */}
+                          {LIQUID_UNITS.includes(ing.unit) && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#E0F2FE', borderRadius: 7, padding: '8px 12px', marginBottom: 14, border: '1px solid #7DD3FC' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#0369A1', whiteSpace: 'nowrap' }}>💧 Densidade (g/ml)</span>
+                              <input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                placeholder="ex: 1.00"
+                                value={ing.density ?? ''}
+                                onChange={e => handleUpdateIngredient(ing.id, 'density', e.target.value)}
+                                style={{ width: 90, padding: '5px 8px', borderRadius: 5, border: '1px solid #7DD3FC', fontSize: 12, outline: 'none', background: '#fff', color: C.text }}
+                              />
+                              <span style={{ fontSize: 10, color: '#0369A1' }}>Água = 1,00 · Óleo ≈ 0,92 · Leite ≈ 1,03</span>
+                            </div>
+                          )}
+
                           {/* Seção: Configuração */}
                           <p style={{ fontSize: 10, fontWeight: 700, color: isCompound ? '#7C3AED' : '#0369A1', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Configuração</p>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
@@ -1556,9 +1584,19 @@ export default function Catalog({ adminToken }: { adminToken: any }) {
                   </div>
                   <div>
                     <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Unidade</label>
-                    <select value={newIng.unit} onChange={e => setNewIng(p => ({ ...p, unit: e.target.value }))} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#F9FAFB', color: C.text }}>
+                    <select value={newIng.unit} onChange={e => {
+                      const u = e.target.value;
+                      setNewIng(p => ({ ...p, unit: u, density: LIQUID_UNITS.includes(u) ? p.density : '' }));
+                      if (LIQUID_UNITS.includes(u)) setDensityPrompt({ target: 'new', pendingUnit: u, value: newIng.density });
+                    }} style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid ' + C.border, fontSize: 12, outline: 'none', background: '#F9FAFB', color: C.text }}>
                       {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
+                    {LIQUID_UNITS.includes(newIng.unit) && (
+                      <p style={{ fontSize: 10, color: '#0369A1', marginTop: 3, fontWeight: 600 }}>
+                        Densidade: {newIng.density ? `${newIng.density} g/ml` : <span style={{ color: '#DC2626' }}>não informada</span>}
+                        {' '}<button onClick={() => setDensityPrompt({ target: 'new', pendingUnit: newIng.unit, value: newIng.density })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0369A1', fontSize: 10, textDecoration: 'underline', padding: 0 }}>editar</button>
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 3 }}>Custo por unid. (R$)</label>
@@ -1790,5 +1828,70 @@ export default function Catalog({ adminToken }: { adminToken: any }) {
         </div>
       )}
     </div>
+
+    {/* ── Density popup ──────────────────────────────────────────────────────── */}
+    {densityPrompt !== null && (
+      <div
+        onClick={e => { if (e.target === e.currentTarget) setDensityPrompt(null); }}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      >
+        <div style={{ background: '#fff', borderRadius: 14, padding: '24px 28px', maxWidth: 380, width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.35)' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0369A1', marginBottom: 6 }}>💧 Densidade do líquido</h3>
+          <p style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
+            Informe a densidade em <strong>g/ml</strong> para converter volume ↔ peso nas receitas.<br />
+            Referências comuns: água = 1,00 · leite ≈ 1,03 · óleo vegetal ≈ 0,92 · mel ≈ 1,42
+          </p>
+          <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, display: 'block', marginBottom: 4 }}>Densidade (g/ml) *</label>
+          <input
+            autoFocus
+            type="number"
+            min="0.1"
+            max="20"
+            step="0.01"
+            placeholder="ex: 1.00"
+            value={densityPrompt.value}
+            onChange={e => setDensityPrompt(p => p ? { ...p, value: e.target.value } : p)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const d = parseFloat(densityPrompt.value);
+                if (!d || d <= 0) { alert('Informe uma densidade válida (> 0)'); return; }
+                if (densityPrompt.target === 'new') {
+                  setNewIng(p => ({ ...p, unit: densityPrompt.pendingUnit, density: densityPrompt.value }));
+                } else {
+                  setIngredients((prev: any[]) => prev.map((i: any) => i.id === densityPrompt.target ? { ...i, unit: densityPrompt.pendingUnit, density: d } : i));
+                }
+                setDensityPrompt(null);
+              }
+              if (e.key === 'Escape') setDensityPrompt(null);
+            }}
+            style={{ width: '100%', padding: '9px 12px', borderRadius: 7, border: '1.5px solid #7DD3FC', fontSize: 14, outline: 'none', boxSizing: 'border-box', color: C.text, marginBottom: 16 }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => {
+                const d = parseFloat(densityPrompt.value);
+                if (!d || d <= 0) { alert('Informe uma densidade válida (> 0)'); return; }
+                if (densityPrompt.target === 'new') {
+                  setNewIng(p => ({ ...p, unit: densityPrompt.pendingUnit, density: densityPrompt.value }));
+                } else {
+                  setIngredients((prev: any[]) => prev.map((i: any) => i.id === densityPrompt.target ? { ...i, unit: densityPrompt.pendingUnit, density: d } : i));
+                }
+                setDensityPrompt(null);
+              }}
+              style={{ flex: 1, padding: '9px 0', background: '#0369A1', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+            >
+              Confirmar
+            </button>
+            <button
+              onClick={() => setDensityPrompt(null)}
+              style={{ padding: '9px 16px', border: '1px solid ' + C.border, borderRadius: 7, background: '#fff', color: C.muted, fontSize: 13, cursor: 'pointer' }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

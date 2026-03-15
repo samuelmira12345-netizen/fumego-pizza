@@ -11,16 +11,32 @@ const UNITS_COMPOUND = ['unid', 'kg', 'g', 'L', 'ml', 'cx', 'pct', 'dz', 'ft', '
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Calcula automaticamente o rendimento de uma receita somando as quantidades dos insumos. */
+/**
+ * Calcula automaticamente o rendimento de uma receita somando as quantidades
+ * dos insumos. Quando o insumo é líquido (L ou ml) e tem densidade cadastrada
+ * (g/ml) e a unidade de saída é peso (kg ou g), converte volume → peso.
+ */
 function autoCalcYield(enrichedItems: any, unit: any) {
   const toGrams = { kg: 1000, g: 1 };
   const toMl    = { L: 1000, ml: 1 };
+  const yieldIsWeight = unit === 'kg' || unit === 'g';
   let totalG = 0, totalMl = 0, totalCount = 0;
   enrichedItems.forEach((item: any) => {
     const q = parseFloat(item.quantity) || 0;
-    if ((toGrams as any)[item.unit] !== undefined)  totalG     += q * (toGrams as any)[item.unit];
-    else if ((toMl as any)[item.unit] !== undefined) totalMl   += q * (toMl as any)[item.unit];
-    else                                    totalCount += q;
+    if ((toGrams as any)[item.unit] !== undefined) {
+      totalG += q * (toGrams as any)[item.unit];
+    } else if ((toMl as any)[item.unit] !== undefined) {
+      const mlAmt  = q * (toMl as any)[item.unit];
+      const density = parseFloat(item.density) || 0; // g/ml
+      if (yieldIsWeight && density > 0) {
+        // Converte volume → peso: quantidade_ml × densidade_g_ml = gramas
+        totalG += mlAmt * density;
+      } else {
+        totalMl += mlAmt;
+      }
+    } else {
+      totalCount += q;
+    }
   });
   if (unit === 'kg')  return totalG   > 0 ? +(totalG   / 1000).toFixed(3) : null;
   if (unit === 'g')   return totalG   > 0 ? +totalG.toFixed(0)            : null;
@@ -52,7 +68,7 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
     const sub = ingredients.find((g: any) => g.id === i.ingredient_id);
     const rawCost = parseFloat(sub?.cost_per_unit) || 0;
     const cf = sub?.correction_factor;
-    return { ...i, name: sub?.name, unit: sub?.unit, cost_per_unit: costWithFC(rawCost, cf), raw_cost: rawCost, correction_factor: cf };
+    return { ...i, name: sub?.name, unit: sub?.unit, density: sub?.density ?? null, cost_per_unit: costWithFC(rawCost, cf), raw_cost: rawCost, correction_factor: cf };
   });
   const totalCost   = enriched.reduce((s: any, i: any) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
   const yieldNum    = autoCalcYield(enriched, yieldUnit);
@@ -163,19 +179,36 @@ function RecipeItemsEditor({ recipe, compound, ingredients, adminToken, onSaved,
       {totalCost > 0 && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <div style={{ background: '#EDE9FE', borderRadius: 6, padding: '8px 12px', flex: 1 }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.3 }}>Custo Total com Fator de Correção</p>
+            <p style={{ fontSize: 10, fontWeight: 700, color: '#7C3AED', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.3 }}>Custo Total</p>
             <p style={{ fontSize: 14, fontWeight: 800, color: '#6D28D9' }}>{fmtBRL(totalCost)}</p>
-            <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>FC de todos os insumos já incluído</p>
+            <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>FC dos insumos já incluído</p>
           </div>
-          {netYield !== null && (
-            <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '8px 12px', flex: 1 }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: C.success, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.3 }}>Custo por {yieldUnit}</p>
-              <p style={{ fontSize: 14, fontWeight: 800, color: '#047857' }}>{fmtBRL(costPerUnit)}</p>
-              <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>
-                rendimento: {netYield} {yieldUnit}{compoundFC > 0 ? ` líquido (${yieldNum} bruto)` : ''}
-              </p>
-            </div>
-          )}
+          {yieldNum !== null && (() => {
+            const costComFC  = netYield ? totalCost / netYield  : 0; // com FC do composto
+            const costSemFC  = yieldNum ? totalCost / yieldNum  : 0; // sem FC do composto
+            const diferenca  = costComFC - costSemFC;
+            return (
+              <>
+                <div style={{ background: '#ECFDF5', borderRadius: 6, padding: '8px 12px', flex: 1 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: '#059669', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.3 }}>Custo/{yieldUnit} com FC</p>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: '#047857' }}>{fmtBRL(costComFC)}</p>
+                  <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>rendimento líquido: {netYield} {yieldUnit}</p>
+                </div>
+                <div style={{ background: '#FFF7ED', borderRadius: 6, padding: '8px 12px', flex: 1 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: '#C2410C', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.3 }}>Custo/{yieldUnit} sem FC</p>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: '#9A3412' }}>{fmtBRL(costSemFC)}</p>
+                  <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>rendimento bruto: {yieldNum} {yieldUnit}</p>
+                </div>
+                {compoundFC > 0 && (
+                  <div style={{ background: '#FEF2F2', borderRadius: 6, padding: '8px 12px', flex: 1 }}>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: '#DC2626', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.3 }}>Impacto FC {compoundFC}%</p>
+                    <p style={{ fontSize: 14, fontWeight: 800, color: '#B91C1C' }}>+{fmtBRL(diferenca)}</p>
+                    <p style={{ fontSize: 9, color: C.muted, marginTop: 2 }}>por {yieldUnit} devido à perda</p>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 
