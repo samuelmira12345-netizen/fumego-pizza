@@ -237,26 +237,72 @@ export async function handleUpdateOrder(supabase: SupabaseClient, data: Record<s
         const { data: orderItems } = await supabase
           .from('order_items').select('product_id, quantity, product_name').eq('order_id', id);
 
-        for (const oi of (orderItems || [])) {
-          if (!oi.product_id) continue;
-          const { data: recipe } = await supabase
+        const productIds = (orderItems || [])
+          .filter((oi: Record<string, unknown>) => oi.product_id)
+          .map((oi: Record<string, unknown>) => oi.product_id as string);
+
+        if (productIds.length > 0) {
+          // 1 query: todas as receitas de todos os produtos do pedido de uma vez
+          const { data: allRecipeItems } = await supabase
             .from('recipe_items')
-            .select('quantity, recipe_unit, ingredient_id, ingredients(id, unit, current_stock, name)')
-            .eq('product_id', oi.product_id);
+            .select('product_id, quantity, recipe_unit, ingredient_id, ingredients(id, unit, current_stock, name)')
+            .in('product_id', productIds);
 
-          for (const ri of (recipe || [])) {
-            const ing = ri.ingredients as unknown as { id: string; unit: string; current_stock: number; name: string } | null;
-            if (!ing) continue;
-            const needsConv = (ing.unit === 'kg' && ri.recipe_unit === 'g') || (ing.unit === 'L' && ri.recipe_unit === 'ml');
-            const toDeduct = (parseFloat(String(ri.quantity)) || 0) * (needsConv ? 0.001 : 1) * (parseInt(String(oi.quantity), 10) || 1);
-            if (toDeduct <= 0) continue;
+          // Mapa: productId → recipe items
+          const recipeMap: Record<string, Record<string, unknown>[]> = {};
+          for (const ri of (allRecipeItems || []) as Record<string, unknown>[]) {
+            const pid = ri.product_id as string;
+            if (!recipeMap[pid]) recipeMap[pid] = [];
+            recipeMap[pid].push(ri);
+          }
 
-            const newStock = Math.max(0, (parseFloat(String(ing.current_stock)) || 0) - toDeduct);
-            await supabase.from('ingredients').update({ current_stock: newStock }).eq('id', ing.id);
-            await supabase.from('stock_movements').insert({
-              ingredient_id: ing.id, movement_type: 'sale', quantity: toDeduct,
-              reason: 'order', reference_id: id, notes: `Venda: ${oi.product_name || 'produto'}`,
+          // Acumula deduções por ingrediente (merge de múltiplos itens do pedido)
+          const deductions: Record<string, { amount: number; notes: string[] }> = {};
+          for (const oi of (orderItems || []) as Record<string, unknown>[]) {
+            if (!oi.product_id) continue;
+            const recipes = recipeMap[oi.product_id as string] || [];
+            for (const ri of recipes) {
+              const ing = ri.ingredients as { id: string; unit: string; current_stock: number; name: string } | null;
+              if (!ing) continue;
+              const needsConv = (ing.unit === 'kg' && ri.recipe_unit === 'g') || (ing.unit === 'L' && ri.recipe_unit === 'ml');
+              const toDeduct = (parseFloat(String(ri.quantity)) || 0) * (needsConv ? 0.001 : 1) * (parseInt(String(oi.quantity), 10) || 1);
+              if (toDeduct <= 0) continue;
+              if (!deductions[ing.id]) deductions[ing.id] = { amount: 0, notes: [] };
+              deductions[ing.id].amount += toDeduct;
+              deductions[ing.id].notes.push(`Venda: ${(oi.product_name as string) || 'produto'}`);
+            }
+          }
+
+          const ingredientIds = Object.keys(deductions);
+          if (ingredientIds.length > 0) {
+            // 1 query: busca estoque atual de todos os ingredientes de uma vez
+            const { data: ingredients } = await supabase
+              .from('ingredients').select('id, current_stock').in('id', ingredientIds);
+
+            const stockMap: Record<string, number> = {};
+            for (const ing of (ingredients || []) as Record<string, unknown>[]) {
+              stockMap[ing.id as string] = parseFloat(String(ing.current_stock)) || 0;
+            }
+
+            // Updates em paralelo + 1 insert em batch
+            const updatePromises = ingredientIds.map(ingId => {
+              const newStock = Math.max(0, (stockMap[ingId] || 0) - deductions[ingId].amount);
+              return supabase.from('ingredients').update({ current_stock: newStock }).eq('id', ingId);
             });
+
+            const movementsToInsert = ingredientIds.map(ingId => ({
+              ingredient_id: ingId,
+              movement_type: 'sale',
+              quantity:      deductions[ingId].amount,
+              reason:        'order',
+              reference_id:  id,
+              notes:         deductions[ingId].notes.join(', ').slice(0, 500),
+            }));
+
+            await Promise.all([
+              ...updatePromises,
+              supabase.from('stock_movements').insert(movementsToInsert),
+            ]);
           }
         }
       }
