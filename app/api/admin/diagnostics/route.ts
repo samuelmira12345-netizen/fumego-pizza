@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { getSupabaseAdmin } from '../../../lib/supabase';
+import { getSupabaseAdmin } from '../../../../lib/supabase';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
