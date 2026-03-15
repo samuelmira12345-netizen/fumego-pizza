@@ -117,6 +117,17 @@ async function checkRateLimitSupabase(
 }
 
 // ── 3. In-memory fallback (single-instance, último recurso) ──────────────────
+//
+// ⚠️  AVISO IMPORTANTE PARA PRODUÇÃO:
+//   O in-memory store NÃO é distribuído. Em deploys Vercel (multi-instância) cada
+//   serverless function tem seu próprio mapa em memória — instâncias diferentes não
+//   compartilham contadores. Além disso, o mapa é zerado a cada cold start (~minutos
+//   de inatividade). O rate limiting efetivo em produção exige Upstash ou Supabase.
+//
+//   Prioridade recomendada:
+//     1. Upstash Redis  — configure UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
+//     2. Supabase       — execute o SQL acima para criar rate_limit_log
+//     3. In-memory      — usado apenas em dev local ou como último fallback de emergência
 
 interface MemEntry { count: number; windowStart: number }
 const memStore = new Map<string, MemEntry>();
