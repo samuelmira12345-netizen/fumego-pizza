@@ -4,9 +4,7 @@ import { withSentryConfig } from '@sentry/nextjs';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    // ESLint is run separately via `npm run lint`; skipping here avoids
-    // version-compatibility issues between next build and the local eslint version.
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   images: {
     remotePatterns: [
