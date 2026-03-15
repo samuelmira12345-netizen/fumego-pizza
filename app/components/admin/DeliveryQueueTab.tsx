@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Loader2, Truck, DollarSign,
   Package, X, CheckCircle, AlertCircle, RefreshCw, BarChart2, GripVertical,
 } from 'lucide-react';
+import { createAdminClient } from '../../../lib/api-client';
 
 // ── Theme (light mode) ────────────────────────────────────────────────────────
 const C = {
@@ -33,16 +34,6 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' });
 }
 
-async function adminPost(action: string, data: any, token: string) {
-  const res = await fetch('/api/admin', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-    body: JSON.stringify({ action, data }),
-  });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.error || 'Erro desconhecido');
-  return json;
-}
 
 const STATUS_LABEL: Record<string, string> = {
   ready:      '📦 Aguardando',
@@ -216,6 +207,7 @@ function QueueRow({ order, index, isDragging, isDragOver, onDragStart, onDragOve
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function DeliveryQueueTab({ adminToken }: { adminToken: string }) {
+  const api = useMemo(() => createAdminClient(adminToken), [adminToken]);
   const [persons, setPersons]               = useState<any[]>([]);
   const [loadingPersons, setLoadingPersons] = useState(true);
   const [selectedId, setSelectedId]         = useState<string | null>(null);
@@ -235,20 +227,20 @@ export default function DeliveryQueueTab({ adminToken }: { adminToken: string })
   // Load delivery persons
   useEffect(() => {
     setLoadingPersons(true);
-    adminPost('get_delivery_persons', {}, adminToken)
+    api.delivery.getPersons()
       .then(j => setPersons((j.persons || []).filter((p: any) => p.is_active)))
       .catch(() => {})
       .finally(() => setLoadingPersons(false));
-  }, [adminToken]);
+  }, [api]);
 
   const loadQueue = useCallback(async (personId: string) => {
     setLoadingQueue(true);
     try {
-      const j = await adminPost('get_delivery_queue', { person_id: personId }, adminToken);
+      const j = await api.delivery.getQueue({ person_id: personId });
       setQueue(j.orders || []);
     } catch (e) { console.error(e); }
     finally { setLoadingQueue(false); }
-  }, [adminToken]);
+  }, [api]);
 
   function selectPerson(id: string) {
     setSelectedId(id);
@@ -260,7 +252,7 @@ export default function DeliveryQueueTab({ adminToken }: { adminToken: string })
     setNightModal({ person, orders: [], totalEarned: 0 });
     setLoadingModal(true);
     try {
-      const j = await adminPost('get_delivery_history', { person_id: person.id, from: todaySP, to: todaySP }, adminToken);
+      const j = await api.delivery.getHistory({ person_id: person.id, from: todaySP, to: todaySP });
       setNightModal({ person, orders: j.orders || [], totalEarned: j.totalEarned || 0 });
     } catch (e) { console.error(e); }
     finally { setLoadingModal(false); }
@@ -297,7 +289,7 @@ export default function DeliveryQueueTab({ adminToken }: { adminToken: string })
 
     setReordering(true);
     try {
-      await adminPost('set_delivery_priority', { ordered_ids: next.map(o => o.id) }, adminToken);
+      await api.delivery.setPriority({ ordered_ids: next.map(o => o.id) });
     } catch (e) { console.error(e); }
     finally { setReordering(false); }
   }
