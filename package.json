@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "lint": "eslint app lib",
     "lint:fix": "eslint app lib --fix",
     "format": "prettier --write .",
