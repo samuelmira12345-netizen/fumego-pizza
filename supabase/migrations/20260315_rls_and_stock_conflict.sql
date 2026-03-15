@@ -7,6 +7,8 @@
 --     ocorre via service_role (backend Next.js), que bypassa RLS por design.
 --   • Adiciona orders.stock_conflict para sinalizar pedidos onde o lock otimista
 --     do fallback de estoque falhou (possível overselling silencioso).
+--   • Tabelas opcionais (criadas por outras migrações) são envolvidas em blocos
+--     condicionais para garantir idempotência independente da ordem de execução.
 --
 -- Execução: Supabase SQL Editor ou supabase db push.
 -- =========================================================================
@@ -90,7 +92,6 @@ CREATE POLICY "service role only" ON admin_users USING (false) WITH CHECK (false
 
 
 -- ─── 10. cashback_wallet (se existir) ───────────────────────────────────────
--- A tabela cashback_wallet pode não existir (o sistema usa cashback_transactions).
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cashback_wallet' AND table_schema = 'public') THEN
@@ -102,64 +103,124 @@ END;
 $$;
 
 
--- ─── 11. cashback_transactions ──────────────────────────────────────────────
-ALTER TABLE cashback_transactions ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "service role only" ON cashback_transactions;
-CREATE POLICY "service role only" ON cashback_transactions USING (false) WITH CHECK (false);
+-- ─── 11. cashback_transactions (se existir) ─────────────────────────────────
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cashback_transactions' AND table_schema = 'public') THEN
+    EXECUTE 'ALTER TABLE cashback_transactions ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "service role only" ON cashback_transactions';
+    EXECUTE 'CREATE POLICY "service role only" ON cashback_transactions USING (false) WITH CHECK (false)';
+  END IF;
+END;
+$$;
 
 
--- ─── 12. delivery_persons ───────────────────────────────────────────────────
-ALTER TABLE delivery_persons ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "service role only" ON delivery_persons;
-CREATE POLICY "service role only" ON delivery_persons USING (false) WITH CHECK (false);
+-- ─── 12. delivery_persons (se existir) ──────────────────────────────────────
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'delivery_persons' AND table_schema = 'public') THEN
+    EXECUTE 'ALTER TABLE delivery_persons ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "service role only" ON delivery_persons';
+    EXECUTE 'CREATE POLICY "service role only" ON delivery_persons USING (false) WITH CHECK (false)';
+  END IF;
+END;
+$$;
 
 
--- ─── 13. ingredients ────────────────────────────────────────────────────────
-ALTER TABLE ingredients ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "service role only" ON ingredients;
-CREATE POLICY "service role only" ON ingredients USING (false) WITH CHECK (false);
+-- ─── 13. ingredients (se existir) ───────────────────────────────────────────
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ingredients' AND table_schema = 'public') THEN
+    EXECUTE 'ALTER TABLE ingredients ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "service role only" ON ingredients';
+    EXECUTE 'CREATE POLICY "service role only" ON ingredients USING (false) WITH CHECK (false)';
+  END IF;
+END;
+$$;
 
 
--- ─── 14. recipes ────────────────────────────────────────────────────────────
-ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "service role only" ON recipes;
-CREATE POLICY "service role only" ON recipes USING (false) WITH CHECK (false);
+-- ─── 14. recipes (se existir) ───────────────────────────────────────────────
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'recipes' AND table_schema = 'public') THEN
+    EXECUTE 'ALTER TABLE recipes ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "service role only" ON recipes';
+    EXECUTE 'CREATE POLICY "service role only" ON recipes USING (false) WITH CHECK (false)';
+  END IF;
+END;
+$$;
 
 
--- ─── 15. compound_recipes ───────────────────────────────────────────────────
-ALTER TABLE compound_recipes ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "service role only" ON compound_recipes;
-CREATE POLICY "service role only" ON compound_recipes USING (false) WITH CHECK (false);
+-- ─── 15. compound_recipes (se existir) ──────────────────────────────────────
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'compound_recipes' AND table_schema = 'public') THEN
+    EXECUTE 'ALTER TABLE compound_recipes ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "service role only" ON compound_recipes';
+    EXECUTE 'CREATE POLICY "service role only" ON compound_recipes USING (false) WITH CHECK (false)';
+  END IF;
+END;
+$$;
 
 
--- ─── 16. financial_costs ────────────────────────────────────────────────────
-ALTER TABLE financial_costs ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "service role only" ON financial_costs;
-CREATE POLICY "service role only" ON financial_costs USING (false) WITH CHECK (false);
+-- ─── 16. financial_costs (se existir) ───────────────────────────────────────
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'financial_costs' AND table_schema = 'public') THEN
+    EXECUTE 'ALTER TABLE financial_costs ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "service role only" ON financial_costs';
+    EXECUTE 'CREATE POLICY "service role only" ON financial_costs USING (false) WITH CHECK (false)';
+  END IF;
+END;
+$$;
 
 
--- ─── 17. cash_sessions ──────────────────────────────────────────────────────
-ALTER TABLE cash_sessions ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "service role only" ON cash_sessions;
-CREATE POLICY "service role only" ON cash_sessions USING (false) WITH CHECK (false);
+-- ─── 17. cash_sessions (se existir) ─────────────────────────────────────────
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cash_sessions' AND table_schema = 'public') THEN
+    EXECUTE 'ALTER TABLE cash_sessions ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "service role only" ON cash_sessions';
+    EXECUTE 'CREATE POLICY "service role only" ON cash_sessions USING (false) WITH CHECK (false)';
+  END IF;
+END;
+$$;
 
 
--- ─── 18. cash_entries ───────────────────────────────────────────────────────
-ALTER TABLE cash_entries ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "service role only" ON cash_entries;
-CREATE POLICY "service role only" ON cash_entries USING (false) WITH CHECK (false);
+-- ─── 18. cash_entries (se existir) ──────────────────────────────────────────
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cash_entries' AND table_schema = 'public') THEN
+    EXECUTE 'ALTER TABLE cash_entries ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "service role only" ON cash_entries';
+    EXECUTE 'CREATE POLICY "service role only" ON cash_entries USING (false) WITH CHECK (false)';
+  END IF;
+END;
+$$;
 
 
--- ─── 19. order_change_history ───────────────────────────────────────────────
-ALTER TABLE order_change_history ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "service role only" ON order_change_history;
-CREATE POLICY "service role only" ON order_change_history USING (false) WITH CHECK (false);
+-- ─── 19. order_change_history (se existir) ──────────────────────────────────
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'order_change_history' AND table_schema = 'public') THEN
+    EXECUTE 'ALTER TABLE order_change_history ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "service role only" ON order_change_history';
+    EXECUTE 'CREATE POLICY "service role only" ON order_change_history USING (false) WITH CHECK (false)';
+  END IF;
+END;
+$$;
 
 
--- ─── 20. cardapioweb_orders ─────────────────────────────────────────────────
-ALTER TABLE cardapioweb_orders ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "service role only" ON cardapioweb_orders;
-CREATE POLICY "service role only" ON cardapioweb_orders USING (false) WITH CHECK (false);
+-- ─── 20. cardapioweb_orders (se existir) ────────────────────────────────────
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cardapioweb_orders' AND table_schema = 'public') THEN
+    EXECUTE 'ALTER TABLE cardapioweb_orders ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "service role only" ON cardapioweb_orders';
+    EXECUTE 'CREATE POLICY "service role only" ON cardapioweb_orders USING (false) WITH CHECK (false)';
+  END IF;
+END;
+$$;
 
 
 -- ─── 21. rate_limits (se existir) ───────────────────────────────────────────
