@@ -58,6 +58,7 @@ export interface Order {
   discount: number;
   total: number;
   cashback_used: number;
+  cashback_earned: number;
   coupon_code: string | null;
 
   // Pagamento
@@ -81,6 +82,11 @@ export interface Order {
   ready_at: string | null;
   delivering_at: string | null;
   delivered_at: string | null;
+
+  // Campos internos / rastreabilidade
+  customer_cpf: string | null;
+  idempotency_key: string | null;
+  stock_conflict: boolean;
 
   // Relacionamentos
   user_id: string | null;
