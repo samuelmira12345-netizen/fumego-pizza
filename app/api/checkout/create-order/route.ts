@@ -163,6 +163,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       delete securePayload.scheduled_for;
     }
 
+    // Persiste o prazo exibido ao cliente no checkout para comparação histórica
+    const deliveryTimeValue = (orderPayload as Record<string, unknown>).delivery_time as string | undefined;
+    if (deliveryTimeValue) {
+      securePayload.promised_delivery_time = deliveryTimeValue;
+    }
+
     // Inserção atômica: pedido + itens numa única transação PostgreSQL.
     // Se a inserção dos itens falhar, o pedido é revertido automaticamente —
     // nenhum pedido "fantasma" (sem itens) fica no banco.
