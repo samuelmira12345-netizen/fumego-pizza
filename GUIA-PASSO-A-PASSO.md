@@ -7,18 +7,18 @@
 ### Cron de retry CardápioWeb (alta prioridade)
 
 O arquivo `vercel.json` configura o cron `/api/cron/dispatch-scheduled` com
-schedule `0 * * * *` (1x por hora) porque o **plano Hobby/Free da Vercel só
-permite 1 execução por dia** — qualquer schedule mais frequente resulta em
-erro no deploy.
+schedule `0 6 * * *` (1x por dia às 06h UTC) porque o **plano Hobby/Free da
+Vercel só permite 1 execução por dia** — qualquer schedule mais frequente
+resulta em erro no deploy.
 
 **Quando migrar para o plano Pro:**
 1. Abrir `vercel.json`
-2. Alterar `"schedule": "0 * * * *"` para `"schedule": "*/5 * * * *"`
+2. Alterar `"schedule": "0 6 * * *"` para `"schedule": "*/5 * * * *"`
 3. Commit + deploy
 
 Com 5 em 5 minutos, pedidos agendados e falhas de envio ao CardápioWeb serão
-retentados rapidamente. Com 1x/hora, o operador pode esperar até 60 minutos
-para ver o pedido no painel do CW.
+retentados rapidamente. Com 1x por dia, o retry automático é apenas uma rede
+de segurança noturna — acompanhe manualmente o painel até o upgrade.
 
 ---
 
