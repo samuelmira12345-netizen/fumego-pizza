@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Playfair_Display, Cinzel } from 'next/font/google';
 import Script from 'next/script';
+import { headers } from 'next/headers';
 import './globals.css';
 import ZoomBlocker from './components/ZoomBlocker';
 
@@ -28,7 +29,10 @@ export const metadata: Metadata = {
   description: 'As melhores pizzas artesanais',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Lê o nonce injetado pelo middleware (x-nonce) para aplicar nos <Script> inline.
+  // Isso elimina 'unsafe-inline' do script-src do CSP.
+  const nonce = headers().get('x-nonce') ?? undefined;
   return (
     <html
       lang="pt-BR"
@@ -61,8 +65,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-M77EHCL2XP"
           strategy="afterInteractive"
+          nonce={nonce}
         />
-        <Script id="ga4-init" strategy="afterInteractive">{`
+        <Script id="ga4-init" strategy="afterInteractive" nonce={nonce}>{`
           window.dataLayer = window.dataLayer || [];
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
