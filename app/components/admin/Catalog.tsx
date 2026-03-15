@@ -8,60 +8,12 @@ import {
   BarChart2, TrendingUp, Layers, ArrowDownUp, Warehouse, Star,
 } from 'lucide-react';
 import { parseCorrectionLoss, costWithFC } from '@/lib/correction-factor';
-
-// ── Constantes ────────────────────────────────────────────────────────────────
-
-const PROD_CATEGORIES = [
-  { key: 'pizza',   label: 'Pizza' },
-  { key: 'calzone', label: 'Calzone' },
-  { key: 'combo',   label: 'Combo' },
-  { key: 'outros',  label: 'Outros' },
-];
-
-const FILTER_TABS = [
-  { key: 'all',     label: 'Todos' },
-  { key: 'pizza',   label: 'Pizza' },
-  { key: 'calzone', label: 'Calzone' },
-  { key: 'combo',   label: 'Combo' },
-  { key: 'outros',  label: 'Outros' },
-  { key: 'bebidas', label: 'Bebidas' },
-  { key: 'upsell',  label: 'Upsell' },
-];
-
-const UNITS = ['unid', 'kg', 'g', 'L', 'ml', 'cx', 'pct', 'dz', 'ft', 'Bag', 'UN', 'KG'];
-
-const C = {
-  bg: '#F4F5F7', card: '#fff', border: '#E5E7EB',
-  text: '#111827', muted: '#6B7280', light: '#9CA3AF',
-  gold: '#F2A800', success: '#10B981', danger: '#EF4444',
-};
-
-function fmtBRL(v: any) {
-  return (parseFloat(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-function formatCorrectionPercent(rawValue: any) {
-  const loss = parseCorrectionLoss(rawValue);
-  return (loss * 100).toFixed(2);
-}
+import {
+  PROD_CATEGORIES, FILTER_TABS, UNITS, UNIT_SUB, C,
+  fmtBRL, formatCorrectionPercent, toBaseQty, getUnitOptions,
+} from './catalog/catalogUtils';
 
 // ── Ficha Técnica Panel ───────────────────────────────────────────────────────
-
-// Unit sub-conversion map: base unit → { sub unit, conversion factor to base }
-const UNIT_SUB = { kg: { sub: 'g', factor: 0.001 }, L: { sub: 'ml', factor: 0.001 } };
-
-function toBaseQty(qty: any, recipeUnit: any, baseUnit: any) {
-  if (!recipeUnit || recipeUnit === baseUnit) return parseFloat(qty) || 0;
-  const conv = (UNIT_SUB as any)[baseUnit];
-  if (conv && conv.sub === recipeUnit) return (parseFloat(qty) || 0) * conv.factor;
-  return parseFloat(qty) || 0;
-}
-
-function getUnitOptions(baseUnit: any) {
-  const conv = (UNIT_SUB as any)[baseUnit];
-  if (conv) return [baseUnit, conv.sub];
-  return [baseUnit];
-}
 
 function FichaTecnica({ productId, productPrice, ingredients, recipe, onSave }: { productId: any, productPrice: any, ingredients: any, recipe: any, onSave: any }) {
   const [items, setItems] = useState<any[]>([]);
