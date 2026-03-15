@@ -2,9 +2,11 @@
  * lib/logger.ts — Logging estruturado para APIs Next.js.
  *
  * Emite JSON (em produção) ou texto legível (em desenvolvimento).
- * Integração com Sentry: defina NEXT_PUBLIC_SENTRY_DSN nas variáveis de
- * ambiente e instale @sentry/nextjs (`npm i @sentry/nextjs`).
+ * Integração com Sentry: defina NEXT_PUBLIC_SENTRY_DSN nas variáveis de ambiente.
+ * O pacote @sentry/nextjs está em dependencies e sempre disponível.
  */
+
+import * as Sentry from '@sentry/nextjs';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
@@ -19,16 +21,10 @@ function formatLog(level: LogLevel, message: string, meta: LogMeta = {}): string
   return `[${level.toUpperCase()}] ${message}${metaStr}`;
 }
 
-/** Captura exceção no Sentry se disponível (falha silenciosa se não instalado). */
-async function captureException(err: Error): Promise<void> {
+/** Captura exceção no Sentry quando NEXT_PUBLIC_SENTRY_DSN estiver configurada. */
+function captureException(err: Error): void {
   if (!IS_PROD || !process.env.NEXT_PUBLIC_SENTRY_DSN) return;
-  try {
-    // @ts-ignore — @sentry/nextjs é opcional; instale o pacote e defina NEXT_PUBLIC_SENTRY_DSN para ativar
-    const Sentry = await import('@sentry/nextjs');
-    Sentry.captureException(err);
-  } catch {
-    // @sentry/nextjs não instalado — ignorar silenciosamente
-  }
+  Sentry.captureException(err);
 }
 
 export const logger = {
@@ -43,8 +39,6 @@ export const logger = {
       ? { error: errorOrMeta.message, stack: IS_PROD ? undefined : errorOrMeta.stack }
       : errorOrMeta;
     console.error(formatLog('error', message, meta));
-    if (errorOrMeta instanceof Error) {
-      captureException(errorOrMeta);
-    }
+    if (errorOrMeta instanceof Error) captureException(errorOrMeta);
   },
 };
