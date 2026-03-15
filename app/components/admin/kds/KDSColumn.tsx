@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import OrderCard from './OrderCard';
 
 const DROP_TARGET_STATUS: Record<string, string> = {
@@ -12,15 +13,79 @@ const DROP_TARGET_STATUS: Record<string, string> = {
   finalizados: 'delivered',
 };
 
-export default function KDSColumn({ col, orders, onCardClick, newIds, readyIds, onDragStart, onDrop, deliveryPersonsById }: { col: any, orders: any, onCardClick: any, newIds: any, readyIds: any, onDragStart: any, onDrop: any, deliveryPersonsById: any }) {
+interface Props {
+  col: any;
+  orders: any;
+  onCardClick: any;
+  newIds: any;
+  readyIds: any;
+  onDragStart: any;
+  onDrop: any;
+  deliveryPersonsById: any;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+}
+
+export default function KDSColumn({
+  col, orders, onCardClick, newIds, readyIds, onDragStart, onDrop,
+  deliveryPersonsById, collapsed = false, onToggleCollapse,
+}: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
+
   const cards = orders
     .filter((o: any) => col.statuses.includes(o.status))
     .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   const Icon = col.cfg.icon;
-  const isFinalized = col.id === 'finalizados';
-  const visible = isFinalized ? cards.slice(-8) : cards;
+
+  // ── Collapsed: render thin vertical strip ──────────────────────────────────
+  if (collapsed) {
+    return (
+      <div
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          width: 44, minWidth: 44, flexShrink: 0,
+          background: col.cfg.headerBg,
+          borderRadius: 6,
+          cursor: 'pointer',
+          overflow: 'hidden',
+          transition: 'width 0.2s ease, min-width 0.2s ease',
+          position: 'relative',
+        }}
+        onClick={onToggleCollapse}
+        title={`Expandir coluna: ${col.cfg.label}`}
+      >
+        {/* Count badge */}
+        <div style={{
+          background: 'rgba(255,255,255,0.2)', color: '#fff',
+          fontSize: 12, fontWeight: 900, width: 26, height: 26, borderRadius: 4,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '10px auto 6px',
+        }}>
+          {cards.length}
+        </div>
+
+        {/* Rotated label */}
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          writingMode: 'vertical-rl', textOrientation: 'mixed',
+          transform: 'rotate(180deg)',
+          fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: 1,
+          padding: '6px 0',
+          userSelect: 'none',
+        }}>
+          {col.cfg.label}
+        </div>
+
+        {/* Expand icon */}
+        <div style={{ padding: '8px 0', display: 'flex', justifyContent: 'center' }}>
+          <ChevronRight size={14} color="rgba(255,255,255,0.7)" />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Expanded: full column ───────────────────────────────────────────────────
   return (
     <div
       onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setIsDragOver(true); }}
@@ -32,7 +97,7 @@ export default function KDSColumn({ col, orders, onCardClick, newIds, readyIds, 
         background: isDragOver ? col.cfg.bg : '#F8FAFC',
         borderRadius: 6,
         border: `${isDragOver ? 2 : 1}px solid ${isDragOver ? col.cfg.headerBg : col.cfg.border}`,
-        maxHeight: '100%',
+        height: '100%',
         overflow: 'hidden',
         transition: 'border 0.12s, background 0.12s',
       }}
@@ -47,12 +112,28 @@ export default function KDSColumn({ col, orders, onCardClick, newIds, readyIds, 
           <Icon size={14} color="#fff" />
           <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: 0.8 }}>{col.cfg.label}</span>
         </div>
-        <div style={{
-          background: 'rgba(255,255,255,0.22)', color: '#fff',
-          fontSize: 13, fontWeight: 900, minWidth: 24, height: 24, borderRadius: 3,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px',
-        }}>
-          {cards.length}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <div style={{
+            background: 'rgba(255,255,255,0.22)', color: '#fff',
+            fontSize: 13, fontWeight: 900, minWidth: 24, height: 24, borderRadius: 3,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 5px',
+          }}>
+            {cards.length}
+          </div>
+          {/* Collapse button */}
+          {onToggleCollapse && (
+            <button
+              onClick={e => { e.stopPropagation(); onToggleCollapse(); }}
+              title="Recolher coluna"
+              style={{
+                background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 3,
+                width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', flexShrink: 0,
+              }}
+            >
+              <ChevronLeft size={13} color="rgba(255,255,255,0.85)" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -64,31 +145,30 @@ export default function KDSColumn({ col, orders, onCardClick, newIds, readyIds, 
         </div>
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '9px 9px 12px', display: 'flex', flexDirection: 'column', gap: 7 }}>
-        {visible.length === 0 && !isDragOver ? (
+      {/* Cards — scrollable, all items always visible */}
+      <div style={{
+        flex: 1,
+        overflowY: 'auto',
+        padding: '9px 9px 12px',
+        display: 'flex', flexDirection: 'column', gap: 7,
+      }}>
+        {cards.length === 0 && !isDragOver ? (
           <div style={{ textAlign: 'center', padding: '36px 0', color: col.cfg.color + '70', fontSize: 13 }}>
             <Icon size={26} style={{ margin: '0 auto 9px', display: 'block', opacity: 0.35 }} />
             Nenhum pedido
           </div>
         ) : (
-          <>
-            {isFinalized && cards.length > 8 && (
-              <p style={{ textAlign: 'center', fontSize: 11, color: col.cfg.color, fontWeight: 600, padding: '3px 0' }}>
-                +{cards.length - 8} pedidos anteriores
-              </p>
-            )}
-            {visible.map((o: any) => (
-              <OrderCard
-                key={o.id}
-                order={o}
-                onClick={() => onCardClick(o)}
-                isNew={newIds.has(o.id)}
-                isReady={readyIds ? readyIds.has(o.id) : false}
-                onDragStart={onDragStart}
-                deliveryPersonName={deliveryPersonsById[String(o.delivery_person_id)] || o.delivery_person_name || ''}
-              />
-            ))}
-          </>
+          cards.map((o: any) => (
+            <OrderCard
+              key={o.id}
+              order={o}
+              onClick={() => onCardClick(o)}
+              isNew={newIds.has(o.id)}
+              isReady={readyIds ? readyIds.has(o.id) : false}
+              onDragStart={onDragStart}
+              deliveryPersonName={deliveryPersonsById[String(o.delivery_person_id)] || o.delivery_person_name || ''}
+            />
+          ))
         )}
       </div>
     </div>
