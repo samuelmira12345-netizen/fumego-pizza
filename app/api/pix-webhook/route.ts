@@ -94,7 +94,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 .catch((e: Error) => logger.error('[Cashback] Erro ao gerar cashback pós-pagamento', { error: e.message }));
             }
           }
-        } else if (['rejected', 'cancelled', 'expired'].includes(mpData.status)) {
+        } else if (['rejected', 'cancelled', 'expired'].includes(mpData.status as string)) {
           const { error: cancelErr } = await supabase
             .from('orders')
             .update({ payment_status: 'cancelled', status: 'cancelled' })
