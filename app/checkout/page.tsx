@@ -8,6 +8,7 @@ import {
   Landmark, CreditCard, Banknote, Clock, Truck, CalendarClock,
 } from 'lucide-react';
 import { useScrollToStep } from '../../hooks/useScrollToStep';
+import { clientError } from '../../lib/client-logger';
 
 const GOLD   = '#F2A800';
 const BG     = '#080600';
@@ -259,7 +260,7 @@ export default function CheckoutPage() {
         setForm(prev => ({ ...prev, ...filledFields }));
         viaCepExtra = { ...viaCepExtra, ...filledFields };
       }
-    } catch (e) { console.error('Erro CEP:', e); }
+    } catch (e) { clientError('Erro CEP:', e); }
     finally { setCepLoading(false); }
 
     recalculateDeliveryFee(viaCepExtra);
@@ -499,7 +500,7 @@ export default function CheckoutPage() {
       }
 
     } catch (e) {
-      console.error('Erro:', e);
+      clientError('Erro:', e);
       setFormError((e as Error).message || 'Erro ao processar pedido. Verifique os dados e tente novamente.');
       // Libera a guarda de submissão para o usuário poder tentar novamente
       isSubmittingRef.current = false;

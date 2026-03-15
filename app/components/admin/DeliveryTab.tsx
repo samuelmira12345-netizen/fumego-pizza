@@ -10,6 +10,7 @@ import {
   Timer, PackageCheck, AlertCircle, Flame,
 } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
+import { clientError } from '../../../lib/client-logger';
 
 // Leaflet requires browser APIs — load only on client side
 const DeliveryZoneMap = dynamic(() => import('./DeliveryZoneMap'), {
@@ -114,7 +115,7 @@ function PersonsTab({ adminToken }: { adminToken: any }) {
     try {
       const j = await adminPost('get_delivery_persons', {}, adminToken);
       setPersons(j.persons || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
     finally { setLoading(false); }
   }, [adminToken]);
 
@@ -156,7 +157,7 @@ function PersonsTab({ adminToken }: { adminToken: any }) {
     try {
       const j = await adminPost('get_delivery_history', { person_id: personId }, adminToken);
       setHistory(j.orders || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
     finally { setHistLoading(false); }
   }
 
@@ -408,7 +409,7 @@ function ZonesTab({ adminToken }: { adminToken: any }) {
           }
         } catch {}
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
     finally { setLoading(false); }
   }, [adminToken]);
 
@@ -762,7 +763,7 @@ function TrackingTab({ adminToken }: { adminToken: any }) {
       const j = await adminPost('get_driver_locations', {}, adminToken);
       setLocations(j.locations || []);
       setLastUpdate(new Date());
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
     finally { setLoading(false); }
   }, [adminToken]);
 
@@ -904,7 +905,7 @@ function MetricsTab({ adminToken }: { adminToken: any }) {
       setSummary(j.summary || null);
       setRows(j.persons || []);
     } catch (e) {
-      console.error(e);
+      clientError(e);
       alert('Erro ao carregar métricas de entrega');
     } finally {
       setLoading(false);
@@ -1044,7 +1045,7 @@ function AnalysisTab({ adminToken }: { adminToken: any }) {
       }, adminToken);
       setData(j);
     } catch (e) {
-      console.error(e);
+      clientError(e);
       alert('Erro ao carregar análise de entregas');
     } finally {
       setLoading(false);

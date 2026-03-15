@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pizza, GlassWater, MapPin, Clock, Landmark, CreditCard, Banknote, ShoppingBag, ClipboardList, Search, X, ChevronDown } from 'lucide-react';
 import type { Order, OrderItem } from '../../types';
+import { clientError } from '../../lib/client-logger';
 
 const GOLD   = '#F2A800';
 const BG     = '#080600';
@@ -176,7 +177,7 @@ export default function OrdersPage() {
       });
       const d = await res.json();
       if (res.ok && d.orders) setOrders(d.orders);
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
     finally { setLoading(false); }
   }
 

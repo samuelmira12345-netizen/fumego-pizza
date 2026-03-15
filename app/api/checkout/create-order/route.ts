@@ -142,17 +142,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     if (stockErr) {
+      // Fallback best-effort com lock otimista: o UPDATE inclui a quantidade original
+      // no WHERE, então se outro request já decrementou antes de nós, o update afeta
+      // 0 linhas e logamos o conflito em vez de criar overselling silencioso.
       try {
         for (const item of items as Record<string, unknown>[]) {
           if (!item.product_id) continue;
           const need = (item.quantity as number) || 1;
           const { data: row } = await supabase
             .from('product_stock').select('quantity, enabled').eq('product_id', item.product_id).single();
-          if (!(row as Record<string, unknown> | null)?.enabled) continue;
-          const newQty = Math.max(0, (row as Record<string, unknown>).quantity as number - need);
-          await supabase.from('product_stock')
+          const r = row as Record<string, unknown> | null;
+          if (!r?.enabled) continue;
+          const originalQty = r.quantity as number;
+          const newQty = Math.max(0, originalQty - need);
+          // Lock otimista: só atualiza se a quantidade não mudou desde a leitura
+          const { data: updated } = await supabase.from('product_stock')
             .update({ quantity: newQty, updated_at: new Date().toISOString() })
-            .eq('product_id', item.product_id);
+            .eq('product_id', item.product_id)
+            .eq('quantity', originalQty)
+            .select('product_id');
+          if (!updated || (updated as unknown[]).length === 0) {
+            logger.warn('[Stock] Fallback: conflito de concorrência detectado, estoque não decrementado', { productId: item.product_id });
+            continue;
+          }
           if (newQty === 0) {
             await supabase.from('products').update({ is_active: false }).eq('id', item.product_id);
           }
@@ -167,11 +179,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           const need = (item.quantity as number) || 1;
           const { data: row } = await supabase
             .from('drink_stock').select('quantity, enabled').eq('drink_id', item.drink_id).single();
-          if (!(row as Record<string, unknown> | null)?.enabled) continue;
-          const newQty = Math.max(0, (row as Record<string, unknown>).quantity as number - need);
-          await supabase.from('drink_stock')
+          const r = row as Record<string, unknown> | null;
+          if (!r?.enabled) continue;
+          const originalQty = r.quantity as number;
+          const newQty = Math.max(0, originalQty - need);
+          // Lock otimista: só atualiza se a quantidade não mudou desde a leitura
+          const { data: updated } = await supabase.from('drink_stock')
             .update({ quantity: newQty, updated_at: new Date().toISOString() })
-            .eq('drink_id', item.drink_id);
+            .eq('drink_id', item.drink_id)
+            .eq('quantity', originalQty)
+            .select('drink_id');
+          if (!updated || (updated as unknown[]).length === 0) {
+            logger.warn('[DrinkStock] Fallback: conflito de concorrência detectado, estoque não decrementado', { drinkId: item.drink_id });
+            continue;
+          }
           if (newQty === 0) {
             await supabase.from('drinks').update({ is_active: false }).eq('id', item.drink_id);
           }

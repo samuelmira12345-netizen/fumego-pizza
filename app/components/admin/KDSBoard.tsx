@@ -23,6 +23,7 @@ import OrderCard from './kds/OrderCard';
 import KDSColumn from './kds/KDSColumn';
 import OrderModal, { QuickStat } from './kds/OrderModal';
 import KitchenKDS from './kds/KitchenKDS';
+import { clientError } from '../../lib/client-logger';
 
 function useSecondTick() {
   const [tick, setTick] = useState(0);
@@ -236,7 +237,7 @@ const KDSBoard = React.memo(function KDSBoard({
       const d = await res.json();
       setDeliveryPersons((d.persons || []).filter((p: any) => p.is_active));
     } catch (e) {
-      console.error(e);
+      clientError(e);
       deliveryPersonsLoadedRef.current = false;
     }
   }
@@ -253,7 +254,7 @@ const KDSBoard = React.memo(function KDSBoard({
       if (!res.ok || d.error) throw new Error(d.error || 'Erro ao atribuir entregador');
       return true;
     } catch (e) {
-      console.error(e);
+      clientError(e);
       alert('Erro ao atribuir entregador: ' + ((e as Error).message || 'erro desconhecido'));
       return false;
     }
