@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createAdminClient } from '../../lib/api-client';
 import { supabase } from '../../lib/supabase';
 import {
   Flame, UtensilsCrossed, GlassWater, Settings, Package,
@@ -316,19 +317,8 @@ export default function AdminPage() {
     return () => clearInterval(iv);
   }, [authenticated]);
 
-  // ── adminFetch helper ───────────────────────────────────────────────────────
-  const adminFetch = useCallback(async (action: any, actionData: any, token?: any) => {
-    const tok = token || adminToken;
-    const res = await fetch('/api/admin', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${tok}`,
-      },
-      body: JSON.stringify({ action, data: actionData }),
-    });
-    return res;
-  }, [adminToken]);
+  // ── API client (centralizado) ────────────────────────────────────────────────
+  const api = useMemo(() => createAdminClient(adminToken), [adminToken]);
 
   // ── CardápioWeb helpers ─────────────────────────────────────────────────────
 
@@ -414,8 +404,7 @@ export default function AdminPage() {
       sessionStorage.setItem(SESSION_KEY, token);
       setAdminToken(token);
 
-      const res = await adminFetch('get_data', {}, token);
-      const d = await res.json();
+      const d = await createAdminClient(token).orders.getData();
       if (d.error) { alert(d.error); return; }
       setData(d);
       setHasMoreOrders(d.hasMore || false);
@@ -434,8 +423,7 @@ export default function AdminPage() {
   async function loadData() {
     setLoading(true);
     try {
-      const res = await adminFetch('get_data', {});
-      const d = await res.json();
+      const d = await api.orders.getData();
       if (d.error) { alert(d.error); return; }
       setData(d);
       setHasMoreOrders(d.hasMore || false);
@@ -447,8 +435,7 @@ export default function AdminPage() {
   // Ordens mais antigas (carregadas via "Carregar mais") são preservadas.
   const loadOrders = useCallback(async () => {
     try {
-      const res = await adminFetch('get_orders_only', {});
-      const d = await res.json();
+      const d = await api.orders.getOrdersOnly();
       if (d.orders) {
         setData(prev => {
           const freshIds = new Set(d.orders.map((o: any) => o.id));
@@ -458,7 +445,7 @@ export default function AdminPage() {
         });
       }
     } catch {}
-  }, [adminFetch]);
+  }, [api]);
 
   // ── Global order notification (plays regardless of active tab) ──────────────
   const globalSeenIdsRef = useRef<Set<any> | null>(null);
@@ -500,8 +487,7 @@ export default function AdminPage() {
     setSaving(true);
     setMsg('');
     try {
-      const res = await adminFetch('save_all', { products: data.products, drinks: data.drinks, settings: data.settings });
-      const d = await res.json();
+      const d = await api.catalog.saveAll(data.products, data.drinks, data.settings);
       if (d.error) { setMsg('❌ Erro: ' + d.error); return; }
       setMsg('✅ Salvo com sucesso!');
       setTimeout(() => setMsg(''), 3000);
@@ -671,11 +657,10 @@ export default function AdminPage() {
     if (!newDrink.name || !newDrink.price) { alert('Preencha pelo menos o nome e o preço'); return; }
     setAddingDrink(true);
     try {
-      const res = await adminFetch('add_drink', {
+      const d = await api.catalog.addDrink({
         name: newDrink.name, size: newDrink.size,
         price: parseFloat(newDrink.price), is_active: true,
       });
-      const d = await res.json();
       if (d.error) { alert('Erro: ' + d.error); return; }
       setData(prev => ({ ...prev, drinks: [...prev.drinks, d.drink] }));
       setNewDrink({ name: '', size: '', price: '' });
@@ -688,8 +673,7 @@ export default function AdminPage() {
   async function handleDeleteDrink(drinkId: any) {
     if (!confirm('Excluir esta bebida?')) return;
     try {
-      const res = await adminFetch('delete_drink', { id: drinkId });
-      const d = await res.json();
+      const d = await api.catalog.deleteDrink(drinkId);
       if (d.error) { alert('Erro: ' + d.error); return; }
       setData(prev => ({ ...prev, drinks: prev.drinks.filter(dr => dr.id !== drinkId) }));
       setMsg('✅ Bebida excluída!');
@@ -699,8 +683,7 @@ export default function AdminPage() {
 
   async function removeLogo() {
     try {
-      const res = await adminFetch('remove_logo', {});
-      const d = await res.json();
+      const d = await api.catalog.removeLogo();
       if (d.error) { alert('Erro: ' + d.error); return; }
       updateSetting('logo_url', '');
       alert('Logo removida. O nome "FUMÊGO" será exibido.');
@@ -713,7 +696,7 @@ export default function AdminPage() {
       ...prev, orders: prev.orders.map(o => o.id === orderId ? { ...o, [field]: value } : o),
     }));
     try {
-      await adminFetch('update_order', { id: orderId, [field]: value });
+      await api.orders.updateOrder(orderId, { [field]: value });
     } catch (e) {
       // Revert on error by refreshing from server
       await loadOrders();
@@ -723,7 +706,7 @@ export default function AdminPage() {
 
   async function updateOrderPayment(orderId: any, updates: any) {
     try {
-      await adminFetch('update_order', { id: orderId, ...updates });
+      await api.orders.updateOrder(orderId, updates);
       setData(prev => ({
         ...prev, orders: prev.orders.map(o => o.id === orderId ? { ...o, ...updates } : o),
       }));
@@ -735,8 +718,7 @@ export default function AdminPage() {
     try {
       const lastOrder = data.orders[data.orders.length - 1];
       const cursor = lastOrder?.created_at;
-      const res = await adminFetch('get_more_orders', { cursor, pageSize: 50 });
-      const d = await res.json();
+      const d = await api.orders.getMoreOrders(cursor, 50);
       if (d.error) { alert('Erro: ' + d.error); return; }
       setData(prev => ({ ...prev, orders: [...prev.orders, ...(d.orders || [])] }));
       setHasMoreOrders(d.hasMore || false);
