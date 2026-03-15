@@ -12,6 +12,7 @@ import {
   PROD_CATEGORIES, FILTER_TABS, UNITS, UNIT_SUB, C,
   fmtBRL, formatCorrectionPercent, toBaseQty, getUnitOptions,
 } from './catalog/catalogUtils';
+import { clientError } from '../../../lib/client-logger';
 import PriceLineChart from './catalog/PriceLineChart';
 import SpecialFlavorSaveButton from './catalog/SpecialFlavorSaveButton';
 import FichaTecnica from './catalog/FichaTecnica';
@@ -127,7 +128,7 @@ export default function Catalog({ adminToken }: { adminToken: any }) {
       }
       setRecipes(recipeMap);
     } catch (e) {
-      console.error(e);
+      clientError(e);
     } finally {
       setLoading(false);
     }
@@ -171,7 +172,7 @@ export default function Catalog({ adminToken }: { adminToken: any }) {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
         body: JSON.stringify({ action: 'save_setting', data: { key, value } }),
       });
-    } catch (e) { console.error('Erro ao salvar configuração:', e); }
+    } catch (e) { clientError('Erro ao salvar configuração:', e); }
   }
 
   function getImagePositions() {

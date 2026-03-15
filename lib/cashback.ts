@@ -125,8 +125,60 @@ export async function earnCashback(
 }
 
 /**
- * Aplica cashback como desconto usando FIFO (mais antigos primeiro).
- * Registra transações de 'use' correspondentes.
+ * Aplica cashback como desconto de forma atômica via RPC Postgres.
+ *
+ * A função `use_cashback_atomic` no banco usa SELECT … FOR UPDATE para
+ * serializar acessos concorrentes ao mesmo saldo, eliminando a race condition
+ * que ocorria quando dois requests simultâneos liam o mesmo saldo antes de
+ * qualquer um decrementar.
+ *
+ * SQL da função (executar no Supabase SQL Editor):
+ *
+ *   CREATE OR REPLACE FUNCTION use_cashback_atomic(
+ *     p_user_id  UUID,
+ *     p_order_id UUID,
+ *     p_amount   NUMERIC
+ *   )
+ *   RETURNS NUMERIC
+ *   LANGUAGE plpgsql
+ *   AS $$
+ *   DECLARE
+ *     v_remaining NUMERIC := p_amount;
+ *     v_deducted  NUMERIC := 0;
+ *     v_tx        RECORD;
+ *     v_deduct    NUMERIC;
+ *     v_new_rem   NUMERIC;
+ *   BEGIN
+ *     FOR v_tx IN
+ *       SELECT id, remaining
+ *       FROM cashback_transactions
+ *       WHERE user_id   = p_user_id
+ *         AND type      = 'earn'
+ *         AND status    IN ('active', 'partial')
+ *         AND remaining > 0
+ *         AND expires_at > now()
+ *       ORDER BY created_at ASC
+ *       FOR UPDATE SKIP LOCKED
+ *     LOOP
+ *       EXIT WHEN v_remaining <= 0;
+ *       v_deduct  := LEAST(v_remaining, v_tx.remaining);
+ *       v_new_rem := ROUND((v_tx.remaining - v_deduct)::NUMERIC, 2);
+ *       UPDATE cashback_transactions
+ *          SET remaining = v_new_rem,
+ *              status    = CASE WHEN v_new_rem <= 0 THEN 'used' ELSE 'partial' END
+ *        WHERE id = v_tx.id;
+ *       INSERT INTO cashback_transactions (user_id, order_id, type, amount)
+ *       VALUES (p_user_id, p_order_id, 'use', ROUND(v_deduct::NUMERIC, 2));
+ *       v_remaining := v_remaining - v_deduct;
+ *       v_deducted  := v_deducted  + v_deduct;
+ *     END LOOP;
+ *     v_deducted := ROUND(v_deducted::NUMERIC, 2);
+ *     IF v_deducted > 0 THEN
+ *       UPDATE orders SET cashback_used = v_deducted WHERE id = p_order_id;
+ *     END IF;
+ *     RETURN v_deducted;
+ *   END;
+ *   $$;
  *
  * @returns Valor efetivamente deduzido (pode ser menor se saldo insuficiente)
  */
@@ -139,60 +191,18 @@ export async function useCashback(
   if (!cashbackToUse || cashbackToUse <= 0) return 0;
 
   try {
-    const now = new Date().toISOString();
+    const { data, error } = await supabase.rpc('use_cashback_atomic', {
+      p_user_id:  userId,
+      p_order_id: orderId,
+      p_amount:   cashbackToUse,
+    });
 
-    // FIFO: busca transações ativas ordenadas da mais antiga para a mais nova
-    const { data: transactions } = await supabase
-      .from('cashback_transactions')
-      .select('id, remaining')
-      .eq('user_id', userId)
-      .eq('type', 'earn')
-      .in('status', ['active', 'partial'])
-      .gt('remaining', 0)
-      .gte('expires_at', now)
-      .order('created_at', { ascending: true });
-
-    if (!transactions || transactions.length === 0) return 0;
-
-    let toDeduct      = cashbackToUse;
-    let totalDeducted = 0;
-
-    for (const tx of transactions) {
-      if (toDeduct <= 0) break;
-
-      const deduct       = Math.min(toDeduct, Number(tx.remaining));
-      const newRemaining = Math.round((Number(tx.remaining) - deduct) * 100) / 100;
-      const newStatus    = newRemaining <= 0 ? 'used' : 'partial';
-
-      // Atualiza o saldo restante da transação de ganho
-      await supabase
-        .from('cashback_transactions')
-        .update({ remaining: newRemaining, status: newStatus })
-        .eq('id', tx.id);
-
-      // Registra a transação de uso (rastreabilidade)
-      await supabase.from('cashback_transactions').insert({
-        user_id:  userId,
-        order_id: orderId,
-        type:     'use',
-        amount:   Math.round(deduct * 100) / 100,
-      });
-
-      toDeduct      -= deduct;
-      totalDeducted += deduct;
+    if (error) {
+      logger.error('[Cashback] use_cashback_atomic RPC error', error as unknown as Error);
+      return 0;
     }
 
-    const finalDeducted = Math.round(totalDeducted * 100) / 100;
-
-    // Atualiza o campo cashback_used no pedido
-    if (finalDeducted > 0) {
-      await supabase
-        .from('orders')
-        .update({ cashback_used: finalDeducted })
-        .eq('id', orderId);
-    }
-
-    return finalDeducted;
+    return typeof data === 'number' ? data : 0;
   } catch (e) {
     logger.error('[Cashback] useCashback error', e as Error);
     return 0;

@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Loader2, Landmark, CreditCard, Banknote, Clock, Search, X, Calendar, Bookmark, Plus, Trash2, ListOrdered } from 'lucide-react';
 import DeliveryQueueTab from './DeliveryQueueTab';
 import type { Order, OrderItem, DeliveryPerson } from '../../../types';
+import { clientError } from '../../../lib/client-logger';
 
 interface SavedFilter {
   id: number;
@@ -158,7 +159,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
       const d = await res.json();
       setInactiveOrders(d.orders || []);
       setInactiveLoaded(true);
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
     finally { setInactiveLoading(false); }
   }
 
@@ -195,7 +196,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
       });
       const j = await res.json();
       setDeliveryPersons((j.persons || []).filter((p: DeliveryPerson) => p.is_active));
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
   }
 
   async function assignDeliveryPerson(orderId: string, personId: string | null, startDelivery = false) {
@@ -210,7 +211,7 @@ export default function OrdersTab({ orders, hasMoreOrders, loadingMore, onUpdate
       if (!res.ok || d.error) throw new Error(d.error || 'Erro ao atribuir entregador');
       return true;
     } catch (e) {
-      console.error(e);
+      clientError(e);
       alert('Erro ao atribuir entregador: ' + ((e as Error).message || 'erro desconhecido'));
       return false;
     }

@@ -7,6 +7,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import { resolveMenuProducts } from '../../lib/menu-products';
+import { clientError } from '../../lib/client-logger';
 
 // ── Componentes extraídos ─────────────────────────────────────────────────────
 import StoreHeader from '../components/home/StoreHeader';
@@ -242,7 +243,7 @@ export default function HomePage() {
       } else if (dData) {
         setDrinks(dData);
       }
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
     finally { setLoading(false); }
   }
 

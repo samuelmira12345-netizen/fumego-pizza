@@ -9,6 +9,7 @@ import {
   Copy, Eye, EyeOff, Filter, Edit2,
 } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
+import { clientError } from '../../../lib/client-logger';
 
 const C = {
   bg: '#F4F5F7', card: '#fff', border: '#E5E7EB',
@@ -427,7 +428,7 @@ export default function CouponsTab({ adminToken }: { adminToken: any }) {
       setCoupons(couponData.coupons || []);
       setUsage(analyticsData.usage || []);
       setOrders(analyticsData.orders || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
     finally { setLoading(false); }
   }, [adminToken]);
 

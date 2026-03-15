@@ -7,6 +7,7 @@ import {
   ChevronDown, ChevronUp, Filter, Calendar,
 } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
+import { clientError } from '../../../lib/client-logger';
 
 const C = {
   bg: '#F4F5F7', card: '#fff', border: '#E5E7EB',
@@ -73,7 +74,7 @@ export default function StockMovements({ adminToken }: { adminToken: string }) {
       setMovements(mvData.movements || []);
       setIngredients(ingData.ingredients || []);
     } catch (e) {
-      console.error(e);
+      clientError(e);
     } finally {
       setLoading(false);
     }

@@ -8,6 +8,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { ProductPicker } from '../ManualOrderDrawer';
+import { clientError } from '../../../../lib/client-logger';
 import {
   S, PM,
   fmtBRL, fmtPhone, fmtTime, fmtDateFull, fmtElapsed,
@@ -584,7 +585,7 @@ export default function OrderModal({ order, items, itemsLoading, onClose, onActi
         if (!res.ok || d.error) throw new Error(d.error || 'Erro ao buscar histórico');
         if (!cancelled) setHistoryRows(Array.isArray(d.history) ? d.history : []);
       } catch (e) {
-        console.error(e);
+        clientError(e);
         if (!cancelled) setHistoryRows([]);
       } finally {
         if (!cancelled) setHistoryLoading(false);

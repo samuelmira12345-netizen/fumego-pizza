@@ -6,6 +6,7 @@ import {
   Package, X, CheckCircle, AlertCircle, RefreshCw, BarChart2, GripVertical,
 } from 'lucide-react';
 import { createAdminClient } from '../../../lib/api-client';
+import { clientError } from '../../../lib/client-logger';
 
 // ── Theme (light mode) ────────────────────────────────────────────────────────
 const C = {
@@ -238,7 +239,7 @@ export default function DeliveryQueueTab({ adminToken }: { adminToken: string })
     try {
       const j = await api.delivery.getQueue({ person_id: personId });
       setQueue(j.orders || []);
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
     finally { setLoadingQueue(false); }
   }, [api]);
 
@@ -254,7 +255,7 @@ export default function DeliveryQueueTab({ adminToken }: { adminToken: string })
     try {
       const j = await api.delivery.getHistory({ person_id: person.id, from: todaySP, to: todaySP });
       setNightModal({ person, orders: j.orders || [], totalEarned: j.totalEarned || 0 });
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
     finally { setLoadingModal(false); }
   }
 
@@ -290,7 +291,7 @@ export default function DeliveryQueueTab({ adminToken }: { adminToken: string })
     setReordering(true);
     try {
       await api.delivery.setPriority({ ordered_ids: next.map(o => o.id) });
-    } catch (e) { console.error(e); }
+    } catch (e) { clientError(e); }
     finally { setReordering(false); }
   }
 
