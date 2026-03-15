@@ -20,7 +20,7 @@ export async function handleSaveIngredient(supabase: SupabaseClient, data?: Reco
   const {
     id, name, unit, cost_per_unit,
     correction_factor, min_stock, max_stock, current_stock,
-    purchase_origin, ingredient_type, weight_volume,
+    purchase_origin, ingredient_type, weight_volume, density,
   } = data || {};
 
   const extraFields: Record<string, unknown> = {};
@@ -31,6 +31,8 @@ export async function handleSaveIngredient(supabase: SupabaseClient, data?: Reco
   if (purchase_origin   !== undefined) extraFields.purchase_origin   = purchase_origin;
   if (ingredient_type   !== undefined) extraFields.ingredient_type   = ingredient_type;
   if (weight_volume     !== undefined) extraFields.weight_volume     = parseFloat(String(weight_volume)) || 1;
+  // density (g/ml): only stored for liquid units (L, ml); null clears the value
+  if (density !== undefined) extraFields.density = density === null ? null : (parseFloat(String(density)) || null);
 
   if (id) {
     const { data: existing } = await supabase.from('ingredients').select('cost_per_unit').eq('id', id).single();
