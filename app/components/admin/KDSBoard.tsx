@@ -49,6 +49,7 @@ const KDSBoard = React.memo(function KDSBoard({
   const [countdown, setCountdown]       = useState(15);
   const [showRevenue, setShowRevenue]   = useState(true);
   const [dragging, setDragging]         = useState<any>(null);
+  const [collapsedCols, setCollapsedCols] = useState<Set<string>>(new Set());
   const [showDrawer, setShowDrawer]     = useState(false);
   const [viewMode, setViewMode]         = useState('kanban'); // 'kanban' | 'lista' | 'cozinha'
   const [deliveryPersons, setDeliveryPersons] = useState<any[]>([]);
@@ -624,6 +625,12 @@ const KDSBoard = React.memo(function KDSBoard({
                 }
                 setDragging(null);
               }}
+              collapsed={collapsedCols.has(col.id)}
+              onToggleCollapse={() => setCollapsedCols(prev => {
+                const next = new Set(prev);
+                if (next.has(col.id)) next.delete(col.id); else next.add(col.id);
+                return next;
+              })}
             />
           ))}
         </div>

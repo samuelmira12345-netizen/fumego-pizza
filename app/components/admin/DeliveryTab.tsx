@@ -6,7 +6,8 @@ import {
   Plus, Loader2, X, Trash2, RefreshCw, Save, Edit2,
   User, Phone, Mail, Lock, MapPin, Clock, Truck,
   DollarSign, ChevronDown, ChevronUp, Check, Eye, EyeOff,
-  Navigation, AlertTriangle,
+  Navigation, AlertTriangle, BarChart2, ThumbsUp, ThumbsDown,
+  Timer, PackageCheck, AlertCircle, Flame,
 } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
 
@@ -25,6 +26,15 @@ const DriverTrackingMap = dynamic(() => import('./DriverTrackingMap'), {
   loading: () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 480, background: '#EEF8FF' }}>
       <Loader2 size={24} color="#2563EB" style={{ animation: 'spin 1s linear infinite' }} />
+    </div>
+  ),
+});
+
+const DeliveryHeatMap = dynamic(() => import('./DeliveryHeatMap'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 480, background: '#EEF4EE', borderRadius: 8 }}>
+      <Loader2 size={24} color="#10B981" className="animate-spin" />
     </div>
   ),
 });
@@ -77,10 +87,11 @@ async function adminPost(action: any, data: any, token: any) {
 // ── Sub-tabs ──────────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'persons', label: 'Entregadores', icon: User },
-  { key: 'zones',   label: 'Zonas',        icon: MapPin },
-  { key: 'tracking',label: 'Localização',  icon: Navigation },
-  { key: 'metrics', label: 'Métricas',     icon: DollarSign },
+  { key: 'persons',  label: 'Entregadores', icon: User },
+  { key: 'zones',    label: 'Zonas',        icon: MapPin },
+  { key: 'tracking', label: 'Localização',  icon: Navigation },
+  { key: 'metrics',  label: 'Métricas',     icon: DollarSign },
+  { key: 'analysis', label: 'Análise',      icon: BarChart2 },
 ];
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -972,6 +983,254 @@ function MetricCard({ label, value, color }: { label: any, value: any, color: an
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// Analysis Tab  (Análise de Entregas)
+// ═════════════════════════════════════════════════════════════════════════════
+
+interface TimeRow {
+  icon: React.ReactNode;
+  label: string;
+  value: string | null;
+  tooltip: string;
+  iconBg: string;
+}
+
+function TimeMetricRow({ icon, label, value, tooltip, iconBg }: TimeRow) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ width: 40, height: 40, borderRadius: '50%', background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ fontSize: 12, color: C.muted }}>{label}</span>
+          <span title={tooltip} style={{ fontSize: 10, color: C.light, cursor: 'help', background: '#F3F4F6', borderRadius: '50%', width: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>?</span>
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: C.text, marginTop: 2 }}>
+          {value ?? '—'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeadlineRow({ icon, label, value, color, tooltip }: { icon: React.ReactNode; label: string; value: string | number; color: string; tooltip: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ width: 40, height: 40, borderRadius: '50%', background: `${color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ fontSize: 12, color: C.muted }}>{label}</span>
+          <span title={tooltip} style={{ fontSize: 10, color: C.light, cursor: 'help', background: '#F3F4F6', borderRadius: '50%', width: 16, height: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>?</span>
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 800, color, marginTop: 2 }}>{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function AnalysisTab({ adminToken }: { adminToken: any }) {
+  const [periodRange, setPeriodRange] = useState(() => ({ from: todaySP(), to: todaySP() }));
+  const [loading, setLoading]         = useState(true);
+  const [data, setData]               = useState<any>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const j = await adminPost('get_delivery_analysis', {
+        from: periodRange?.from,
+        to:   periodRange?.to,
+      }, adminToken);
+      setData(j);
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao carregar análise de entregas');
+    } finally {
+      setLoading(false);
+    }
+  }, [adminToken, periodRange?.from, periodRange?.to]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const coveragePct = data && data.count > 0
+    ? Math.round((data.coverageCount / data.count) * 100)
+    : 0;
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 8, flexWrap: 'wrap' }}>
+        <div>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: C.text }}>Análise de Entregas</h3>
+          <p style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Indicadores de performance e mapa de calor</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <DateRangePicker value={periodRange} onChange={setPeriodRange} />
+          <button onClick={load} disabled={loading} style={{ ...btnGhost, opacity: loading ? 0.6 : 1 }}>
+            <RefreshCw size={14} style={loading ? { animation: 'spin 1s linear infinite' } : {}} /> Atualizar
+          </button>
+        </div>
+      </div>
+
+      {loading && !data ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
+          <Loader2 size={26} color={C.gold} className="animate-spin" />
+        </div>
+      ) : !data ? null : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* ── KPI summary cards ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+            <SummaryCard label="Entregas"           value={data.count}                     color={C.success} />
+            <SummaryCard label="Faturamento"        value={fmtBRL(data.totalRevenue)}       color={C.success} />
+            <SummaryCard label="Ticket médio"       value={fmtBRL(data.avgTicket)}          color={C.success} />
+            <SummaryCard label="Taxas de entrega"   value={fmtBRL(data.totalDeliveryFees)}  color={C.success} />
+            <SummaryCard label="Duração média"      value={fmtMins(data.avgTotalMins)}      color={C.success} />
+          </div>
+
+          {/* ── Tempo e Prazo side by side ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+
+            {/* Métricas de tempo */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 20px' }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 2 }}>Métricas de tempo</h4>
+              <p style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Indicadores que mostram como está a performance da sua operação</p>
+
+              <TimeMetricRow
+                iconBg="#DCFCE7"
+                icon={<Check size={18} color={C.success} />}
+                label="Tempo de preparo"
+                value={fmtMins(data.avgPrepMins)}
+                tooltip="Tempo médio desde o recebimento do pedido até o entregador sair (inclui cozinha + espera)"
+              />
+              <TimeMetricRow
+                iconBg="#DBEAFE"
+                icon={<Truck size={18} color={C.blue} />}
+                label="Tempo de entrega"
+                value={fmtMins(data.avgDeliveryMins)}
+                tooltip="Tempo médio da saída do entregador até a entrega ao cliente"
+              />
+              <TimeMetricRow
+                iconBg="#F3E8FF"
+                icon={<Timer size={18} color={C.purple} />}
+                label="Duração total do pedido"
+                value={fmtMins(data.avgTotalMins)}
+                tooltip="Tempo médio do pedido realizado até a entrega"
+              />
+              <div style={{ padding: '10px 0 0', fontSize: 11, color: C.muted }}>
+                Com base em <strong>{coveragePct}%</strong> dos pedidos ({data.coverageCount} de {data.count})
+              </div>
+            </div>
+
+            {/* Análise dos prazos */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 20px' }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 2 }}>Análise dos prazos de entrega</h4>
+              <p style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Indicadores que mostram como sua operação está lidando com prazos</p>
+              {data.deliveryTimeStr && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 8, padding: '4px 10px', marginBottom: 10, fontSize: 11, color: '#92400E', fontWeight: 600 }}>
+                  <Clock size={12} /> Prazo prometido no site: {data.deliveryTimeStr}
+                </div>
+              )}
+
+              <DeadlineRow
+                icon={<ThumbsUp size={18} color={C.success} />}
+                label="Entregas no prazo"
+                value={data.onTimeCount}
+                color={C.success}
+                tooltip="Pedidos entregues dentro do prazo prometido no site"
+              />
+              <DeadlineRow
+                icon={<ThumbsDown size={18} color={C.danger} />}
+                label="Entregas atrasadas"
+                value={data.lateCount}
+                color={data.lateCount > 0 ? C.danger : C.success}
+                tooltip="Pedidos entregues após o prazo prometido"
+              />
+              <DeadlineRow
+                icon={<AlertCircle size={18} color="#F59E0B" />}
+                label="Atraso médio"
+                value={fmtMins(data.avgDelayMins)}
+                color={data.avgDelayMins > 0 ? '#D97706' : C.success}
+                tooltip="Tempo médio de atraso entre os pedidos atrasados"
+              />
+              <DeadlineRow
+                icon={<Flame size={18} color={C.danger} />}
+                label="Maior atraso"
+                value={fmtMins(data.maxDelayMins)}
+                color={data.maxDelayMins > 0 ? C.danger : C.success}
+                tooltip="Maior tempo de atraso registrado no período"
+              />
+
+              {data.coverageCount > 0 && (
+                <p style={{ fontSize: 11, color: C.muted, marginTop: 12, lineHeight: 1.5 }}>
+                  Os dados acima referem-se a <strong>{coveragePct}%</strong> dos pedidos, que possuem data de criação e entrega registradas.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* ── Mapa de calor ── */}
+          {data.addressGroups?.length > 0 ? (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '16px 20px' }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 2 }}>Mapa de entregas</h4>
+              <p style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>
+                Representação visual das concentrações geográficas dos pedidos — identifique padrões e otimize rotas.
+                {' '}<span style={{ fontStyle: 'italic' }}>Os bairros são geocodificados automaticamente via OpenStreetMap.</span>
+              </p>
+              <DeliveryHeatMap addressGroups={data.addressGroups} height={520} />
+
+              {/* Top neighborhoods table */}
+              <div style={{ marginTop: 14 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 8 }}>Bairros mais frequentes</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {data.addressGroups.slice(0, 10).map((g: any, i: number) => {
+                    const pct = Math.round((g.count / data.count) * 100);
+                    return (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 11, color: C.muted, minWidth: 18, textAlign: 'right' }}>{i + 1}.</span>
+                        <span style={{ fontSize: 12, color: C.text, flex: 1 }}>{g.neighborhood}{g.city ? `, ${g.city}` : ''}</span>
+                        <div style={{ width: 80, height: 6, background: '#F3F4F6', borderRadius: 999, overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #10B981, #2563EB)' }} />
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: C.text, minWidth: 28, textAlign: 'right' }}>{g.count}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : data.count > 0 ? (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '20px', textAlign: 'center' }}>
+              <MapPin size={28} color={C.light} style={{ marginBottom: 8 }} />
+              <p style={{ fontSize: 13, color: C.muted }}>Nenhum endereço com bairro registrado no período.</p>
+            </div>
+          ) : null}
+
+          {/* Empty state */}
+          {data.count === 0 && (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '40px 20px', textAlign: 'center' }}>
+              <PackageCheck size={32} color={C.light} style={{ marginBottom: 10 }} />
+              <p style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Nenhuma entrega no período</p>
+              <p style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Selecione um período com entregas concluídas.</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SummaryCard({ label, value, color }: { label: string; value: any; color: string }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px 14px' }}>
+      <p style={{ fontSize: 12, fontWeight: 600, color: C.text, marginBottom: 4 }}>{label}</p>
+      <p style={{ fontSize: 22, fontWeight: 800, color }}>{value}</p>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 // Main DeliveryTab
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -1009,6 +1268,7 @@ export default function DeliveryTab({ adminToken }: { adminToken: any }) {
       {activeTab === 'zones'    && <ZonesTab    adminToken={adminToken} />}
       {activeTab === 'tracking' && <TrackingTab adminToken={adminToken} />}
       {activeTab === 'metrics'  && <MetricsTab  adminToken={adminToken} />}
+      {activeTab === 'analysis' && <AnalysisTab adminToken={adminToken} />}
     </div>
   );
 }

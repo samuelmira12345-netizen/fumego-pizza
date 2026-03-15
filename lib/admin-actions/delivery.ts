@@ -363,3 +363,134 @@ export async function handleGetDeliveryMetrics(supabase: SupabaseClient, data?: 
 
   return NextResponse.json({ summary, persons: personsMetrics });
 }
+
+// ── Delivery Analysis (Análise de Entregas) ───────────────────────────────────
+
+export async function handleGetDeliveryAnalysis(supabase: SupabaseClient, data?: Record<string, unknown>): Promise<NextResponse> {
+  const fromInput = typeof data?.from === 'string' ? data.from : null;
+  const toInput   = typeof data?.to   === 'string' ? data.to   : null;
+  const rawDays   = Number(data?.days);
+  const days      = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 180) : 30;
+
+  let fromDate: Date | null = null;
+  let toDate:   Date | null = null;
+
+  if (fromInput && toInput) {
+    fromDate = new Date(`${fromInput}T00:00:00`);
+    toDate   = new Date(`${toInput}T23:59:59.999`);
+    if (!Number.isFinite(fromDate.getTime()) || !Number.isFinite(toDate.getTime()) || fromDate > toDate) {
+      fromDate = null; toDate = null;
+    }
+  }
+  if (!fromDate || !toDate) {
+    fromDate = new Date();
+    fromDate.setDate(fromDate.getDate() - days);
+    toDate = new Date();
+  }
+
+  const [{ data: orders, error: ordersError }, { data: settingRows }] = await Promise.all([
+    supabase.from('orders')
+      .select('id, total, delivery_fee, status, created_at, delivering_at, delivered_at, driver_collected_at, driver_delivered_at, delivery_neighborhood, delivery_city, delivery_street, delivery_person_id')
+      .eq('status', 'delivered')
+      .gte('created_at', fromDate.toISOString())
+      .lte('created_at', toDate.toISOString()),
+    supabase.from('settings').select('key, value').eq('key', 'delivery_time'),
+  ]);
+
+  if (ordersError) return NextResponse.json({ error: ordersError.message }, { status: 500 });
+
+  // Parse promised delivery time from settings (e.g. "40–60 min" → max value = 60)
+  const deliveryTimeStr = (settingRows || []).find(r => r.key === 'delivery_time')?.value || '';
+  const timeNums = (deliveryTimeStr.match(/\d+/g) || []).map(Number);
+  const promisedMins = timeNums.length > 0 ? Math.max(...timeNums) : 60;
+
+  const delivered = orders || [];
+  const count     = delivered.length;
+
+  // Revenue
+  const totalRevenue      = delivered.reduce((s, o) => s + (parseFloat(String(o.total))        || 0), 0);
+  const totalDeliveryFees = delivered.reduce((s, o) => s + (parseFloat(String(o.delivery_fee)) || 0), 0);
+  const avgTicket         = count > 0 ? totalRevenue / count : 0;
+
+  // Time metrics
+  const totalDurations:    number[] = [];
+  const deliveryDurations: number[] = [];
+  const prepDurations:     number[] = [];
+  let onTimeCount = 0, lateCount = 0;
+  const delays: number[] = [];
+
+  for (const o of delivered) {
+    const createdMs    = o.created_at     ? new Date(o.created_at).getTime()     : null;
+    const deliveredMs  = o.delivered_at   ? new Date(o.delivered_at).getTime()   : null;
+    const deliveringMs = o.delivering_at  ? new Date(o.delivering_at).getTime()  : null;
+    const collectedMs  = o.driver_collected_at  ? new Date(o.driver_collected_at).getTime()  : null;
+    const dDeliveredMs = o.driver_delivered_at  ? new Date(o.driver_delivered_at).getTime()  : null;
+
+    // Total order cycle: created → delivered
+    if (createdMs && deliveredMs && deliveredMs > createdMs) {
+      const totalMin = Math.round((deliveredMs - createdMs) / 60000);
+      if (totalMin < 300) {
+        totalDurations.push(totalMin);
+        const promisedMs = promisedMins * 60000;
+        if ((deliveredMs - createdMs) <= promisedMs) {
+          onTimeCount++;
+        } else {
+          lateCount++;
+          delays.push(Math.round(((deliveredMs - createdMs) - promisedMs) / 60000));
+        }
+      }
+    }
+
+    // Delivery route: driver_collected (or delivering) → driver_delivered (or delivered)
+    const routeFrom = collectedMs || deliveringMs;
+    const routeTo   = dDeliveredMs || deliveredMs;
+    if (routeFrom && routeTo && routeTo > routeFrom) {
+      const routeMin = Math.round((routeTo - routeFrom) / 60000);
+      if (routeMin < 180) deliveryDurations.push(routeMin);
+    }
+
+    // Prep time: created → delivering (kitchen + wait)
+    if (createdMs && deliveringMs && deliveringMs > createdMs) {
+      const prepMin = Math.round((deliveringMs - createdMs) / 60000);
+      if (prepMin < 180) prepDurations.push(prepMin);
+    }
+  }
+
+  function avg(arr: number[]) { return arr.length > 0 ? Math.round(arr.reduce((s, n) => s + n, 0) / arr.length) : null; }
+
+  const avgTotalMins    = avg(totalDurations);
+  const avgDeliveryMins = avg(deliveryDurations);
+  const avgPrepMins     = avg(prepDurations);
+  const avgDelayMins    = delays.length > 0 ? Math.round(delays.reduce((s, n) => s + n, 0) / delays.length) : 0;
+  const maxDelayMins    = delays.length > 0 ? Math.max(...delays) : 0;
+  const coverageCount   = totalDurations.length;
+
+  // Heatmap: group deliveries by neighborhood
+  const nbMap = new Map<string, { neighborhood: string; city: string; count: number }>();
+  for (const o of delivered) {
+    if (!o.delivery_neighborhood) continue;
+    const key = `${o.delivery_neighborhood}||${o.delivery_city || ''}`;
+    const ex  = nbMap.get(key);
+    if (ex) { ex.count++; }
+    else    { nbMap.set(key, { neighborhood: o.delivery_neighborhood, city: o.delivery_city || '', count: 1 }); }
+  }
+  const addressGroups = Array.from(nbMap.values()).sort((a, b) => b.count - a.count);
+
+  return NextResponse.json({
+    count,
+    totalRevenue:      Number(totalRevenue.toFixed(2)),
+    avgTicket:         Number(avgTicket.toFixed(2)),
+    totalDeliveryFees: Number(totalDeliveryFees.toFixed(2)),
+    avgTotalMins,
+    avgDeliveryMins,
+    avgPrepMins,
+    promisedMins,
+    deliveryTimeStr,
+    onTimeCount,
+    lateCount,
+    avgDelayMins,
+    maxDelayMins,
+    coverageCount,
+    addressGroups,
+  });
+}

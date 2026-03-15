@@ -190,6 +190,9 @@ export function createAdminClient(token: string) {
 
       getMetrics: (params: Record<string, unknown> = {}) =>
         post('get_delivery_metrics', params),
+
+      getAnalysis: (params: Record<string, unknown> = {}) =>
+        post('get_delivery_analysis', params),
     },
 
     // ── Coupons ──────────────────────────────────────────────────────────────

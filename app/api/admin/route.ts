@@ -29,7 +29,7 @@ import {
   handleGetDeliveryPersons, handleSaveDeliveryPerson, handleDeleteDeliveryPerson,
   handleGetDeliveryHistory, handleGetDeliveryZones, handleSaveDeliveryZone,
   handleDeleteDeliveryZone, handleAssignDelivery, handleGetDriverLocations, handleGetDeliveryMetrics,
-  handleGetDeliveryQueue, handleSetDeliveryPriority,
+  handleGetDeliveryQueue, handleSetDeliveryPriority, handleGetDeliveryAnalysis,
 } from '../../../lib/admin-actions/delivery';
 
 function verifyAdminToken(request: NextRequest): boolean {
@@ -127,6 +127,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (action === 'get_delivery_metrics')   return handleGetDeliveryMetrics(supabase, data);
     if (action === 'get_delivery_queue')     return handleGetDeliveryQueue(supabase, data);
     if (action === 'set_delivery_priority')  return handleSetDeliveryPriority(supabase, data);
+    if (action === 'get_delivery_analysis')  return handleGetDeliveryAnalysis(supabase, data);
 
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
   } catch (e) {
