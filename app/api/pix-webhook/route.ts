@@ -43,10 +43,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` },
       });
-      const mpData = await mpRes.json();
+
+      // Se a API do MP retornar erro (503, CloudFlare HTML, etc.), devolvemos
+      // status não-200 para que o Mercado Pago recoloque o webhook na fila de retentativas.
+      if (!mpRes.ok) {
+        logger.error('Webhook: API do Mercado Pago retornou erro', { paymentId, status: mpRes.status });
+        return NextResponse.json({ error: 'MP API error' }, { status: 502 });
+      }
+
+      let mpData: Record<string, unknown>;
+      try {
+        mpData = await mpRes.json();
+      } catch {
+        logger.error('Webhook: resposta inválida (não-JSON) da API do Mercado Pago', { paymentId });
+        return NextResponse.json({ error: 'Invalid MP response' }, { status: 502 });
+      }
+
+      // Garante que os campos essenciais existem antes de prosseguir
+      if (!mpData.external_reference || !mpData.status) {
+        logger.error('Webhook: resposta do MP sem campos obrigatórios', { paymentId, mpData });
+        return NextResponse.json({ error: 'Incomplete MP response' }, { status: 502 });
+      }
 
       const supabase = getSupabaseAdmin();
-      const orderId = mpData.external_reference;
+      const orderId = mpData.external_reference as string;
 
       if (orderId) {
         if (mpData.status === 'approved') {
