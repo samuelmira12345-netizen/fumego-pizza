@@ -528,7 +528,7 @@ export default function CheckoutPage() {
           if (userId) {
             fetch('/api/cashback/earn', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ user_id: userId, order_id: orderId, order_total: orderTotal }),
+              body: JSON.stringify({ user_id: userId, order_id: orderId }),
             }).catch(() => {});
           }
         } else if (data?.payment_status === 'cancelled') {
