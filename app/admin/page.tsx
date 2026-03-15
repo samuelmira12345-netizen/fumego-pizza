@@ -181,10 +181,11 @@ function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize, isOpen, onT
             {group.items.map(item => {
               const Icon = item.icon;
               const isActive = section === item.key;
+              const isSoon = !!(item as any).soon;
               return (
                 <button
                   key={item.key}
-                  onClick={() => !item.soon && onNavigate(item.key)}
+                  onClick={() => !isSoon && onNavigate(item.key)}
                   title={!isOpen ? item.label : undefined}
                   style={{
                     width: '100%', display: 'flex', alignItems: 'center',
@@ -192,20 +193,20 @@ function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize, isOpen, onT
                     padding: isOpen ? '8px 10px' : '10px 0',
                     borderRadius: 6, border: 'none',
                     background: isActive ? C.goldDim : 'transparent',
-                    color: isActive ? C.gold : item.soon ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.65)',
+                    color: isActive ? C.gold : isSoon ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.65)',
                     fontSize: 13, fontWeight: isActive ? 600 : 400,
-                    cursor: item.soon ? 'default' : 'pointer',
+                    cursor: isSoon ? 'default' : 'pointer',
                     marginBottom: 2, textAlign: 'left',
                     transition: 'background 0.12s, color 0.12s',
                   }}
-                  onMouseEnter={e => { if (!isActive && !item.soon) e.currentTarget.style.background = C.sidebarHover; }}
-                  onMouseLeave={e => { if (!isActive && !item.soon) e.currentTarget.style.background = 'transparent'; }}
+                  onMouseEnter={e => { if (!isActive && !isSoon) e.currentTarget.style.background = C.sidebarHover; }}
+                  onMouseLeave={e => { if (!isActive && !isSoon) e.currentTarget.style.background = 'transparent'; }}
                 >
                   <Icon size={16} style={{ flexShrink: 0 }} />
                   {isOpen && (
                     <>
                       <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden' }}>{item.label}</span>
-                      {item.soon && (
+                      {isSoon && (
                         <span style={{ fontSize: 8, fontWeight: 700, background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)', padding: '2px 5px', borderRadius: 8, whiteSpace: 'nowrap' }}>
                           EM BREVE
                         </span>
