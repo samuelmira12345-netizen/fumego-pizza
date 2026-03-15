@@ -1,0 +1,2739 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Dashboard snapshots renders correctly with sample orders 1`] = `
+<div
+  style="padding: 28px 32px;"
+>
+  <div
+    style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px;"
+  >
+    <div>
+      <h1
+        style="font-size: 22px; font-weight: 700; color: rgb(17, 24, 39); margin-bottom: 4px;"
+      >
+        Dashboard
+      </h1>
+      <p
+        style="font-size: 13px; color: rgb(107, 114, 128);"
+      >
+        10
+      </p>
+    </div>
+    <button
+      style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; background: rgb(255, 255, 255); border: 1px solid #e5e7eb; font-size: 13px; font-weight: 500; color: rgb(55, 65, 81); cursor: pointer; opacity: 1; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
+    >
+      <span
+        data-icon="RefreshCw"
+        data-size="14"
+      />
+      Atualizar
+    </button>
+  </div>
+  <div
+    style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;"
+  >
+    <div
+      data-from="2026-01-15"
+      data-testid="date-range-picker"
+      data-to="2026-01-15"
+    />
+    <span
+      style="font-size: 11px; color: rgb(156, 163, 175);"
+    >
+      comparado com 
+      qua passado
+       (mesmo horário)
+    </span>
+  </div>
+  <p
+    style="font-size: 11px; font-weight: 700; color: rgb(156, 163, 175); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px;"
+  >
+    Operação — 
+    hoje
+  </p>
+  <div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px;"
+  >
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(99, 102, 241, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="ShoppingBag"
+            data-size="20"
+          />
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: rgb(156, 163, 175);"
+        >
+          <span
+            data-icon="Minus"
+            data-size="12"
+          />
+          0
+          %
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Pedidos — hoje
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          3
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: 3
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(249, 115, 22, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="ChefHat"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Em produção
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          0
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          confirmados + preparando
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(139, 92, 246, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Truck"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Em entrega
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          0
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="CheckCircle"
+            data-size="20"
+          />
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: rgb(156, 163, 175);"
+        >
+          <span
+            data-icon="Minus"
+            data-size="12"
+          />
+          0
+          %
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Finalizados
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(16, 185, 129); line-height: 1.2; word-break: break-all;"
+        >
+          2
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: 2
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="XCircle"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Cancelados
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(239, 68, 68); line-height: 1.2; word-break: break-all;"
+        >
+          1
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(217, 119, 6, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Clock"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Tempo médio de produção
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(16, 185, 129); line-height: 1.2; word-break: break-all;"
+        >
+          —
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          sem dados ainda
+        </p>
+      </div>
+    </div>
+  </div>
+  <p
+    style="font-size: 11px; font-weight: 700; color: rgb(156, 163, 175); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px;"
+  >
+    Financeiro — 
+    hoje
+  </p>
+  <div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px;"
+  >
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="DollarSign"
+            data-size="20"
+          />
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: rgb(156, 163, 175);"
+        >
+          <span
+            data-icon="Minus"
+            data-size="12"
+          />
+          0
+          %
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Faturamento bruto
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 129,70
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: R$ 129,70
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(242, 168, 0, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="TrendingUp"
+            data-size="20"
+          />
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: rgb(156, 163, 175);"
+        >
+          <span
+            data-icon="Minus"
+            data-size="12"
+          />
+          0
+          %
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Ticket médio
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 64,85
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: R$ 64,85
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(59, 130, 246, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Truck"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Taxa de entrega
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 14,00
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          arrecadada no período
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Tag"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Descontos (cupons)
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 0,00
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          nenhum cupom
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(249, 115, 22, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Percent"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Taxa de cancelamento
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(239, 68, 68); line-height: 1.2; word-break: break-all;"
+        >
+          33.3%
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          1 de 3 pedidos
+        </p>
+      </div>
+    </div>
+  </div>
+  <p
+    style="font-size: 11px; font-weight: 700; color: rgb(156, 163, 175); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px;"
+  >
+    Formas de pagamento — 
+    hoje
+  </p>
+  <div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 28px;"
+  >
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 16px 18px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;"
+      >
+        <div
+          style="width: 34px; height: 34px; border-radius: 8px; background: rgba(59, 130, 246, 0.082); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Zap"
+            data-size="16"
+          />
+        </div>
+        <div>
+          <p
+            style="font-size: 13px; font-weight: 600; color: rgb(17, 24, 39);"
+          >
+            PIX
+          </p>
+          <p
+            style="font-size: 11px; color: rgb(156, 163, 175);"
+          >
+            50
+            % dos pedidos
+          </p>
+        </div>
+      </div>
+      <p
+        style="font-size: 20px; font-weight: 700; color: rgb(59, 130, 246); margin-bottom: 2px;"
+      >
+        1
+      </p>
+      <p
+        style="font-size: 12px; color: rgb(107, 114, 128); margin-bottom: 10px;"
+      >
+        pedidos · 
+        R$ 49,90
+      </p>
+      <div
+        style="height: 4px; border-radius: 2px; background: rgb(229, 231, 235);"
+      >
+        <div
+          style="height: 100%; border-radius: 2px; background: rgb(59, 130, 246); width: 50%; transition: width 0.4s;"
+        />
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 16px 18px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;"
+      >
+        <div
+          style="width: 34px; height: 34px; border-radius: 8px; background: rgba(107, 114, 128, 0.082); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="CreditCard"
+            data-size="16"
+          />
+        </div>
+        <div>
+          <p
+            style="font-size: 13px; font-weight: 600; color: rgb(17, 24, 39);"
+          >
+            card
+          </p>
+          <p
+            style="font-size: 11px; color: rgb(156, 163, 175);"
+          >
+            50
+            % dos pedidos
+          </p>
+        </div>
+      </div>
+      <p
+        style="font-size: 20px; font-weight: 700; color: rgb(107, 114, 128); margin-bottom: 2px;"
+      >
+        1
+      </p>
+      <p
+        style="font-size: 12px; color: rgb(107, 114, 128); margin-bottom: 10px;"
+      >
+        pedidos · 
+        R$ 79,80
+      </p>
+      <div
+        style="height: 4px; border-radius: 2px; background: rgb(229, 231, 235);"
+      >
+        <div
+          style="height: 100%; border-radius: 2px; background: rgb(107, 114, 128); width: 50%; transition: width 0.4s;"
+        />
+      </div>
+    </div>
+  </div>
+  <p
+    style="font-size: 11px; font-weight: 700; color: rgb(156, 163, 175); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px;"
+  >
+    Gráficos
+  </p>
+  <div
+    style="display: flex; flex-direction: column; gap: 18px; margin-bottom: 12px;"
+  >
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 24px 28px 20px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;"
+      >
+        <div
+          style="display: flex; align-items: center; gap: 8px;"
+        >
+          <span
+            data-icon="BarChart2"
+            data-size="16"
+          />
+          <h3
+            style="font-size: 15px; font-weight: 700; color: rgb(17, 24, 39);"
+          >
+            Faturamento por hora — hoje
+          </h3>
+        </div>
+        <span
+          style="font-size: 11px; color: rgb(156, 163, 175);"
+        >
+          10h–23h · pedidos ativos
+        </span>
+      </div>
+      <div
+        style="position: relative;"
+      >
+        <div
+          style="display: flex; align-items: flex-end; gap: 6px; height: 252px; padding-top: 28px;"
+        >
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: crosshair;"
+          >
+            <div
+              style="width: 100%; height: 100%; background: rgb(242, 168, 0); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 3px; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              10h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              11h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              12h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              13h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              14h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              15h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              16h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              17h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              18h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              19h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              20h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              21h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              22h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              23h
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 24px 28px 20px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 32px;"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;"
+      >
+        <div
+          style="display: flex; align-items: center; gap: 8px;"
+        >
+          <span
+            data-icon="BarChart2"
+            data-size="16"
+          />
+          <h3
+            style="font-size: 15px; font-weight: 700; color: rgb(17, 24, 39);"
+          >
+            Faturamento e pedidos — últimos 7 dias
+          </h3>
+        </div>
+        <span
+          style="font-size: 11px; color: rgb(156, 163, 175);"
+        >
+          pedidos não cancelados
+        </span>
+      </div>
+      <div
+        style="position: relative;"
+      >
+        <div
+          style="display: flex; gap: 18px; margin-bottom: 8px; font-size: 11px; color: rgb(107, 114, 128);"
+        >
+          <span
+            style="display: flex; align-items: center; gap: 5px;"
+          >
+            <span
+              style="width: 12px; height: 10px; background: rgb(242, 168, 0); border-radius: 2px; display: inline-block;"
+            />
+            Faturamento
+          </span>
+          <span
+            style="display: flex; align-items: center; gap: 5px;"
+          >
+            <span
+              style="width: 12px; height: 10px; background: rgb(99, 102, 241); border-radius: 2px; display: inline-block;"
+            />
+            Pedidos
+          </span>
+        </div>
+        <svg
+          style="width: 100%; height: 208px; display: block;"
+          viewBox="0 0 700 200"
+        >
+          <line
+            stroke="#F3F4F6"
+            stroke-width="1"
+            x1="8"
+            x2="692"
+            y1="141"
+            y2="141"
+          />
+          <line
+            stroke="#F3F4F6"
+            stroke-width="1"
+            x1="8"
+            x2="692"
+            y1="108"
+            y2="108"
+          />
+          <line
+            stroke="#F3F4F6"
+            stroke-width="1"
+            x1="8"
+            x2="692"
+            y1="75"
+            y2="75"
+          />
+          <line
+            stroke="#F3F4F6"
+            stroke-width="1"
+            x1="8"
+            x2="692"
+            y1="42"
+            y2="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="20.214285714285715"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="117.92857142857142"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="215.64285714285714"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="313.35714285714283"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="411.07142857142856"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="508.7857142857143"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="606.4999999999999"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="59.3"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="157.01428571428568"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="254.7285714285714"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="352.4428571428571"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="450.15714285714284"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="547.8714285714285"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="645.5857142857142"
+            y="42"
+          />
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="56.857142857142854"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="154.57142857142856"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="252.28571428571428"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="349.99999999999994"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="447.71428571428567"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="545.4285714285714"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="643.1428571428571"
+            y="196"
+          >
+            15/01
+          </text>
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="8"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="105.71428571428571"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="203.42857142857142"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="301.1428571428571"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="398.85714285714283"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="496.57142857142856"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="594.2857142857142"
+            y="24"
+          />
+        </svg>
+      </div>
+    </div>
+  </div>
+  <p
+    style="text-align: center; font-size: 11px; color: rgb(209, 213, 219);"
+  >
+    Comparativos vs. mesmo dia da semana anterior · Clique em "Atualizar" para sincronizar · Para análises detalhadas acesse Relatórios
+  </p>
+</div>
+`;
+
+exports[`Dashboard snapshots renders empty state with no orders 1`] = `
+<div
+  style="padding: 28px 32px;"
+>
+  <div
+    style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px;"
+  >
+    <div>
+      <h1
+        style="font-size: 22px; font-weight: 700; color: rgb(17, 24, 39); margin-bottom: 4px;"
+      >
+        Dashboard
+      </h1>
+      <p
+        style="font-size: 13px; color: rgb(107, 114, 128);"
+      >
+        10
+      </p>
+    </div>
+    <button
+      style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; background: rgb(255, 255, 255); border: 1px solid #e5e7eb; font-size: 13px; font-weight: 500; color: rgb(55, 65, 81); cursor: pointer; opacity: 1; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
+    >
+      <span
+        data-icon="RefreshCw"
+        data-size="14"
+      />
+      Atualizar
+    </button>
+  </div>
+  <div
+    style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;"
+  >
+    <div
+      data-from="2026-01-15"
+      data-testid="date-range-picker"
+      data-to="2026-01-15"
+    />
+    <span
+      style="font-size: 11px; color: rgb(156, 163, 175);"
+    >
+      comparado com 
+      qua passado
+       (mesmo horário)
+    </span>
+  </div>
+  <p
+    style="font-size: 11px; font-weight: 700; color: rgb(156, 163, 175); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px;"
+  >
+    Operação — 
+    hoje
+  </p>
+  <div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px;"
+  >
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(99, 102, 241, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="ShoppingBag"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Pedidos — hoje
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          0
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: 0
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(249, 115, 22, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="ChefHat"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Em produção
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          0
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          confirmados + preparando
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(139, 92, 246, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Truck"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Em entrega
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          0
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="CheckCircle"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Finalizados
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          0
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: 0
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="XCircle"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Cancelados
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          0
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(217, 119, 6, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Clock"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Tempo médio de produção
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(16, 185, 129); line-height: 1.2; word-break: break-all;"
+        >
+          —
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          sem dados ainda
+        </p>
+      </div>
+    </div>
+  </div>
+  <p
+    style="font-size: 11px; font-weight: 700; color: rgb(156, 163, 175); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px;"
+  >
+    Financeiro — 
+    hoje
+  </p>
+  <div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px;"
+  >
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="DollarSign"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Faturamento bruto
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 0,00
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: R$ 0,00
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(242, 168, 0, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="TrendingUp"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Ticket médio
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 0,00
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: R$ 0,00
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(59, 130, 246, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Truck"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Taxa de entrega
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 0,00
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          arrecadada no período
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Tag"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Descontos (cupons)
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 0,00
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          nenhum cupom
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(249, 115, 22, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Percent"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Taxa de cancelamento
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(16, 185, 129); line-height: 1.2; word-break: break-all;"
+        >
+          0.0%
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          0 de 0 pedidos
+        </p>
+      </div>
+    </div>
+  </div>
+  <p
+    style="font-size: 11px; font-weight: 700; color: rgb(156, 163, 175); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px;"
+  >
+    Gráficos
+  </p>
+  <div
+    style="display: flex; flex-direction: column; gap: 18px; margin-bottom: 12px;"
+  >
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 24px 28px 20px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;"
+      >
+        <div
+          style="display: flex; align-items: center; gap: 8px;"
+        >
+          <span
+            data-icon="BarChart2"
+            data-size="16"
+          />
+          <h3
+            style="font-size: 15px; font-weight: 700; color: rgb(17, 24, 39);"
+          >
+            Faturamento por hora — hoje
+          </h3>
+        </div>
+        <span
+          style="font-size: 11px; color: rgb(156, 163, 175);"
+        >
+          10h–23h · pedidos ativos
+        </span>
+      </div>
+      <div
+        style="height: 240px; display: flex; align-items: center; justify-content: center; color: rgb(209, 213, 219); font-size: 14px;"
+      >
+        Nenhuma venda registrada
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 24px 28px 20px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 32px;"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;"
+      >
+        <div
+          style="display: flex; align-items: center; gap: 8px;"
+        >
+          <span
+            data-icon="BarChart2"
+            data-size="16"
+          />
+          <h3
+            style="font-size: 15px; font-weight: 700; color: rgb(17, 24, 39);"
+          >
+            Faturamento e pedidos — últimos 7 dias
+          </h3>
+        </div>
+        <span
+          style="font-size: 11px; color: rgb(156, 163, 175);"
+        >
+          pedidos não cancelados
+        </span>
+      </div>
+      <div
+        style="height: 240px; display: flex; align-items: center; justify-content: center; color: rgb(209, 213, 219); font-size: 14px;"
+      >
+        Nenhum dado nos últimos 7 dias
+      </div>
+    </div>
+  </div>
+  <p
+    style="text-align: center; font-size: 11px; color: rgb(209, 213, 219);"
+  >
+    Comparativos vs. mesmo dia da semana anterior · Clique em "Atualizar" para sincronizar · Para análises detalhadas acesse Relatórios
+  </p>
+</div>
+`;
+
+exports[`Dashboard snapshots renders loading state 1`] = `
+<div
+  style="padding: 28px 32px;"
+>
+  <div
+    style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px;"
+  >
+    <div>
+      <h1
+        style="font-size: 22px; font-weight: 700; color: rgb(17, 24, 39); margin-bottom: 4px;"
+      >
+        Dashboard
+      </h1>
+      <p
+        style="font-size: 13px; color: rgb(107, 114, 128);"
+      >
+        10
+      </p>
+    </div>
+    <button
+      disabled=""
+      style="display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; background: rgb(255, 255, 255); border: 1px solid #e5e7eb; font-size: 13px; font-weight: 500; color: rgb(55, 65, 81); cursor: not-allowed; opacity: 0.6; box-shadow: 0 1px 2px rgba(0,0,0,0.05);"
+    >
+      <span
+        data-icon="RefreshCw"
+        data-size="14"
+      />
+      Atualizando...
+    </button>
+  </div>
+  <div
+    style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;"
+  >
+    <div
+      data-from="2026-01-15"
+      data-testid="date-range-picker"
+      data-to="2026-01-15"
+    />
+    <span
+      style="font-size: 11px; color: rgb(156, 163, 175);"
+    >
+      comparado com 
+      qua passado
+       (mesmo horário)
+    </span>
+  </div>
+  <p
+    style="font-size: 11px; font-weight: 700; color: rgb(156, 163, 175); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px;"
+  >
+    Operação — 
+    hoje
+  </p>
+  <div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px;"
+  >
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(99, 102, 241, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="ShoppingBag"
+            data-size="20"
+          />
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: rgb(156, 163, 175);"
+        >
+          <span
+            data-icon="Minus"
+            data-size="12"
+          />
+          0
+          %
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Pedidos — hoje
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          3
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: 3
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(249, 115, 22, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="ChefHat"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Em produção
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          0
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          confirmados + preparando
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(139, 92, 246, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Truck"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Em entrega
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          0
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="CheckCircle"
+            data-size="20"
+          />
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: rgb(156, 163, 175);"
+        >
+          <span
+            data-icon="Minus"
+            data-size="12"
+          />
+          0
+          %
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Finalizados
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(16, 185, 129); line-height: 1.2; word-break: break-all;"
+        >
+          2
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: 2
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="XCircle"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Cancelados
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(239, 68, 68); line-height: 1.2; word-break: break-all;"
+        >
+          1
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(217, 119, 6, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Clock"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Tempo médio de produção
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(16, 185, 129); line-height: 1.2; word-break: break-all;"
+        >
+          —
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          sem dados ainda
+        </p>
+      </div>
+    </div>
+  </div>
+  <p
+    style="font-size: 11px; font-weight: 700; color: rgb(156, 163, 175); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px;"
+  >
+    Financeiro — 
+    hoje
+  </p>
+  <div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px;"
+  >
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="DollarSign"
+            data-size="20"
+          />
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: rgb(156, 163, 175);"
+        >
+          <span
+            data-icon="Minus"
+            data-size="12"
+          />
+          0
+          %
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Faturamento bruto
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 129,70
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: R$ 129,70
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(242, 168, 0, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="TrendingUp"
+            data-size="20"
+          />
+        </div>
+        <div
+          style="display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: rgb(156, 163, 175);"
+        >
+          <span
+            data-icon="Minus"
+            data-size="12"
+          />
+          0
+          %
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Ticket médio
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 64,85
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          qua passado: R$ 64,85
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(59, 130, 246, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Truck"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Taxa de entrega
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 14,00
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          arrecadada no período
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239, 68, 68, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Tag"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Descontos (cupons)
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(17, 24, 39); line-height: 1.2; word-break: break-all;"
+        >
+          R$ 0,00
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          nenhum cupom
+        </p>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 18px 20px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between;"
+      >
+        <div
+          style="width: 40px; height: 40px; border-radius: 10px; background: rgba(249, 115, 22, 0.1); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Percent"
+            data-size="20"
+          />
+        </div>
+      </div>
+      <div>
+        <p
+          style="font-size: 11px; color: rgb(107, 114, 128); font-weight: 500; margin-bottom: 3px;"
+        >
+          Taxa de cancelamento
+        </p>
+        <p
+          style="font-size: 21px; font-weight: 700; color: rgb(239, 68, 68); line-height: 1.2; word-break: break-all;"
+        >
+          33.3%
+        </p>
+        <p
+          style="font-size: 11px; color: rgb(156, 163, 175); margin-top: 3px;"
+        >
+          1 de 3 pedidos
+        </p>
+      </div>
+    </div>
+  </div>
+  <p
+    style="font-size: 11px; font-weight: 700; color: rgb(156, 163, 175); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px;"
+  >
+    Formas de pagamento — 
+    hoje
+  </p>
+  <div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 28px;"
+  >
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 16px 18px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;"
+      >
+        <div
+          style="width: 34px; height: 34px; border-radius: 8px; background: rgba(59, 130, 246, 0.082); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="Zap"
+            data-size="16"
+          />
+        </div>
+        <div>
+          <p
+            style="font-size: 13px; font-weight: 600; color: rgb(17, 24, 39);"
+          >
+            PIX
+          </p>
+          <p
+            style="font-size: 11px; color: rgb(156, 163, 175);"
+          >
+            50
+            % dos pedidos
+          </p>
+        </div>
+      </div>
+      <p
+        style="font-size: 20px; font-weight: 700; color: rgb(59, 130, 246); margin-bottom: 2px;"
+      >
+        1
+      </p>
+      <p
+        style="font-size: 12px; color: rgb(107, 114, 128); margin-bottom: 10px;"
+      >
+        pedidos · 
+        R$ 49,90
+      </p>
+      <div
+        style="height: 4px; border-radius: 2px; background: rgb(229, 231, 235);"
+      >
+        <div
+          style="height: 100%; border-radius: 2px; background: rgb(59, 130, 246); width: 50%; transition: width 0.4s;"
+        />
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 16px 18px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;"
+      >
+        <div
+          style="width: 34px; height: 34px; border-radius: 8px; background: rgba(107, 114, 128, 0.082); display: flex; align-items: center; justify-content: center;"
+        >
+          <span
+            data-icon="CreditCard"
+            data-size="16"
+          />
+        </div>
+        <div>
+          <p
+            style="font-size: 13px; font-weight: 600; color: rgb(17, 24, 39);"
+          >
+            card
+          </p>
+          <p
+            style="font-size: 11px; color: rgb(156, 163, 175);"
+          >
+            50
+            % dos pedidos
+          </p>
+        </div>
+      </div>
+      <p
+        style="font-size: 20px; font-weight: 700; color: rgb(107, 114, 128); margin-bottom: 2px;"
+      >
+        1
+      </p>
+      <p
+        style="font-size: 12px; color: rgb(107, 114, 128); margin-bottom: 10px;"
+      >
+        pedidos · 
+        R$ 79,80
+      </p>
+      <div
+        style="height: 4px; border-radius: 2px; background: rgb(229, 231, 235);"
+      >
+        <div
+          style="height: 100%; border-radius: 2px; background: rgb(107, 114, 128); width: 50%; transition: width 0.4s;"
+        />
+      </div>
+    </div>
+  </div>
+  <p
+    style="font-size: 11px; font-weight: 700; color: rgb(156, 163, 175); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 12px; margin-top: 4px;"
+  >
+    Gráficos
+  </p>
+  <div
+    style="display: flex; flex-direction: column; gap: 18px; margin-bottom: 12px;"
+  >
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 24px 28px 20px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.06);"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;"
+      >
+        <div
+          style="display: flex; align-items: center; gap: 8px;"
+        >
+          <span
+            data-icon="BarChart2"
+            data-size="16"
+          />
+          <h3
+            style="font-size: 15px; font-weight: 700; color: rgb(17, 24, 39);"
+          >
+            Faturamento por hora — hoje
+          </h3>
+        </div>
+        <span
+          style="font-size: 11px; color: rgb(156, 163, 175);"
+        >
+          10h–23h · pedidos ativos
+        </span>
+      </div>
+      <div
+        style="position: relative;"
+      >
+        <div
+          style="display: flex; align-items: flex-end; gap: 6px; height: 252px; padding-top: 28px;"
+        >
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: crosshair;"
+          >
+            <div
+              style="width: 100%; height: 100%; background: rgb(242, 168, 0); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 3px; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              10h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              11h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              12h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              13h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              14h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              15h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              16h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              17h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              18h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              19h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              20h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              21h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              22h
+            </span>
+          </div>
+          <div
+            style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; position: relative; cursor: default;"
+          >
+            <div
+              style="width: 100%; height: 0%; background: rgb(243, 244, 246); border-radius: 5px 5px 0 0; transition: height 0.4s ease, opacity 0.15s; min-height: 0; max-height: 220px; opacity: 1;"
+            />
+            <span
+              style="font-size: 10px; color: rgb(156, 163, 175); font-weight: 400; white-space: nowrap; overflow: hidden; width: 100%; text-align: center; padding-bottom: 2px;"
+            >
+              23h
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      style="background: rgb(255, 255, 255); border-radius: 12px; padding: 24px 28px 20px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 32px;"
+    >
+      <div
+        style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;"
+      >
+        <div
+          style="display: flex; align-items: center; gap: 8px;"
+        >
+          <span
+            data-icon="BarChart2"
+            data-size="16"
+          />
+          <h3
+            style="font-size: 15px; font-weight: 700; color: rgb(17, 24, 39);"
+          >
+            Faturamento e pedidos — últimos 7 dias
+          </h3>
+        </div>
+        <span
+          style="font-size: 11px; color: rgb(156, 163, 175);"
+        >
+          pedidos não cancelados
+        </span>
+      </div>
+      <div
+        style="position: relative;"
+      >
+        <div
+          style="display: flex; gap: 18px; margin-bottom: 8px; font-size: 11px; color: rgb(107, 114, 128);"
+        >
+          <span
+            style="display: flex; align-items: center; gap: 5px;"
+          >
+            <span
+              style="width: 12px; height: 10px; background: rgb(242, 168, 0); border-radius: 2px; display: inline-block;"
+            />
+            Faturamento
+          </span>
+          <span
+            style="display: flex; align-items: center; gap: 5px;"
+          >
+            <span
+              style="width: 12px; height: 10px; background: rgb(99, 102, 241); border-radius: 2px; display: inline-block;"
+            />
+            Pedidos
+          </span>
+        </div>
+        <svg
+          style="width: 100%; height: 208px; display: block;"
+          viewBox="0 0 700 200"
+        >
+          <line
+            stroke="#F3F4F6"
+            stroke-width="1"
+            x1="8"
+            x2="692"
+            y1="141"
+            y2="141"
+          />
+          <line
+            stroke="#F3F4F6"
+            stroke-width="1"
+            x1="8"
+            x2="692"
+            y1="108"
+            y2="108"
+          />
+          <line
+            stroke="#F3F4F6"
+            stroke-width="1"
+            x1="8"
+            x2="692"
+            y1="75"
+            y2="75"
+          />
+          <line
+            stroke="#F3F4F6"
+            stroke-width="1"
+            x1="8"
+            x2="692"
+            y1="42"
+            y2="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="20.214285714285715"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="117.92857142857142"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="215.64285714285714"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="313.35714285714283"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="411.07142857142856"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="508.7857142857143"
+            y="42"
+          />
+          <rect
+            fill="#F2A800"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="606.4999999999999"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="59.3"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="157.01428571428568"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="254.7285714285714"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="352.4428571428571"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="450.15714285714284"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="547.8714285714285"
+            y="42"
+          />
+          <rect
+            fill="#6366F1"
+            height="132"
+            opacity="0.9"
+            rx="3"
+            width="34.199999999999996"
+            x="645.5857142857142"
+            y="42"
+          />
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="56.857142857142854"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="154.57142857142856"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="252.28571428571428"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="349.99999999999994"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="447.71428571428567"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="545.4285714285714"
+            y="196"
+          >
+            15/01
+          </text>
+          <text
+            fill="#9CA3AF"
+            font-size="10"
+            font-weight="400"
+            text-anchor="middle"
+            x="643.1428571428571"
+            y="196"
+          >
+            15/01
+          </text>
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="8"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="105.71428571428571"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="203.42857142857142"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="301.1428571428571"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="398.85714285714283"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="496.57142857142856"
+            y="24"
+          />
+          <rect
+            fill="transparent"
+            height="150"
+            style="cursor: crosshair;"
+            width="97.71428571428571"
+            x="594.2857142857142"
+            y="24"
+          />
+        </svg>
+      </div>
+    </div>
+  </div>
+  <p
+    style="text-align: center; font-size: 11px; color: rgb(209, 213, 219);"
+  >
+    Comparativos vs. mesmo dia da semana anterior · Clique em "Atualizar" para sincronizar · Para análises detalhadas acesse Relatórios
+  </p>
+</div>
+`;
