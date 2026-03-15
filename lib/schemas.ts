@@ -12,7 +12,11 @@ export const loginSchema = z.object({
 export const registerSchema = z.object({
   name:     z.string().min(2, 'Nome muito curto').max(100).trim(),
   email:    z.string().email('E-mail inválido').max(254),
-  password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres').max(128),
+  password: z.string()
+    .min(8, 'Senha deve ter pelo menos 8 caracteres')
+    .max(128)
+    .regex(/[a-zA-Z]/, 'Senha deve conter pelo menos uma letra')
+    .regex(/\d/, 'Senha deve conter pelo menos um número'),
   phone:    z.string().max(20).optional().nullable(),
   address_street:       z.string().max(200).optional().nullable(),
   address_number:       z.string().max(20).optional().nullable(),
@@ -67,7 +71,11 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   token:        z.string().min(1),
-  new_password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres').max(128),
+  new_password: z.string()
+    .min(8, 'A senha deve ter pelo menos 8 caracteres')
+    .max(128)
+    .regex(/[a-zA-Z]/, 'A senha deve conter pelo menos uma letra')
+    .regex(/\d/, 'A senha deve conter pelo menos um número'),
 });
 
 // ── Tipos inferidos ───────────────────────────────────────────────────────────
