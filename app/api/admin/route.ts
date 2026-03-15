@@ -46,7 +46,7 @@ export type AdminTokenPayload = {
 function getTokenPayload(request: NextRequest): AdminTokenPayload | null {
   const auth   = request.headers.get('authorization') || '';
   const token  = auth.replace('Bearer ', '').trim();
-  const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+  const secret = process.env.ADMIN_JWT_SECRET;
   if (!token || !secret) return null;
   try {
     const decoded = jwt.verify(token, secret) as jwt.JwtPayload & AdminTokenPayload;
@@ -113,6 +113,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (action === 'reactivate_sub_admin') {
       if (!isMaster(payload)) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
       return handleReactivateSubAdmin(supabase, data);
+    }
+
+    // ── Alertas operacionais ─────────────────────────────────────────────────
+    if (action === 'get_cw_alerts') {
+      const { data: cwFailed } = await supabase
+        .from('orders')
+        .select('id, order_number, cw_push_last_error, created_at')
+        .eq('cw_push_status', 'failed')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      const { data: stockConflicts } = await supabase
+        .from('orders')
+        .select('id, order_number, created_at')
+        .eq('stock_conflict', true)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      return NextResponse.json({
+        cwFailed:       cwFailed       || [],
+        stockConflicts: stockConflicts || [],
+      });
     }
 
     // ── Orders ──────────────────────────────────────────────────────────────

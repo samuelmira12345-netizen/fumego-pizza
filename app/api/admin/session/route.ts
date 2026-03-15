@@ -60,10 +60,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const body = await request.json();
     const { username, password } = body as { username?: string; password: string };
-    const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+    const secret = process.env.ADMIN_JWT_SECRET;
 
     if (!secret) {
-      return NextResponse.json({ error: 'Servidor mal configurado' }, { status: 500 });
+      return NextResponse.json({ error: 'Servidor mal configurado: ADMIN_JWT_SECRET ausente' }, { status: 500 });
     }
 
     let token: string;
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+    const secret = process.env.ADMIN_JWT_SECRET;
     if (!secret) return NextResponse.json({ valid: false }, { status: 401 });
 
     // Cookie httpOnly tem prioridade; fallback para Authorization header

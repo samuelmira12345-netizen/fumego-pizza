@@ -9,7 +9,7 @@ import { isCWPartnerEnabled, getCWPaymentMethods } from '../../../../lib/cardapi
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const auth   = request.headers.get('authorization') || '';
   const token  = auth.replace('Bearer ', '').trim();
-  const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+  const secret = process.env.ADMIN_JWT_SECRET;
   let authorized = false;
   if (token && secret) {
     try {
