@@ -436,7 +436,8 @@ describe('handleGetDeliveryMetrics', () => {
         delivering_at: new Date(now.getTime() - 40 * 60000).toISOString(), // 40 min atrás
         delivered_at:  now.toISOString(),
         driver_collected_at: null, driver_delivered_at: null,
-        created_at: '2024-01-15T10:00:00Z',
+        created_at: '2024-01-15T10:00:00Z', // 240 min antes de now → ciclo total = 240 min
+        promised_delivery_time: '40–60 min', // prometido: até 60 min → ATRASADO (240 > 60)
       },
       {
         id: 'o2', status: 'delivered', total: '35', delivery_fee: '7',
@@ -444,7 +445,8 @@ describe('handleGetDeliveryMetrics', () => {
         delivering_at: new Date(now.getTime() - 20 * 60000).toISOString(), // 20 min atrás
         delivered_at:  now.toISOString(),
         driver_collected_at: null, driver_delivered_at: null,
-        created_at: '2024-01-15T10:30:00Z',
+        created_at: new Date(now.getTime() - 45 * 60000).toISOString(), // 45 min antes
+        promised_delivery_time: '40–60 min', // prometido: até 60 min → NO PRAZO (45 ≤ 60)
       },
     ];
     mockSupabase.from.mockImplementation((table: string) => {
@@ -459,9 +461,56 @@ describe('handleGetDeliveryMetrics', () => {
     const carlos = body.persons[0];
     expect(carlos.delivered_count).toBe(2);
     expect(carlos.delivery_fees_total).toBeCloseTo(15);
+    // Last-mile (delivering_at → delivered_at): o1=40min, o2=20min
     expect(carlos.min_delivery_minutes).toBe(20);
     expect(carlos.max_delivery_minutes).toBe(40);
     expect(carlos.avg_delivery_minutes).toBe(30);
+    // Ciclo completo (created_at → delivered_at): o1=240min, o2=45min
+    expect(carlos.avg_total_minutes).toBe(Math.round((240 + 45) / 2));
+    expect(carlos.min_total_minutes).toBe(45);
+    expect(carlos.max_total_minutes).toBe(240);
+    // On-time vs prometido: o2 no prazo (45≤60), o1 atrasado (240>60)
+    expect(carlos.on_time_count).toBe(1);
+    expect(carlos.late_count).toBe(1);
+    expect(carlos.avg_delay_minutes).toBe(240 - 60); // 180 min de atraso
+  });
+
+  it('usa promised_delivery_time do pedido para on_time/late (sem fallback global)', async () => {
+    const persons = [{ id: 'p1', name: 'Carlos', is_active: true }];
+    const base = new Date('2024-06-01T12:00:00Z');
+    const orders = [
+      {
+        id: 'o1', status: 'delivered', total: '50', delivery_fee: '5',
+        delivery_person_id: 'p1',
+        delivering_at: new Date(base.getTime() - 25 * 60000).toISOString(),
+        delivered_at:  base.toISOString(),
+        driver_collected_at: null, driver_delivered_at: null,
+        created_at: new Date(base.getTime() - 50 * 60000).toISOString(), // 50 min ciclo
+        promised_delivery_time: '30–45 min', // prometido max 45 → ATRASADO (50 > 45)
+      },
+      {
+        id: 'o2', status: 'delivered', total: '40', delivery_fee: '5',
+        delivery_person_id: 'p1',
+        delivering_at: new Date(base.getTime() - 10 * 60000).toISOString(),
+        delivered_at:  base.toISOString(),
+        driver_collected_at: null, driver_delivered_at: null,
+        created_at: new Date(base.getTime() - 35 * 60000).toISOString(), // 35 min ciclo
+        promised_delivery_time: '40–60 min', // prometido max 60 → NO PRAZO (35 ≤ 60)
+      },
+    ];
+    mockSupabase.from.mockImplementation((table: string) => {
+      if (table === 'delivery_persons') return mkChain(persons, null);
+      if (table === 'orders')           return mkChain(orders, null);
+      return mkChain(null, null);
+    });
+
+    const res = await handleGetDeliveryMetrics(mockSupabase as any, {});
+    const body = await res.json();
+    const carlos = body.persons[0];
+
+    expect(carlos.on_time_count).toBe(1); // o2 no prazo
+    expect(carlos.late_count).toBe(1);    // o1 atrasado (50 > 45)
+    expect(carlos.avg_delay_minutes).toBe(5); // 50 - 45 = 5 min de atraso
   });
 
   it('limita `days` a máximo de 180', async () => {
