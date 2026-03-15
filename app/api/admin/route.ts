@@ -50,7 +50,6 @@ function getTokenPayload(request: NextRequest): AdminTokenPayload | null {
   if (!token || !secret) return null;
   try {
     const decoded = jwt.verify(token, secret) as jwt.JwtPayload & AdminTokenPayload;
-    // Aceita role: 'admin' (tokens legados), 'master' e 'sub'
     if (!['admin', 'master', 'sub'].includes(decoded.role)) return null;
     return {
       role: decoded.role,
@@ -62,15 +61,123 @@ function getTokenPayload(request: NextRequest): AdminTokenPayload | null {
   }
 }
 
-/** Verifica se o token é de um admin autenticado (qualquer role válida). */
-function verifyAdminToken(request: NextRequest): boolean {
-  return getTokenPayload(request) !== null;
-}
-
 /** Verifica se o token tem role master (ou legado 'admin'). */
 function isMaster(payload: AdminTokenPayload): boolean {
   return payload.role === 'master' || payload.role === 'admin';
 }
+
+// ── Tipos do dispatch map ─────────────────────────────────────────────────────
+
+type Supabase = ReturnType<typeof getSupabaseAdmin>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Ctx = { supabase: Supabase; data: any };
+type Handler = (ctx: Ctx) => Promise<NextResponse>;
+
+// ── Alertas operacionais (inline, sem módulo próprio) ─────────────────────────
+
+async function handleGetCwAlerts({ supabase }: Ctx): Promise<NextResponse> {
+  const [{ data: cwFailed }, { data: stockConflicts }] = await Promise.all([
+    supabase
+      .from('orders')
+      .select('id, order_number, cw_push_last_error, created_at')
+      .eq('cw_push_status', 'failed')
+      .order('created_at', { ascending: false })
+      .limit(20),
+    supabase
+      .from('orders')
+      .select('id, order_number, created_at')
+      .eq('stock_conflict', true)
+      .order('created_at', { ascending: false })
+      .limit(20),
+  ]);
+  return NextResponse.json({
+    cwFailed:       cwFailed       || [],
+    stockConflicts: stockConflicts || [],
+  });
+}
+
+// ── Dispatch maps ─────────────────────────────────────────────────────────────
+
+/** Ações restritas a master/admin. */
+const MASTER_ONLY: Record<string, Handler> = {
+  list_sub_admins:      ({ supabase })       => handleListSubAdmins(supabase),
+  create_sub_admin:     ({ supabase, data }) => handleCreateSubAdmin(supabase, data),
+  update_sub_admin:     ({ supabase, data }) => handleUpdateSubAdmin(supabase, data),
+  deactivate_sub_admin: ({ supabase, data }) => handleDeactivateSubAdmin(supabase, data),
+  reactivate_sub_admin: ({ supabase, data }) => handleReactivateSubAdmin(supabase, data),
+};
+
+/** Ações disponíveis para qualquer role válida. */
+const HANDLERS: Record<string, Handler> = {
+  // Alertas
+  get_cw_alerts: handleGetCwAlerts,
+
+  // Orders
+  get_data:               ({ supabase })       => handleGetData(supabase),
+  get_orders_only:        ({ supabase, data }) => handleGetOrdersOnly(supabase, data),
+  get_more_orders:        ({ supabase, data }) => handleGetMoreOrders(supabase, data),
+  get_order_items:        ({ supabase, data }) => handleGetOrderItems(supabase, data),
+  get_order_change_history: ({ supabase, data }) => handleGetOrderChangeHistory(supabase, data),
+  update_order:           ({ supabase, data }) => handleUpdateOrder(supabase, data),
+  update_order_items:     ({ supabase, data }) => handleUpdateOrderItems(supabase, data),
+  delete_order:           ({ supabase, data }) => handleDeleteOrder(supabase, data),
+  restore_order:          ({ supabase, data }) => handleRestoreOrder(supabase, data),
+  get_inactive_orders:    ({ supabase, data }) => handleGetInactiveOrders(supabase, data),
+  create_manual_order:    ({ supabase, data }) => handleCreateManualOrder(supabase, data),
+
+  // Catalog & Settings
+  save_all:               ({ supabase, data }) => handleSaveAll(supabase, data),
+  save_setting:           ({ supabase, data }) => handleSaveSetting(supabase, data),
+  add_product:            ({ supabase, data }) => handleAddProduct(supabase, data),
+  add_drink:              ({ supabase, data }) => handleAddDrink(supabase, data),
+  delete_product:         ({ supabase, data }) => handleDeleteProduct(supabase, data),
+  delete_drink:           ({ supabase, data }) => handleDeleteDrink(supabase, data),
+  duplicate_drink:        ({ supabase, data }) => handleDuplicateDrink(supabase, data),
+  remove_logo:            ({ supabase })       => handleRemoveLogo(supabase),
+  update_product_flags:   ({ supabase, data }) => handleUpdateProductFlags(supabase, data),
+  update_drink_flags:     ({ supabase, data }) => handleUpdateDrinkFlags(supabase, data),
+
+  // Coupons
+  add_coupon:             ({ supabase, data }) => handleAddCoupon(supabase, data),
+  update_coupon:          ({ supabase, data }) => handleUpdateCoupon(supabase, data),
+  delete_coupon:          ({ supabase, data }) => handleDeleteCoupon(supabase, data),
+  get_coupon_analytics:   ({ supabase })       => handleGetCouponAnalytics(supabase),
+
+  // Customers
+  get_customers:          ({ supabase })       => handleGetCustomers(supabase),
+  get_customer_profile:   ({ supabase, data }) => handleGetCustomerProfile(supabase, data),
+  search_phone_suffix:    ({ supabase, data }) => handleSearchPhoneSuffix(supabase, data),
+
+  // Inventory
+  get_catalog_extra:      ({ supabase })       => handleGetCatalogExtra(supabase),
+  save_ingredient:        ({ supabase, data }) => handleSaveIngredient(supabase, data),
+  save_compound_recipe:   ({ supabase, data }) => handleSaveCompoundRecipe(supabase, data),
+  get_compound_recipes:   ({ supabase, data }) => handleGetCompoundRecipes(supabase, data),
+  save_compound_recipe_v2:({ supabase, data }) => handleSaveCompoundRecipeV2(supabase, data),
+  delete_compound_recipe: ({ supabase, data }) => handleDeleteCompoundRecipe(supabase, data),
+  apply_compound_recipe:  ({ supabase, data }) => handleApplyCompoundRecipe(supabase, data),
+  stock_movement:         ({ supabase, data }) => handleStockMovement(supabase, data),
+  get_stock_movements:    ({ supabase, data }) => handleGetStockMovements(supabase, data),
+  delete_ingredient:      ({ supabase, data }) => handleDeleteIngredient(supabase, data),
+  save_recipe:            ({ supabase, data }) => handleSaveRecipe(supabase, data),
+
+  // Delivery
+  get_delivery_persons:   ({ supabase })       => handleGetDeliveryPersons(supabase),
+  save_delivery_person:   ({ supabase, data }) => handleSaveDeliveryPerson(supabase, data),
+  delete_delivery_person: ({ supabase, data }) => handleDeleteDeliveryPerson(supabase, data),
+  get_delivery_history:   ({ supabase, data }) => handleGetDeliveryHistory(supabase, data),
+  get_delivery_zones:     ({ supabase })       => handleGetDeliveryZones(supabase),
+  save_delivery_zone:     ({ supabase, data }) => handleSaveDeliveryZone(supabase, data),
+  delete_delivery_zone:   ({ supabase, data }) => handleDeleteDeliveryZone(supabase, data),
+  assign_delivery:        ({ supabase, data }) => handleAssignDelivery(supabase, data),
+  get_driver_locations:   ({ supabase })       => handleGetDriverLocations(supabase),
+  get_delivery_metrics:   ({ supabase, data }) => handleGetDeliveryMetrics(supabase, data),
+  get_delivery_queue:     ({ supabase, data }) => handleGetDeliveryQueue(supabase, data),
+  set_delivery_priority:  ({ supabase, data }) => handleSetDeliveryPriority(supabase, data),
+  get_delivery_analysis:  ({ supabase, data }) => handleGetDeliveryAnalysis(supabase, data),
+};
+
+// ── Handler principal ─────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -92,112 +199,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const body = await request.json();
     const { action, data } = body;
     const supabase = getSupabaseAdmin();
+    const ctx: Ctx = { supabase, data };
 
-    // ── Sub-Admin Management (master only) ───────────────────────────────────
-    if (action === 'list_sub_admins') {
-      if (!isMaster(payload)) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
-      return handleListSubAdmins(supabase);
-    }
-    if (action === 'create_sub_admin') {
-      if (!isMaster(payload)) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
-      return handleCreateSubAdmin(supabase, data);
-    }
-    if (action === 'update_sub_admin') {
-      if (!isMaster(payload)) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
-      return handleUpdateSubAdmin(supabase, data);
-    }
-    if (action === 'deactivate_sub_admin') {
-      if (!isMaster(payload)) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
-      return handleDeactivateSubAdmin(supabase, data);
-    }
-    if (action === 'reactivate_sub_admin') {
-      if (!isMaster(payload)) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
-      return handleReactivateSubAdmin(supabase, data);
+    if (MASTER_ONLY[action]) {
+      if (!isMaster(payload)) {
+        return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+      }
+      return MASTER_ONLY[action](ctx);
     }
 
-    // ── Alertas operacionais ─────────────────────────────────────────────────
-    if (action === 'get_cw_alerts') {
-      const { data: cwFailed } = await supabase
-        .from('orders')
-        .select('id, order_number, cw_push_last_error, created_at')
-        .eq('cw_push_status', 'failed')
-        .order('created_at', { ascending: false })
-        .limit(20);
-      const { data: stockConflicts } = await supabase
-        .from('orders')
-        .select('id, order_number, created_at')
-        .eq('stock_conflict', true)
-        .order('created_at', { ascending: false })
-        .limit(20);
-      return NextResponse.json({
-        cwFailed:       cwFailed       || [],
-        stockConflicts: stockConflicts || [],
-      });
+    if (HANDLERS[action]) {
+      return HANDLERS[action](ctx);
     }
-
-    // ── Orders ──────────────────────────────────────────────────────────────
-    if (action === 'get_data')          return handleGetData(supabase);
-    if (action === 'get_orders_only')   return handleGetOrdersOnly(supabase, data);
-    if (action === 'get_more_orders')   return handleGetMoreOrders(supabase, data);
-    if (action === 'get_order_items')   return handleGetOrderItems(supabase, data);
-    if (action === 'get_order_change_history') return handleGetOrderChangeHistory(supabase, data);
-    if (action === 'update_order')      return handleUpdateOrder(supabase, data);
-    if (action === 'update_order_items') return handleUpdateOrderItems(supabase, data);
-    if (action === 'delete_order')      return handleDeleteOrder(supabase, data);
-    if (action === 'restore_order')     return handleRestoreOrder(supabase, data);
-    if (action === 'get_inactive_orders') return handleGetInactiveOrders(supabase, data);
-    if (action === 'create_manual_order') return handleCreateManualOrder(supabase, data);
-
-    // ── Catalog & Settings ──────────────────────────────────────────────────
-    if (action === 'save_all')          return handleSaveAll(supabase, data);
-    if (action === 'save_setting')      return handleSaveSetting(supabase, data);
-    if (action === 'add_product')       return handleAddProduct(supabase, data);
-    if (action === 'add_drink')         return handleAddDrink(supabase, data);
-    if (action === 'delete_product')    return handleDeleteProduct(supabase, data);
-    if (action === 'delete_drink')      return handleDeleteDrink(supabase, data);
-    if (action === 'duplicate_drink')   return handleDuplicateDrink(supabase, data);
-    if (action === 'remove_logo')       return handleRemoveLogo(supabase);
-    if (action === 'update_product_flags') return handleUpdateProductFlags(supabase, data);
-    if (action === 'update_drink_flags')   return handleUpdateDrinkFlags(supabase, data);
-
-    // ── Coupons ─────────────────────────────────────────────────────────────
-    if (action === 'add_coupon')        return handleAddCoupon(supabase, data);
-    if (action === 'update_coupon')     return handleUpdateCoupon(supabase, data);
-    if (action === 'delete_coupon')     return handleDeleteCoupon(supabase, data);
-    if (action === 'get_coupon_analytics') return handleGetCouponAnalytics(supabase);
-
-    // ── Customers ───────────────────────────────────────────────────────────
-    if (action === 'get_customers')        return handleGetCustomers(supabase);
-    if (action === 'get_customer_profile') return handleGetCustomerProfile(supabase, data);
-    if (action === 'search_phone_suffix')  return handleSearchPhoneSuffix(supabase, data);
-
-    // ── Inventory ───────────────────────────────────────────────────────────
-    if (action === 'get_catalog_extra')    return handleGetCatalogExtra(supabase);
-    if (action === 'save_ingredient')      return handleSaveIngredient(supabase, data);
-    if (action === 'save_compound_recipe')    return handleSaveCompoundRecipe(supabase, data);
-    if (action === 'get_compound_recipes')    return handleGetCompoundRecipes(supabase, data);
-    if (action === 'save_compound_recipe_v2') return handleSaveCompoundRecipeV2(supabase, data);
-    if (action === 'delete_compound_recipe')  return handleDeleteCompoundRecipe(supabase, data);
-    if (action === 'apply_compound_recipe')   return handleApplyCompoundRecipe(supabase, data);
-    if (action === 'stock_movement')          return handleStockMovement(supabase, data);
-    if (action === 'get_stock_movements')     return handleGetStockMovements(supabase, data);
-    if (action === 'delete_ingredient')       return handleDeleteIngredient(supabase, data);
-    if (action === 'save_recipe')             return handleSaveRecipe(supabase, data);
-
-    // ── Delivery ─────────────────────────────────────────────────────────────
-    if (action === 'get_delivery_persons')   return handleGetDeliveryPersons(supabase);
-    if (action === 'save_delivery_person')   return handleSaveDeliveryPerson(supabase, data);
-    if (action === 'delete_delivery_person') return handleDeleteDeliveryPerson(supabase, data);
-    if (action === 'get_delivery_history')   return handleGetDeliveryHistory(supabase, data);
-    if (action === 'get_delivery_zones')     return handleGetDeliveryZones(supabase);
-    if (action === 'save_delivery_zone')     return handleSaveDeliveryZone(supabase, data);
-    if (action === 'delete_delivery_zone')   return handleDeleteDeliveryZone(supabase, data);
-    if (action === 'assign_delivery')        return handleAssignDelivery(supabase, data);
-    if (action === 'get_driver_locations')   return handleGetDriverLocations(supabase);
-    if (action === 'get_delivery_metrics')   return handleGetDeliveryMetrics(supabase, data);
-    if (action === 'get_delivery_queue')     return handleGetDeliveryQueue(supabase, data);
-    if (action === 'set_delivery_priority')  return handleSetDeliveryPriority(supabase, data);
-    if (action === 'get_delivery_analysis')  return handleGetDeliveryAnalysis(supabase, data);
 
     return NextResponse.json({ error: 'Ação desconhecida' }, { status: 400 });
   } catch (e) {

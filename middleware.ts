@@ -1,87 +1,107 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Proteção CSRF via validação do header Origin.
- *
- * Estratégia de defesa em profundidade para rotas de API que alteram estado:
- *
- *  - Se a requisição carrega `Authorization: Bearer …`, ela exige código JS para
- *    ser montada, portanto não é forjável por um form cross-origin → permitida.
- *
- *  - Webhooks possuem verificação de assinatura própria → permitidos.
- *
- *  - Se o header Origin está presente e seu host difere do host da aplicação,
- *    a requisição é rejeitada com 403.
- *
- *  - Se o header Origin está ausente (ex.: curl, requisições server-to-server)
- *    a requisição é permitida — o cookie SameSite=Lax já impede form-CSRF de
- *    origem cruzada em browsers modernos.
+ * Middleware unificado:
+ *  1. Gera nonce por request para CSP nonce-based (rotas de página)
+ *  2. Aplica CSP header em todas as rotas
+ *  3. Proteção CSRF via validação de Origin (rotas de API)
  */
 
+// ── CSP builder ───────────────────────────────────────────────────────────────
+
+function buildCSP(nonce: string | null): string {
+  // unsafe-eval apenas em dev (Next.js webpack hot-reload usa eval)
+  const evalDirective = process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : '';
+
+  // Com nonce: remove unsafe-inline de script-src; 'strict-dynamic' permite
+  // scripts carregados por scripts já autorizados (Next.js runtime, GA).
+  // Sem nonce (rotas de API que retornam JSON): política mínima sem inline.
+  const scriptSrc = nonce
+    ? `'self' 'nonce-${nonce}' 'strict-dynamic'${evalDirective}`
+    : `'self'${evalDirective}`;
+
+  return [
+    "default-src 'self'",
+    `script-src ${scriptSrc}`,
+    // style-src mantém unsafe-inline: Next.js injeta <style> internos que não
+    // suportam nonce de forma confiável em todas as versões do Next.js 14.
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https://*.supabase.co https://*.tile.openstreetmap.org",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.supabase.co https://sentry.io https://*.sentry.io https://brasilapi.com.br https://nominatim.openstreetmap.org https://*.upstash.io https://www.google-analytics.com",
+    "frame-ancestors 'self'",
+    "form-action 'self'",
+  ].join('; ');
+}
+
+// ── CSRF ──────────────────────────────────────────────────────────────────────
+
 const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const WEBHOOK_PATHS    = ['/api/pix-webhook', '/api/cardapioweb/webhook'];
 
-/** Caminhos de webhook com verificação de assinatura própria — não precisam de CSRF. */
-const WEBHOOK_PATHS = ['/api/pix-webhook', '/api/cardapioweb/webhook'];
-
-export function middleware(request: NextRequest): NextResponse {
+function csrfGuard(request: NextRequest): NextResponse | null {
   const { pathname, host } = request.nextUrl;
 
-  // Só inspeciona rotas de API com métodos que alteram estado
-  if (!pathname.startsWith('/api/') || !MUTATING_METHODS.has(request.method)) {
-    return NextResponse.next();
-  }
+  if (!MUTATING_METHODS.has(request.method)) return null;
+  if (WEBHOOK_PATHS.some(p => pathname.startsWith(p))) return null;
 
-  // Webhooks têm verificação de assinatura — não aplicar CSRF aqui
-  if (WEBHOOK_PATHS.some(p => pathname.startsWith(p))) {
-    return NextResponse.next();
-  }
-
-  // Rotas autenticadas via Bearer não são vulneráveis a CSRF clássico
-  // (o header Authorization não pode ser adicionado por um form cross-origin)
   const authHeader = request.headers.get('authorization') ?? '';
-  if (authHeader.startsWith('Bearer ')) {
-    return NextResponse.next();
-  }
+  if (authHeader.startsWith('Bearer ')) return null;
 
-  // Validação do Origin
   const origin = request.headers.get('origin');
+  if (!origin) return null; // server-to-server, curl, etc.
 
-  // Sem Origin: requisição não-browser (curl, server-to-server) — permitir.
-  // O cookie SameSite=Lax já bloqueia form-POST cross-origin em browsers.
-  if (!origin) {
-    return NextResponse.next();
-  }
-
-  // Extrai o host do Origin e compara com o host da requisição
   let originHost: string;
   try {
     originHost = new URL(origin).host;
   } catch {
-    return NextResponse.json(
-      { error: 'Origin inválida' },
-      { status: 403 },
-    );
+    return NextResponse.json({ error: 'Origin inválida' }, { status: 403 });
   }
 
-  // Permite localhost em qualquer porta (desenvolvimento)
-  const appHost = host; // e.g. "fumego.com.br" or "localhost:3000"
-  const originBase = originHost.split(':')[0];  // strip port for comparison
-  const appBase    = appHost.split(':')[0];
+  const appBase    = host.split(':')[0];
+  const originBase = originHost.split(':')[0];
 
-  if (originBase === 'localhost' && appBase === 'localhost') {
-    return NextResponse.next();
+  if (originBase === 'localhost' && appBase === 'localhost') return null;
+
+  if (originHost !== host) {
+    return NextResponse.json({ error: 'Origem não permitida' }, { status: 403 });
   }
 
-  if (originHost !== appHost) {
-    return NextResponse.json(
-      { error: 'Origem não permitida' },
-      { status: 403 },
-    );
+  return null;
+}
+
+// ── Middleware principal ───────────────────────────────────────────────────────
+
+export function middleware(request: NextRequest): NextResponse {
+  const { pathname } = request.nextUrl;
+  const isApiRoute   = pathname.startsWith('/api/');
+
+  // ── Rotas de API: CSRF guard + CSP sem nonce (resposta é JSON, não HTML) ──
+  if (isApiRoute) {
+    const csrfError = csrfGuard(request);
+    if (csrfError) return csrfError;
+
+    const response = NextResponse.next();
+    response.headers.set('Content-Security-Policy', buildCSP(null));
+    return response;
   }
 
-  return NextResponse.next();
+  // ── Rotas de página: gera nonce e injeta no CSP + request headers ─────────
+  // O nonce é passado via x-nonce para que o layout.tsx o leia com headers().
+  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+
+  response.headers.set('Content-Security-Policy', buildCSP(nonce));
+  return response;
 }
 
 export const config = {
-  matcher: '/api/:path*',
+  // Inclui todas as rotas exceto assets estáticos do Next.js
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico).*)'],
 };
