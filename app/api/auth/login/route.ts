@@ -39,6 +39,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Senha incorreta' }, { status: 401 });
     }
 
+    if (user.email_verified === false) {
+      return NextResponse.json(
+        { error: 'E-mail não verificado. Verifique sua caixa de entrada e clique no link de confirmação.' },
+        { status: 403 }
+      );
+    }
+
     const token = signUserToken(user.id, user.email);
 
     const { password_hash, ...safeUser } = user;
