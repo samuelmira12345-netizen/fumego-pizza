@@ -10,7 +10,7 @@ import {
   Plug, RefreshCw, X, Copy, Tag, Gift,
   LayoutDashboard, ShoppingBag, Users, ChefHat, Truck,
   Megaphone, Wallet, Archive, BarChart2, LogOut, ChevronRight,
-  PanelLeftClose, PanelLeftOpen, ShieldCheck, KeyRound,
+  PanelLeftClose, PanelLeftOpen, ShieldCheck,
 } from 'lucide-react';
 import { DEFAULT_BUSINESS_HOURS, DAY_LABELS, DAY_ORDER } from '../../lib/store-hours';
 import CardapioWebTab from '../components/admin/CardapioWebTab';
@@ -27,87 +27,6 @@ import SettingsTab from '../components/admin/SettingsTab';
 import DeliveryTab from '../components/admin/DeliveryTab';
 import SubAdminsTab from '../components/admin/SubAdminsTab';
 
-
-// ── Migração CPF HMAC (aba temporária, remover após migrar) ───────────────────
-function MigrateCpfHmacTab({ adminToken }: { adminToken: string }) {
-  const [status, setStatus]   = useState<'idle' | 'running' | 'done' | 'error'>('idle');
-  const [result, setResult]   = useState<{ summary?: { updated: number; skipped: number; errors: number }; message?: string; error?: string; log?: string[] } | null>(null);
-
-  async function runMigration() {
-    setStatus('running');
-    setResult(null);
-    try {
-      const res = await fetch('/api/admin/migrate-cpf-hmac', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${adminToken}` },
-      });
-      const data = await res.json();
-      setResult(data);
-      setStatus(res.ok ? 'done' : 'error');
-    } catch (e) {
-      setResult({ error: (e as Error).message });
-      setStatus('error');
-    }
-  }
-
-  return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: 32 }}>
-      <div style={{ maxWidth: 640, margin: '0 auto' }}>
-        <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <KeyRound size={22} /> Migração de Hash CPF
-        </h2>
-        <p style={{ color: '#6B7280', marginBottom: 8, fontSize: 14 }}>
-          Re-hasheia os CPFs de <code>coupon_usage</code> e <code>orders</code> para usar a nova chave <code>CPF_HMAC_KEY</code> em vez da chave AES.
-          Execute <strong>uma única vez</strong> após adicionar a variável <code>CPF_HMAC_KEY</code> no Vercel.
-        </p>
-        <p style={{ color: '#EF4444', fontSize: 13, marginBottom: 24, background: '#FEF2F2', padding: '10px 14px', borderRadius: 8, border: '1px solid #FECACA' }}>
-          ⚠️ Certifique-se de que <strong>CPF_HMAC_KEY</strong> já está configurada no Vercel antes de executar.
-          Após executar com sucesso, remova esta aba.
-        </p>
-
-        {status === 'idle' && (
-          <button
-            onClick={runMigration}
-            style={{ padding: '12px 28px', background: '#F2A800', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: 'pointer' }}
-          >
-            Executar Migração
-          </button>
-        )}
-
-        {status === 'running' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6B7280' }}>
-            <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /> Migrando...
-          </div>
-        )}
-
-        {(status === 'done' || status === 'error') && result && (
-          <div style={{ background: status === 'done' ? '#F0FDF4' : '#FEF2F2', border: `1px solid ${status === 'done' ? '#BBF7D0' : '#FECACA'}`, borderRadius: 10, padding: 20 }}>
-            <p style={{ fontWeight: 700, marginBottom: 12, color: status === 'done' ? '#15803D' : '#DC2626' }}>
-              {status === 'done' ? '✅ ' : '❌ '}{result.message || result.error}
-            </p>
-            {result.summary && (
-              <div style={{ display: 'flex', gap: 24, marginBottom: 12 }}>
-                <span>Atualizados: <strong>{result.summary.updated}</strong></span>
-                <span>Ignorados: <strong>{result.summary.skipped}</strong></span>
-                <span style={{ color: result.summary.errors > 0 ? '#DC2626' : 'inherit' }}>Erros: <strong>{result.summary.errors}</strong></span>
-              </div>
-            )}
-            {result.log && result.log.length > 0 && (
-              <pre style={{ background: '#111827', color: '#D1FAE5', padding: 14, borderRadius: 8, fontSize: 12, overflowX: 'auto', maxHeight: 300, overflowY: 'auto' }}>
-                {result.log.join('\n')}
-              </pre>
-            )}
-            {status === 'done' && result.summary?.errors === 0 && (
-              <p style={{ marginTop: 12, fontSize: 13, color: '#6B7280' }}>
-                Migração concluída sem erros. Você pode remover a aba &quot;Migração CPF&quot; do menu.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ── Cores do CRM ──────────────────────────────────────────────────────────────
 const C = {
@@ -180,8 +99,7 @@ const NAV_GROUPS = [
     label: 'SISTEMA',
     items: [
       { key: 'settings',    icon: Settings,        label: 'Configurações' },
-      { key: 'sub_admins',  icon: ShieldCheck,     label: 'Sub-Admins',   masterOnly: true },
-      { key: 'migrate_cpf', icon: KeyRound,        label: 'Migração CPF', masterOnly: true },
+      { key: 'sub_admins',  icon: ShieldCheck,     label: 'Sub-Admins', masterOnly: true },
     ],
   },
 ];
@@ -1231,11 +1149,6 @@ export default function AdminPage() {
           <div style={{ flex: 1, overflowY: 'auto' }}>
             <SubAdminsTab adminToken={adminToken} />
           </div>
-        )}
-
-        {/* ── MIGRAÇÃO CPF HMAC (temporário) ───────────────────────────── */}
-        {section === 'migrate_cpf' && isMasterRole && (
-          <MigrateCpfHmacTab adminToken={adminToken} />
         )}
 
         {/* ── Coming Soon sections ─────────────────────────────────────── */}
