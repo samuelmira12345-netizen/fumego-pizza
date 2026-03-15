@@ -9,6 +9,34 @@ import { logger } from '../../../../lib/logger';
 import { earnCashback, useCashback } from '../../../../lib/cashback';
 import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 
+/** Remove tags HTML e caracteres de controle de mensagens vindas de APIs externas. */
+function sanitizeExternalError(msg: string): string {
+  return String(msg || '')
+    .replace(/<[^>]*>/g, '')           // strip HTML tags
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // strip control chars (mantém \t \n \r)
+    .trim()
+    .slice(0, 500);
+}
+
+/** Validação mínima de formato de e-mail antes de tentar envio. */
+function isValidEmail(email: string): boolean {
+  return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+}
+
+/** Envia e-mail de confirmação com 1 retry após 3 s em caso de falha. */
+async function sendOrderEmailWithRetry(
+  email: string, name: string,
+  orderNumber: unknown, total: unknown,
+  items: unknown, deliveryTime: string,
+): Promise<void> {
+  try {
+    await sendOrderConfirmationEmail(email, name, orderNumber, total, items, deliveryTime);
+  } catch {
+    await new Promise(r => setTimeout(r, 3000));
+    await sendOrderConfirmationEmail(email, name, orderNumber, total, items, deliveryTime);
+  }
+}
+
 /**
  * Cria o pedido no banco de dados com CPF hasheado server-side.
  * Após criar, envia o pedido para o CardápioWeb via Partner API.
@@ -251,24 +279,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
               cw_push_last_error:  null,
             }).eq('id', order.id);
           } else {
-            const errMsg = result.error || (result.errors || []).join('; ') || `HTTP ${result.status}`;
+            const rawErrMsg = result.error || (result.errors || []).join('; ') || `HTTP ${result.status}`;
+            const errMsg = sanitizeExternalError(rawErrMsg);
             logger.error('[CW Partner] Falha ao enviar pedido ao CardápioWeb', new Error(`Pedido ${order.id} rejeitado pelo CardápioWeb (HTTP ${result.status}): ${errMsg}`));
             await supabase.from('orders').update({
               cw_push_status:     'failed',
               cw_push_attempts:   (order.cw_push_attempts || 0) + 1,
-              cw_push_last_error: errMsg.slice(0, 500),
+              cw_push_last_error: errMsg,
             }).eq('id', order.id);
           }
         })
         .catch(async (e: Error) => {
-          logger.error('[CW Partner] Exceção ao enviar pedido ao CardápioWeb', {
-            orderId: order.id,
-            error:   e.message,
-          });
+          logger.error('[CW Partner] Exceção ao enviar pedido ao CardápioWeb', e);
           await supabase.from('orders').update({
             cw_push_status:     'failed',
             cw_push_attempts:   (order.cw_push_attempts || 0) + 1,
-            cw_push_last_error: e.message?.slice(0, 500),
+            cw_push_last_error: sanitizeExternalError(e.message || ''),
           }).eq('id', order.id);
         });
     } else {
@@ -279,17 +305,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Enviar e-mail de confirmação (não bloqueia a resposta se falhar)
-    if ((orderPayload as Record<string, unknown>).customer_email) {
-      const deliveryTime = (orderPayload as Record<string, unknown>).delivery_time as string || '40–60 min';
-      sendOrderConfirmationEmail(
-        (orderPayload as Record<string, unknown>).customer_email as string,
-        (orderPayload as Record<string, unknown>).customer_name as string,
-        order.order_number,
-        order.total,
-        items,
-        deliveryTime,
-      ).catch((err: Error) => logger.error('Erro ao enviar e-mail de confirmação', { error: err.message }));
+    // Enviar e-mail de confirmação (fire-and-forget com validação + 1 retry)
+    const customerEmail = (orderPayload as Record<string, unknown>).customer_email as string | undefined;
+    if (customerEmail) {
+      if (isValidEmail(customerEmail)) {
+        const deliveryTime = (orderPayload as Record<string, unknown>).delivery_time as string || '40–60 min';
+        sendOrderEmailWithRetry(
+          customerEmail,
+          (orderPayload as Record<string, unknown>).customer_name as string,
+          order.order_number,
+          order.total,
+          items,
+          deliveryTime,
+        ).catch((err: Error) => logger.error('Erro ao enviar e-mail de confirmação (após retry)', new Error(err.message)));
+      } else {
+        logger.warn('[Email] Formato de e-mail inválido, envio ignorado', { email: customerEmail?.slice(0, 80) });
+      }
     }
 
     return NextResponse.json({ order });

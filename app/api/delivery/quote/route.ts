@@ -63,6 +63,32 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// ── Cache de settings de entrega ──────────────────────────────────────────────
+// TTL de 5 min: evita query ao banco a cada cotação de frete.
+// Invalidado automaticamente; mudanças nas settings levam até 5 min para refletir.
+const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
+let settingsCache: { data: Record<string, string>; ts: number } | null = null;
+
+async function getDeliverySettings(supabase: ReturnType<typeof getSupabaseAdmin>): Promise<Record<string, string>> {
+  if (settingsCache && Date.now() - settingsCache.ts < SETTINGS_CACHE_TTL_MS) {
+    return settingsCache.data;
+  }
+  const { data: rows } = await supabase
+    .from('settings')
+    .select('key,value')
+    .in('key', [
+      'delivery_fee', 'delivery_time',
+      'delivery_origin_address', 'delivery_origin_address_details',
+      'delivery_radius_rules',
+      'delivery_origin_lat', 'delivery_origin_lng',
+    ]);
+  const data: Record<string, string> = Object.fromEntries(
+    (rows || []).map((r: { key: string; value: string }) => [r.key, r.value])
+  );
+  settingsCache = { data, ts: Date.now() };
+  return data;
+}
+
 // ── Geocoding cache ───────────────────────────────────────────────────────────
 // Level 1: module-level in-memory (per warm instance, zero latency)
 // Level 2: Supabase settings table (cross-instance, key = geocode_cep_<cep>)
@@ -184,13 +210,17 @@ async function geocodeBrasilApiCep(zipcode: string): Promise<GeoCoords | null> {
 }
 
 async function geocodeAddress(details: AddressDetails): Promise<GeoCoords | null> {
-  const brasilResult = await geocodeBrasilApiCep(details.zipcode);
-  if (brasilResult) return brasilResult;
+  // Fase 1: Brasil API (sem restrição de rate) + Nominatim structured em paralelo.
+  // São serviços distintos, logo não viola o rate limit de 1 req/s do Nominatim.
+  const [brasilResult, structuredResult] = await Promise.allSettled([
+    geocodeBrasilApiCep(details.zipcode),
+    geocodeNominatimStructured(details),
+  ]);
 
-  await delay(1100);
-  const structuredResult = await geocodeNominatimStructured(details);
-  if (structuredResult) return structuredResult;
+  if (brasilResult.status === 'fulfilled' && brasilResult.value) return brasilResult.value;
+  if (structuredResult.status === 'fulfilled' && structuredResult.value) return structuredResult.value;
 
+  // Fase 2: fallbacks sequenciais no Nominatim (respeita 1 req/s entre chamadas)
   await delay(1100);
   const neighborhoodQuery = [details.neighborhood, details.city, ufToStateName(details.state) || details.state, 'Brasil']
     .filter(Boolean)
@@ -202,10 +232,7 @@ async function geocodeAddress(details: AddressDetails): Promise<GeoCoords | null
   const cityQuery = [details.city, ufToStateName(details.state) || details.state, 'Brasil']
     .filter(Boolean)
     .join(', ');
-  const cityResult = await geocodeNominatimFreeform(cityQuery);
-  if (cityResult) return cityResult;
-
-  return null;
+  return geocodeNominatimFreeform(cityQuery);
 }
 
 async function getStoreCoordinates(
@@ -241,17 +268,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const { street, number, neighborhood, city, state, zipcode } = body || {};
 
     const supabase = getSupabaseAdmin();
-    const { data: settingsRows } = await supabase
-      .from('settings')
-      .select('key,value')
-      .in('key', [
-        'delivery_fee', 'delivery_time',
-        'delivery_origin_address', 'delivery_origin_address_details',
-        'delivery_radius_rules',
-        'delivery_origin_lat', 'delivery_origin_lng',
-      ]);
-
-    const settings: Record<string, string> = Object.fromEntries((settingsRows || []).map((r: { key: string; value: string }) => [r.key, r.value]));
+    const settings = await getDeliverySettings(supabase);
     const rules = parseRadiusRules(settings.delivery_radius_rules);
 
     if (rules.length === 0) {
