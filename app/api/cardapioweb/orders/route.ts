@@ -16,7 +16,7 @@ import { logger } from '../../../../lib/logger';
 function verifyAdminToken(request: NextRequest): boolean {
   const auth   = request.headers.get('authorization') || '';
   const token  = auth.replace('Bearer ', '').trim();
-  const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+  const secret = process.env.ADMIN_JWT_SECRET;
   if (!token || !secret) return false;
   try {
     const decoded = jwt.verify(token, secret) as jwt.JwtPayload;

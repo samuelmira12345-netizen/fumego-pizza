@@ -173,7 +173,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             .eq('quantity', originalQty)
             .select('product_id');
           if (!updated || (updated as unknown[]).length === 0) {
-            logger.warn('[Stock] Fallback: conflito de concorrência detectado, estoque não decrementado', { productId: item.product_id });
+            logger.error('[Stock] Fallback: lock otimista falhou — possível overselling', new Error(`Conflito de concorrência no estoque do produto ${item.product_id} (pedido ${order.id})`));
+            supabase.from('orders').update({ stock_conflict: true }).eq('id', order.id).then(() => {});
             continue;
           }
           if (newQty === 0) {
@@ -201,7 +202,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             .eq('quantity', originalQty)
             .select('drink_id');
           if (!updated || (updated as unknown[]).length === 0) {
-            logger.warn('[DrinkStock] Fallback: conflito de concorrência detectado, estoque não decrementado', { drinkId: item.drink_id });
+            logger.error('[DrinkStock] Fallback: lock otimista falhou — possível overselling', new Error(`Conflito de concorrência no estoque da bebida ${item.drink_id} (pedido ${order.id})`));
+            supabase.from('orders').update({ stock_conflict: true }).eq('id', order.id).then(() => {});
             continue;
           }
           if (newQty === 0) {
@@ -250,12 +252,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             }).eq('id', order.id);
           } else {
             const errMsg = result.error || (result.errors || []).join('; ') || `HTTP ${result.status}`;
-            logger.error('[CW Partner] Falha ao enviar pedido ao CardápioWeb', {
-              orderId: order.id,
-              status:  result.status,
-              errors:  result.errors,
-              error:   result.error,
-            });
+            logger.error('[CW Partner] Falha ao enviar pedido ao CardápioWeb', new Error(`Pedido ${order.id} rejeitado pelo CardápioWeb (HTTP ${result.status}): ${errMsg}`));
             await supabase.from('orders').update({
               cw_push_status:     'failed',
               cw_push_attempts:   (order.cw_push_attempts || 0) + 1,

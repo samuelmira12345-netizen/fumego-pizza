@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
+import { getSupabaseAdmin } from '../../../lib/supabase';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ function isAuthorized(req: NextRequest): boolean {
   if (diagSecret && token === diagSecret) return true;
 
   // Opção 2: JWT admin padrão
-  const jwtSecret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+  const jwtSecret = process.env.ADMIN_JWT_SECRET;
   if (!jwtSecret) return false;
   try {
     const decoded = jwt.verify(token, jwtSecret) as { role?: string };
@@ -170,18 +171,75 @@ async function testRateLimit(): Promise<{
   }
 }
 
+// ── Pedidos com falha de sync CW ─────────────────────────────────────────────
+
+async function checkCwFailedOrders(): Promise<{
+  count: number;
+  orders: { id: string; order_number: string | number; cw_push_last_error: string | null; created_at: string }[];
+  ok: boolean;
+}> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id, order_number, cw_push_last_error, created_at')
+      .eq('cw_push_status', 'failed')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) return { count: 0, orders: [], ok: false };
+
+    return {
+      count: (data || []).length,
+      orders: (data || []) as { id: string; order_number: string | number; cw_push_last_error: string | null; created_at: string }[],
+      ok:     (data || []).length === 0,
+    };
+  } catch {
+    return { count: 0, orders: [], ok: false };
+  }
+}
+
+// ── Pedidos com conflito de estoque ──────────────────────────────────────────
+
+async function checkStockConflicts(): Promise<{
+  count: number;
+  orders: { id: string; order_number: string | number; created_at: string }[];
+  ok: boolean;
+}> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id, order_number, created_at')
+      .eq('stock_conflict', true)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error) return { count: 0, orders: [], ok: true }; // coluna pode não existir ainda
+    return {
+      count: (data || []).length,
+      orders: (data || []) as { id: string; order_number: string | number; created_at: string }[],
+      ok:     (data || []).length === 0,
+    };
+  } catch {
+    return { count: 0, orders: [], ok: true };
+  }
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) return unauthorized();
 
-  const [upstash, sentry, rateLimit] = await Promise.all([
+  const [upstash, sentry, rateLimit, cwFailed, stockConflicts] = await Promise.all([
     testUpstash(),
     testSentry(),
     testRateLimit(),
+    checkCwFailedOrders(),
+    checkStockConflicts(),
   ]);
 
-  const allOk = upstash.ok && sentry.ok;
+  const allOk = upstash.ok && sentry.ok && cwFailed.ok && stockConflicts.ok;
 
   return NextResponse.json(
     {
@@ -191,6 +249,8 @@ export async function GET(req: NextRequest) {
       upstash,
       sentry,
       rateLimit,
+      cwFailedSync:    cwFailed,
+      stockConflicts,
     },
     { status: allOk ? 200 : 207 }
   );
