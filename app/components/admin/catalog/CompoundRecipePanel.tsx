@@ -343,13 +343,26 @@ export default function CompoundRecipePanel({ ingredient, ingredients, adminToke
             const itemCount = recipe.compound_recipe_items?.length || 0;
             const isApplying = applyingId === recipe.id;
             const isConfirming = confirmDelete === recipe.id;
-            const recipeFC = parseFloat(ingredient.correction_factor) || 0;
-            const grossQty = parseFloat(recipe.yield_quantity) || 0;
-            const netQty   = recipeFC > 0 ? +(grossQty * (1 - recipeFC / 100)).toFixed(3) : grossQty;
+            const recipeFC  = parseFloat(ingredient.correction_factor) || 0;
+            const grossQty  = parseFloat(recipe.yield_quantity) || 0;
+            const netQty    = recipeFC > 0 ? +(grossQty * (1 - recipeFC / 100)).toFixed(3) : grossQty;
             const yieldUnit = recipe.yield_unit || ingredient.unit;
+
+            // Custo total calculado a partir dos itens enriquecidos (mesmo cálculo do editor)
+            const enrichedItems = (recipe.compound_recipe_items || []).map((i: any) => {
+              const sub = ingredients.find((g: any) => g.id === i.ingredient_id);
+              const rawCost = parseFloat(sub?.cost_per_unit) || 0;
+              return { ...i, cost_per_unit: costWithFC(rawCost, sub?.correction_factor), unit: sub?.unit, density: sub?.density ?? null };
+            });
+            const totalCost   = enrichedItems.reduce((s: number, i: any) => s + (parseFloat(i.quantity) || 0) * i.cost_per_unit, 0);
+            const costComFC   = netQty  ? totalCost / netQty  : 0;
+            const costSemFC   = grossQty ? totalCost / grossQty : 0;
+            const diferenca   = costComFC - costSemFC;
+            const hasCost     = totalCost > 0;
+
             return (
               <div key={recipe.id} style={{ background: '#fff', borderRadius: 8, border: '1px solid #DDD6FE', padding: '10px 12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isConfirming ? 8 : 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: (isConfirming || hasCost) ? 8 : 0 }}>
                   <div>
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{recipe.name}</span>
                     <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>
@@ -380,6 +393,33 @@ export default function CompoundRecipePanel({ ingredient, ingredients, adminToke
                     )}
                   </div>
                 </div>
+
+                {/* Breakdown de custo com/sem FC — visível na lista */}
+                {hasCost && (
+                  <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                    <div style={{ background: '#EDE9FE', borderRadius: 5, padding: '5px 10px', flex: 1, minWidth: 100 }}>
+                      <p style={{ fontSize: 9, fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase', marginBottom: 1 }}>Custo total</p>
+                      <p style={{ fontSize: 13, fontWeight: 800, color: '#6D28D9' }}>{fmtBRL(totalCost)}</p>
+                    </div>
+                    <div style={{ background: '#ECFDF5', borderRadius: 5, padding: '5px 10px', flex: 1, minWidth: 100 }}>
+                      <p style={{ fontSize: 9, fontWeight: 700, color: '#059669', textTransform: 'uppercase', marginBottom: 1 }}>Com FC / {yieldUnit}</p>
+                      <p style={{ fontSize: 13, fontWeight: 800, color: '#047857' }}>{fmtBRL(costComFC)}</p>
+                      <p style={{ fontSize: 8, color: C.muted }}>rendimento líquido: {netQty} {yieldUnit}</p>
+                    </div>
+                    <div style={{ background: '#FFF7ED', borderRadius: 5, padding: '5px 10px', flex: 1, minWidth: 100 }}>
+                      <p style={{ fontSize: 9, fontWeight: 700, color: '#C2410C', textTransform: 'uppercase', marginBottom: 1 }}>Sem FC / {yieldUnit}</p>
+                      <p style={{ fontSize: 13, fontWeight: 800, color: '#9A3412' }}>{fmtBRL(costSemFC)}</p>
+                      <p style={{ fontSize: 8, color: C.muted }}>rendimento bruto: {grossQty} {yieldUnit}</p>
+                    </div>
+                    {recipeFC > 0 && (
+                      <div style={{ background: '#FEF2F2', borderRadius: 5, padding: '5px 10px', flex: 1, minWidth: 100 }}>
+                        <p style={{ fontSize: 9, fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', marginBottom: 1 }}>Impacto FC {recipeFC}%</p>
+                        <p style={{ fontSize: 13, fontWeight: 800, color: '#B91C1C' }}>+{fmtBRL(diferenca)}</p>
+                        <p style={{ fontSize: 8, color: C.muted }}>por {yieldUnit}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

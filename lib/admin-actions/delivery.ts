@@ -262,10 +262,26 @@ interface PersonMetric {
   in_progress_count: number;
   delivery_fees_total: number;
   orders_total_value: number;
+  /** Tempo de rota: driver_collected → driver_delivered (last-mile) */
   avg_delivery_minutes: number | null;
   min_delivery_minutes: number | null;
   max_delivery_minutes: number | null;
+  /** Tempo total: created_at → delivered_at (ciclo completo do cliente) */
+  avg_total_minutes: number | null;
+  min_total_minutes: number | null;
+  max_total_minutes: number | null;
+  /** Comparação com prazo prometido ao cliente no momento do pedido */
+  on_time_count: number;
+  late_count: number;
+  avg_delay_minutes: number;
   last_delivery_at: string | null;
+}
+
+/** Extrai o máximo de minutos de uma string como "40–60 min" → 60. Null se inválido. */
+function parsePromisedMins(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const nums = (raw.match(/\d+/g) || []).map(Number);
+  return nums.length > 0 ? Math.max(...nums) : null;
 }
 
 export async function handleGetDeliveryMetrics(supabase: SupabaseClient, data?: Record<string, unknown>): Promise<NextResponse> {
@@ -297,7 +313,7 @@ export async function handleGetDeliveryMetrics(supabase: SupabaseClient, data?: 
   const [{ data: persons, error: personsError }, { data: orders, error: ordersError }] = await Promise.all([
     supabase.from('delivery_persons').select('id, name, is_active').order('name'),
     supabase.from('orders')
-      .select('id, order_number, status, total, delivery_fee, delivery_person_id, delivering_at, delivered_at, driver_collected_at, driver_delivered_at, created_at')
+      .select('id, order_number, status, total, delivery_fee, delivery_person_id, delivering_at, delivered_at, driver_collected_at, driver_delivered_at, created_at, promised_delivery_time')
       .not('delivery_person_id', 'is', null)
       .gte('created_at', fromDate.toISOString())
       .lte('created_at', toDate.toISOString()),
@@ -311,13 +327,17 @@ export async function handleGetDeliveryMetrics(supabase: SupabaseClient, data?: 
     assigned_count: 0, delivered_count: 0, cancelled_count: 0, in_progress_count: 0,
     delivery_fees_total: 0, orders_total_value: 0,
     avg_delivery_minutes: null, min_delivery_minutes: null, max_delivery_minutes: null,
+    avg_total_minutes: null, min_total_minutes: null, max_total_minutes: null,
+    on_time_count: 0, late_count: 0, avg_delay_minutes: 0,
     last_delivery_at: null,
   });
 
   const byPerson = new Map<string, PersonMetric>(
     (persons || []).map(p => [p.id, defaultMetric(p.id, p.name, p.is_active)])
   );
-  const durationsByPerson = new Map<string, number[]>();
+  const durationsByPerson  = new Map<string, number[]>(); // last-mile
+  const totalsByPerson     = new Map<string, number[]>(); // ciclo completo
+  const delaysByPerson     = new Map<string, number[]>(); // atraso vs prometido
 
   for (const o of (orders || [])) {
     if (!o.delivery_person_id) continue;
@@ -333,6 +353,8 @@ export async function handleGetDeliveryMetrics(supabase: SupabaseClient, data?: 
       if (!item.last_delivery_at || (deliveredAt && new Date(deliveredAt) > new Date(item.last_delivery_at))) {
         item.last_delivery_at = deliveredAt;
       }
+
+      // ── Last-mile: driver_collected (ou delivering) → driver_delivered (ou delivered)
       const from = o.driver_collected_at || o.delivering_at;
       const to   = o.driver_delivered_at || o.delivered_at;
       if (from && to) {
@@ -341,6 +363,33 @@ export async function handleGetDeliveryMetrics(supabase: SupabaseClient, data?: 
           const list = durationsByPerson.get(o.delivery_person_id) || [];
           list.push(mins);
           durationsByPerson.set(o.delivery_person_id, list);
+        }
+      }
+
+      // ── Ciclo completo: created_at → delivered_at (perspectiva do cliente)
+      const createdMs   = o.created_at   ? new Date(o.created_at).getTime()   : null;
+      const finalMs     = o.driver_delivered_at
+        ? new Date(o.driver_delivered_at).getTime()
+        : o.delivered_at ? new Date(o.delivered_at).getTime() : null;
+      if (createdMs && finalMs && finalMs > createdMs) {
+        const totalMins = Math.round((finalMs - createdMs) / 60000);
+        if (totalMins < 300) {
+          const totals = totalsByPerson.get(o.delivery_person_id) || [];
+          totals.push(totalMins);
+          totalsByPerson.set(o.delivery_person_id, totals);
+
+          // ── Comparação com prazo prometido ao cliente no momento do pedido
+          const promisedMins = parsePromisedMins(o.promised_delivery_time);
+          if (promisedMins !== null) {
+            if (totalMins <= promisedMins) {
+              item.on_time_count += 1;
+            } else {
+              item.late_count += 1;
+              const delays = delaysByPerson.get(o.delivery_person_id) || [];
+              delays.push(totalMins - promisedMins);
+              delaysByPerson.set(o.delivery_person_id, delays);
+            }
+          }
         }
       }
     } else if (o.status === 'cancelled') {
@@ -353,12 +402,26 @@ export async function handleGetDeliveryMetrics(supabase: SupabaseClient, data?: 
   }
 
   const personsMetrics = Array.from(byPerson.values()).map(p => {
+    // Last-mile (rota)
     const durations = durationsByPerson.get(p.delivery_person_id) || [];
     if (durations.length > 0) {
       const sum = durations.reduce((acc, n) => acc + n, 0);
       p.avg_delivery_minutes = Math.round(sum / durations.length);
       p.min_delivery_minutes = Math.min(...durations);
       p.max_delivery_minutes = Math.max(...durations);
+    }
+    // Ciclo completo (perspectiva do cliente: created → delivered)
+    const totals = totalsByPerson.get(p.delivery_person_id) || [];
+    if (totals.length > 0) {
+      const sum = totals.reduce((acc, n) => acc + n, 0);
+      p.avg_total_minutes = Math.round(sum / totals.length);
+      p.min_total_minutes = Math.min(...totals);
+      p.max_total_minutes = Math.max(...totals);
+    }
+    // Atraso médio vs prazo prometido
+    const delays = delaysByPerson.get(p.delivery_person_id) || [];
+    if (delays.length > 0) {
+      p.avg_delay_minutes = Math.round(delays.reduce((acc, n) => acc + n, 0) / delays.length);
     }
     p.delivery_fees_total = Number(p.delivery_fees_total.toFixed(2));
     p.orders_total_value  = Number(p.orders_total_value.toFixed(2));
@@ -412,7 +475,7 @@ export async function handleGetDeliveryAnalysis(supabase: SupabaseClient, data?:
 
   const [{ data: orders, error: ordersError }, { data: settingRows }] = await Promise.all([
     supabase.from('orders')
-      .select('id, total, delivery_fee, status, created_at, delivering_at, delivered_at, driver_collected_at, driver_delivered_at, delivery_neighborhood, delivery_city, delivery_street, delivery_person_id')
+      .select('id, total, delivery_fee, status, created_at, delivering_at, delivered_at, driver_collected_at, driver_delivered_at, delivery_neighborhood, delivery_city, delivery_street, delivery_person_id, promised_delivery_time')
       .eq('status', 'delivered')
       .gte('created_at', fromDate.toISOString())
       .lte('created_at', toDate.toISOString()),
@@ -448,12 +511,14 @@ export async function handleGetDeliveryAnalysis(supabase: SupabaseClient, data?:
     const collectedMs  = o.driver_collected_at  ? new Date(o.driver_collected_at).getTime()  : null;
     const dDeliveredMs = o.driver_delivered_at  ? new Date(o.driver_delivered_at).getTime()  : null;
 
-    // Total order cycle: created → delivered
+    // Total order cycle: created → delivered (perspectiva do cliente)
+    // Usa o prazo prometido registrado no pedido; se ausente, usa o valor global atual
+    const orderPromisedMins = parsePromisedMins(o.promised_delivery_time) ?? promisedMins;
     if (createdMs && deliveredMs && deliveredMs > createdMs) {
       const totalMin = Math.round((deliveredMs - createdMs) / 60000);
       if (totalMin < 300) {
         totalDurations.push(totalMin);
-        const promisedMs = promisedMins * 60000;
+        const promisedMs = orderPromisedMins * 60000;
         if ((deliveredMs - createdMs) <= promisedMs) {
           onTimeCount++;
         } else {

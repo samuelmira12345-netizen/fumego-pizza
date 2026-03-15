@@ -345,6 +345,8 @@ export default function CheckoutPage() {
       payment_status: 'pending',
       status: scheduledFor ? 'scheduled' : 'pending',
       scheduled_for: scheduledFor || null,
+      // Salva o prazo exibido ao cliente no momento do pedido para comparação histórica
+      promised_delivery_time: deliveryTime || null,
     };
 
     const items: any[] = [];

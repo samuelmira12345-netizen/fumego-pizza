@@ -72,6 +72,8 @@ export interface Order {
   is_active: boolean;
   observations: string | null;
   scheduled_for: string | null;
+  /** Prazo exibido ao cliente no checkout, ex: "40–60 min". Usado para comparação histórica. */
+  promised_delivery_time: string | null;
 
   // Timestamps
   created_at: string;
