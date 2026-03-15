@@ -177,13 +177,21 @@ export type CouponType = 'percent' | 'fixed' | 'free_delivery';
 export interface Coupon {
   id: string;
   code: string;
-  type: CouponType;
-  value: number;
-  min_order_value: number | null;
-  max_uses: number | null;
+  name: string | null;
+  discount_type: CouponType;
+  discount_percent: number;
+  discount_fixed: number;
+  is_free_delivery: boolean;
+  valid_until: string | null;
+  usage_limit: number | null;
   times_used: number;
+  is_first_order_only: boolean;
   is_active: boolean;
-  expires_at: string | null;
+  min_order_value: number | null;
+  max_uses_per_cpf: number | null;
+  new_customers_only: boolean;
+  available_days: unknown | null;
+  payment_methods: unknown | null;
   created_at: string;
 }
 
