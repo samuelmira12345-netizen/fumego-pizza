@@ -52,7 +52,12 @@ export default function HomePage() {
   const [showCartDrawer, setShowCartDrawer]   = useState(false);
   const [showEmptyCartToast, setShowEmptyCartToast] = useState(false);
   const [stockLimits, setStockLimits]         = useState<Record<string, StockLimit>>({});
-  const [imagePositions, setImagePositions]   = useState<Record<string, ImagePosition>>({});
+  const [imagePositions, setImagePositions]   = useState<Record<string, ImagePosition>>(() => {
+    try {
+      const cached = localStorage.getItem('fumego_image_positions');
+      return cached ? JSON.parse(cached) : {};
+    } catch { return {}; }
+  });
   const [cashbackBalance, setCashbackBalance] = useState(0);
   const [upsellConfigs, setUpsellConfigs]     = useState<UpsellConfig[]>([]);
 
@@ -198,7 +203,11 @@ export default function HomePage() {
         }
 
         if (s.image_positions) {
-          try { setImagePositions(JSON.parse(s.image_positions)); } catch {}
+          try {
+            const parsed = JSON.parse(s.image_positions);
+            setImagePositions(parsed);
+            localStorage.setItem('fumego_image_positions', s.image_positions);
+          } catch {}
         }
 
         if (s.upsell_config) {
@@ -401,6 +410,7 @@ export default function HomePage() {
           <img
             src={loadingLogoUrl}
             alt="FUMÊGO"
+            onError={() => setLoadingLogoUrl(null)}
             style={{ width: 96, height: 96, objectFit: 'contain', filter: 'drop-shadow(0 0 28px rgba(242,168,0,0.5))' }}
           />
         ) : (
@@ -503,7 +513,7 @@ export default function HomePage() {
               }}>
                 {imgUrl(calabresa) ? (
                   <img src={imgUrl(calabresa)!} alt="Calabresa"
-                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: getImgPosition(calabresa, '0% 50%'), filter: calabresa.is_active ? 'none' : 'grayscale(70%) brightness(0.5)' }} />
+                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: getImgPosition(calabresa, '0% 50%'), filter: calabresa.is_active ? 'none' : 'grayscale(70%) brightness(0.5)', transition: 'object-position 0.4s ease' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', background: calabresa.is_active ? 'linear-gradient(160deg, #5A1800, #8B3200)' : '#2A1A1A' }} />
                 )}
@@ -523,7 +533,7 @@ export default function HomePage() {
               }}>
                 {imgUrl(marguerita) ? (
                   <img src={imgUrl(marguerita)!} alt="Marguerita"
-                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: getImgPosition(marguerita, '100% 50%'), filter: marguerita.is_active ? 'none' : 'grayscale(70%) brightness(0.5)' }} />
+                    style={{ width: '200%', height: '100%', objectFit: 'cover', objectPosition: getImgPosition(marguerita, '100% 50%'), filter: marguerita.is_active ? 'none' : 'grayscale(70%) brightness(0.5)', transition: 'object-position 0.4s ease' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', background: marguerita.is_active ? 'linear-gradient(160deg, #1A5A1A, #2E7D32)' : '#1A2A1A' }} />
                 )}
@@ -652,7 +662,7 @@ export default function HomePage() {
           >
             <div style={{ position: 'relative' }}>
               {imgUrl(combo) ? (
-                <img src={imgUrl(combo)!} alt={combo.name} style={{ width: '100%', height: 195, objectFit: 'cover', objectPosition: getImgPosition(combo), display: 'block', filter: combo.is_active ? 'none' : 'grayscale(60%) brightness(0.6)' }} />
+                <img src={imgUrl(combo)!} alt={combo.name} style={{ width: '100%', height: 195, objectFit: 'cover', objectPosition: getImgPosition(combo), display: 'block', filter: combo.is_active ? 'none' : 'grayscale(60%) brightness(0.6)', transition: 'object-position 0.4s ease' }} />
               ) : (
                 <div style={{ width: '100%', height: 195, background: '#251800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <UtensilsCrossed size={48} color="#5A3800" />
@@ -718,7 +728,7 @@ export default function HomePage() {
           >
             <div style={{ position: 'relative' }}>
               {imgUrl(especial) ? (
-                <img src={imgUrl(especial)!} alt="Especial" style={{ width: '100%', height: 180, objectFit: 'cover', objectPosition: getImgPosition(especial), display: 'block', filter: especial.is_active ? 'none' : 'grayscale(60%) brightness(0.6)' }} />
+                <img src={imgUrl(especial)!} alt="Especial" style={{ width: '100%', height: 180, objectFit: 'cover', objectPosition: getImgPosition(especial), display: 'block', filter: especial.is_active ? 'none' : 'grayscale(60%) brightness(0.6)', transition: 'object-position 0.4s ease' }} />
               ) : (
                 <div style={{ width: '100%', height: 180, background: '#201600', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Star size={48} color="#5A3800" />

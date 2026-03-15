@@ -26,7 +26,9 @@ import CouponsTab from '../components/admin/CouponsTab';
 import SettingsTab from '../components/admin/SettingsTab';
 import DeliveryTab from '../components/admin/DeliveryTab';
 
-const SESSION_KEY = 'admin_token';
+const SESSION_KEY         = 'admin_token';
+const SESSION_EXPIRY_KEY  = 'admin_token_expiry';
+const SESSION_TTL         = 4 * 60 * 60 * 1000; // 4 horas
 
 // ── Cores do CRM ──────────────────────────────────────────────────────────────
 const C = {
@@ -282,28 +284,55 @@ export default function AdminPage() {
   const [newDrink, setNewDrink]         = useState({ name: '', size: '', price: '' });
   const [addingDrink, setAddingDrink]   = useState(false);
 
-  // Logo visível antes do login
-  const [loginLogo, setLoginLogo]       = useState('');
+  // Logo visível antes do login — inicializa do cache para exibição imediata
+  const [loginLogo, setLoginLogo] = useState(() => {
+    try { return localStorage.getItem('fumego_admin_logo_url') || ''; } catch { return ''; }
+  });
   const [loginLogoSize, setLoginLogoSize] = useState(48);
 
-  // ── Aplicar/remover override de body para desktop ───────────────────────────
+  // Verdadeiro enquanto verificamos se há sessão salva válida no localStorage
+  const [sessionChecking, setSessionChecking] = useState(true);
+
+  // ── Cleanup do override de body (a classe é adicionada via layout.tsx) ───────
   useEffect(() => {
-    document.body.classList.add('admin-desktop');
     return () => document.body.classList.remove('admin-desktop');
   }, []);
 
+  // ── Logo + restauração de sessão ─────────────────────────────────────────────
   useEffect(() => {
+    // Atualiza logo a partir do servidor em background
     supabase.from('settings').select('key,value').in('key', ['logo_url', 'logo_size'])
       .then(({ data: rows }) => {
         if (!rows) return;
         const url  = rows.find(r => r.key === 'logo_url')?.value  || '';
         const size = rows.find(r => r.key === 'logo_size')?.value || '48';
-        if (url)  setLoginLogo(url);
+        if (url) {
+          setLoginLogo(url);
+          try { localStorage.setItem('fumego_admin_logo_url', url); } catch {}
+        }
         if (size) setLoginLogoSize(parseInt(size) || 48);
       });
 
-    const saved = sessionStorage.getItem(SESSION_KEY);
-    if (saved) setAdminToken(saved);
+    // Restaura sessão do localStorage com TTL
+    const saved  = localStorage.getItem(SESSION_KEY);
+    const expiry = localStorage.getItem(SESSION_EXPIRY_KEY);
+    if (saved && expiry && Date.now() < parseInt(expiry || '0')) {
+      setAdminToken(saved);
+      createAdminClient(saved).orders.getData()
+        .then(d => {
+          if (d.error) throw new Error(d.error);
+          setData(d);
+          setHasMoreOrders(d.hasMore || false);
+          setAuthenticated(true);
+        })
+        .catch(() => {
+          localStorage.removeItem(SESSION_KEY);
+          localStorage.removeItem(SESSION_EXPIRY_KEY);
+        })
+        .finally(() => setSessionChecking(false));
+    } else {
+      setSessionChecking(false);
+    }
   }, []);
 
   // ── Auto-dispatch de pedidos agendados ──────────────────────────────────────
@@ -401,7 +430,8 @@ export default function AdminPage() {
       if (sessionData.error) { alert(sessionData.error); return; }
 
       const token = sessionData.token;
-      sessionStorage.setItem(SESSION_KEY, token);
+      localStorage.setItem(SESSION_KEY, token);
+      localStorage.setItem(SESSION_EXPIRY_KEY, String(Date.now() + SESSION_TTL));
       setAdminToken(token);
 
       const d = await createAdminClient(token).orders.getData();
@@ -414,7 +444,8 @@ export default function AdminPage() {
   }
 
   function handleLogout() {
-    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_EXPIRY_KEY);
     setAdminToken('');
     setAuthenticated(false);
     setData({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
@@ -733,6 +764,15 @@ export default function AdminPage() {
     setMsg('');
   }
 
+  // ── Verificando sessão salva ─────────────────────────────────────────────────
+  if (sessionChecking) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Loader2 size={32} color="#F2A800" className="animate-spin" />
+      </div>
+    );
+  }
+
   // ── Login screen ────────────────────────────────────────────────────────────
   if (!authenticated) {
     return (
@@ -743,7 +783,7 @@ export default function AdminPage() {
         <div style={{ width: '100%', maxWidth: 380, textAlign: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
             {loginLogo
-              ? <img src={loginLogo} alt="Logo" style={{ height: loginLogoSize, objectFit: 'contain' }} />
+              ? <img src={loginLogo} alt="Logo" onError={() => setLoginLogo('')} style={{ height: loginLogoSize, objectFit: 'contain' }} />
               : <Flame size={48} color="#F2A800" />
             }
           </div>
