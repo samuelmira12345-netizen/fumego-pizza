@@ -7,6 +7,7 @@ import { isCWPartnerEnabled, pushOrderToCW, PushOrderResult } from '../../../../
 import type { OrderItem } from '../../../../types';
 import { logger } from '../../../../lib/logger';
 import { earnCashback, useCashback } from '../../../../lib/cashback';
+import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 
 /**
  * Cria o pedido no banco de dados com CPF hasheado server-side.
@@ -16,6 +17,16 @@ import { earnCashback, useCashback } from '../../../../lib/cashback';
  * Se um pedido já foi criado com a mesma chave, retorna o pedido existente sem criar duplicata.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const ip = getClientIp(request);
+  const { allowed, retryAfterMs } = await checkRateLimit(`create-order:${ip}`, 10, 60_000);
+  if (!allowed) {
+    const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+    return NextResponse.json(
+      { error: `Muitas tentativas. Tente novamente em ${retryAfterSec} segundos.` },
+      { status: 429, headers: { 'Retry-After': String(retryAfterSec) } }
+    );
+  }
+
   try {
     const raw = await request.json();
     const parsed = createOrderSchema.safeParse(raw);
