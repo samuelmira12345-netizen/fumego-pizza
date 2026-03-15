@@ -27,20 +27,6 @@ import SettingsTab from '../components/admin/SettingsTab';
 import DeliveryTab from '../components/admin/DeliveryTab';
 import SubAdminsTab from '../components/admin/SubAdminsTab';
 
-const SESSION_KEY         = 'admin_token';
-const SESSION_EXPIRY_KEY  = 'admin_token_expiry';
-const SESSION_TTL         = 4 * 60 * 60 * 1000; // 4 horas
-
-/** Decodifica o payload JWT sem verificar a assinatura (client-side). */
-function decodeJwtPayload(token: string): { role?: string; allowedTabs?: string[] | null } {
-  try {
-    const base64 = token.split('.')[1];
-    const json   = atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
-    return JSON.parse(json);
-  } catch {
-    return {};
-  }
-}
 
 // ── Cores do CRM ──────────────────────────────────────────────────────────────
 const C = {
@@ -341,29 +327,24 @@ export default function AdminPage() {
         if (size) setLoginLogoSize(parseInt(size) || 48);
       });
 
-    // Restaura sessão do localStorage com TTL
-    const saved  = localStorage.getItem(SESSION_KEY);
-    const expiry = localStorage.getItem(SESSION_EXPIRY_KEY);
-    if (saved && expiry && Date.now() < parseInt(expiry || '0')) {
-      setAdminToken(saved);
-      const payload = decodeJwtPayload(saved);
-      setIsMasterRole(payload.role === 'master' || payload.role === 'admin');
-      setAllowedTabs(payload.allowedTabs ?? null);
-      createAdminClient(saved).orders.getData()
-        .then(d => {
-          if (d.error) throw new Error(d.error);
-          setData(d);
-          setHasMoreOrders(d.hasMore || false);
-          setAuthenticated(true);
-        })
-        .catch(() => {
-          localStorage.removeItem(SESSION_KEY);
-          localStorage.removeItem(SESSION_EXPIRY_KEY);
-        })
-        .finally(() => setSessionChecking(false));
-    } else {
-      setSessionChecking(false);
-    }
+    // Restaura sessão via cookie httpOnly (o servidor lê e valida o cookie)
+    fetch('/api/admin/session')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.valid || !data.token) return;
+        setAdminToken(data.token);
+        setIsMasterRole(data.role === 'master' || data.role === 'admin');
+        setAllowedTabs(data.allowedTabs ?? null);
+        return createAdminClient(data.token).orders.getData()
+          .then(d => {
+            if (d.error) throw new Error(d.error);
+            setData(d);
+            setHasMoreOrders(d.hasMore || false);
+            setAuthenticated(true);
+          });
+      })
+      .catch(() => {})
+      .finally(() => setSessionChecking(false));
   }, []);
 
   // ── Auto-dispatch de pedidos agendados ──────────────────────────────────────
@@ -460,16 +441,14 @@ export default function AdminPage() {
       const sessionData = await sessionRes.json();
       if (sessionData.error) { alert(sessionData.error); return; }
 
-      const token = sessionData.token;
-      localStorage.setItem(SESSION_KEY, token);
-      localStorage.setItem(SESSION_EXPIRY_KEY, String(Date.now() + SESSION_TTL));
+      // Cookie httpOnly foi setado pelo servidor na resposta POST.
+      // Token fica apenas em memória (React state) para os cabeçalhos Authorization.
+      const { token, role, allowedTabs: tabs } = sessionData;
       setAdminToken(token);
 
-      const payload = decodeJwtPayload(token);
-      const master  = payload.role === 'master' || payload.role === 'admin';
-      const tabs    = payload.allowedTabs ?? null;
+      const master = role === 'master' || role === 'admin';
       setIsMasterRole(master);
-      setAllowedTabs(tabs);
+      setAllowedTabs(tabs ?? null);
 
       const d = await createAdminClient(token).orders.getData();
       if (d.error) { alert(d.error); return; }
@@ -486,8 +465,8 @@ export default function AdminPage() {
   }
 
   function handleLogout() {
-    localStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem(SESSION_EXPIRY_KEY);
+    // Limpa o cookie httpOnly no servidor
+    fetch('/api/admin/session', { method: 'DELETE' }).catch(() => {});
     setAdminToken('');
     setAuthenticated(false);
     setIsMasterRole(false);
