@@ -163,22 +163,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       delete securePayload.scheduled_for;
     }
 
-    const { data: order, error: orderErr } = await supabase
-      .from('orders')
-      .insert(securePayload)
-      .select()
-      .single();
+    // Inserção atômica: pedido + itens numa única transação PostgreSQL.
+    // Se a inserção dos itens falhar, o pedido é revertido automaticamente —
+    // nenhum pedido "fantasma" (sem itens) fica no banco.
+    const { data: rpcData, error: orderErr } = await supabase
+      .rpc('create_order_with_items', {
+        p_order: securePayload,
+        p_items: items,
+      });
 
     if (orderErr) {
       return NextResponse.json({ error: orderErr.message }, { status: 500 });
     }
 
-    // Inserir itens do pedido
-    const orderItems = (items as OrderItem[]).map(item => ({ ...item, order_id: order.id })) as OrderItem[];
-    const { error: itemsErr } = await supabase.from('order_items').insert(orderItems);
-    if (itemsErr) {
-      logger.error('Erro ao inserir itens do pedido', { orderId: order.id, error: itemsErr.message });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const order = rpcData as any;
+
+    if (!order || !order.id) {
+      return NextResponse.json({ error: 'Falha ao criar pedido' }, { status: 500 });
     }
+
+    // orderItems: construído em memória para uso nas etapas seguintes
+    // (CardápioWeb push + e-mail). Os itens já foram persistidos pela RPC acima.
+    const orderItems = (items as OrderItem[]).map(item => ({ ...item, order_id: order.id as string })) as OrderItem[];
 
     if (stockErr) {
       // Fallback best-effort com lock otimista: o UPDATE inclui a quantidade original
@@ -258,10 +265,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         cpf: cpfHash,
         user_id: (orderPayload as Record<string, unknown>).user_id || null,
       });
-      await supabase
-        .from('coupons')
-        .update({ times_used: (coupon as Record<string, unknown>).times_used as number + 1 })
-        .eq('id', (coupon as Record<string, unknown>).id);
+      // Incremento atômico: evita race condition onde dois pedidos simultâneos
+      // leem o mesmo times_used e ambos escrevem N+1 em vez de N+2.
+      await supabase.rpc('increment_coupon_usage', {
+        p_coupon_id: (coupon as Record<string, unknown>).id,
+      });
     }
 
     // ── Cardápio Web Partner API ──────────────────────────────────────────────
