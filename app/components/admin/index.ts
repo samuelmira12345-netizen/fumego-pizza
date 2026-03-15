@@ -10,7 +10,7 @@ export { default as DeliveryTab } from './DeliveryTab';
 export { default as DeliveryZoneMap } from './DeliveryZoneMap';
 export { default as DriverTrackingMap } from './DriverTrackingMap';
 export { default as Financial } from './Financial';
-export { default as FinancialAnalise } from './FinancialAnalise';
+export { AnalisePagamentosTab, AnaliseRecebimentosTab } from './FinancialAnalise';
 export { default as FinancialCustos } from './FinancialCustos';
 export { default as FinancialFluxoCaixa } from './FinancialFluxoCaixa';
 export { default as FinancialLancamentos } from './FinancialLancamentos';
