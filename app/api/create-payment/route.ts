@@ -2,8 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { computeStoreStatus } from '../../../lib/store-hours';
 import { logger } from '../../../lib/logger';
+import { checkRateLimit, getClientIp } from '../../../lib/rate-limit';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const ip = getClientIp(request);
+  const { allowed, retryAfterMs } = await checkRateLimit(`create-payment:${ip}`, 10, 60_000);
+  if (!allowed) {
+    const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+    return NextResponse.json(
+      { error: `Muitas tentativas. Tente novamente em ${retryAfterSec} segundos.` },
+      { status: 429, headers: { 'Retry-After': String(retryAfterSec) } }
+    );
+  }
+
   try {
     const body = await request.json();
     const { order_id, order_number, description, payer_email, payer_name, payer_cpf, payment_type } = body;

@@ -6,8 +6,19 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { signUserToken, setAuthCookie } from '../../../../lib/auth';
 import { logger } from '../../../../lib/logger';
+import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const ip = getClientIp(request);
+  const { allowed, retryAfterMs } = await checkRateLimit(`register:${ip}`, 5, 60_000);
+  if (!allowed) {
+    const retryAfterSec = Math.ceil(retryAfterMs / 1000);
+    return NextResponse.json(
+      { error: `Muitas tentativas. Tente novamente em ${retryAfterSec} segundos.` },
+      { status: 429, headers: { 'Retry-After': String(retryAfterSec) } }
+    );
+  }
+
   try {
     const raw = await request.json();
     const parsed = registerSchema.safeParse(raw);
