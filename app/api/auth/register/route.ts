@@ -48,6 +48,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         email: email.toLowerCase().trim(),
         phone: phone || null,
         password_hash,
+        email_verified:       false,
         address_street:       address_street       || null,
         address_number:       address_number       || null,
         address_complement:   address_complement   || null,
