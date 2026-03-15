@@ -26,8 +26,8 @@ function isValidEmail(email: string): boolean {
 /** Envia e-mail de confirmação com 1 retry após 3 s em caso de falha. */
 async function sendOrderEmailWithRetry(
   email: string, name: string,
-  orderNumber: unknown, total: unknown,
-  items: unknown, deliveryTime: string,
+  orderNumber: string | number, total: string | number,
+  items: Parameters<typeof sendOrderConfirmationEmail>[4], deliveryTime: string,
 ): Promise<void> {
   try {
     await sendOrderConfirmationEmail(email, name, orderNumber, total, items, deliveryTime);
