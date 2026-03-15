@@ -221,6 +221,24 @@ export function createAdminClient(token: string) {
       searchPhoneSuffix: (suffix: string) =>
         post('search_phone_suffix', { suffix }),
     },
+
+    // ── Sub-Admin Management (master only) ───────────────────────────────────
+    subAdmins: {
+      list: () =>
+        post('list_sub_admins'),
+
+      create: (username: string, password: string, allowedTabs: string[]) =>
+        post('create_sub_admin', { username, password, allowedTabs }),
+
+      update: (id: string, params: { allowedTabs?: string[]; password?: string }) =>
+        post('update_sub_admin', { id, ...params }),
+
+      deactivate: (id: string) =>
+        post('deactivate_sub_admin', { id }),
+
+      reactivate: (id: string) =>
+        post('reactivate_sub_admin', { id }),
+    },
   };
 }
 
