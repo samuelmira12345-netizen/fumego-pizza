@@ -9,6 +9,15 @@
 
 import { logger } from './logger'
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const RESEND_API = 'https://api.resend.com/emails';
 
 interface EmailPayload {
@@ -66,7 +75,7 @@ export async function sendVerificationEmail(to: string, name: string, verifyUrl:
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#1A1A1A;color:#fff;padding:32px;border-radius:12px;">
         <h1 style="font-family:Georgia,serif;color:#D4A528;margin-bottom:8px;">FUMÊGO Pizza</h1>
-        <p style="color:#ccc;">Olá, ${name}! Confirme seu endereço de e-mail para ativar sua conta.</p>
+        <p style="color:#ccc;">Olá, ${escapeHtml(name)}! Confirme seu endereço de e-mail para ativar sua conta.</p>
         <a href="${verifyUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#D4A528;color:#000;font-weight:bold;text-decoration:none;border-radius:8px;">
           Confirmar E-mail
         </a>
@@ -83,7 +92,7 @@ export async function sendPasswordResetEmail(to: string, name: string, resetUrl:
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#1A1A1A;color:#fff;padding:32px;border-radius:12px;">
         <h1 style="font-family:Georgia,serif;color:#D4A528;margin-bottom:8px;">FUMÊGO Pizza</h1>
-        <p style="color:#ccc;">Olá, ${name}! Recebemos um pedido de redefinição de senha.</p>
+        <p style="color:#ccc;">Olá, ${escapeHtml(name)}! Recebemos um pedido de redefinição de senha.</p>
         <a href="${resetUrl}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#D4A528;color:#000;font-weight:bold;text-decoration:none;border-radius:8px;">
           Redefinir Senha
         </a>
@@ -103,19 +112,19 @@ export async function sendOrderConfirmationEmail(
 ): Promise<EmailResult> {
   const itemsHtml = items.map(i =>
     `<tr>
-      <td style="padding:6px 0;color:#ccc;">${i.product_name}${i.quantity > 1 ? ` ×${i.quantity}` : ''}</td>
+      <td style="padding:6px 0;color:#ccc;">${escapeHtml(i.product_name)}${i.quantity > 1 ? ` ×${i.quantity}` : ''}</td>
       <td style="padding:6px 0;color:#D4A528;text-align:right;">R$ ${Number(i.total_price).toFixed(2).replace('.', ',')}</td>
     </tr>`
   ).join('');
 
   return sendEmail({
     to,
-    subject: `FUMÊGO — Pedido #${orderNumber} confirmado!`,
+    subject: `FUMÊGO — Pedido #${String(orderNumber)} confirmado!`,
     html: `
       <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#1A1A1A;color:#fff;padding:32px;border-radius:12px;">
         <h1 style="font-family:Georgia,serif;color:#D4A528;margin-bottom:4px;">FUMÊGO Pizza</h1>
-        <h2 style="color:#fff;font-size:18px;margin-bottom:24px;">Pedido #${orderNumber} confirmado!</h2>
-        <p style="color:#ccc;margin-bottom:24px;">Olá, ${name}! Seu pedido está sendo preparado com carinho. 🍕</p>
+        <h2 style="color:#fff;font-size:18px;margin-bottom:24px;">Pedido #${escapeHtml(orderNumber)} confirmado!</h2>
+        <p style="color:#ccc;margin-bottom:24px;">Olá, ${escapeHtml(name)}! Seu pedido está sendo preparado com carinho. 🍕</p>
         <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
           ${itemsHtml}
           <tr style="border-top:1px solid #444;">

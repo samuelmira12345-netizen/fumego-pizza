@@ -63,6 +63,59 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// ── Geocoding cache ───────────────────────────────────────────────────────────
+// Level 1: module-level in-memory (per warm instance, zero latency)
+// Level 2: Supabase settings table (cross-instance, key = geocode_cep_<cep>)
+// TTL: 30 days — CEP coordinates are essentially permanent
+
+const GEO_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const memGeoCache = new Map<string, GeoCoords>();
+
+function geoFromSettings(settings: Record<string, string>, cep: string): GeoCoords | null {
+  const raw = settings[`geocode_cep_${cep}`];
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { lat: number; lng: number; ts: number };
+    if (Date.now() - (parsed.ts || 0) > GEO_CACHE_TTL_MS) return null;
+    if (Number.isFinite(parsed.lat) && Number.isFinite(parsed.lng)) return { lat: parsed.lat, lng: parsed.lng };
+  } catch {}
+  return null;
+}
+
+async function geocodeWithCache(
+  details: AddressDetails,
+  settings: Record<string, string>,
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+): Promise<GeoCoords | null> {
+  const cep = details.zipcode;
+
+  // Level 1: in-memory
+  if (cep && memGeoCache.has(cep)) return memGeoCache.get(cep)!;
+
+  // Level 2: Supabase settings (already loaded in the request)
+  if (cep) {
+    const cached = geoFromSettings(settings, cep);
+    if (cached) {
+      memGeoCache.set(cep, cached);
+      return cached;
+    }
+  }
+
+  // Cache miss — call geocoding services
+  const result = await geocodeAddress(details);
+  if (!result) return null;
+
+  // Persist in both cache layers
+  if (cep) {
+    memGeoCache.set(cep, result);
+    void supabase
+      .from('settings')
+      .upsert([{ key: `geocode_cep_${cep}`, value: JSON.stringify({ ...result, ts: Date.now() }) }])
+      .catch(() => {});
+  }
+  return result;
+}
+
 interface GeoCoords { lat: number; lng: number; }
 
 async function geocodeNominatimStructured(details: AddressDetails): Promise<GeoCoords | null> {
@@ -241,7 +294,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const [storeGeo, customerGeo] = await Promise.all([
       getStoreCoordinates(supabase, settings, originDetails),
-      geocodeAddress(customerDetails),
+      geocodeWithCache(customerDetails, settings, supabase),
     ]);
 
     if (!storeGeo) {

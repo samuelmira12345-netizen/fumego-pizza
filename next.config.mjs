@@ -1,10 +1,40 @@
 // @ts-check
 import { withSentryConfig } from '@sentry/nextjs';
 
+const securityHeaders = [
+  { key: 'X-Frame-Options',           value: 'SAMEORIGIN' },
+  { key: 'X-Content-Type-Options',    value: 'nosniff' },
+  { key: 'Referrer-Policy',           value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy',        value: 'camera=(), microphone=(), geolocation=()' },
+  {
+    key: 'Content-Security-Policy',
+    // unsafe-inline is required by Next.js inline scripts; unsafe-eval by some Next.js internals.
+    // Tighten per-route with nonce-based CSP if stricter policy is needed in the future.
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https://*.supabase.co",
+      "font-src 'self' data:",
+      "connect-src 'self' https://*.supabase.co https://sentry.io https://*.sentry.io https://brasilapi.com.br https://nominatim.openstreetmap.org https://*.upstash.io",
+      "frame-ancestors 'self'",
+      "form-action 'self'",
+    ].join('; '),
+  },
+];
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
     ignoreDuringBuilds: false,
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: securityHeaders,
+      },
+    ];
   },
   images: {
     remotePatterns: [

@@ -481,8 +481,23 @@ describe('handleGetDeliveryMetrics', () => {
     });
     const body = await res.json();
 
-    expect(body.summary.from).toContain('2024-01-01');
-    expect(body.summary.to).toContain('2024-01-31');
+    // from='2024-01-01' SP midnight = 03:00 UTC; to='2024-01-31' SP 23:59 = 2024-02-01T02:59 UTC
+    expect(new Date(body.summary.from).toISOString()).toBe('2024-01-01T03:00:00.000Z');
+    expect(new Date(body.summary.to).toISOString()).toBe('2024-02-01T02:59:59.999Z');
+  });
+
+  it('converte YYYY-MM-DD para horário de São Paulo (UTC-3)', async () => {
+    mockSupabase.from.mockImplementation(() => mkChain([], null));
+
+    const res = await handleGetDeliveryMetrics(mockSupabase as any, {
+      from: '2024-01-15', to: '2024-01-15',
+    });
+    const body = await res.json();
+
+    // Meia-noite SP (UTC-3) = 03:00 UTC do mesmo dia
+    expect(new Date(body.summary.from).toISOString()).toBe('2024-01-15T03:00:00.000Z');
+    // 23:59:59.999 SP (UTC-3) = 02:59:59.999 UTC do dia seguinte
+    expect(new Date(body.summary.to).toISOString()).toBe('2024-01-16T02:59:59.999Z');
   });
 
   it('ignora date range inválido e usa padrão', async () => {

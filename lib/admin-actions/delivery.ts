@@ -277,9 +277,11 @@ export async function handleGetDeliveryMetrics(supabase: SupabaseClient, data?: 
   let fromDate: Date | null = null;
   let toDate:   Date | null = null;
 
+  const DATE_RE_METRICS = /^\d{4}-\d{2}-\d{2}$/;
   if (fromInput && toInput) {
-    fromDate = new Date(`${fromInput}T00:00:00`);
-    toDate   = new Date(`${toInput}T23:59:59.999`);
+    // Interpret plain YYYY-MM-DD as São Paulo timezone (UTC-3) to match business hours
+    fromDate = DATE_RE_METRICS.test(fromInput) ? new Date(`${fromInput}T00:00:00-03:00`) : new Date(fromInput);
+    toDate   = DATE_RE_METRICS.test(toInput)   ? new Date(`${toInput}T23:59:59.999-03:00`) : new Date(toInput);
     if (!Number.isFinite(fromDate.getTime()) || !Number.isFinite(toDate.getTime()) || fromDate > toDate) {
       fromDate = null;
       toDate   = null;
@@ -394,9 +396,10 @@ export async function handleGetDeliveryAnalysis(supabase: SupabaseClient, data?:
   let fromDate: Date | null = null;
   let toDate:   Date | null = null;
 
+  const DATE_RE_ANALYSIS = /^\d{4}-\d{2}-\d{2}$/;
   if (fromInput && toInput) {
-    fromDate = new Date(`${fromInput}T00:00:00`);
-    toDate   = new Date(`${toInput}T23:59:59.999`);
+    fromDate = DATE_RE_ANALYSIS.test(fromInput) ? new Date(`${fromInput}T00:00:00-03:00`) : new Date(fromInput);
+    toDate   = DATE_RE_ANALYSIS.test(toInput)   ? new Date(`${toInput}T23:59:59.999-03:00`) : new Date(toInput);
     if (!Number.isFinite(fromDate.getTime()) || !Number.isFinite(toDate.getTime()) || fromDate > toDate) {
       fromDate = null; toDate = null;
     }
