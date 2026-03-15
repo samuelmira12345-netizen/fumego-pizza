@@ -41,8 +41,23 @@ export function validateCpf(cpf: string | null | undefined): boolean {
 function getKey(): Buffer {
   const raw = process.env.CPF_ENCRYPTION_KEY;
   if (!raw) throw new Error('CPF_ENCRYPTION_KEY não configurada');
-  // Derivar exatamente 32 bytes a partir da chave fornecida
-  return createHash('sha256').update(raw).digest();
+  // Prefixo de domínio evita reutilização da mesma chave derivada para AES e HMAC
+  return createHash('sha256').update('aes:').update(raw).digest();
+}
+
+/**
+ * Retorna a chave HMAC isolada do material AES.
+ * Usa CPF_HMAC_KEY se definida (recomendado — chave independente gerada com openssl rand -hex 32).
+ * Faz fallback para SHA256("hmac:" + CPF_ENCRYPTION_KEY) se apenas CPF_ENCRYPTION_KEY existir.
+ */
+function getHmacKey(): string {
+  const dedicated = process.env.CPF_HMAC_KEY;
+  if (dedicated) return dedicated;
+
+  const raw = process.env.CPF_ENCRYPTION_KEY;
+  if (!raw) throw new Error('CPF_ENCRYPTION_KEY não configurada');
+  // Domínio separado garante que a chave HMAC difere da chave AES mesmo usando a mesma origem
+  return createHash('sha256').update('hmac:').update(raw).digest('hex');
 }
 
 /**
@@ -100,7 +115,6 @@ export function hashCpf(cpf: string | null | undefined): string | null {
   const clean = String(cpf).replace(/\D/g, '');
   if (clean.length !== 11) return null;
 
-  const secret = process.env.CPF_ENCRYPTION_KEY;
-  if (!secret) throw new Error('CPF_ENCRYPTION_KEY não configurada');
+  const secret = getHmacKey();
   return createHmac('sha256', secret).update(clean).digest('hex');
 }
