@@ -23,7 +23,7 @@ import OrderCard from './kds/OrderCard';
 import KDSColumn from './kds/KDSColumn';
 import OrderModal, { QuickStat } from './kds/OrderModal';
 import KitchenKDS from './kds/KitchenKDS';
-import { clientError } from '../../lib/client-logger';
+import { clientError } from '../../../lib/client-logger';
 
 function useSecondTick() {
   const [tick, setTick] = useState(0);
