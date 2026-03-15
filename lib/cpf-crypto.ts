@@ -41,8 +41,9 @@ export function validateCpf(cpf: string | null | undefined): boolean {
 function getKey(): Buffer {
   const raw = process.env.CPF_ENCRYPTION_KEY;
   if (!raw) throw new Error('CPF_ENCRYPTION_KEY não configurada');
-  // Prefixo de domínio evita reutilização da mesma chave derivada para AES e HMAC
-  return createHash('sha256').update('aes:').update(raw).digest();
+  // SHA256(rawKey) — mantém compatibilidade com CPFs já criptografados no banco.
+  // A separação de domínios AES ↔ HMAC é feita exclusivamente via CPF_HMAC_KEY.
+  return createHash('sha256').update(raw).digest();
 }
 
 /**
