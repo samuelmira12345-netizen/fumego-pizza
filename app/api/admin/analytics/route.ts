@@ -12,7 +12,7 @@ function verifyAdminToken(request: NextRequest): boolean {
   if (!token || !secret) return false;
   try {
     const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
-    return decoded.role === 'admin';
+    return ['admin', 'master', 'sub'].includes(decoded.role);
   } catch { return false; }
 }
 
