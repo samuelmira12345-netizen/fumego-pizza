@@ -31,18 +31,45 @@ import {
   handleDeleteDeliveryZone, handleAssignDelivery, handleGetDriverLocations, handleGetDeliveryMetrics,
   handleGetDeliveryQueue, handleSetDeliveryPriority, handleGetDeliveryAnalysis,
 } from '../../../lib/admin-actions/delivery';
+import {
+  handleListSubAdmins, handleCreateSubAdmin, handleUpdateSubAdmin,
+  handleDeactivateSubAdmin, handleReactivateSubAdmin,
+} from '../../../lib/admin-actions/sub-admins';
 
-function verifyAdminToken(request: NextRequest): boolean {
+export type AdminTokenPayload = {
+  role: 'admin' | 'master' | 'sub';
+  username?: string;
+  allowedTabs: string[] | null;
+};
+
+/** Extrai e verifica o JWT. Retorna o payload ou null se inválido. */
+function getTokenPayload(request: NextRequest): AdminTokenPayload | null {
   const auth   = request.headers.get('authorization') || '';
   const token  = auth.replace('Bearer ', '').trim();
   const secret = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
-  if (!token || !secret) return false;
+  if (!token || !secret) return null;
   try {
-    const decoded = jwt.verify(token, secret) as jwt.JwtPayload;
-    return decoded.role === 'admin';
+    const decoded = jwt.verify(token, secret) as jwt.JwtPayload & AdminTokenPayload;
+    // Aceita role: 'admin' (tokens legados), 'master' e 'sub'
+    if (!['admin', 'master', 'sub'].includes(decoded.role)) return null;
+    return {
+      role: decoded.role,
+      username: decoded.username,
+      allowedTabs: decoded.allowedTabs ?? null,
+    };
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** Verifica se o token é de um admin autenticado (qualquer role válida). */
+function verifyAdminToken(request: NextRequest): boolean {
+  return getTokenPayload(request) !== null;
+}
+
+/** Verifica se o token tem role master (ou legado 'admin'). */
+function isMaster(payload: AdminTokenPayload): boolean {
+  return payload.role === 'master' || payload.role === 'admin';
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -57,13 +84,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    if (!verifyAdminToken(request)) {
+    const payload = getTokenPayload(request);
+    if (!payload) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const body = await request.json();
     const { action, data } = body;
     const supabase = getSupabaseAdmin();
+
+    // ── Sub-Admin Management (master only) ───────────────────────────────────
+    if (action === 'list_sub_admins') {
+      if (!isMaster(payload)) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+      return handleListSubAdmins(supabase);
+    }
+    if (action === 'create_sub_admin') {
+      if (!isMaster(payload)) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+      return handleCreateSubAdmin(supabase, data);
+    }
+    if (action === 'update_sub_admin') {
+      if (!isMaster(payload)) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+      return handleUpdateSubAdmin(supabase, data);
+    }
+    if (action === 'deactivate_sub_admin') {
+      if (!isMaster(payload)) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+      return handleDeactivateSubAdmin(supabase, data);
+    }
+    if (action === 'reactivate_sub_admin') {
+      if (!isMaster(payload)) return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+      return handleReactivateSubAdmin(supabase, data);
+    }
 
     // ── Orders ──────────────────────────────────────────────────────────────
     if (action === 'get_data')          return handleGetData(supabase);

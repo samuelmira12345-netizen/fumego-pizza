@@ -10,7 +10,7 @@ import {
   Plug, RefreshCw, X, Copy, Tag, Gift,
   LayoutDashboard, ShoppingBag, Users, ChefHat, Truck,
   Megaphone, Wallet, Archive, BarChart2, LogOut, ChevronRight,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, ShieldCheck,
 } from 'lucide-react';
 import { DEFAULT_BUSINESS_HOURS, DAY_LABELS, DAY_ORDER } from '../../lib/store-hours';
 import CardapioWebTab from '../components/admin/CardapioWebTab';
@@ -25,10 +25,22 @@ import StockMovements from '../components/admin/StockMovements';
 import CouponsTab from '../components/admin/CouponsTab';
 import SettingsTab from '../components/admin/SettingsTab';
 import DeliveryTab from '../components/admin/DeliveryTab';
+import SubAdminsTab from '../components/admin/SubAdminsTab';
 
 const SESSION_KEY         = 'admin_token';
 const SESSION_EXPIRY_KEY  = 'admin_token_expiry';
 const SESSION_TTL         = 4 * 60 * 60 * 1000; // 4 horas
+
+/** Decodifica o payload JWT sem verificar a assinatura (client-side). */
+function decodeJwtPayload(token: string): { role?: string; allowedTabs?: string[] | null } {
+  try {
+    const base64 = token.split('.')[1];
+    const json   = atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
+    return JSON.parse(json);
+  } catch {
+    return {};
+  }
+}
 
 // ── Cores do CRM ──────────────────────────────────────────────────────────────
 const C = {
@@ -101,12 +113,24 @@ const NAV_GROUPS = [
     label: 'SISTEMA',
     items: [
       { key: 'settings',    icon: Settings,        label: 'Configurações' },
+      { key: 'sub_admins',  icon: ShieldCheck,     label: 'Sub-Admins', masterOnly: true },
     ],
   },
 ];
 
-function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize, isOpen, onToggle }: { section: any, onNavigate: any, onLogout: any, logoUrl: any, logoSize: any, isOpen: any, onToggle: any }) {
+function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize, isOpen, onToggle, isMaster, allowedTabs }: { section: any, onNavigate: any, onLogout: any, logoUrl: any, logoSize: any, isOpen: any, onToggle: any, isMaster: boolean, allowedTabs: string[] | null }) {
   const w = isOpen ? 240 : 64;
+
+  // Filter nav groups based on allowedTabs (null = full access for master)
+  const visibleGroups = NAV_GROUPS.map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      if ((item as any).masterOnly && !isMaster) return false;
+      if (allowedTabs === null) return true;
+      return allowedTabs.includes(item.key);
+    }),
+  })).filter(g => g.items.length > 0);
+
   return (
     <aside style={{
       width: w, minWidth: w,
@@ -147,7 +171,7 @@ function Sidebar({ section, onNavigate, onLogout, logoUrl, logoSize, isOpen, onT
 
       {/* Navigation */}
       <nav style={{ flex: 1, padding: isOpen ? '14px 10px' : '14px 8px', overflowY: 'auto' }}>
-        {NAV_GROUPS.map(group => (
+        {visibleGroups.map(group => (
           <div key={group.label} style={{ marginBottom: isOpen ? 22 : 6 }}>
             {isOpen && (
               <p style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.3)', letterSpacing: 1.5, paddingLeft: 8, marginBottom: 5 }}>
@@ -257,10 +281,13 @@ function PageHeader({ section }: { section: any }) {
 // ── Admin Page (Main) ─────────────────────────────────────────────────────────
 
 export default function AdminPage() {
+  const [username, setUsername]               = useState('');
   const [password, setPassword]               = useState('');
   const [adminToken, setAdminToken]           = useState('');
   const [authenticated, setAuthenticated]     = useState(false);
   const [section, setSection]                 = useState('dashboard');
+  const [isMasterRole, setIsMasterRole]       = useState(false);
+  const [allowedTabs, setAllowedTabs]         = useState<string[] | null>(null);
   const [sidebarOpen, setSidebarOpen]         = useState(true);
   const [data, setData]                       = useState<{ products: any[], drinks: any[], coupons: any[], settings: any[], orders: any[] }>({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
   const [hasMoreOrders, setHasMoreOrders]     = useState(false);
@@ -318,6 +345,9 @@ export default function AdminPage() {
     const expiry = localStorage.getItem(SESSION_EXPIRY_KEY);
     if (saved && expiry && Date.now() < parseInt(expiry || '0')) {
       setAdminToken(saved);
+      const payload = decodeJwtPayload(saved);
+      setIsMasterRole(payload.role === 'master' || payload.role === 'admin');
+      setAllowedTabs(payload.allowedTabs ?? null);
       createAdminClient(saved).orders.getData()
         .then(d => {
           if (d.error) throw new Error(d.error);
@@ -424,7 +454,7 @@ export default function AdminPage() {
       const sessionRes = await fetch('/api/admin/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ username: username.trim() || undefined, password }),
       });
       const sessionData = await sessionRes.json();
       if (sessionData.error) { alert(sessionData.error); return; }
@@ -434,11 +464,22 @@ export default function AdminPage() {
       localStorage.setItem(SESSION_EXPIRY_KEY, String(Date.now() + SESSION_TTL));
       setAdminToken(token);
 
+      const payload = decodeJwtPayload(token);
+      const master  = payload.role === 'master' || payload.role === 'admin';
+      const tabs    = payload.allowedTabs ?? null;
+      setIsMasterRole(master);
+      setAllowedTabs(tabs);
+
       const d = await createAdminClient(token).orders.getData();
       if (d.error) { alert(d.error); return; }
       setData(d);
       setHasMoreOrders(d.hasMore || false);
       setAuthenticated(true);
+
+      // Redireciona para a primeira aba permitida se sub-admin
+      if (!master && tabs && tabs.length > 0) {
+        setSection(tabs[0]);
+      }
     } catch (e) { alert('Erro de conexão'); }
     finally { setLoading(false); }
   }
@@ -448,6 +489,10 @@ export default function AdminPage() {
     localStorage.removeItem(SESSION_EXPIRY_KEY);
     setAdminToken('');
     setAuthenticated(false);
+    setIsMasterRole(false);
+    setAllowedTabs(null);
+    setSection('dashboard');
+    setUsername('');
     setData({ products: [], drinks: [], coupons: [], settings: [], orders: [] });
   }
 
@@ -795,11 +840,22 @@ export default function AdminPage() {
           <div style={{ background: '#1E293B', borderRadius: 16, padding: 28, border: '1px solid rgba(255,255,255,0.08)' }}>
             <input
               className="input-field"
+              type="text"
+              placeholder="Usuário (deixe em branco para master)"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              autoComplete="username"
+              style={{ marginBottom: 10, background: '#0F172A', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }}
+            />
+            <input
+              className="input-field"
               type="password"
-              placeholder="Senha do administrador"
+              placeholder="Senha"
               value={password}
               onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleLogin()}
+              autoComplete="current-password"
               style={{ marginBottom: 14, background: '#0F172A', borderColor: 'rgba(255,255,255,0.1)', color: '#fff' }}
             />
             <button
@@ -832,6 +888,8 @@ export default function AdminPage() {
         logoSize={parseInt(getSetting('logo_size') || '36')}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(o => !o)}
+        isMaster={isMasterRole}
+        allowedTabs={allowedTabs}
       />
 
       {/* ── Conteúdo principal ───────────────────────────────────────────── */}
@@ -1103,6 +1161,13 @@ export default function AdminPage() {
         {section === 'deliveries' && (
           <div style={{ flex: 1, overflowY: 'auto' }}>
             <DeliveryTab adminToken={adminToken} />
+          </div>
+        )}
+
+        {/* ── SUB-ADMINS ────────────────────────────────────────────────── */}
+        {section === 'sub_admins' && isMasterRole && (
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <SubAdminsTab adminToken={adminToken} />
           </div>
         )}
 
