@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Tooltip, useMap } from 'react-leaflet';
 import L, { LatLngExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -82,15 +82,16 @@ function MapFitter({ locations }: { locations: DriverLocation[] }) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function DriverTrackingMap({ locations }: { locations: DriverLocation[] }) {
-  const valid = (locations || []).filter(
+const DriverTrackingMap = React.memo(function DriverTrackingMap({ locations }: { locations: DriverLocation[] }) {
+  const valid = useMemo(() => (locations || []).filter(
     (l: DriverLocation) => Number.isFinite(parseFloat(l.driver_location_lat))
       && Number.isFinite(parseFloat(l.driver_location_lng))
-  );
+  ), [locations]);
 
-  const center: LatLngExpression = valid.length > 0
+  const center: LatLngExpression = useMemo(() => valid.length > 0
     ? [parseFloat(valid[0].driver_location_lat), parseFloat(valid[0].driver_location_lng)]
-    : [-15.7942, -47.8822]; // Brasil como fallback
+    : [-15.7942, -47.8822], // Brasil como fallback
+  [valid]);
 
   return (
     <MapContainer
@@ -144,4 +145,6 @@ export default function DriverTrackingMap({ locations }: { locations: DriverLoca
       })}
     </MapContainer>
   );
-}
+});
+
+export default DriverTrackingMap;

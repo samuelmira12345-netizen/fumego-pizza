@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
 
@@ -242,7 +242,7 @@ function todaySP2() {
 }
 
 // ── Análise de Pagamentos ─────────────────────────────────────────────────────
-export function AnalisePagamentosTab({ adminToken, refreshTick }: { adminToken: string; refreshTick: number }) {
+export const AnalisePagamentosTab = React.memo(function AnalisePagamentosTab({ adminToken, refreshTick }: { adminToken: string; refreshTick: number }) {
   const [subTab, setSubTab] = useState('categorias');
   const [data, setData]     = useState<PagamentosData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -326,10 +326,10 @@ export function AnalisePagamentosTab({ adminToken, refreshTick }: { adminToken: 
       )}
     </div>
   );
-}
+});
 
 // ── Análise de Recebimentos ───────────────────────────────────────────────────
-export function AnaliseRecebimentosTab({ adminToken, refreshTick }: { adminToken: string; refreshTick: number }) {
+export const AnaliseRecebimentosTab = React.memo(function AnaliseRecebimentosTab({ adminToken, refreshTick }: { adminToken: string; refreshTick: number }) {
   const [subTab, setSubTab] = useState('forma_pagamento');
   const [data, setData]     = useState<RecebimentosData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -444,4 +444,4 @@ export function AnaliseRecebimentosTab({ adminToken, refreshTick }: { adminToken
       )}
     </div>
   );
-}
+});
