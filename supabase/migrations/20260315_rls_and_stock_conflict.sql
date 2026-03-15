@@ -89,10 +89,17 @@ DROP POLICY IF EXISTS "service role only" ON admin_users;
 CREATE POLICY "service role only" ON admin_users USING (false) WITH CHECK (false);
 
 
--- ─── 10. cashback_wallet ────────────────────────────────────────────────────
-ALTER TABLE cashback_wallet ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "service role only" ON cashback_wallet;
-CREATE POLICY "service role only" ON cashback_wallet USING (false) WITH CHECK (false);
+-- ─── 10. cashback_wallet (se existir) ───────────────────────────────────────
+-- A tabela cashback_wallet pode não existir (o sistema usa cashback_transactions).
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cashback_wallet' AND table_schema = 'public') THEN
+    EXECUTE 'ALTER TABLE cashback_wallet ENABLE ROW LEVEL SECURITY';
+    EXECUTE 'DROP POLICY IF EXISTS "service role only" ON cashback_wallet';
+    EXECUTE 'CREATE POLICY "service role only" ON cashback_wallet USING (false) WITH CHECK (false)';
+  END IF;
+END;
+$$;
 
 
 -- ─── 11. cashback_transactions ──────────────────────────────────────────────
