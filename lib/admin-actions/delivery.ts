@@ -74,8 +74,27 @@ export async function handleGetDeliveryHistory(supabase: SupabaseClient, data?: 
     .order('created_at', { ascending: false })
     .limit(100);
 
-  if (from) q = q.gte('created_at', from as string);
-  if (to)   q = q.lte('created_at', to as string);
+  // When filtering by plain date (YYYY-MM-DD), convert to São Paulo timezone bounds.
+  // SP is UTC-3, so "start of day SP" = T03:00:00Z and "end of day SP" = T02:59:59.999Z next day.
+  // Without this, Postgres treats '2026-03-15' as '2026-03-15T00:00:00Z', making lte miss
+  // all orders created after midnight UTC (i.e., during business hours in SP).
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+  if (from) {
+    const fromStr = String(from);
+    const fromISO = DATE_RE.test(fromStr)
+      ? new Date(`${fromStr}T00:00:00-03:00`).toISOString()
+      : fromStr;
+    q = q.gte('created_at', fromISO);
+  }
+
+  if (to) {
+    const toStr = String(to);
+    const toISO = DATE_RE.test(toStr)
+      ? new Date(`${toStr}T23:59:59.999-03:00`).toISOString()
+      : toStr;
+    q = q.lte('created_at', toISO);
+  }
 
   const { data: orders, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
