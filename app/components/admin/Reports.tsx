@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart2, Package, MapPin, Clock, TrendingUp, Users,
   RefreshCw, ChevronDown, Calendar, AlertCircle,
@@ -414,7 +414,7 @@ function LTVReport({ result }: { result: any }) {
 
 // ── Main Reports Component ─────────────────────────────────────────────────────
 
-export default function Reports({ adminToken }: { adminToken: string }) {
+const Reports = React.memo(function Reports({ adminToken }: { adminToken: string }) {
   const [dateRange, setDateRange] = useState({ from: daysAgo(29), to: todaySP(), fromTime: '00:00', toTime: '23:59' });
   const [reportType, setReportType] = useState('products');
   const [result, setResult]       = useState(null);
@@ -424,6 +424,8 @@ export default function Reports({ adminToken }: { adminToken: string }) {
   function getRange() {
     return { from: dateRange.from, to: dateRange.to };
   }
+
+  const handleDateChange = useCallback((r: typeof dateRange) => setDateRange(r), []);
 
   const fetchReport = useCallback(async (type: string, from: string, to: string) => {
     setLoading(true);
@@ -474,7 +476,7 @@ export default function Reports({ adminToken }: { adminToken: string }) {
           {reportType !== 'ltv' && (
             <DateRangePicker
               value={dateRange}
-              onChange={r => setDateRange(r)}
+              onChange={handleDateChange}
             />
           )}
           <button
@@ -543,4 +545,6 @@ export default function Reports({ adminToken }: { adminToken: string }) {
       )}
     </div>
   );
-}
+});
+
+export default Reports;

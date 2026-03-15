@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Phone, MapPin, Clock, ChefHat, Truck, Bike, CheckCircle, XCircle,
   Printer, RefreshCw, Volume2, VolumeX, X, Bell, Calendar,
@@ -1963,7 +1963,7 @@ function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }: { orders: any,
 
 // ── KDS Board Principal ───────────────────────────────────────────────────────
 
-export default function KDSBoard({
+const KDSBoard = React.memo(function KDSBoard({
   orders, onUpdateStatus, onUpdatePayment, onRefresh, onRefreshOrders, adminToken, loading,
   products, drinks, hasMoreOrders, loadingMore, onLoadMore,
 }: { orders: any, onUpdateStatus: any, onUpdatePayment: any, onRefresh: any, onRefreshOrders: any, adminToken: any, loading: any, products: any, drinks: any, hasMoreOrders: any, loadingMore: any, onLoadMore: any }) {
@@ -2002,19 +2002,22 @@ export default function KDSBoard({
   }, [orders]);
 
   // Mapa telefone/nome → contagem de pedidos (todos os pedidos carregados)
-  const customerOrderCount: Record<string, any> = {};
-  for (const o of orders) {
-    const key = o.customer_phone || o.customer_name;
-    if (key) customerOrderCount[key] = (customerOrderCount[key] || 0) + 1;
-  }
+  const customerOrderCount: Record<string, any> = useMemo(() => {
+    const map: Record<string, any> = {};
+    for (const o of orders) {
+      const key = o.customer_phone || o.customer_name;
+      if (key) map[key] = (map[key] || 0) + 1;
+    }
+    return map;
+  }, [orders]);
 
   const today = todaySP();
-  const cutoff24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+  const cutoff24h = useMemo(() => new Date(Date.now() - 24 * 3600 * 1000).toISOString(), [tick]);
 
   // Show: today's orders + orders still open from last 24h (cross-midnight)
   // 'delivered' orders with pending payment stay visible until payment is registered
   // 'delivered' + paid (approved) orders move to history only
-  const visible = orders.filter((o: any) => {
+  const visible = useMemo(() => orders.filter((o: any) => {
     if (o.status === 'cancelled') return false;
     // Delivered + paid → only in history (hidden from kanban)
     if (o.status === 'delivered' && o.payment_status === 'approved') return false;
@@ -2023,7 +2026,7 @@ export default function KDSBoard({
     // Unpaid delivered orders stay visible regardless of date (to avoid losing track)
     const isUnpaidDelivered = o.status === 'delivered' && o.payment_status !== 'approved';
     return isToday || isOpenRecent || isUnpaidDelivered;
-  });
+  }), [orders, today, cutoff24h]);
 
   const fetchOrderItems = useCallback(async (orderId: any) => {
     if (!orderId || fetchingItemsRef.current.has(orderId)) return null;
@@ -2071,20 +2074,20 @@ export default function KDSBoard({
     order_items_loading: !!itemsLoadingByOrder[o.id],
   }));
 
-  const deliveryPersonsById = deliveryPersons.reduce((acc: any, person: any) => {
+  const deliveryPersonsById = useMemo(() => deliveryPersons.reduce((acc: any, person: any) => {
     acc[String(person.id)] = person.name || '';
     return acc;
-  }, {});
+  }, {}), [deliveryPersons]);
 
   useEffect(() => {
     if (!adminToken || deliveryPersonsLoadedRef.current) return;
     ensureDeliveryPersons();
   }, [adminToken]);
 
-  const todayOrders  = orders.filter((o: any) => orderDateSP(o.created_at) === today);
-  const activeToday  = todayOrders.filter((o: any) => !['cancelled','delivered'].includes(o.status)).length;
-  const doneToday    = todayOrders.filter((o: any) => o.status === 'delivered').length;
-  const revenueToday = todayOrders.filter((o: any) => o.status !== 'cancelled').reduce((s: any, o: any) => s + (parseFloat(o.total) || 0), 0);
+  const todayOrders  = useMemo(() => orders.filter((o: any) => orderDateSP(o.created_at) === today), [orders, today]);
+  const activeToday  = useMemo(() => todayOrders.filter((o: any) => !['cancelled','delivered'].includes(o.status)).length, [todayOrders]);
+  const doneToday    = useMemo(() => todayOrders.filter((o: any) => o.status === 'delivered').length, [todayOrders]);
+  const revenueToday = useMemo(() => todayOrders.filter((o: any) => o.status !== 'cancelled').reduce((s: any, o: any) => s + (parseFloat(o.total) || 0), 0), [todayOrders]);
 
   // Detectar novos pedidos → beep + highlight
   useEffect(() => {
@@ -2661,4 +2664,6 @@ export default function KDSBoard({
       `}</style>
     </div>
   );
-}
+});
+
+export default KDSBoard;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Circle, Tooltip, Marker, useMap } from 'react-leaflet';
 import L, { LatLngExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -47,21 +47,28 @@ function MapController({ lat, lng, zoom }: { lat: number; lng: number; zoom: num
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
-export default function DeliveryZoneMap({ rules, originCoords }: { rules: any[]; originCoords: { lat: string | number; lng: string | number } | null }) {
+const DeliveryZoneMap = React.memo(function DeliveryZoneMap({ rules, originCoords }: { rules: any[]; originCoords: { lat: string | number; lng: string | number } | null }) {
   const lat = parseFloat(String(originCoords?.lat));
   const lng = parseFloat(String(originCoords?.lng));
   const hasCoords = Number.isFinite(lat) && lat !== 0 && Number.isFinite(lng) && lng !== 0;
 
   // Centro: coordenadas da loja ou centro do Brasil
-  const center: LatLngExpression = hasCoords ? [lat, lng] : [-15.7942, -47.8822];
+  const center: LatLngExpression = useMemo(
+    () => (hasCoords ? [lat, lng] : [-15.7942, -47.8822]),
+    [hasCoords, lat, lng],
+  );
 
-  const activeRules = [...(rules || [])]
+  const activeRules = useMemo(() => [...(rules || [])]
     .filter(r => parseFloat(r.radius_km) > 0)
-    .sort((a, b) => parseFloat(a.radius_km) - parseFloat(b.radius_km));
+    .sort((a, b) => parseFloat(a.radius_km) - parseFloat(b.radius_km)),
+  [rules]);
 
-  const maxKm  = activeRules.length > 0 ? Math.max(...activeRules.map(r => parseFloat(r.radius_km))) : 5;
-  const zoom   = calcZoom(maxKm);
-  const icon   = makeStoreIcon();
+  const maxKm = useMemo(
+    () => activeRules.length > 0 ? Math.max(...activeRules.map(r => parseFloat(r.radius_km))) : 5,
+    [activeRules],
+  );
+  const zoom  = useMemo(() => calcZoom(maxKm), [maxKm]);
+  const icon  = useMemo(() => makeStoreIcon(), []);
 
   return (
     <MapContainer
@@ -127,4 +134,6 @@ export default function DeliveryZoneMap({ rules, originCoords }: { rules: any[];
       )}
     </MapContainer>
   );
-}
+});
+
+export default DeliveryZoneMap;
