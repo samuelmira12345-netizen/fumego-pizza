@@ -17,6 +17,28 @@ const config: Config = {
       ],
     }],
   },
+  // Coverage — só coletado quando --coverage é passado (test:coverage)
+  collectCoverage: false,
+  coverageDirectory: 'coverage',
+  coverageProvider: 'v8',
+  collectCoverageFrom: [
+    'app/**/*.{ts,tsx}',
+    'lib/**/*.{ts,tsx}',
+    '!app/**/*.d.ts',
+    '!lib/**/*.d.ts',
+    '!**/__tests__/**',
+    '!**/node_modules/**',
+    '!**/.next/**',
+  ],
+  // Thresholds baseados na cobertura atual — aumentar à medida que testes forem adicionados
+  coverageThreshold: {
+    global: {
+      lines: 0,
+      functions: 8,
+      branches: 25,
+      statements: 0,
+    },
+  },
 };
 
 export default config;
