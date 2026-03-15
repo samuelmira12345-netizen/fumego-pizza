@@ -108,10 +108,11 @@ async function geocodeWithCache(
   // Persist in both cache layers
   if (cep) {
     memGeoCache.set(cep, result);
-    void supabase
-      .from('settings')
-      .upsert([{ key: `geocode_cep_${cep}`, value: JSON.stringify({ ...result, ts: Date.now() }) }])
-      .catch(() => {});
+    void Promise.resolve(
+      supabase
+        .from('settings')
+        .upsert([{ key: `geocode_cep_${cep}`, value: JSON.stringify({ ...result, ts: Date.now() }) }])
+    ).catch(() => {});
   }
   return result;
 }
