@@ -39,13 +39,22 @@ const config: Config = {
     '!**/node_modules/**',
     '!**/.next/**',
   ],
-  // Thresholds baseados na cobertura atual — aumentar à medida que testes forem adicionados
+  // Thresholds em dois níveis:
+  //   global  — reflete a realidade atual (app/ tem 0% por ser React sem testes E2E)
+  //   lib/admin-actions/ — protege o código crítico de negócio com números significativos
+  // Aumentar o global progressivamente à medida que app/api/* e componentes forem cobertos.
   coverageThreshold: {
     global: {
-      lines: 0,
-      functions: 8,
-      branches: 25,
-      statements: 0,
+      lines:      3,
+      functions:  20,
+      branches:   40,
+      statements: 3,
+    },
+    './lib/admin-actions/': {
+      lines:      70,
+      functions:  85,
+      branches:   55,
+      statements: 70,
     },
   },
 };

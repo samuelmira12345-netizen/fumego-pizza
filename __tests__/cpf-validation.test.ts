@@ -44,9 +44,11 @@ describe('validateCpf — CPFs válidos', () => {
     expect(validateCpf('52998224725')).toBe(true);
   });
 
-  it('aceita CPF com dígito verificador zero', () => {
-    // CPF com ambos dígitos verificadores = 0
-    expect(validateCpf('05336872000')).toBe(true);
+  it('aceita CPF com ambos dígitos verificadores zero', () => {
+    // 99984564100 — verificado manualmente pelo algoritmo:
+    // soma1=386, remainder=(386*10)%11=10→0, dígito[9]='0' ✓
+    // soma2=441, remainder=(441*10)%11=10→0, dígito[10]='0' ✓
+    expect(validateCpf('99984564100')).toBe(true);
   });
 });
 
