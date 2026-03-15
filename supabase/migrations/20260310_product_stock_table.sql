@@ -25,6 +25,8 @@ COMMENT ON COLUMN product_stock.enabled    IS 'Se false o produto não tem contr
 
 ALTER TABLE product_stock ENABLE ROW LEVEL SECURITY;
 -- Acesso via service role (backend) apenas
+-- DROP IF EXISTS garante idempotência (PostgreSQL não tem CREATE POLICY IF NOT EXISTS)
+DROP POLICY IF EXISTS "service role only" ON product_stock;
 CREATE POLICY "service role only" ON product_stock USING (false) WITH CHECK (false);
 
 
@@ -45,6 +47,8 @@ CREATE INDEX IF NOT EXISTS idx_drink_stock_enabled
 COMMENT ON TABLE  drink_stock IS 'Controle de estoque de bebidas (substitui settings.drink_stock_limits JSON).';
 
 ALTER TABLE drink_stock ENABLE ROW LEVEL SECURITY;
+-- DROP IF EXISTS garante idempotência (PostgreSQL não tem CREATE POLICY IF NOT EXISTS)
+DROP POLICY IF EXISTS "service role only" ON drink_stock;
 CREATE POLICY "service role only" ON drink_stock USING (false) WITH CHECK (false);
 
 

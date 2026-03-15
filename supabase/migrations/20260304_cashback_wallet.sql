@@ -68,5 +68,7 @@ INSERT INTO settings (key, value)
 ALTER TABLE cashback_transactions ENABLE ROW LEVEL SECURITY;
 
 -- Bloqueia acesso direto do cliente; apenas o service_role (backend) opera
+-- DROP IF EXISTS garante idempotência (PostgreSQL não tem CREATE POLICY IF NOT EXISTS)
+DROP POLICY IF EXISTS "cashback_service_role_only" ON cashback_transactions;
 CREATE POLICY "cashback_service_role_only" ON cashback_transactions
   USING (false);
