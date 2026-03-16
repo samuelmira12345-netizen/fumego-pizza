@@ -1,7 +1,7 @@
 // Tipos compartilhados entre os componentes da página principal
 
 export interface Product {
-  id: number;
+  id: string;
   slug: string;
   name: string;
   price: number | string;
@@ -16,7 +16,7 @@ export interface Product {
 }
 
 export interface Drink {
-  id: number;
+  id: string;
   name: string;
   price: number | string;
   size: string;
