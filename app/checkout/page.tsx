@@ -9,6 +9,69 @@ import {
 } from 'lucide-react';
 import { useScrollToStep } from '../../hooks/useScrollToStep';
 import { clientError } from '../../lib/client-logger';
+import type { CartItem, DrinkSelection } from '../components/home/types';
+
+// ── Tipos locais do checkout ───────────────────────────────────────────────────
+
+interface CheckoutUser {
+  id?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  cpf?: string;
+  address_street?: string;
+  address_number?: string;
+  address_complement?: string;
+  address_neighborhood?: string;
+  address_city?: string;
+  address_state?: string;
+  address_zipcode?: string;
+}
+
+interface CouponData {
+  code: string;
+  discount_percent: number;
+  discount_fixed: number;
+  is_free_delivery: boolean;
+  valid_until: string | null;
+  usage_limit: number | null;
+  times_used: number;
+  is_first_order_only: boolean;
+  min_order_value: number | null;
+  is_active: boolean;
+}
+
+interface PixData {
+  qr_code?: string;
+  qr_code_base64?: string;
+  checkout_url?: string;
+  error?: string;
+}
+
+interface PixError {
+  error: string;
+  details?: string;
+}
+
+interface CashbackTx {
+  id: string;
+  amount: number;
+  created_at: string;
+}
+
+interface AvailableSlot {
+  time: string;
+}
+
+interface OrderItemPayload {
+  product_id?: string;
+  drink_id?: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  observations?: string | null;
+}
 
 const GOLD   = '#F2A800';
 const BG     = '#080600';
@@ -20,11 +83,11 @@ const RED    = '#E04040';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const [cart, setCart] = useState<any[]>([]);
-  const [user, setUser] = useState<any>(null);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [user, setUser] = useState<CheckoutUser | null>(null);
   const [loading, setLoading] = useState(false);
   const [couponCode, setCouponCode] = useState('');
-  const [couponApplied, setCouponApplied] = useState<any>(null);
+  const [couponApplied, setCouponApplied] = useState<CouponData | null>(null);
   const [couponError, setCouponError] = useState('');
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [deliveryTime, setDeliveryTime] = useState('40–60 min');
@@ -32,12 +95,12 @@ export default function CheckoutPage() {
   const [deliveryCalculating, setDeliveryCalculating] = useState(false);
   const [deliveryFeeReady, setDeliveryFeeReady] = useState(false);
   const [instagramUrl, setInstagramUrl] = useState('');
-  const [pixData, setPixData] = useState<any>(null);
+  const [pixData, setPixData] = useState<PixData | null>(null);
   const [orderCreated, setOrderCreated] = useState(false);
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
-  const [pixError, setPixError] = useState<any>(null);
+  const [pixError, setPixError] = useState<PixError | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('pix');
   const [cashOrderDone, setCashOrderDone] = useState(false);
   const [cashChange, setCashChange] = useState('');
@@ -47,7 +110,7 @@ export default function CheckoutPage() {
 
   // Cashback
   const [cashbackBalance, setCashbackBalance] = useState(0);
-  const [cashbackTxs, setCashbackTxs]         = useState<any[]>([]);
+  const [cashbackTxs, setCashbackTxs]         = useState<CashbackTx[]>([]);
   const [useCashbackBalance, setUseCashbackBalance] = useState(false);
   const [cashbackMaxPercent, setCashbackMaxPercent] = useState(50);
 
@@ -56,7 +119,7 @@ export default function CheckoutPage() {
   const [schedulingMaxDays, setSchedulingMaxDays] = useState(3);
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
-  const [availableSlots, setAvailableSlots] = useState<any[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState('');
   const [loadingSlots, setLoadingSlots] = useState(false);
 
@@ -111,7 +174,7 @@ export default function CheckoutPage() {
     if (typeof window !== 'undefined' && (window as any).gtag) {
       (window as any).gtag('event', 'begin_checkout', {
         currency: 'BRL',
-        items: parsedCart.map((i: any) => ({ item_name: i.product?.name, item_id: i.product?.slug })),
+        items: parsedCart.map((i: CartItem) => ({ item_name: i.product?.name, item_id: i.product?.slug })),
       });
     }
 
@@ -163,7 +226,7 @@ export default function CheckoutPage() {
       });
   }, []);
 
-  function updateForm(field: string, value: any) {
+  function updateForm(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
     if (['street', 'number', 'neighborhood', 'city', 'state', 'zipcode'].includes(field)) {
       setDeliveryQuoteError('');
@@ -271,7 +334,7 @@ export default function CheckoutPage() {
     cart.forEach(item => {
       total += Number(item.product.price);
       if (item.option?.extra_price) total += item.option.extra_price;
-      item.drinks?.forEach((d: any) => { total += Number(d.price) * d.quantity; });
+      item.drinks?.forEach((d: DrinkSelection) => { total += Number(d.price) * d.quantity; });
     });
     return total;
   }
@@ -308,7 +371,7 @@ export default function CheckoutPage() {
     } catch (e) { setCouponError('Erro ao validar'); }
   }
 
-  function removeCartItem(itemId: any) {
+  function removeCartItem(itemId: number) {
     const newCart = cart.filter(c => c.id !== itemId);
     setCart(newCart);
     localStorage.setItem('fumego_cart', JSON.stringify(newCart));
@@ -349,7 +412,7 @@ export default function CheckoutPage() {
       promised_delivery_time: deliveryTime || null,
     };
 
-    const items: any[] = [];
+    const items: OrderItemPayload[] = [];
     cart.forEach(cartItem => {
       const optionPrice = cartItem.option?.extra_price || 0;
       const optionNote  = cartItem.option ? cartItem.option.label : null;
@@ -362,7 +425,7 @@ export default function CheckoutPage() {
         total_price: Number(cartItem.product.price) + optionPrice,
         observations: fullObs,
       });
-      cartItem.drinks?.forEach((d: any) => {
+      cartItem.drinks?.forEach((d: DrinkSelection) => {
         items.push({
           drink_id: d.id, product_name: `${d.name} ${d.size}`,
           quantity: d.quantity, unit_price: Number(d.price), total_price: Number(d.price) * d.quantity,
@@ -450,7 +513,7 @@ export default function CheckoutPage() {
           transaction_id: String(order.id),
           value:          calcTotal(),
           currency:       'BRL',
-          items: cart.map((i: any) => ({ item_name: i.product?.name, item_id: i.product?.slug, price: i.product?.price })),
+          items: cart.map((i: CartItem) => ({ item_name: i.product?.name, item_id: i.product?.slug, price: i.product?.price })),
         });
       }
 
@@ -511,7 +574,7 @@ export default function CheckoutPage() {
     }
   }
 
-  function startPaymentCheck(orderId: any, userId: any, orderTotal: any) {
+  function startPaymentCheck(orderId: string, userId: string | null, orderTotal: number) {
     setCheckingPayment(true);
     let expired = false;
 
@@ -736,12 +799,12 @@ export default function CheckoutPage() {
                 <div>
                   <p style={{ fontSize: 15, fontWeight: 'bold', color: '#fff' }}>{item.product.name}</p>
                   {item.option && <p style={{ fontSize: 12, color: GOLD, marginTop: 2 }}>{item.option.label}{item.option.extra_price > 0 ? ` (+R$ ${Number(item.option.extra_price).toFixed(2).replace('.', ',')})` : ''}</p>}
-                  {item.drinks?.map((d: any) => <p key={d.id} style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>+ {d.name} {d.size} x{d.quantity}</p>)}
+                  {item.drinks?.map((d: DrinkSelection) => <p key={d.id} style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>+ {d.name} {d.size} x{d.quantity}</p>)}
                   {item.observations && <p style={{ fontSize: 11, color: '#3A2810', fontStyle: 'italic', marginTop: 2 }}>Obs: {item.observations}</p>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontWeight: 'bold', color: '#fff' }}>
-                    R$ {(Number(item.product.price) + (item.option?.extra_price || 0) + (item.drinks?.reduce((s: any, d: any) => s + Number(d.price) * d.quantity, 0) || 0)).toFixed(2).replace('.', ',')}
+                    R$ {(Number(item.product.price) + (item.option?.extra_price || 0) + (item.drinks?.reduce((s: number, d: DrinkSelection) => s + Number(d.price) * d.quantity, 0) || 0)).toFixed(2).replace('.', ',')}
                   </span>
                   <button onClick={() => removeCartItem(item.id)}
                     style={{ background: 'none', border: 'none', color: RED, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
