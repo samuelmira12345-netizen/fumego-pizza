@@ -67,7 +67,7 @@ function KitchenOrderDetailsModal({ order, onClose }: { order: any, onClose: any
 
 // ── KitchenOrderCard ──────────────────────────────────────────────────────────
 
-function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }: { order: any, onMarkReady: any, onOpenDetails: any, minCardHeight: any }) {
+function KitchenOrderCard({ order, onMarkReady, onStartPreparing, onOpenDetails, minCardHeight }: { order: any, onMarkReady: any, onStartPreparing?: () => void, onOpenDetails: any, minCardHeight: any }) {
   const isItemsLoading = !!order.order_items_loading;
   const [marking, setMarking] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -98,6 +98,12 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }: 
     const nextChecked = !checkedItems[itemKey];
     const nextState = { ...checkedItems, [itemKey]: nextChecked };
     setCheckedItems(nextState);
+
+    // Notify PDV when first checkbox is checked on a confirmed order
+    const isFirstCheck = nextChecked && !Object.values(checkedItems).some(v => !!v);
+    if (isFirstCheck && order.status === 'confirmed') {
+      onStartPreparing?.();
+    }
 
     const allChecked = kitchenItems.length > 0 && kitchenItems.every((kItem: any, kIdx: any) => {
       const key = `${kItem.product_name || 'item'}-${kIdx}-${kItem.quantity || 1}`;
@@ -256,7 +262,7 @@ function KitchenOrderCard({ order, onMarkReady, onOpenDetails, minCardHeight }: 
 
 // ── KitchenKDS ────────────────────────────────────────────────────────────────
 
-export default function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }: { orders: any, onMarkReady: any, soundOn: any, setSoundOn: any }) {
+export default function KitchenKDS({ orders, onMarkReady, onStartPreparing, soundOn, setSoundOn }: { orders: any, onMarkReady: any, onStartPreparing?: (id: any) => void, soundOn: any, setSoundOn: any }) {
   const [clockTick, setClockTick] = useState(0);
   const [detailOrderId, setDetailOrderId] = useState<any>(null);
   useEffect(() => {
@@ -326,6 +332,7 @@ export default function KitchenKDS({ orders, onMarkReady, soundOn, setSoundOn }:
                   key={o.id}
                   order={o}
                   onMarkReady={() => onMarkReady(o.id)}
+                  onStartPreparing={onStartPreparing ? () => onStartPreparing(o.id) : undefined}
                   onOpenDetails={() => setDetailOrderId(o.id)}
                   minCardHeight={minKitchenCardHeight}
                 />

@@ -255,29 +255,33 @@ function KpiCard({ icon: Icon, iconColor, iconBg, label, value, sub, highlight, 
 
   return (
     <div style={{
-      background: '#fff', borderRadius: 12, padding: '18px 20px',
+      background: '#fff', borderRadius: 14, padding: '18px 20px',
       border: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column',
-      gap: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+      gap: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ width: 40, height: 40, borderRadius: 10, background: iconBg || 'rgba(242,168,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon size={20} color={iconColor || '#F2A800'} />
         </div>
         {hasDelta && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600,
-            color: isNeutral ? '#9CA3AF' : isPositive ? '#10B981' : '#EF4444' }}>
-            {isNeutral ? <Minus size={12} /> : isPositive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700,
+            color: isNeutral ? '#9CA3AF' : isPositive ? '#10B981' : '#EF4444',
+            background: isNeutral ? '#F3F4F6' : isPositive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+            padding: '3px 8px', borderRadius: 6,
+          }}>
+            {isNeutral ? <Minus size={11} /> : isPositive ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
             {Math.abs(delta).toFixed(0)}%
           </div>
         )}
       </div>
       <div>
-        <p style={{ fontSize: 11, color: '#6B7280', fontWeight: 500, marginBottom: 3 }}>{label}</p>
-        <p style={{ fontSize: 21, fontWeight: 700, color: highlight || '#111827', lineHeight: 1.2, wordBreak: 'break-all' }}>
+        <p style={{ fontSize: 11, color: '#6B7280', fontWeight: 500, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.6 }}>{label}</p>
+        <p style={{ fontSize: 22, fontWeight: 700, color: highlight || '#111827', lineHeight: 1.15, wordBreak: 'break-all' }}>
           {value}
         </p>
         {(sub || deltaLabel) && (
-          <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 3 }}>{deltaLabel || sub}</p>
+          <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{deltaLabel || sub}</p>
         )}
       </div>
     </div>
@@ -288,9 +292,12 @@ function KpiCard({ icon: Icon, iconColor, iconBg, label, value, sub, highlight, 
 
 function SectionTitle({ children }: { children: any }) {
   return (
-    <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 12, marginTop: 4 }}>
-      {children}
-    </p>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, marginTop: 6 }}>
+      <div style={{ width: 3, height: 16, borderRadius: 2, background: '#F2A800', flexShrink: 0 }} />
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: 1, textTransform: 'uppercase' }}>
+        {children}
+      </p>
+    </div>
   );
 }
 
@@ -309,11 +316,11 @@ function PaymentMethodCard({ method, count, revenue, total }: { method: any, cou
 
   return (
     <div style={{
-      background: '#fff', borderRadius: 12, padding: '16px 18px',
-      border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+      background: '#fff', borderRadius: 14, padding: '16px 18px',
+      border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 8, background: meta.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 9, background: meta.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Icon size={16} color={meta.color} />
         </div>
         <div>
@@ -321,9 +328,9 @@ function PaymentMethodCard({ method, count, revenue, total }: { method: any, cou
           <p style={{ fontSize: 11, color: '#9CA3AF' }}>{pct.toFixed(0)}% dos pedidos</p>
         </div>
       </div>
-      <p style={{ fontSize: 20, fontWeight: 700, color: meta.color, marginBottom: 2 }}>{count}</p>
+      <p style={{ fontSize: 22, fontWeight: 700, color: meta.color, marginBottom: 2 }}>{count}</p>
       <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>pedidos · {fmtBRL(revenue)}</p>
-      <div style={{ height: 4, borderRadius: 2, background: '#E5E7EB' }}>
+      <div style={{ height: 4, borderRadius: 2, background: '#F3F4F6' }}>
         <div style={{ height: '100%', borderRadius: 2, background: meta.color, width: `${pct}%`, transition: 'width 0.4s' }} />
       </div>
     </div>
@@ -610,7 +617,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
     <div style={{ padding: '28px 32px' }}>
 
       {/* ── Cabeçalho ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827', marginBottom: 4 }}>Dashboard</h1>
           <p style={{ fontSize: 13, color: '#6B7280' }}>{now}</p>
@@ -635,6 +642,38 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
           <span style={{ fontSize: 11, color: '#9CA3AF' }}>
             comparado com {deltaLabel} (mesmo horário)
           </span>
+        )}
+      </div>
+
+      {/* ── Hero strip — métricas principais ──────────────────────────────── */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: 0, marginBottom: 28,
+        background: '#fff', borderRadius: 14,
+        border: '1px solid #E5E7EB', overflow: 'hidden',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      }}>
+        <div style={{ padding: '20px 24px', borderRight: '1px solid #F3F4F6' }}>
+          <p style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Faturamento</p>
+          <p style={{ fontSize: 28, fontWeight: 800, color: '#F2A800', lineHeight: 1 }}>{fmtBRL(td.revenue)}</p>
+          {deltaLabel && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>{deltaLabel}: {fmtBRL(lw.revenue)}</p>}
+        </div>
+        <div style={{ padding: '20px 24px', borderRight: '1px solid #F3F4F6' }}>
+          <p style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Pedidos ativos</p>
+          <p style={{ fontSize: 28, fontWeight: 800, color: '#6366F1', lineHeight: 1 }}>{td.active}</p>
+          {deltaLabel && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>{deltaLabel}: {lw.active}</p>}
+        </div>
+        <div style={{ padding: '20px 24px', borderRight: projectedRevenue !== null ? '1px solid #F3F4F6' : undefined }}>
+          <p style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Ticket médio</p>
+          <p style={{ fontSize: 28, fontWeight: 800, color: '#10B981', lineHeight: 1 }}>{fmtBRL(td.avgTicket)}</p>
+          {deltaLabel && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>{deltaLabel}: {fmtBRL(lw.avgTicket)}</p>}
+        </div>
+        {projectedRevenue !== null && (
+          <div style={{ padding: '20px 24px' }}>
+            <p style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Projeção do dia</p>
+            <p style={{ fontSize: 28, fontWeight: 800, color: '#8B5CF6', lineHeight: 1 }}>{fmtBRL(projectedRevenue)}</p>
+            {lwAll.revenue > 0 && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>{deltaLabel}: {fmtBRL(lwAll.revenue)}</p>}
+          </div>
         )}
       </div>
 
@@ -758,7 +797,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
       {topFlavors.length > 0 && (
         <>
           <SectionTitle>Sabores mais rentáveis — {periodLabel}</SectionTitle>
-          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB', overflow: 'hidden', marginBottom: 28, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', overflow: 'hidden', marginBottom: 28, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
             {/* Header */}
             <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 100px 100px 100px 90px', gap: 0, background: '#F9FAFB', borderBottom: '1px solid #E5E7EB', padding: '10px 18px', alignItems: 'center' }}>
               {['#', 'Sabor', 'Margem', 'CMV', 'Lucro/unid.', 'Vendidos'].map((h, i) => (
@@ -797,7 +836,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 12 }}>
 
         {/* Faturamento por hora ou por dia */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div style={{ background: '#fff', borderRadius: 14, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <BarChart2 size={16} color="#F2A800" />
@@ -818,7 +857,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
         </div>
 
         {/* Gráfico unificado: faturamento + pedidos — últimos 7 dias */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 32 }}>
+        <div style={{ background: '#fff', borderRadius: 14, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', marginBottom: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <BarChart2 size={16} color="#F2A800" />
