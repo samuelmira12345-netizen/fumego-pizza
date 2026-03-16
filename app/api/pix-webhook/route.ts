@@ -3,6 +3,7 @@ import { createHmac } from 'crypto';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { logger } from '../../../lib/logger';
 import { earnCashback } from '../../../lib/cashback';
+import { restoreStockOnCancel } from '../../../lib/stock-restore';
 
 function verifySignature(request: NextRequest, dataId: string): boolean {
   const secret = process.env.MERCADO_PAGO_WEBHOOK_SECRET;
@@ -95,16 +96,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             }
           }
         } else if (['rejected', 'cancelled', 'expired'].includes(mpData.status as string)) {
-          const { error: cancelErr } = await supabase
+          const { data: cancelled, error: cancelErr } = await supabase
             .from('orders')
             .update({ payment_status: 'cancelled', status: 'cancelled' })
             .eq('id', orderId)
-            .neq('status', 'cancelled');
+            .neq('status', 'cancelled')
+            .select('id');
 
           if (cancelErr) {
             logger.error('Webhook: erro ao cancelar pedido', { orderId, error: cancelErr.message });
-          } else {
+          } else if (cancelled && cancelled.length > 0) {
             logger.info('Pedido cancelado via webhook', { orderId, mpStatus: mpData.status });
+            // Devolve estoque somente se o pedido foi efetivamente cancelado agora
+            // (cancelled.length === 0 significa que já estava cancelado — idempotência)
+            restoreStockOnCancel(supabase, orderId)
+              .catch((e: Error) => logger.error('[StockRestore] Erro ao restaurar estoque pós-cancelamento', { orderId, error: e.message }));
           }
         }
       }

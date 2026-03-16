@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { X, ShoppingCart, Plus, ChevronRight } from 'lucide-react';
 import { GOLD, GOLD_LIGHT, BG, CARD, BORDER, MUTED, FAINT, fmt } from './tokens';
 import type { CartItem, Product } from './types';
@@ -199,11 +200,13 @@ export default function CartDrawer({
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       {item.config.show_image && (item.config.custom_image_url || item.product.image_url) && (
-                        <img
+                        <Image
                           src={item.config.custom_image_url || item.product.image_url!}
                           alt={item.product.name}
+                          width={52}
+                          height={52}
                           style={{
-                            width: 52, height: 52, borderRadius: 10,
+                            borderRadius: 10,
                             objectFit: 'cover', flexShrink: 0,
                             border: `1px solid ${BORDER}`,
                           }}

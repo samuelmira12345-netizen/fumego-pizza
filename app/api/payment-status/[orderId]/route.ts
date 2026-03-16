@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
+import { restoreStockOnCancel } from '../../../../lib/stock-restore';
+import { logger } from '../../../../lib/logger';
 
 /** GET /api/payment-status/:orderId — retorna payment_status + status do pedido. */
 export async function GET(
@@ -74,10 +76,18 @@ export async function POST(
       .single();
 
     if (order?.payment_status !== 'approved') {
-      await supabase
+      const { data: cancelled } = await supabase
         .from('orders')
         .update({ payment_status: 'cancelled', status: 'cancelled' })
-        .eq('id', orderId);
+        .eq('id', orderId)
+        .neq('status', 'cancelled')
+        .select('id');
+
+      // Devolve estoque somente se o pedido foi efetivamente cancelado agora
+      if (cancelled && cancelled.length > 0) {
+        restoreStockOnCancel(supabase, orderId)
+          .catch((e: Error) => logger.error('[StockRestore] Erro ao restaurar estoque pós-timeout', { orderId, error: e.message }));
+      }
     }
 
     return NextResponse.json({ success: true });

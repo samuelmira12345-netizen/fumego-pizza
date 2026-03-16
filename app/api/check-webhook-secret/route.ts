@@ -1,8 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 
 // GET /api/check-webhook-secret - Verifica se o MERCADO_PAGO_WEBHOOK_SECRET está configurado
-export async function GET(): Promise<NextResponse> {
+// Protegido por DIAGNOSTICS_SECRET: passe ?secret=<valor> na URL.
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const diagnosticsSecret = process.env.DIAGNOSTICS_SECRET;
+  if (!diagnosticsSecret || request.nextUrl.searchParams.get('secret') !== diagnosticsSecret) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   const secret = (process.env.MERCADO_PAGO_WEBHOOK_SECRET || '').trim();
 
   if (!secret) {
