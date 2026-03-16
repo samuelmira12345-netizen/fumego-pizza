@@ -67,19 +67,32 @@ function KitchenOrderDetailsModal({ order, onClose }: { order: any, onClose: any
 
 // ── KitchenOrderCard ──────────────────────────────────────────────────────────
 
+const LS_KEY = (id: any) => `kds_checked_${id}`;
+
+function loadChecked(id: any): any {
+  try { return JSON.parse(localStorage.getItem(LS_KEY(id)) || '{}'); } catch { return {}; }
+}
+function saveChecked(id: any, state: any) {
+  try { localStorage.setItem(LS_KEY(id), JSON.stringify(state)); } catch {}
+}
+function clearChecked(id: any) {
+  try { localStorage.removeItem(LS_KEY(id)); } catch {}
+}
+
 function KitchenOrderCard({ order, onMarkReady, onStartPreparing, onOpenDetails, minCardHeight }: { order: any, onMarkReady: any, onStartPreparing?: () => void, onOpenDetails: any, minCardHeight: any }) {
   const isItemsLoading = !!order.order_items_loading;
   const [marking, setMarking] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [checkedItems, setCheckedItems] = useState<any>({});
+  const [checkedItems, setCheckedItems] = useState<any>(() => loadChecked(order.id));
   const mins = elapsedMins(order.created_at);
   const urgentColor = mins >= 30 ? '#EF4444' : mins >= 20 ? '#D97706' : '#10B981';
   const urgentBg    = mins >= 30 ? '#FEF2F2' : mins >= 20 ? '#FFFBEB' : '#ECFDF5';
   const kitchenItems = (order.order_items || []).filter((item: any) => !item?.drink_id);
 
+  // Reload from localStorage when order.id changes (different order card)
   useEffect(() => {
-    setCheckedItems({});
-  }, [order.id, kitchenItems.length]);
+    setCheckedItems(loadChecked(order.id));
+  }, [order.id]);
 
   const isEveryKitchenItemChecked = kitchenItems.length > 0 && kitchenItems.every((item: any, idx: any) => {
     const itemKey = `${item.product_name || 'item'}-${idx}-${item.quantity || 1}`;
@@ -89,6 +102,7 @@ function KitchenOrderCard({ order, onMarkReady, onStartPreparing, onOpenDetails,
   async function confirmReady() {
     setShowConfirm(false);
     setMarking(true);
+    clearChecked(order.id);
     await onMarkReady();
     setMarking(false);
   }
@@ -98,6 +112,7 @@ function KitchenOrderCard({ order, onMarkReady, onStartPreparing, onOpenDetails,
     const nextChecked = !checkedItems[itemKey];
     const nextState = { ...checkedItems, [itemKey]: nextChecked };
     setCheckedItems(nextState);
+    saveChecked(order.id, nextState);
 
     // Notify PDV when first checkbox is checked on a confirmed order
     const isFirstCheck = nextChecked && !Object.values(checkedItems).some(v => !!v);
@@ -112,6 +127,7 @@ function KitchenOrderCard({ order, onMarkReady, onStartPreparing, onOpenDetails,
 
     if (allChecked && !marking) {
       setMarking(true);
+      clearChecked(order.id);
       await onMarkReady();
       setMarking(false);
     }

@@ -5,8 +5,7 @@ import {
   ShoppingBag, DollarSign, TrendingUp, ChefHat,
   Truck, CheckCircle, XCircle, Clock, BarChart2, RefreshCw,
   Percent, CreditCard, Tag, AlertTriangle, Banknote, Zap,
-  TrendingDown, ArrowUpRight, ArrowDownRight, Minus, Target,
-  Star,
+  ArrowUpRight, ArrowDownRight, Minus, Target, Timer,
 } from 'lucide-react';
 import DateRangePicker from './DateRangePicker';
 import { costWithFC } from '@/lib/correction-factor';
@@ -17,23 +16,19 @@ function toSPDate(isoStr: string) {
   return new Date(isoStr).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 function toSPHour(isoStr: string) {
-  return parseInt(
-    new Date(isoStr).toLocaleString('en-US', {
-      timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false,
-    })
-  );
+  return parseInt(new Date(isoStr).toLocaleString('en-US', {
+    timeZone: 'America/Sao_Paulo', hour: 'numeric', hour12: false,
+  }));
 }
 function todaySP() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 function yesterdaySP() {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
+  const d = new Date(); d.setDate(d.getDate() - 1);
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 function lastWeekSameDaySP() {
-  const d = new Date();
-  d.setDate(d.getDate() - 7);
+  const d = new Date(); d.setDate(d.getDate() - 7);
   return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 }
 function currentHourSP() {
@@ -58,28 +53,83 @@ function fmtMinutes(mins: any) {
   return `${Math.floor(mins / 60)}h${Math.round(mins % 60) > 0 ? Math.round(mins % 60) + 'm' : ''}`;
 }
 
-// ── Gráfico de barras simples ─────────────────────────────────────────────────
+// ── Donut Chart ───────────────────────────────────────────────────────────────
 
-function fmtShort(v: any, isCurrency: any) {
-  if (!v) return '—';
-  if (isCurrency) {
-    if (v >= 1000) return `R$${(v / 1000).toFixed(1)}k`;
-    return `R$${v.toFixed(0)}`;
-  }
-  return String(v);
+function DonutChart({ segments, size = 110, thickness = 18, label, sublabel }: {
+  segments: { value: number; color: string; label: string }[];
+  size?: number; thickness?: number; label?: string; sublabel?: string;
+}) {
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+  const cx = size / 2, cy = size / 2;
+  const r = (size - thickness) / 2;
+  const circ = 2 * Math.PI * r;
+
+  let cumPct = 0;
+  const arcs = total > 0
+    ? segments.filter(s => s.value > 0).map((seg, i) => {
+        const pct = seg.value / total;
+        const dash = pct * circ;
+        const offset = -cumPct * circ;
+        cumPct += pct;
+        return (
+          <circle key={i} cx={cx} cy={cy} r={r}
+            fill="none" stroke={seg.color} strokeWidth={thickness}
+            strokeDasharray={`${dash} ${circ}`}
+            strokeDashoffset={offset}
+          />
+        );
+      })
+    : null;
+
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', display: 'block' }}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#F3F4F6" strokeWidth={thickness} />
+        {arcs}
+      </svg>
+      {(label || sublabel) && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none',
+        }}>
+          {label && <p style={{ fontSize: 16, fontWeight: 800, color: '#111827', lineHeight: 1 }}>{label}</p>}
+          {sublabel && <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>{sublabel}</p>}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, height = 220, isCurrency = false }: { data: any, labelKey: any, valueKey: any, color?: any, formatValue?: any, height?: any, isCurrency?: any }) {
+// ── Mini Bar Sparkline ────────────────────────────────────────────────────────
+
+function MiniBar({ data, color, height = 28 }: { data: number[]; color: string; height?: number }) {
+  const max = Math.max(...data, 1);
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height }}>
+      {data.map((v, i) => (
+        <div key={i} style={{
+          flex: 1, borderRadius: '2px 2px 0 0',
+          height: `${Math.max((v / max) * 100, v > 0 ? 8 : 0)}%`,
+          background: i === data.length - 1 ? color : color + '55',
+          minHeight: v > 0 ? 2 : 0,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+// ── BarChart ──────────────────────────────────────────────────────────────────
+
+function BarChart({ data, labelKey, valueKey, color = '#F2A800', height = 220, isCurrency = false }: { data: any, labelKey: any, valueKey: any, color?: any, height?: any, isCurrency?: any }) {
   const [hovered, setHovered] = useState<any>(null);
   const max = Math.max(...data.map((d: any) => d[valueKey]), 1);
   const n = data.length;
-
   return (
     <div style={{ position: 'relative' }}>
       {hovered !== null && (
         <div style={{
-          position: 'absolute',
-          bottom: `${height + 38}px`,
+          position: 'absolute', bottom: `${height + 38}px`,
           left: `clamp(60px, ${((hovered + 0.5) / n) * 100}%, calc(100% - 60px))`,
           transform: 'translateX(-50%)',
           background: '#111827', color: '#fff',
@@ -89,9 +139,7 @@ function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, he
           boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
         }}>
           <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 2 }}>{data[hovered][labelKey]}</div>
-          <div style={{ color }}>
-            {isCurrency ? fmtBRL(data[hovered][valueKey]) : data[hovered][valueKey]}
-          </div>
+          <div style={{ color }}>{isCurrency ? fmtBRL(data[hovered][valueKey]) : data[hovered][valueKey]}</div>
         </div>
       )}
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: height + 32, paddingTop: 28 }}>
@@ -100,18 +148,16 @@ function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, he
           const hasValue = item[valueKey] > 0;
           return (
             <div key={i}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end', position: 'relative', cursor: hasValue ? 'crosshair' : 'default' }}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end', cursor: hasValue ? 'crosshair' : 'default' }}
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
             >
               <div style={{
-                width: '100%',
-                height: `${Math.max(pct, hasValue ? 3 : 0)}%`,
+                width: '100%', height: `${Math.max(pct, hasValue ? 3 : 0)}%`,
                 background: hasValue ? color : '#F3F4F6',
                 borderRadius: '5px 5px 0 0',
                 transition: 'height 0.4s ease, opacity 0.15s',
-                minHeight: hasValue ? 3 : 0,
-                maxHeight: height,
+                minHeight: hasValue ? 3 : 0, maxHeight: height,
                 opacity: hovered !== null && hovered !== i ? 0.4 : 1,
               }} />
               <span style={{
@@ -129,7 +175,7 @@ function BarChart({ data, labelKey, valueKey, color = '#F2A800', formatValue, he
   );
 }
 
-// ── Gráfico duplo (barras de faturamento + linha de pedidos) ──────────────────
+// ── DualChart ─────────────────────────────────────────────────────────────────
 
 function DualChart({ data, height = 200 }: { data: any, height?: any }) {
   const [hovered, setHovered] = useState<any>(null);
@@ -138,23 +184,18 @@ function DualChart({ data, height = 200 }: { data: any, height?: any }) {
 
   const maxRev = Math.max(...data.map((d: any) => d.revenue), 1);
   const maxCnt = Math.max(...data.map((d: any) => d.count), 1);
-
   const W = 700, padL = 8, padR = 8, padT = 24, padB = 26;
-  const chartW = W - padL - padR;
-  const chartH = height - padT - padB;
-  const slotW  = chartW / n;
-  const barW   = slotW * 0.35;
-  const gap    = slotW * 0.05;
+  const chartW = W - padL - padR, chartH = height - padT - padB;
+  const slotW = chartW / n, barW = slotW * 0.35, gap = slotW * 0.05;
 
-  function revBarX(i: any) { return padL + i * slotW + (slotW - 2 * barW - gap) / 2; }
-  function cntBarX(i: any) { return revBarX(i) + barW + gap; }
-  function revBarH(v: any) { return Math.max((v / maxRev) * chartH * 0.88, v > 0 ? 3 : 0); }
-  function cntBarH(v: any) { return Math.max((v / maxCnt) * chartH * 0.88, v > 0 ? 3 : 0); }
-  function labelX(i: any)  { return padL + i * slotW + slotW * 0.5; }
+  const revBarX = (i: any) => padL + i * slotW + (slotW - 2 * barW - gap) / 2;
+  const cntBarX = (i: any) => revBarX(i) + barW + gap;
+  const revBarH = (v: any) => Math.max((v / maxRev) * chartH * 0.88, v > 0 ? 3 : 0);
+  const cntBarH = (v: any) => Math.max((v / maxCnt) * chartH * 0.88, v > 0 ? 3 : 0);
+  const labelX  = (i: any) => padL + i * slotW + slotW * 0.5;
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* Legenda */}
       <div style={{ display: 'flex', gap: 18, marginBottom: 8, fontSize: 11, color: '#6B7280' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ width: 12, height: 10, background: '#F2A800', borderRadius: 2, display: 'inline-block' }} />
@@ -165,123 +206,100 @@ function DualChart({ data, height = 200 }: { data: any, height?: any }) {
           Pedidos
         </span>
       </div>
-
-      {/* Tooltip */}
       {hovered !== null && (
         <div style={{
-          position: 'absolute',
-          top: 32,
+          position: 'absolute', top: 32,
           left: `clamp(80px, ${((hovered + 0.5) / n) * 100}%, calc(100% - 80px))`,
           transform: 'translateX(-50%)',
           background: '#111827', color: '#fff',
-          padding: '8px 13px', borderRadius: 7,
-          fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-          zIndex: 20, pointerEvents: 'none',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+          padding: '8px 13px', borderRadius: 7, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+          zIndex: 20, pointerEvents: 'none', boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
         }}>
           <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 4 }}>{data[hovered].date}</div>
           <div style={{ color: '#F2A800', marginBottom: 2 }}>{fmtBRL(data[hovered].revenue)}</div>
           <div style={{ color: '#A5B4FC' }}>{data[hovered].count} pedido{data[hovered].count !== 1 ? 's' : ''}</div>
         </div>
       )}
-
-      <svg
-        viewBox={`0 0 ${W} ${height}`}
-        style={{ width: '100%', height: height + 8, display: 'block' }}
-        onMouseLeave={() => setHovered(null)}
-      >
-        {/* Linhas de grade */}
+      <svg viewBox={`0 0 ${W} ${height}`} style={{ width: '100%', height: height + 8, display: 'block' }} onMouseLeave={() => setHovered(null)}>
         {[0.25, 0.5, 0.75, 1].map(p => {
           const y = padT + chartH - p * chartH * 0.88;
           return <line key={p} x1={padL} y1={y} x2={W - padR} y2={y} stroke="#F3F4F6" strokeWidth="1" />;
         })}
-
-        {/* Barras de faturamento (dourado) */}
         {data.map((d: any, i: any) => {
           const bh = revBarH(d.revenue);
-          return (
-            <rect key={`rev-${i}`}
-              x={revBarX(i)} y={padT + chartH - bh}
-              width={barW} height={bh} rx={3}
-              fill={d.revenue > 0 ? '#F2A800' : '#F3F4F6'}
-              opacity={hovered !== null && hovered !== i ? 0.3 : 0.9}
-            />
-          );
+          return <rect key={`r-${i}`} x={revBarX(i)} y={padT + chartH - bh} width={barW} height={bh} rx={3} fill={d.revenue > 0 ? '#F2A800' : '#F3F4F6'} opacity={hovered !== null && hovered !== i ? 0.3 : 0.9} />;
         })}
-
-        {/* Barras de pedidos (índigo) */}
         {data.map((d: any, i: any) => {
           const bh = cntBarH(d.count);
-          return (
-            <rect key={`cnt-${i}`}
-              x={cntBarX(i)} y={padT + chartH - bh}
-              width={barW} height={bh} rx={3}
-              fill={d.count > 0 ? '#6366F1' : '#F3F4F6'}
-              opacity={hovered !== null && hovered !== i ? 0.3 : 0.9}
-            />
-          );
+          return <rect key={`c-${i}`} x={cntBarX(i)} y={padT + chartH - bh} width={barW} height={bh} rx={3} fill={d.count > 0 ? '#6366F1' : '#F3F4F6'} opacity={hovered !== null && hovered !== i ? 0.3 : 0.9} />;
         })}
-
-        {/* X labels */}
         {data.map((d: any, i: any) => (
           <text key={i} x={labelX(i)} y={height - 4} textAnchor="middle" fontSize="10"
-            fill={hovered === i ? '#374151' : '#9CA3AF'}
-            fontWeight={hovered === i ? '700' : '400'}>
+            fill={hovered === i ? '#374151' : '#9CA3AF'} fontWeight={hovered === i ? '700' : '400'}>
             {d.date}
           </text>
         ))}
-
-        {/* Zonas de hover transparentes (sobre tudo) */}
         {data.map((d: any, i: any) => (
-          <rect key={`hz-${i}`}
-            x={padL + i * slotW} y={padT}
-            width={slotW} height={chartH}
-            fill="transparent"
-            style={{ cursor: 'crosshair' }}
-            onMouseEnter={() => setHovered(i)}
-          />
+          <rect key={`hz-${i}`} x={padL + i * slotW} y={padT} width={slotW} height={chartH}
+            fill="transparent" style={{ cursor: 'crosshair' }} onMouseEnter={() => setHovered(i)} />
         ))}
       </svg>
     </div>
   );
 }
 
-// ── KPI Card ──────────────────────────────────────────────────────────────────
+// ── Metric Card (compact) ─────────────────────────────────────────────────────
 
-function KpiCard({ icon: Icon, iconColor, iconBg, label, value, sub, highlight, delta, deltaLabel }: { icon: any, iconColor?: any, iconBg?: any, label: any, value: any, sub?: any, highlight?: any, delta?: any, deltaLabel?: any }) {
+function MetricCard({ accentColor, icon: Icon, label, value, sub, highlight, delta, deltaLabel, sparkData }: {
+  accentColor?: string; icon: any; label: string; value: any; sub?: string;
+  highlight?: string; delta?: any; deltaLabel?: string; sparkData?: number[];
+}) {
   const hasDelta = delta !== null && delta !== undefined;
-  const isPositive = delta > 0;
-  const isNeutral  = delta === 0;
+  const isPositive = delta > 0, isNeutral = delta === 0;
+  const accent = accentColor || '#F2A800';
 
   return (
     <div style={{
-      background: '#fff', borderRadius: 14, padding: '18px 20px',
-      border: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column',
-      gap: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+      background: '#fff', borderRadius: 12,
+      border: '1px solid #E5E7EB',
+      borderTop: `3px solid ${accent}`,
+      padding: '14px 16px',
+      display: 'flex', flexDirection: 'column', gap: 8,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: iconBg || 'rgba(242,168,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={20} color={iconColor || '#F2A800'} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 8, background: accent + '18', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon size={15} color={accent} />
+          </div>
+          <p style={{ fontSize: 11, color: '#6B7280', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</p>
         </div>
         {hasDelta && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700,
+          <span style={{
+            fontSize: 10, fontWeight: 700,
             color: isNeutral ? '#9CA3AF' : isPositive ? '#10B981' : '#EF4444',
             background: isNeutral ? '#F3F4F6' : isPositive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-            padding: '3px 8px', borderRadius: 6,
+            padding: '2px 6px', borderRadius: 5,
+            display: 'flex', alignItems: 'center', gap: 2,
           }}>
-            {isNeutral ? <Minus size={11} /> : isPositive ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+            {isNeutral ? <Minus size={9} /> : isPositive ? <ArrowUpRight size={9} /> : <ArrowDownRight size={9} />}
             {Math.abs(delta).toFixed(0)}%
-          </div>
+          </span>
         )}
       </div>
-      <div>
-        <p style={{ fontSize: 11, color: '#6B7280', fontWeight: 500, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.6 }}>{label}</p>
-        <p style={{ fontSize: 22, fontWeight: 700, color: highlight || '#111827', lineHeight: 1.15, wordBreak: 'break-all' }}>
-          {value}
-        </p>
-        {(sub || deltaLabel) && (
-          <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{deltaLabel || sub}</p>
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ fontSize: 22, fontWeight: 800, color: highlight || '#111827', lineHeight: 1.1, wordBreak: 'break-all' }}>
+            {value}
+          </p>
+          {(sub || deltaLabel) && (
+            <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 3 }}>{deltaLabel || sub}</p>
+          )}
+        </div>
+        {sparkData && sparkData.some(v => v > 0) && (
+          <div style={{ flexShrink: 0, width: 50 }}>
+            <MiniBar data={sparkData} color={accent} height={28} />
+          </div>
         )}
       </div>
     </div>
@@ -290,52 +308,27 @@ function KpiCard({ icon: Icon, iconColor, iconBg, label, value, sub, highlight, 
 
 // ── Section Title ─────────────────────────────────────────────────────────────
 
-function SectionTitle({ children }: { children: any }) {
+function SectionTitle({ children, right }: { children: any; right?: any }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, marginTop: 6 }}>
-      <div style={{ width: 3, height: 16, borderRadius: 2, background: '#F2A800', flexShrink: 0 }} />
-      <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: 1, textTransform: 'uppercase' }}>
-        {children}
-      </p>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, marginTop: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 3, height: 14, borderRadius: 2, background: '#F2A800', flexShrink: 0 }} />
+        <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: 1, textTransform: 'uppercase' }}>
+          {children}
+        </p>
+      </div>
+      {right}
     </div>
   );
 }
 
-// ── Payment Method Card ───────────────────────────────────────────────────────
+// ── Payment Method Card with Donut ────────────────────────────────────────────
 
-const PM_META = {
+const PM_META: Record<string, { label: string; icon: any; color: string }> = {
   pix:          { label: 'PIX',               icon: Zap,        color: '#3B82F6' },
   cash:         { label: 'Dinheiro',          icon: Banknote,   color: '#10B981' },
   card_delivery:{ label: 'Cartão na Entrega', icon: CreditCard, color: '#8B5CF6' },
 };
-
-function PaymentMethodCard({ method, count, revenue, total }: { method: any, count: any, revenue: any, total: any }) {
-  const meta  = (PM_META as any)[method] || { label: method, icon: CreditCard, color: '#6B7280' };
-  const Icon  = meta.icon;
-  const pct   = total > 0 ? ((count / total) * 100) : 0;
-
-  return (
-    <div style={{
-      background: '#fff', borderRadius: 14, padding: '16px 18px',
-      border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 9, background: meta.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon size={16} color={meta.color} />
-        </div>
-        <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{meta.label}</p>
-          <p style={{ fontSize: 11, color: '#9CA3AF' }}>{pct.toFixed(0)}% dos pedidos</p>
-        </div>
-      </div>
-      <p style={{ fontSize: 22, fontWeight: 700, color: meta.color, marginBottom: 2 }}>{count}</p>
-      <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>pedidos · {fmtBRL(revenue)}</p>
-      <div style={{ height: 4, borderRadius: 2, background: '#F3F4F6' }}>
-        <div style={{ height: '100%', borderRadius: 2, background: meta.color, width: `${pct}%`, transition: 'width 0.4s' }} />
-      </div>
-    </div>
-  );
-}
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
@@ -345,7 +338,6 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
 
   const [dateRange, setDateRange] = useState({ from: today, to: today, fromTime: '00:00', toTime: '23:59' });
 
-  // ── Ingredients + Recipes for CMV ─────────────────────────────────────────
   const [ingredients, setIngredients] = useState<any[]>([]);
   const [recipes, setRecipes]         = useState<any>({});
 
@@ -368,10 +360,10 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
       })
       .catch(() => {});
   }, [adminToken]);
+
   const dateFrom = dateRange.from;
   const dateTo   = dateRange.to;
 
-  // Derived "mode" for comparativo lógico
   const filterMode = dateFrom === today && dateTo === today ? 'today'
     : dateFrom === yesterday && dateTo === yesterday ? 'yesterday'
     : 'custom';
@@ -383,13 +375,11 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
     `${fmtDate(dateFrom)} – ${fmtDate(dateTo)}`;
 
   const metrics = useMemo(() => {
-    const lastWeekDate  = lastWeekSameDaySP();
-    const currentHour   = currentHourSP();
-    const openHour  = 10;
-    const closeHour = 23;
+    const lastWeekDate = lastWeekSameDaySP();
+    const currentHour  = currentHourSP();
+    const openHour = 10, closeHour = 23;
 
-    // Pedidos do período selecionado
-    let todayOrders;
+    let todayOrders: any[];
     if (filterMode === 'today') {
       todayOrders = orders.filter((o: any) => toSPDate(o.created_at) === today);
     } else if (filterMode === 'yesterday') {
@@ -398,17 +388,13 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
       todayOrders = orders.filter((o: any) => { const d = toSPDate(o.created_at); return d >= dateFrom && d <= dateTo; });
     }
 
-    // Comparativo: mesmo dia da semana anterior, mesmo horário (só no modo "hoje")
     const lastWeekOrders = filterMode === 'today'
       ? orders.filter((o: any) => toSPDate(o.created_at) === lastWeekDate && toSPHour(o.created_at) <= currentHour)
       : [];
-
-    // Todos os pedidos do mesmo dia da semana anterior (para projeção)
     const lastWeekAllOrders = filterMode === 'today'
       ? orders.filter((o: any) => toSPDate(o.created_at) === lastWeekDate)
       : [];
 
-    // ── Helpers de agregação ──────────────────────────────────────────────
     function agg(list: any[]) {
       const active    = list.filter((o: any) => o.status !== 'cancelled');
       const revenue   = active.reduce((s: any, o: any) => s + (parseFloat(o.total)        || 0), 0);
@@ -418,8 +404,7 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
       const cancelled = list.filter((o: any) => o.status === 'cancelled').length;
       const cancelPct = list.length > 0 ? (cancelled / list.length) * 100 : 0;
       const avgTicket = active.length > 0 ? revenue / active.length : 0;
-
-      const byStatus  = (s: any) => list.filter((o: any) => o.status === s).length;
+      const byStatus  = (s: string) => list.filter((o: any) => o.status === s).length;
       const byPayment: Record<string, any> = {};
       for (const o of active) {
         const pm = o.payment_method || 'pix';
@@ -428,15 +413,14 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
         byPayment[pm].revenue += parseFloat(o.total) || 0;
       }
       const awaitingPix = list.filter((o: any) =>
-        o.payment_method === 'pix' &&
-        o.payment_status === 'pending' &&
+        o.payment_method === 'pix' && o.payment_status === 'pending' &&
         !['cancelled', 'delivered'].includes(o.status)
       ).length;
-
       return {
         total: list.length, active: active.length, revenue, subtotal,
         discount, delivFee, cancelled, cancelPct, avgTicket, byStatus, byPayment,
         awaitingPix, pending: byStatus('pending'),
+        confirmed: byStatus('confirmed'), preparing: byStatus('preparing'),
         inProduction: byStatus('confirmed') + byStatus('preparing'),
         inDelivery: byStatus('delivering'),
         delivered: byStatus('delivered'),
@@ -444,30 +428,24 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
     }
 
     const td = agg(todayOrders);
-    const lw = agg(lastWeekOrders);       // mesma semana, mesmo horário
-    const lwAll = agg(lastWeekAllOrders); // mesma semana, dia completo
+    const lw = agg(lastWeekOrders);
+    const lwAll = agg(lastWeekAllOrders);
 
-    // Delta % vs semana passada (mesma hora)
     function delta(todayV: any, lwV: any) {
       if (lwV === 0) return null;
       return ((todayV - lwV) / lwV) * 100;
     }
 
-    // Label do comparativo
-    const lwDayShort  = weekdayShortSP(lastWeekDate);
-    const deltaLabel  = filterMode === 'today' ? `${lwDayShort} passado` : null;
+    const lwDayShort = weekdayShortSP(lastWeekDate);
+    const deltaLabel = filterMode === 'today' ? `${lwDayShort} passado` : null;
 
-    // ── Tempo médio de produção ───────────────────────────────────────────
-    const ordersWithProd = todayOrders.filter((o: any) =>
-      o.delivering_at && o.status !== 'cancelled'
-    );
+    const ordersWithProd = todayOrders.filter((o: any) => o.delivering_at && o.status !== 'cancelled');
     const avgProductionMins = ordersWithProd.length > 0
       ? ordersWithProd.reduce((s: any, o: any) =>
           s + (new Date(o.delivering_at).getTime() - new Date(o.created_at).getTime()) / 60000, 0
         ) / ordersWithProd.length
       : null;
 
-    // Produção semana passada (mesma janela de horário)
     const lwWithProd = lastWeekOrders.filter((o: any) => o.delivering_at && o.status !== 'cancelled');
     const avgProductionMinsLW = lwWithProd.length > 0
       ? lwWithProd.reduce((s: any, o: any) =>
@@ -475,10 +453,9 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
         ) / lwWithProd.length
       : null;
 
-    // ── Projeção de faturamento (só em "hoje") ────────────────────────────
-    const elapsedHours    = Math.max(0, currentHour - openHour);
-    const remainingHours  = Math.max(0, closeHour - currentHour);
-    const revenuePerHour  = elapsedHours >= 1 ? td.revenue / elapsedHours : 0;
+    const elapsedHours   = Math.max(0, currentHour - openHour);
+    const remainingHours = Math.max(0, closeHour - currentHour);
+    const revenuePerHour = elapsedHours >= 1 ? td.revenue / elapsedHours : 0;
     const projectedRevenue = filterMode === 'today' && elapsedHours >= 1
       ? td.revenue + revenuePerHour * remainingHours
       : null;
@@ -486,7 +463,6 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
       ? ((projectedRevenue - lwAll.revenue) / lwAll.revenue) * 100
       : null;
 
-    // ── Vendas por hora ───────────────────────────────────────────────────
     const isSingleDay = filterMode !== 'custom' || dateFrom === dateTo;
     const hourlyData = Array.from({ length: 14 }, (_, i) => {
       const h = i + 10;
@@ -495,18 +471,16 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
             .filter((o: any) => o.status !== 'cancelled' && toSPHour(o.created_at) === h)
             .reduce((s: any, o: any) => s + (parseFloat(o.total) || 0), 0)
         : 0;
-      return { hour: `${String(h).padStart(2,'0')}h`, total };
+      return { hour: `${String(h).padStart(2, '0')}h`, total };
     });
 
-    // Receita por dia (período multi-dia)
-    let dailyData = null;
+    let dailyData: any = null;
     if (!isSingleDay) {
-      const days = [];
+      const days: string[] = [];
       const start = new Date(dateFrom + 'T12:00:00');
       const end   = new Date(dateTo   + 'T12:00:00');
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1))
         days.push(d.toLocaleDateString('en-CA'));
-      }
       dailyData = days.map(date => ({
         date: fmtDate(date),
         total: orders.filter((o: any) => toSPDate(o.created_at) === date && o.status !== 'cancelled')
@@ -514,7 +488,6 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
       }));
     }
 
-    // ── Últimos 7 dias — dados para o gráfico duplo ───────────────────────
     const refDate = filterMode === 'today' ? today : filterMode === 'yesterday' ? yesterday : dateTo;
     const last7 = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(refDate + 'T12:00:00');
@@ -522,18 +495,28 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
       return d.toLocaleDateString('en-CA');
     });
     const dualWeeklyData = last7.map(date => ({
-      date:    fmtDate(date),
+      date: fmtDate(date),
       revenue: orders
         .filter((o: any) => toSPDate(o.created_at) === date && o.status !== 'cancelled')
         .reduce((s: any, o: any) => s + (parseFloat(o.total) || 0), 0),
       count: orders.filter((o: any) => toSPDate(o.created_at) === date && o.status !== 'cancelled').length,
     }));
 
+    // Spark data: last 7 days revenue per day
+    const sparkRevenue = last7.map(date =>
+      orders.filter((o: any) => toSPDate(o.created_at) === date && o.status !== 'cancelled')
+            .reduce((s: any, o: any) => s + (parseFloat(o.total) || 0), 0)
+    );
+    const sparkOrders = last7.map(date =>
+      orders.filter((o: any) => toSPDate(o.created_at) === date && o.status !== 'cancelled').length
+    );
+
     return {
       td, lw, lwAll, delta, deltaLabel,
       avgProductionMins, avgProductionMinsLW,
       projectedRevenue, projectionDelta,
       hourlyData, isSingleDay, dailyData, dualWeeklyData,
+      sparkRevenue, sparkOrders,
     };
   }, [orders, today, yesterday, filterMode, dateFrom, dateTo]);
 
@@ -542,21 +525,20 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
     avgProductionMins, avgProductionMinsLW,
     projectedRevenue, projectionDelta,
     hourlyData, isSingleDay, dailyData, dualWeeklyData,
+    sparkRevenue, sparkOrders,
   } = metrics;
 
-  // ── Sabores mais rentáveis (CMV) ──────────────────────────────────────────
   const topFlavors = useMemo(() => {
     if (!ingredients.length || !Object.keys(recipes).length) return [];
-
-    // Sales per product name in current period (from order items)
-    const salesMap: Record<string, any> = {}; // productName → { qty, revenue }
+    const salesMap: Record<string, any> = {};
     const periodOrders = (() => {
       if (filterMode === 'today') return orders.filter((o: any) => toSPDate(o.created_at) === today);
       if (filterMode === 'yesterday') return orders.filter((o: any) => toSPDate(o.created_at) === yesterday);
       return orders.filter((o: any) => { const d = toSPDate(o.created_at); return d >= dateFrom && d <= dateTo; });
     })();
     for (const o of periodOrders.filter((o: any) => o.status !== 'cancelled')) {
-      const items = Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : []);
+      const items = Array.isArray(o.items) ? o.items
+        : (typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : []);
       for (const it of items) {
         const name = it.name || it.productName || it.product_name || '';
         if (!name) continue;
@@ -565,8 +547,6 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
         salesMap[name].revenue += (it.price || it.unit_price || 0) * (it.quantity || it.qty || 1);
       }
     }
-
-    // For each product that has recipes, compute CMV
     const result = [];
     for (const [productIdStr, recipeItems] of Object.entries(recipes)) {
       const cmv = (recipeItems as any[]).reduce((s: any, ri: any) => {
@@ -574,37 +554,21 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
         return s + (parseFloat(ri.quantity) || 0) * costWithFC((parseFloat(ing?.cost_per_unit) || 0), ing?.correction_factor);
       }, 0);
       if (cmv <= 0) continue;
-
-      // Try to match recipe product to a sales entry — we need a product name for this product_id
-      // Use orders items to find a matching product_id or product_name
-      let bestName = null;
+      let bestName: any = null;
       for (const o of periodOrders) {
-        const items = Array.isArray(o.items) ? o.items : (typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : []);
+        const items = Array.isArray(o.items) ? o.items
+          : (typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : []);
         const match = items.find((it: any) => String(it.product_id || it.productId) === productIdStr);
         if (match) { bestName = match.name || match.productName || match.product_name; break; }
       }
       if (!bestName) continue;
-
       const sale = salesMap[bestName];
       const price = sale ? (sale.revenue / sale.qty) : 0;
       const margin = price > 0 ? ((price - cmv) / price * 100) : null;
       const lucroUnit = price > 0 ? (price - cmv) : null;
-
-      result.push({
-        name: bestName,
-        cmv,
-        price,
-        margin,
-        lucroUnit,
-        qtySold: sale?.qty || 0,
-        revenue: sale?.revenue || 0,
-      });
+      result.push({ name: bestName, cmv, price, margin, lucroUnit, qtySold: sale?.qty || 0, revenue: sale?.revenue || 0 });
     }
-
-    return result
-      .filter(r => r.margin !== null)
-      .sort((a: any, b: any) => (b.margin as number) - (a.margin as number))
-      .slice(0, 8);
+    return result.filter(r => r.margin !== null).sort((a: any, b: any) => (b.margin as number) - (a.margin as number)).slice(0, 8);
   }, [ingredients, recipes, orders, filterMode, today, yesterday, dateFrom, dateTo]);
 
   const now = new Date().toLocaleString('pt-BR', {
@@ -613,170 +577,229 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
     hour: '2-digit', minute: '2-digit',
   });
 
+  // ── Order status donut segments ────────────────────────────────────────────
+  const statusSegments = [
+    { value: td.pending,      color: '#F59E0B', label: 'Pendente' },
+    { value: td.confirmed,    color: '#3B82F6', label: 'Confirmado' },
+    { value: td.preparing,    color: '#F97316', label: 'Preparando' },
+    { value: td.inDelivery,   color: '#8B5CF6', label: 'Entrega' },
+    { value: td.delivered,    color: '#10B981', label: 'Entregue' },
+    { value: td.cancelled,    color: '#EF4444', label: 'Cancelado' },
+  ];
+
+  // ── Payment donut segments ─────────────────────────────────────────────────
+  const paymentSegments = Object.entries(td.byPayment).map(([method, { count }]) => ({
+    value: count,
+    color: (PM_META[method] || { color: '#6B7280' }).color,
+    label: (PM_META[method] || { label: method }).label,
+  }));
+
   return (
-    <div style={{ padding: '28px 32px' }}>
+    <div style={{ padding: '24px 28px', background: '#F4F5F7', minHeight: '100%' }}>
 
       {/* ── Cabeçalho ─────────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827', marginBottom: 4 }}>Dashboard</h1>
-          <p style={{ fontSize: 13, color: '#6B7280' }}>{now}</p>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: '#111827', marginBottom: 2 }}>Dashboard</h1>
+          <p style={{ fontSize: 12, color: '#9CA3AF' }}>{now}</p>
         </div>
         <button onClick={onRefresh} disabled={loading} style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '8px 16px', borderRadius: 8,
+          display: 'flex', alignItems: 'center', gap: 7,
+          padding: '7px 14px', borderRadius: 8,
           background: '#fff', border: '1px solid #E5E7EB',
-          fontSize: 13, fontWeight: 500, color: '#374151',
+          fontSize: 12, fontWeight: 500, color: '#374151',
           cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1,
           boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
         }}>
-          <RefreshCw size={14} style={loading ? { animation: 'spin 1s linear infinite' } : {}} />
+          <RefreshCw size={13} style={loading ? { animation: 'spin 1s linear infinite' } : {}} />
           {loading ? 'Atualizando...' : 'Atualizar'}
         </button>
       </div>
 
       {/* ── Filtro de período ───────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
         <DateRangePicker value={dateRange} onChange={setDateRange} />
         {filterMode === 'today' && deltaLabel && (
-          <span style={{ fontSize: 11, color: '#9CA3AF' }}>
-            comparado com {deltaLabel} (mesmo horário)
-          </span>
+          <span style={{ fontSize: 11, color: '#9CA3AF' }}>comparado com {deltaLabel} (mesmo horário)</span>
         )}
       </div>
 
-      {/* ── Hero strip — métricas principais ──────────────────────────────── */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: 0, marginBottom: 28,
-        background: '#fff', borderRadius: 14,
-        border: '1px solid #E5E7EB', overflow: 'hidden',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-      }}>
-        <div style={{ padding: '20px 24px', borderRight: '1px solid #F3F4F6' }}>
-          <p style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Faturamento</p>
-          <p style={{ fontSize: 28, fontWeight: 800, color: '#F2A800', lineHeight: 1 }}>{fmtBRL(td.revenue)}</p>
-          {deltaLabel && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>{deltaLabel}: {fmtBRL(lw.revenue)}</p>}
-        </div>
-        <div style={{ padding: '20px 24px', borderRight: '1px solid #F3F4F6' }}>
-          <p style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Pedidos ativos</p>
-          <p style={{ fontSize: 28, fontWeight: 800, color: '#6366F1', lineHeight: 1 }}>{td.active}</p>
-          {deltaLabel && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>{deltaLabel}: {lw.active}</p>}
-        </div>
-        <div style={{ padding: '20px 24px', borderRight: projectedRevenue !== null ? '1px solid #F3F4F6' : undefined }}>
-          <p style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Ticket médio</p>
-          <p style={{ fontSize: 28, fontWeight: 800, color: '#10B981', lineHeight: 1 }}>{fmtBRL(td.avgTicket)}</p>
-          {deltaLabel && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>{deltaLabel}: {fmtBRL(lw.avgTicket)}</p>}
-        </div>
-        {projectedRevenue !== null && (
-          <div style={{ padding: '20px 24px' }}>
-            <p style={{ fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 }}>Projeção do dia</p>
-            <p style={{ fontSize: 28, fontWeight: 800, color: '#8B5CF6', lineHeight: 1 }}>{fmtBRL(projectedRevenue)}</p>
-            {lwAll.revenue > 0 && <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>{deltaLabel}: {fmtBRL(lwAll.revenue)}</p>}
+      {/* ── HERO ROW ──────────────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 14, marginBottom: 20 }}>
+
+        {/* Faturamento destaque */}
+        <div style={{
+          background: '#fff', borderRadius: 14, padding: '20px 24px',
+          border: '1px solid #E5E7EB', borderTop: '4px solid #F2A800',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 12,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <p style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.8 }}>Faturamento — {periodLabel}</p>
+            {delta(td.revenue, lw.revenue) !== null && (
+              <span style={{
+                fontSize: 11, fontWeight: 700,
+                color: (delta(td.revenue, lw.revenue) as number) >= 0 ? '#10B981' : '#EF4444',
+                background: (delta(td.revenue, lw.revenue) as number) >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                padding: '3px 8px', borderRadius: 6,
+                display: 'flex', alignItems: 'center', gap: 2,
+              }}>
+                {(delta(td.revenue, lw.revenue) as number) >= 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+                {Math.abs(delta(td.revenue, lw.revenue) as number).toFixed(0)}%
+              </span>
+            )}
           </div>
-        )}
+          <div>
+            <p style={{ fontSize: 36, fontWeight: 900, color: '#F2A800', lineHeight: 1 }}>{fmtBRL(td.revenue)}</p>
+            <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 6 }}>
+              {td.active} pedido{td.active !== 1 ? 's' : ''} ativos · ticket {fmtBRL(td.avgTicket)}
+            </p>
+          </div>
+          {sparkRevenue.some((v: number) => v > 0) && (
+            <MiniBar data={sparkRevenue} color="#F2A800" height={32} />
+          )}
+          {deltaLabel && lw.revenue > 0 && (
+            <p style={{ fontSize: 10, color: '#D1D5DB' }}>{deltaLabel}: {fmtBRL(lw.revenue)}</p>
+          )}
+        </div>
+
+        {/* Grid de métricas rápidas */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', border: '1px solid #E5E7EB', borderTop: '3px solid #6366F1' }}>
+            <p style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Pedidos</p>
+            <p style={{ fontSize: 26, fontWeight: 800, color: '#6366F1', lineHeight: 1 }}>{td.total}</p>
+            <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 4 }}>{td.pending} pendente{td.pending !== 1 ? 's' : ''}</p>
+          </div>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', border: '1px solid #E5E7EB', borderTop: '3px solid #10B981' }}>
+            <p style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Ticket médio</p>
+            <p style={{ fontSize: 26, fontWeight: 800, color: '#10B981', lineHeight: 1 }}>{fmtBRL(td.avgTicket)}</p>
+            {deltaLabel && <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 4 }}>{deltaLabel}: {fmtBRL(lw.avgTicket)}</p>}
+          </div>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', border: '1px solid #E5E7EB', borderTop: '3px solid #F97316' }}>
+            <p style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Em produção</p>
+            <p style={{ fontSize: 26, fontWeight: 800, color: td.inProduction > 0 ? '#F97316' : '#111827', lineHeight: 1 }}>{td.inProduction}</p>
+            <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 4 }}>{td.inDelivery} em entrega</p>
+          </div>
+          <div style={{ background: '#fff', borderRadius: 12, padding: '12px 14px', border: '1px solid #E5E7EB', borderTop: '3px solid #8B5CF6' }}>
+            <p style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Finalizados</p>
+            <p style={{ fontSize: 26, fontWeight: 800, color: td.delivered > 0 ? '#8B5CF6' : '#111827', lineHeight: 1 }}>{td.delivered}</p>
+            {td.cancelled > 0 && <p style={{ fontSize: 10, color: '#EF4444', marginTop: 4 }}>{td.cancelled} cancelado{td.cancelled !== 1 ? 's' : ''}</p>}
+          </div>
+        </div>
+
+        {/* Status donut */}
+        <div style={{ background: '#fff', borderRadius: 14, padding: '16px 18px', border: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, minWidth: 160 }}>
+          <p style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Status dos pedidos</p>
+          <DonutChart
+            segments={statusSegments}
+            size={100} thickness={16}
+            label={String(td.total)}
+            sublabel="total"
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%' }}>
+            {statusSegments.filter(s => s.value > 0).map(s => (
+              <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 10, color: '#6B7280' }}>{s.label}</span>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>{s.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* ── PROJEÇÃO DE FATURAMENTO (hoje) ────────────────────────────────── */}
+      {/* ── PROJEÇÃO (só hoje) ─────────────────────────────────────────────── */}
       {projectedRevenue !== null && (
         <>
           <SectionTitle>Projeção do dia</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
-            <KpiCard icon={Target} iconColor="#6366F1" iconBg="rgba(99,102,241,0.1)"
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
+            <MetricCard icon={Target} accentColor="#8B5CF6"
               label="Projeção de faturamento"
               value={fmtBRL(projectedRevenue)}
               sub={`Atual: ${fmtBRL(td.revenue)} · Projeção linear`}
               delta={projectionDelta}
-              deltaLabel={lwAll.revenue > 0 ? `${deltaLabel}: ${fmtBRL(lwAll.revenue)}` : null}
+              deltaLabel={lwAll.revenue > 0 ? `${deltaLabel}: ${fmtBRL(lwAll.revenue)}` : undefined}
+              sparkData={sparkRevenue}
             />
-            <KpiCard icon={Clock} iconColor="#D97706" iconBg="rgba(217,119,6,0.1)"
+            <MetricCard icon={Timer} accentColor="#D97706"
               label="Tempo médio de produção"
               value={fmtMinutes(avgProductionMins)}
-              sub={avgProductionMins !== null ? `${metrics.td?.inProduction ?? 0} em preparo` : 'sem dados ainda'}
+              sub={avgProductionMins !== null ? `${td.inProduction} em preparo` : 'sem dados ainda'}
               delta={avgProductionMins !== null && avgProductionMinsLW !== null
-                ? delta(avgProductionMins, avgProductionMinsLW)! * -1  // inverso: menor é melhor
+                ? delta(avgProductionMins, avgProductionMinsLW)! * -1
                 : null}
-              deltaLabel={avgProductionMinsLW !== null ? `${deltaLabel}: ${fmtMinutes(avgProductionMinsLW)}` : null}
+              deltaLabel={avgProductionMinsLW !== null ? `${deltaLabel}: ${fmtMinutes(avgProductionMinsLW)}` : undefined}
               highlight={(avgProductionMins ?? 0) > 40 ? '#EF4444' : (avgProductionMins ?? 0) > 25 ? '#D97706' : '#10B981'}
             />
           </div>
         </>
       )}
 
-      {/* ── OPERAÇÃO DO DIA ────────────────────────────────────────────────── */}
-      <SectionTitle>Operação — {periodLabel}</SectionTitle>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
-
-        <KpiCard icon={ShoppingBag} iconColor="#6366F1" iconBg="rgba(99,102,241,0.1)"
-          label={`Pedidos — ${periodLabel}`} value={td.total}
+      {/* ── OPERAÇÃO + FINANCEIRO ──────────────────────────────────────────── */}
+      <SectionTitle>Operação e Financeiro — {periodLabel}</SectionTitle>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
+        <MetricCard icon={ShoppingBag} accentColor="#6366F1"
+          label="Pedidos" value={td.total}
           sub={`${td.pending} pendente${td.pending !== 1 ? 's' : ''}`}
           delta={delta(td.total, lw.total)}
-          deltaLabel={deltaLabel ? `${deltaLabel}: ${lw.total}` : null}
+          deltaLabel={deltaLabel ? `${deltaLabel}: ${lw.total}` : undefined}
+          sparkData={sparkOrders}
         />
-        <KpiCard icon={ChefHat} iconColor="#F97316" iconBg="rgba(249,115,22,0.1)"
+        <MetricCard icon={DollarSign} accentColor="#10B981"
+          label="Faturamento bruto" value={fmtBRL(td.revenue)}
+          sub="pedidos não cancelados"
+          delta={delta(td.revenue, lw.revenue)}
+          deltaLabel={deltaLabel ? `${deltaLabel}: ${fmtBRL(lw.revenue)}` : undefined}
+          sparkData={sparkRevenue}
+        />
+        <MetricCard icon={TrendingUp} accentColor="#F2A800"
+          label="Ticket médio" value={fmtBRL(td.avgTicket)}
+          sub="por pedido ativo"
+          delta={delta(td.avgTicket, lw.avgTicket)}
+          deltaLabel={deltaLabel ? `${deltaLabel}: ${fmtBRL(lw.avgTicket)}` : undefined}
+        />
+        <MetricCard icon={ChefHat} accentColor="#F97316"
           label="Em produção" value={td.inProduction}
           sub="confirmados + preparando"
           highlight={td.inProduction > 0 ? '#F97316' : '#111827'}
         />
-        <KpiCard icon={Truck} iconColor="#8B5CF6" iconBg="rgba(139,92,246,0.1)"
+        <MetricCard icon={Truck} accentColor="#8B5CF6"
           label="Em entrega" value={td.inDelivery}
           highlight={td.inDelivery > 0 ? '#8B5CF6' : '#111827'}
         />
-        <KpiCard icon={CheckCircle} iconColor="#10B981" iconBg="rgba(16,185,129,0.1)"
+        <MetricCard icon={CheckCircle} accentColor="#10B981"
           label="Finalizados" value={td.delivered}
           highlight={td.delivered > 0 ? '#10B981' : '#111827'}
           delta={delta(td.delivered, lw.delivered)}
-          deltaLabel={deltaLabel ? `${deltaLabel}: ${lw.delivered}` : null}
+          deltaLabel={deltaLabel ? `${deltaLabel}: ${lw.delivered}` : undefined}
         />
-        <KpiCard icon={XCircle} iconColor="#EF4444" iconBg="rgba(239,68,68,0.1)"
-          label="Cancelados" value={td.cancelled}
-          highlight={td.cancelled > 0 ? '#EF4444' : '#111827'}
+        <MetricCard icon={Truck} accentColor="#3B82F6"
+          label="Taxa de entrega" value={fmtBRL(td.delivFee)}
+          sub="arrecadada no período"
+        />
+        <MetricCard icon={Tag} accentColor="#EF4444"
+          label="Descontos" value={fmtBRL(td.discount)}
+          highlight={td.discount > 0 ? '#EF4444' : '#111827'}
+          sub={td.discount > 0 ? `${((td.discount / (td.revenue + td.discount)) * 100).toFixed(1)}% do bruto` : 'nenhum cupom'}
+        />
+        <MetricCard icon={Percent} accentColor="#F97316"
+          label="Cancelamento" value={`${td.cancelPct.toFixed(1)}%`}
+          highlight={td.cancelPct > 15 ? '#EF4444' : td.cancelPct > 8 ? '#F97316' : '#10B981'}
+          sub={`${td.cancelled} de ${td.total}`}
         />
         {projectedRevenue === null && (
-          <KpiCard icon={Clock} iconColor="#D97706" iconBg="rgba(217,119,6,0.1)"
-            label="Tempo médio de produção"
-            value={fmtMinutes(avgProductionMins)}
+          <MetricCard icon={Timer} accentColor="#D97706"
+            label="Tempo médio produção" value={fmtMinutes(avgProductionMins)}
             sub={avgProductionMins !== null ? 'recebido → saiu p/ entrega' : 'sem dados ainda'}
             highlight={avgProductionMins !== null && avgProductionMins > 40 ? '#EF4444' : (avgProductionMins ?? 0) > 25 ? '#D97706' : '#10B981'}
           />
         )}
-      </div>
-
-      {/* ── FINANCEIRO DO DIA ─────────────────────────────────────────────── */}
-      <SectionTitle>Financeiro — {periodLabel}</SectionTitle>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
-
-        <KpiCard icon={DollarSign} iconColor="#10B981" iconBg="rgba(16,185,129,0.1)"
-          label="Faturamento bruto" value={fmtBRL(td.revenue)}
-          sub="pedidos não cancelados"
-          delta={delta(td.revenue, lw.revenue)}
-          deltaLabel={deltaLabel ? `${deltaLabel}: ${fmtBRL(lw.revenue)}` : null}
-        />
-        <KpiCard icon={TrendingUp} iconColor="#F2A800" iconBg="rgba(242,168,0,0.1)"
-          label="Ticket médio" value={fmtBRL(td.avgTicket)}
-          sub="por pedido ativo"
-          delta={delta(td.avgTicket, lw.avgTicket)}
-          deltaLabel={deltaLabel ? `${deltaLabel}: ${fmtBRL(lw.avgTicket)}` : null}
-        />
-        <KpiCard icon={Truck} iconColor="#3B82F6" iconBg="rgba(59,130,246,0.1)"
-          label="Taxa de entrega" value={fmtBRL(td.delivFee)}
-          sub="arrecadada no período"
-        />
-        <KpiCard icon={Tag} iconColor="#EF4444" iconBg="rgba(239,68,68,0.1)"
-          label="Descontos (cupons)" value={fmtBRL(td.discount)}
-          highlight={td.discount > 0 ? '#EF4444' : '#111827'}
-          sub={td.discount > 0 ? `${((td.discount / (td.revenue + td.discount)) * 100).toFixed(1)}% do bruto` : 'nenhum cupom'}
-        />
-        <KpiCard icon={Percent} iconColor="#F97316" iconBg="rgba(249,115,22,0.1)"
-          label="Taxa de cancelamento" value={`${td.cancelPct.toFixed(1)}%`}
-          highlight={td.cancelPct > 15 ? '#EF4444' : td.cancelPct > 8 ? '#F97316' : '#10B981'}
-          sub={`${td.cancelled} de ${td.total} pedidos`}
-        />
         {td.awaitingPix > 0 && (
-          <KpiCard icon={AlertTriangle} iconColor="#D97706" iconBg="rgba(217,119,6,0.1)"
-            label="Aguardando pagto. PIX" value={td.awaitingPix}
-            highlight="#D97706"
-            sub="PIX não confirmado"
+          <MetricCard icon={AlertTriangle} accentColor="#D97706"
+            label="Aguardando PIX" value={td.awaitingPix}
+            highlight="#D97706" sub="PIX não confirmado"
           />
         )}
       </div>
@@ -785,10 +808,56 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
       {Object.keys(td.byPayment).length > 0 && (
         <>
           <SectionTitle>Formas de pagamento — {periodLabel}</SectionTitle>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 28 }}>
-            {Object.entries(td.byPayment).map(([method, { count, revenue }]) => (
-              <PaymentMethodCard key={method} method={method} count={count} revenue={revenue} total={td.active} />
-            ))}
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 14, marginBottom: 20, alignItems: 'start' }}>
+            {/* Donut */}
+            <div style={{ background: '#fff', borderRadius: 14, padding: '18px 20px', border: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <p style={{ fontSize: 10, color: '#9CA3AF', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Distribuição</p>
+              <DonutChart
+                segments={paymentSegments}
+                size={110} thickness={20}
+                label={String(td.active)}
+                sublabel="pedidos"
+              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {paymentSegments.map(s => (
+                  <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: '#6B7280' }}>{s.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#111827', marginLeft: 'auto', paddingLeft: 8 }}>{s.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Breakdown cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+              {Object.entries(td.byPayment).map(([method, { count, revenue }]) => {
+                const meta = PM_META[method] || { label: method, icon: CreditCard, color: '#6B7280' };
+                const Icon = meta.icon;
+                const pct  = td.active > 0 ? ((count / td.active) * 100) : 0;
+                return (
+                  <div key={method} style={{
+                    background: '#fff', borderRadius: 12, padding: '14px 16px',
+                    border: '1px solid #E5E7EB', borderTop: `3px solid ${meta.color}`,
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: meta.color + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon size={15} color={meta.color} />
+                      </div>
+                      <div>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: '#111827' }}>{meta.label}</p>
+                        <p style={{ fontSize: 10, color: '#9CA3AF' }}>{pct.toFixed(0)}% dos pedidos</p>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: 20, fontWeight: 800, color: meta.color }}>{count}</p>
+                    <p style={{ fontSize: 11, color: '#6B7280', marginBottom: 8 }}>pedidos · {fmtBRL(revenue)}</p>
+                    <div style={{ height: 3, borderRadius: 2, background: '#F3F4F6' }}>
+                      <div style={{ height: '100%', borderRadius: 2, background: meta.color, width: `${pct}%`, transition: 'width 0.4s' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </>
       )}
@@ -797,10 +866,9 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
       {topFlavors.length > 0 && (
         <>
           <SectionTitle>Sabores mais rentáveis — {periodLabel}</SectionTitle>
-          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', overflow: 'hidden', marginBottom: 28, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-            {/* Header */}
-            <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 100px 100px 100px 90px', gap: 0, background: '#F9FAFB', borderBottom: '1px solid #E5E7EB', padding: '10px 18px', alignItems: 'center' }}>
-              {['#', 'Sabor', 'Margem', 'CMV', 'Lucro/unid.', 'Vendidos'].map((h, i) => (
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', overflow: 'hidden', marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 90px 90px 90px 80px', gap: 0, background: '#F9FAFB', borderBottom: '1px solid #E5E7EB', padding: '8px 16px', alignItems: 'center' }}>
+              {['#', 'Sabor', 'Margem', 'CMV', 'Lucro/un.', 'Vendidos'].map((h, i) => (
                 <span key={i} style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: i > 1 ? 'right' : 'left' }}>{h}</span>
               ))}
             </div>
@@ -808,22 +876,20 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
               const marginColor = (f.margin ?? 0) >= 65 ? '#059669' : (f.margin ?? 0) >= 45 ? '#D97706' : '#EF4444';
               const marginBg    = (f.margin ?? 0) >= 65 ? '#ECFDF5' : (f.margin ?? 0) >= 45 ? '#FFFBEB' : '#FEF2F2';
               return (
-                <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 100px 100px 100px 90px', gap: 0, padding: '12px 18px', borderBottom: '1px solid #F3F4F6', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: idx === 0 ? '#F2A800' : '#9CA3AF' }}>
-                    {idx === 0 ? '★' : idx + 1}
-                  </span>
+                <div key={f.name} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 90px 90px 90px 80px', gap: 0, padding: '10px 16px', borderBottom: '1px solid #F3F4F6', alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: idx === 0 ? '#F2A800' : '#9CA3AF' }}>{idx === 0 ? '★' : idx + 1}</span>
                   <div>
                     <p style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{f.name}</p>
-                    {f.price > 0 && <p style={{ fontSize: 11, color: '#9CA3AF' }}>Preço médio: {fmtBRL(f.price)}</p>}
+                    {f.price > 0 && <p style={{ fontSize: 10, color: '#9CA3AF' }}>Preço: {fmtBRL(f.price)}</p>}
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 8px', borderRadius: 5, background: marginBg, color: marginColor }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 5, background: marginBg, color: marginColor }}>
                       {(f.margin ?? 0).toFixed(0)}%
                     </span>
                   </div>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', textAlign: 'right' }}>{fmtBRL(f.cmv)}</p>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: '#059669', textAlign: 'right' }}>{f.lucroUnit !== null ? fmtBRL(f.lucroUnit) : '—'}</p>
-                  <p style={{ fontSize: 12, color: '#374151', textAlign: 'right' }}>{f.qtySold > 0 ? f.qtySold : '—'}</p>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textAlign: 'right' }}>{fmtBRL(f.cmv)}</p>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#059669', textAlign: 'right' }}>{f.lucroUnit !== null ? fmtBRL(f.lucroUnit) : '—'}</p>
+                  <p style={{ fontSize: 11, color: '#374151', textAlign: 'right' }}>{f.qtySold > 0 ? f.qtySold : '—'}</p>
                 </div>
               );
             })}
@@ -833,48 +899,44 @@ export default function Dashboard({ orders, onRefresh, loading, adminToken }: { 
 
       {/* ── GRÁFICOS ──────────────────────────────────────────────────────── */}
       <SectionTitle>Gráficos</SectionTitle>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginBottom: 12 }}>
-
-        {/* Faturamento por hora ou por dia */}
-        <div style={{ background: '#fff', borderRadius: 14, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 12 }}>
+        <div style={{ background: '#fff', borderRadius: 14, padding: '20px 24px 16px', border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BarChart2 size={16} color="#F2A800" />
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
+              <BarChart2 size={15} color="#F2A800" />
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
                 {isSingleDay ? `Faturamento por hora — ${periodLabel}` : `Faturamento por dia — ${periodLabel}`}
               </h3>
             </div>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>{isSingleDay ? '10h–23h · pedidos ativos' : 'pedidos ativos'}</span>
+            <span style={{ fontSize: 10, color: '#9CA3AF' }}>{isSingleDay ? '10h–23h · pedidos ativos' : 'pedidos ativos'}</span>
           </div>
           {isSingleDay
-            ? hourlyData.every(d => d.total === 0)
-              ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhuma venda registrada</div>
-              : <BarChart data={hourlyData} labelKey="hour" valueKey="total" color="#F2A800" height={220} isCurrency />
-            : !dailyData || dailyData.every(d => d.total === 0)
-              ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhuma venda no período</div>
-              : <BarChart data={dailyData} labelKey="date" valueKey="total" color="#F2A800" height={220} isCurrency />
+            ? hourlyData.every((d: any) => d.total === 0)
+              ? <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 13 }}>Nenhuma venda registrada</div>
+              : <BarChart data={hourlyData} labelKey="hour" valueKey="total" color="#F2A800" height={200} isCurrency />
+            : !dailyData || dailyData.every((d: any) => d.total === 0)
+              ? <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 13 }}>Nenhuma venda no período</div>
+              : <BarChart data={dailyData} labelKey="date" valueKey="total" color="#F2A800" height={200} isCurrency />
           }
         </div>
 
-        {/* Gráfico unificado: faturamento + pedidos — últimos 7 dias */}
-        <div style={{ background: '#fff', borderRadius: 14, padding: '24px 28px 20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', marginBottom: 32 }}>
+        <div style={{ background: '#fff', borderRadius: 14, padding: '20px 24px 16px', border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BarChart2 size={16} color="#F2A800" />
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Faturamento e pedidos — últimos 7 dias</h3>
+              <BarChart2 size={15} color="#F2A800" />
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>Faturamento e pedidos — últimos 7 dias</h3>
             </div>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>pedidos não cancelados</span>
+            <span style={{ fontSize: 10, color: '#9CA3AF' }}>pedidos não cancelados</span>
           </div>
-          {dualWeeklyData.every(d => d.revenue === 0 && d.count === 0)
-            ? <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 14 }}>Nenhum dado nos últimos 7 dias</div>
+          {dualWeeklyData.every((d: any) => d.revenue === 0 && d.count === 0)
+            ? <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D1D5DB', fontSize: 13 }}>Nenhum dado nos últimos 7 dias</div>
             : <DualChart data={dualWeeklyData} height={200} />
           }
         </div>
-
       </div>
 
-      <p style={{ textAlign: 'center', fontSize: 11, color: '#D1D5DB' }}>
-        Comparativos vs. mesmo dia da semana anterior · Clique em "Atualizar" para sincronizar · Para análises detalhadas acesse Relatórios
+      <p style={{ textAlign: 'center', fontSize: 10, color: '#D1D5DB' }}>
+        Comparativos vs. mesmo dia da semana anterior · Clique em "Atualizar" para sincronizar
       </p>
     </div>
   );
