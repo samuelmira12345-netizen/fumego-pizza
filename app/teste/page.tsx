@@ -236,10 +236,13 @@ export default function HomePage() {
     setObservations('');
     setSelectedDrinks([]);
     if (product.slug === 'combo-classico') {
-      setSelectedOption(COMBO_CALABRESA_OPTS[0]);
-      setSelectedOption2(COMBO_MARGUERITA_OPTS[0]);
+      // Usa opções dinâmicas do banco (coluna options/options2) com fallback para constantes
+      const opt1List = product.options ?? COMBO_CALABRESA_OPTS;
+      const opt2List = product.options2 ?? COMBO_MARGUERITA_OPTS;
+      setSelectedOption(opt1List[0] ?? null);
+      setSelectedOption2(opt2List[0] ?? null);
     } else {
-      const opts = PRODUCT_OPTIONS[product.slug];
+      const opts = product.options ?? PRODUCT_OPTIONS[product.slug];
       setSelectedOption(opts ? opts[0] : null);
       setSelectedOption2(null);
     }
@@ -381,6 +384,14 @@ export default function HomePage() {
     especial,
     remaining: remainingProducts,
   } = resolveMenuProducts(products);
+
+  // Preço "cheio" do combo = soma das pizzas individuais. Dinâmico: muda automaticamente
+  // se o preço de calabresa ou marguerita mudar no painel admin, sem necessidade de redeploy.
+  const comboOriginalPrice =
+    calabresa && marguerita
+      ? Number(calabresa.price) + Number(marguerita.price)
+      : null;
+
   const logoUrl     = settings.logo_url || null;
   const logoSize    = parseInt(settings.logo_size || '36');
   const deliveryTime = settings.delivery_time || '40–60 min';
@@ -655,7 +666,9 @@ export default function HomePage() {
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,21,0,1) 0%, rgba(28,21,0,0.3) 50%, transparent 100%)' }} />
               {combo.is_active ? (
                 <div style={{ position: 'absolute', top: 14, left: 14, background: '#E04040', color: '#fff', fontSize: 10, fontWeight: 800, padding: '4px 11px', borderRadius: 20, letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                  Economize R$10
+                  {comboOriginalPrice && comboOriginalPrice > Number(combo.price)
+                    ? `Economize R$${fmt(comboOriginalPrice - Number(combo.price))}`
+                    : 'Combo Especial'}
                 </div>
               ) : (
                 <div style={{ position: 'absolute', top: 14, left: 14, background: 'rgba(0,0,0,0.7)', color: '#E04040', fontSize: 10, fontWeight: 800, padding: '4px 11px', borderRadius: 20, letterSpacing: 1, textTransform: 'uppercase', border: '1px solid #E04040' }}>
@@ -677,8 +690,8 @@ export default function HomePage() {
                   {combo.is_active && isPromoActive(combo) && (
                     <p style={{ color: MUTED, textDecoration: 'line-through', fontSize: 13 }}>R$ {fmt(combo.price)}</p>
                   )}
-                  {combo.is_active && !isPromoActive(combo) && (
-                    <p style={{ color: FAINT, textDecoration: 'line-through', fontSize: 13 }}>R$ 90,00</p>
+                  {combo.is_active && !isPromoActive(combo) && comboOriginalPrice && comboOriginalPrice > Number(combo.price) && (
+                    <p style={{ color: FAINT, textDecoration: 'line-through', fontSize: 13 }}>R$ {fmt(comboOriginalPrice)}</p>
                   )}
                   <p style={{ color: combo.is_active ? (isPromoActive(combo) ? '#FB923C' : GOLD) : '#E04040', fontSize: combo.is_active ? 26 : 16, fontWeight: 800, lineHeight: 1.1 }}>
                     {combo.is_active ? <>R$&nbsp;{fmt(effectivePrice(combo))}</> : 'Indisponível no momento'}

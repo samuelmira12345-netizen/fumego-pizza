@@ -79,7 +79,10 @@ export default function ProductModal({
   onAddToCart,
 }: ProductModalProps) {
   const isCombo = product.slug === 'combo-classico';
-  const singleOpts = PRODUCT_OPTIONS[product.slug];
+  // Usa opções dinâmicas da coluna `options` do produto (Supabase), com fallback para constantes
+  const singleOpts = product.options ?? PRODUCT_OPTIONS[product.slug];
+  const combo1Opts = product.options  ?? COMBO_CALABRESA_OPTS;
+  const combo2Opts = product.options2 ?? COMBO_MARGUERITA_OPTS;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollToStep = useScrollToStep(300);
 
@@ -193,7 +196,7 @@ export default function ProductModal({
               Pizza Calabresa
             </label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-              {COMBO_CALABRESA_OPTS.map(opt => (
+              {combo1Opts.map(opt => (
                 <OptionRow
                   key={opt.label}
                   opt={opt}
@@ -209,7 +212,7 @@ export default function ProductModal({
                 Pizza Marguerita
               </label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {COMBO_MARGUERITA_OPTS.map(opt => (
+                {combo2Opts.map(opt => (
                   <OptionRow
                     key={opt.label}
                     opt={opt}

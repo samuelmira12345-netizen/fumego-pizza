@@ -13,6 +13,10 @@ export interface Product {
   promotion_active?: boolean;
   promotional_price?: number | string | null;
   promotion_ends_at?: string | null;
+  /** Opções de personalização (ex: "Sem cebola"). Gerenciadas via coluna JSONB no Supabase. */
+  options?: CartItemOption[] | null;
+  /** Segunda lista de opções — usado pelo combo (opt1 = calabresa, opt2 = marguerita). */
+  options2?: CartItemOption[] | null;
 }
 
 export interface Drink {
