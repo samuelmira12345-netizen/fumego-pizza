@@ -6,7 +6,7 @@ import type { CartItem, Product } from './types';
 
 export interface UpsellConfig {
   enabled: boolean;
-  product_id: number | string | null;
+  product_id: string | null;
   offer_label: string;
   show_image: boolean;
   custom_price: number | null;
