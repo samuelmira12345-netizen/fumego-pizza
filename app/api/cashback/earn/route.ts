@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
-import { earnCashback } from '../../../../lib/cashback';
+import { earnCashbackWithQueue } from '../../../../lib/cashback';
 import { logger } from '../../../../lib/logger';
-import { getAuthUser } from '../../../../lib/auth';
+import { getAuthUserWithRevocation } from '../../../../lib/auth';
 
 /**
  * POST /api/cashback/earn
@@ -16,7 +16,8 @@ import { getAuthUser } from '../../../../lib/auth';
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const authUser = getAuthUser(request);
+    const supabase = getSupabaseAdmin();
+    const authUser = await getAuthUserWithRevocation(request, supabase);
     if (!authUser) {
       return NextResponse.json({ earned: 0 }, { status: 401 });
     }
@@ -31,8 +32,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (user_id !== authUser.userId) {
       return NextResponse.json({ earned: 0 }, { status: 403 });
     }
-
-    const supabase = getSupabaseAdmin();
 
     // Busca o pedido no banco para obter o total autoritativo e verificar
     // que o pedido pertence ao usuário e que o pagamento foi aprovado.
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ earned: 0 });
     }
 
-    const earned = await earnCashback(supabase, user_id, order_id, order.total);
+    const earned = await earnCashbackWithQueue(supabase, user_id, order_id, order.total);
     return NextResponse.json({ earned });
   } catch (e) {
     logger.error('[Cashback Earn API]', e as Error);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import { getCashbackBalance } from '../../../../lib/cashback';
 import { logger } from '../../../../lib/logger';
-import { getAuthUser } from '../../../../lib/auth';
+import { getAuthUserWithRevocation } from '../../../../lib/auth';
 
 /**
  * GET /api/cashback/balance?user_id=...
@@ -13,7 +13,8 @@ import { getAuthUser } from '../../../../lib/auth';
  * saldo de terceiros.
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const authUser = getAuthUser(request);
+  const supabase = getSupabaseAdmin();
+  const authUser = await getAuthUserWithRevocation(request, supabase);
   if (!authUser) {
     return NextResponse.json({ balance: 0, transactions: [] }, { status: 401 });
   }
@@ -31,7 +32,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const supabase = getSupabaseAdmin();
     const [result, settingRes] = await Promise.all([
       getCashbackBalance(supabase, userId),
       supabase.from('settings').select('value').eq('key', 'cashback_max_percent').single(),

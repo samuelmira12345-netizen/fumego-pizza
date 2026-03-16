@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabase';
 import bcrypt from 'bcryptjs';
 import { encryptCpf, decryptCpf, validateCpf } from '../../../../lib/cpf-crypto';
-import { getAuthUser } from '../../../../lib/auth';
+import { getAuthUser, getAuthUserWithRevocation } from '../../../../lib/auth';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    let decoded = getAuthUser(request);
+    const supabase = getSupabaseAdmin();
+    let decoded = await getAuthUserWithRevocation(request, supabase);
 
     const body = await request.json();
     const {
@@ -24,8 +25,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (!decoded?.userId) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
-
-    const supabase = getSupabaseAdmin();
     const userId = decoded.userId;
 
     if (!current_password) {

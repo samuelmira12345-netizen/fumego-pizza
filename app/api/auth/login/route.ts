@@ -4,7 +4,7 @@ import { loginSchema } from '../../../../lib/schemas';
 import bcrypt from 'bcryptjs';
 import { checkRateLimit, getClientIp } from '../../../../lib/rate-limit';
 import { decryptCpf } from '../../../../lib/cpf-crypto';
-import { signUserToken, setAuthCookie } from '../../../../lib/auth';
+import { signUserToken, setAuthCookie, createUserSession } from '../../../../lib/auth';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -47,6 +47,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const token = signUserToken(user.id, user.email);
+
+    // P8: persist jti so the token can be revoked on logout or forced invalidation
+    await createUserSession(supabase, token, user.id);
 
     const { password_hash, ...safeUser } = user;
     if (safeUser.cpf) safeUser.cpf = decryptCpf(safeUser.cpf) || '';
