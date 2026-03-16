@@ -333,7 +333,8 @@ export default function CheckoutPage() {
     let total = 0;
     cart.forEach(item => {
       total += Number(item.product.price);
-      if (item.option?.extra_price) total += item.option.extra_price;
+      if (item.option?.extra_price)  total += item.option.extra_price;
+      if (item.option2?.extra_price) total += item.option2.extra_price;
       item.drinks?.forEach((d: DrinkSelection) => { total += Number(d.price) * d.quantity; });
     });
     return total;
@@ -414,8 +415,8 @@ export default function CheckoutPage() {
 
     const items: OrderItemPayload[] = [];
     cart.forEach(cartItem => {
-      const optionPrice = cartItem.option?.extra_price || 0;
-      const optionNote  = cartItem.option ? cartItem.option.label : null;
+      const optionPrice = (cartItem.option?.extra_price || 0) + (cartItem.option2?.extra_price || 0);
+      const optionNote  = [cartItem.option?.label, cartItem.option2?.label].filter(Boolean).join(' + ') || null;
       const obsNote     = cartItem.observations || null;
       const fullObs     = [optionNote, obsNote].filter(Boolean).join(' | ') || null;
       items.push({
@@ -799,12 +800,13 @@ export default function CheckoutPage() {
                 <div>
                   <p style={{ fontSize: 15, fontWeight: 'bold', color: '#fff' }}>{item.product.name}</p>
                   {item.option && <p style={{ fontSize: 12, color: GOLD, marginTop: 2 }}>{item.option.label}{item.option.extra_price > 0 ? ` (+R$ ${Number(item.option.extra_price).toFixed(2).replace('.', ',')})` : ''}</p>}
+                  {item.option2 && <p style={{ fontSize: 12, color: GOLD, marginTop: 2 }}>{item.option2.label}{item.option2.extra_price > 0 ? ` (+R$ ${Number(item.option2.extra_price).toFixed(2).replace('.', ',')})` : ''}</p>}
                   {item.drinks?.map((d: DrinkSelection) => <p key={d.id} style={{ fontSize: 12, color: MUTED, marginTop: 2 }}>+ {d.name} {d.size} x{d.quantity}</p>)}
                   {item.observations && <p style={{ fontSize: 11, color: '#3A2810', fontStyle: 'italic', marginTop: 2 }}>Obs: {item.observations}</p>}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontWeight: 'bold', color: '#fff' }}>
-                    R$ {(Number(item.product.price) + (item.option?.extra_price || 0) + (item.drinks?.reduce((s: number, d: DrinkSelection) => s + Number(d.price) * d.quantity, 0) || 0)).toFixed(2).replace('.', ',')}
+                    R$ {(Number(item.product.price) + (item.option?.extra_price || 0) + (item.option2?.extra_price || 0) + (item.drinks?.reduce((s: number, d: DrinkSelection) => s + Number(d.price) * d.quantity, 0) || 0)).toFixed(2).replace('.', ',')}
                   </span>
                   <button onClick={() => removeCartItem(item.id)}
                     style={{ background: 'none', border: 'none', color: RED, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -1196,8 +1198,8 @@ export default function CheckoutPage() {
               <div style={{ background: '#1C1500', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
                 {cart.map((item, i) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#ccc', marginBottom: i < cart.length - 1 ? 6 : 0 }}>
-                    <span>{item.product.name}{item.option ? ` (${item.option.label})` : ''}</span>
-                    <span style={{ color: GOLD }}>R$ {(Number(item.product.price) + (item.option?.extra_price || 0)).toFixed(2).replace('.', ',')}</span>
+                    <span>{item.product.name}{item.option ? ` (${item.option.label}${item.option2 ? ` + ${item.option2.label}` : ''})` : ''}</span>
+                    <span style={{ color: GOLD }}>R$ {(Number(item.product.price) + (item.option?.extra_price || 0) + (item.option2?.extra_price || 0)).toFixed(2).replace('.', ',')}</span>
                   </div>
                 ))}
               </div>
