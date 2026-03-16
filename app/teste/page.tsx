@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import {
   Clock, Truck, ChevronRight, Flame, Star, UtensilsCrossed,
 } from 'lucide-react';
@@ -657,7 +658,15 @@ export default function HomePage() {
           >
             <div style={{ position: 'relative' }}>
               {imgUrl(combo) ? (
-                <img src={imgUrl(combo)!} alt={combo.name} style={{ width: '100%', height: 195, objectFit: 'cover', objectPosition: getImgPosition(combo), display: 'block', filter: combo.is_active ? 'none' : 'grayscale(60%) brightness(0.6)', transition: 'object-position 0.4s ease' }} />
+                <div style={{ position: 'relative', width: '100%', height: 195 }}>
+                  <Image
+                    src={imgUrl(combo)!}
+                    alt={combo.name}
+                    fill
+                    sizes="(max-width: 480px) 100vw, 480px"
+                    style={{ objectFit: 'cover', objectPosition: getImgPosition(combo), display: 'block', filter: combo.is_active ? 'none' : 'grayscale(60%) brightness(0.6)', transition: 'object-position 0.4s ease' }}
+                  />
+                </div>
               ) : (
                 <div style={{ width: '100%', height: 195, background: '#251800', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <UtensilsCrossed size={48} color="#5A3800" />
@@ -725,7 +734,15 @@ export default function HomePage() {
           >
             <div style={{ position: 'relative' }}>
               {imgUrl(especial) ? (
-                <img src={imgUrl(especial)!} alt="Especial" style={{ width: '100%', height: 180, objectFit: 'cover', objectPosition: getImgPosition(especial), display: 'block', filter: especial.is_active ? 'none' : 'grayscale(60%) brightness(0.6)', transition: 'object-position 0.4s ease' }} />
+                <div style={{ position: 'relative', width: '100%', height: 180 }}>
+                  <Image
+                    src={imgUrl(especial)!}
+                    alt="Especial"
+                    fill
+                    sizes="(max-width: 480px) 100vw, 480px"
+                    style={{ objectFit: 'cover', objectPosition: getImgPosition(especial), display: 'block', filter: especial.is_active ? 'none' : 'grayscale(60%) brightness(0.6)', transition: 'object-position 0.4s ease' }}
+                  />
+                </div>
               ) : (
                 <div style={{ width: '100%', height: 180, background: '#201600', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Star size={48} color="#5A3800" />

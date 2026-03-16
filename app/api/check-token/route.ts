@@ -1,7 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 // GET /api/check-token - Verifica se o token do Mercado Pago está configurado
-export async function GET(): Promise<NextResponse> {
+// Protegido por DIAGNOSTICS_SECRET: passe ?secret=<valor> na URL.
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  const diagnosticsSecret = process.env.DIAGNOSTICS_SECRET;
+  if (!diagnosticsSecret || request.nextUrl.searchParams.get('secret') !== diagnosticsSecret) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   const token = (process.env.MERCADO_PAGO_ACCESS_TOKEN || '').trim();
 
   if (!token) {
