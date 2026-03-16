@@ -75,7 +75,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           attempts,
           last_error: (e as Error).message?.slice(0, 500) || 'unknown',
           // Mark as permanently failed after MAX_ATTEMPTS to avoid infinite loops
-          processed_at: attempts >= MAX_ATTEMPTS ? new Date().toISOString() : null,
+          ...(attempts >= MAX_ATTEMPTS ? { processed_at: new Date().toISOString() } : {}),
         })
         .eq('id', entry.id);
 
