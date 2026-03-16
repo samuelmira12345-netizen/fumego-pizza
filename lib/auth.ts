@@ -94,9 +94,10 @@ export async function getAuthUserWithRevocation(
   const payload = getAuthUser(request);
   if (!payload) return null;
 
-  // Tokens emitidos antes da feature de revogação não têm jti — aceita para
-  // retrocompatibilidade mas loga aviso para que sejam rotacionados.
-  if (!payload.jti) return payload;
+  // Tokens emitidos antes da feature de revogação não têm jti.
+  // Rejeitamos para garantir que todos os tokens sejam revogáveis.
+  // Usuários com tokens antigos precisarão fazer login novamente (uma vez).
+  if (!payload.jti) return null;
 
   const { data } = await supabase
     .from('user_sessions')

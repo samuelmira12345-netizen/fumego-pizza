@@ -61,7 +61,11 @@ export async function getCashbackBalance(supabase: SupabaseClient, userId: strin
 /**
  * Registra cashback ganho pelo usuário após a confirmação de um pedido.
  * Idempotente: não cria duplicatas para o mesmo order_id.
- * Lança exceção em caso de falha — use earnCashbackWithQueue para retry automático.
+ *
+ * LANÇA exceção em caso de falha de I/O (rede, banco indisponível).
+ * Retorna 0 apenas para condições legítimas: cashback desativado (percent=0)
+ * ou transação já existente (idempotência). Use earnCashbackWithQueue se
+ * precisar de retry automático em caso de falha.
  *
  * @returns Valor de cashback gerado (0 se cashback desativado ou duplicata)
  */
@@ -71,58 +75,56 @@ export async function earnCashback(
   orderId: string,
   orderTotal: number
 ): Promise<number> {
-  try {
-    if (!userId || !orderId || !orderTotal) return 0;
+  if (!userId || !orderId || !orderTotal) return 0;
 
-    // Busca a porcentagem configurada no painel admin
-    const { data: setting } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'cashback_percent')
-      .single();
+  // Busca a porcentagem configurada no painel admin
+  const { data: setting, error: settingErr } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'cashback_percent')
+    .single();
 
-    const percent = parseFloat(setting?.value || '0');
-    if (percent <= 0) return 0;
+  if (settingErr) throw settingErr;
 
-    const earned = Math.round(orderTotal * (percent / 100) * 100) / 100;
-    if (earned <= 0) return 0;
+  const percent = parseFloat(setting?.value || '0');
+  if (percent <= 0) return 0;
 
-    // Idempotência: não registra duas vezes para o mesmo pedido
-    const { data: existing } = await supabase
-      .from('cashback_transactions')
-      .select('id')
-      .eq('order_id', orderId)
-      .eq('type', 'earn')
-      .maybeSingle();
+  const earned = Math.round(orderTotal * (percent / 100) * 100) / 100;
+  if (earned <= 0) return 0;
 
-    if (existing) return 0;
+  // Idempotência: não registra duas vezes para o mesmo pedido
+  const { data: existing, error: existingErr } = await supabase
+    .from('cashback_transactions')
+    .select('id')
+    .eq('order_id', orderId)
+    .eq('type', 'earn')
+    .maybeSingle();
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
+  if (existingErr) throw existingErr;
+  if (existing) return 0;
 
-    const { error } = await supabase.from('cashback_transactions').insert({
-      user_id:    userId,
-      order_id:   orderId,
-      type:       'earn',
-      amount:     earned,
-      remaining:  earned,
-      expires_at: expiresAt.toISOString(),
-      status:     'active',
-    });
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 30);
 
-    if (error) throw error;
+  const { error } = await supabase.from('cashback_transactions').insert({
+    user_id:    userId,
+    order_id:   orderId,
+    type:       'earn',
+    amount:     earned,
+    remaining:  earned,
+    expires_at: expiresAt.toISOString(),
+    status:     'active',
+  });
 
-    // Atualiza o campo cashback_earned no pedido (não bloqueia se falhar)
-    await supabase
-      .from('orders')
-      .update({ cashback_earned: earned })
-      .eq('id', orderId);
+  if (error) throw error;
 
-    return earned;
-  } catch (e) {
-    logger.error('[Cashback] earnCashback error', e as Error);
-    return 0;
-  }
+  // Atualiza o campo cashback_earned no pedido (não bloqueia se falhar)
+  await supabase
+    .from('orders')
+    .update({ cashback_earned: earned })
+    .eq('id', orderId);
+
+  return earned;
 }
 
 /**

@@ -6,8 +6,14 @@ import { clearAuthCookie, revokeUserSession } from '../../../../lib/auth';
 export async function POST(request: NextRequest): Promise<NextResponse> {
   // P8: delete the jti from user_sessions so the token is immediately rejected
   // even if someone still has it (e.g. copied from a cookie before logout).
-  const supabase = getSupabaseAdmin();
-  await revokeUserSession(supabase, request);
+  // We catch errors here so that a transient Supabase failure does not prevent
+  // the cookie from being cleared — the cookie removal is always the priority.
+  try {
+    const supabase = getSupabaseAdmin();
+    await revokeUserSession(supabase, request);
+  } catch {
+    // Log is best-effort; cookie is still cleared below
+  }
 
   const response = NextResponse.json({ success: true });
   clearAuthCookie(response);
