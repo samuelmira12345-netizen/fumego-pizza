@@ -599,6 +599,7 @@ const KDSBoard = React.memo(function KDSBoard({
         <KitchenKDS
           orders={visibleWithItems}
           onMarkReady={(id: any) => handleAction(id, 'status', 'ready')}
+          onStartPreparing={(id: any) => handleAction(id, 'status', 'preparing')}
           soundOn={soundOn}
           setSoundOn={setSoundOn}
         />
