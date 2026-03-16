@@ -123,7 +123,7 @@ export interface OrderChangeHistory {
 // ── Catálogo ──────────────────────────────────────────────────────────────────
 
 export interface Product {
-  id: number;
+  id: string;
   slug: string;
   name: string;
   description: string;
@@ -140,7 +140,7 @@ export interface Product {
 }
 
 export interface Drink {
-  id: number;
+  id: string;
   name: string;
   price: number | string;
   size: string;
@@ -248,9 +248,15 @@ export interface Ingredient {
   id: string;
   name: string;
   unit: string;
-  current_stock: number;
-  min_stock: number | null;
   cost_per_unit: number | null;
+  correction_factor: number;
+  min_stock: number;
+  max_stock: number;
+  current_stock: number;
+  purchase_origin: string;
+  ingredient_type: string;
+  weight_volume: number;
+  density: number | null;
   created_at: string;
 }
 
