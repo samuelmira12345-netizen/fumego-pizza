@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../lib/supabase';
 import { checkRateLimit, getClientIp } from '../../../lib/rate-limit';
-import { getAuthUser } from '../../../lib/auth';
+import { getAuthUserWithRevocation } from '../../../lib/auth';
 
 const PAGE_LIMIT = 20;
 
@@ -21,7 +21,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const decoded = getAuthUser(request);
+  const supabase = getSupabaseAdmin();
+  const decoded = await getAuthUserWithRevocation(request, supabase);
   if (!decoded?.userId) {
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
@@ -32,8 +33,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const cursor = searchParams.get('cursor');
     const limitParam = parseInt(searchParams.get('limit') || String(PAGE_LIMIT), 10);
     const limit = Math.min(Math.max(1, limitParam), 50);
-
-    const supabase = getSupabaseAdmin();
     let query = supabase
       .from('orders')
       .select('*, order_items(*)')

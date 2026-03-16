@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import { resolveMenuProducts } from '../../lib/menu-products';
 import { clientError } from '../../lib/client-logger';
+import { computeStoreStatus } from '../../lib/store-hours';
 
 // ── Componentes extraídos ─────────────────────────────────────────────────────
 import StoreHeader from '../components/home/StoreHeader';
@@ -219,25 +220,7 @@ export default function HomePage() {
         }
 
         // Status da loja com base no horário de Brasília
-        let effectiveOpen = s.store_open === 'true';
-        let label: string | null = null;
-        if (effectiveOpen && s.business_hours) {
-          try {
-            const bh = JSON.parse(s.business_hours);
-            const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-            const dayKey = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][now.getDay()];
-            const today = bh[dayKey];
-            if (!today || !today.enabled) {
-              effectiveOpen = false;
-            } else {
-              const [openH = 0, openM = 0]   = (today.open  || '00:00').split(':').map(Number);
-              const [closeH = 0, closeM = 0] = (today.close || '00:00').split(':').map(Number);
-              const nowMin   = now.getHours() * 60 + now.getMinutes();
-              effectiveOpen  = nowMin >= (openH * 60 + openM) && nowMin < (closeH * 60 + closeM);
-              label = `${today.open} – ${today.close}`;
-            }
-          } catch { /* keep effectiveOpen as-is */ }
-        }
+        const { open: effectiveOpen, todayLabel: label } = computeStoreStatus(s);
         setStoreOpen(effectiveOpen);
         setTodayLabel(label);
       } else if (dData) {

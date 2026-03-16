@@ -61,6 +61,7 @@ export async function getCashbackBalance(supabase: SupabaseClient, userId: strin
 /**
  * Registra cashback ganho pelo usuário após a confirmação de um pedido.
  * Idempotente: não cria duplicatas para o mesmo order_id.
+ * Lança exceção em caso de falha — use earnCashbackWithQueue para retry automático.
  *
  * @returns Valor de cashback gerado (0 se cashback desativado ou duplicata)
  */
@@ -120,6 +121,44 @@ export async function earnCashback(
     return earned;
   } catch (e) {
     logger.error('[Cashback] earnCashback error', e as Error);
+    return 0;
+  }
+}
+
+/**
+ * P9: Versão resiliente de earnCashback com fila de retry persistente.
+ *
+ * Tenta creditá-lo diretamente. Se a tentativa falhar (erro de rede,
+ * Supabase temporariamente fora), insere o pedido em `cashback_earn_queue`
+ * para que o cron `/api/cron/process-cashback-queue` processe depois.
+ * O cashback nunca é silenciosamente perdido.
+ *
+ * @returns Valor creditado nesta chamada (0 se falhou mas foi enfileirado)
+ */
+export async function earnCashbackWithQueue(
+  supabase: SupabaseClient,
+  userId: string,
+  orderId: string,
+  orderTotal: number
+): Promise<number> {
+  try {
+    return await earnCashback(supabase, userId, orderId, orderTotal);
+  } catch (e) {
+    logger.error('[Cashback] earnCashback falhou — enfileirando para retry', e as Error);
+    try {
+      await supabase.from('cashback_earn_queue').upsert(
+        {
+          user_id:     userId,
+          order_id:    orderId,
+          order_total: orderTotal,
+          attempts:    1,
+          last_error:  (e as Error).message?.slice(0, 500) || 'unknown',
+        },
+        { onConflict: 'order_id', ignoreDuplicates: true }
+      );
+    } catch (qErr) {
+      logger.error('[Cashback] Falha ao enfileirar cashback — cashback perdido', qErr as Error);
+    }
     return 0;
   }
 }
