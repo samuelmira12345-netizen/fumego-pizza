@@ -284,7 +284,7 @@ export default function HomePage() {
   }
 
   // FIX: quando qty < 1, remove a bebida ao invés de bloquear
-  function updateDrinkQty(drinkId: number, qty: number) {
+  function updateDrinkQty(drinkId: string, qty: number) {
     if (qty < 1) {
       setSelectedDrinks(prev => prev.filter(d => d.id !== drinkId));
       return;
