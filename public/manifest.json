@@ -1,0 +1,36 @@
+{
+  "name": "FUMÊGO Pizza",
+  "short_name": "FUMÊGO",
+  "description": "As melhores pizzas artesanais",
+  "start_url": "/teste",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#080600",
+  "theme_color": "#080600",
+  "orientation": "portrait-primary",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "categories": ["food", "shopping"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ver Cardápio",
+      "short_name": "Cardápio",
+      "url": "/teste",
+      "description": "Abre o cardápio de pizzas"
+    }
+  ]
+}

@@ -1,9 +1,10 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, Playfair_Display, Cinzel } from 'next/font/google';
 import Script from 'next/script';
 import { headers } from 'next/headers';
 import './globals.css';
 import ZoomBlocker from './components/ZoomBlocker';
+import ServiceWorkerRegistrar from './components/ServiceWorkerRegistrar';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -27,6 +28,16 @@ const cinzel = Cinzel({
 export const metadata: Metadata = {
   title: 'FUMÊGO Pizza',
   description: 'As melhores pizzas artesanais',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'FUMÊGO Pizza',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#080600',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -75,6 +86,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         `}</Script>
         {/* Camada 3 — JS: bloqueia gesturestart/change (iOS), multi-touch e double-tap */}
         <ZoomBlocker />
+        {/* Registra o Service Worker para habilitar instalação como PWA */}
+        <ServiceWorkerRegistrar />
         {children}
       </body>
     </html>

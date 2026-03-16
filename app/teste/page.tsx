@@ -17,17 +17,26 @@ import ProductModal from '../components/home/ProductModal';
 import FloatingCart from '../components/home/FloatingCart';
 import CartDrawer from '../components/home/CartDrawer';
 import type { UpsellConfig, UpsellItem } from '../components/home/CartDrawer';
+import PageSkeleton from '../components/home/PageSkeleton';
 import type { Product, Drink, DrinkSelection, CartItem, CartItemOption, AppSettings, AppUser, StockLimit, ImagePosition } from '../components/home/types';
 import {
   GOLD, GOLD_LIGHT, BG, CARD, BORDER, MUTED, FAINT,
   PRODUCT_OPTIONS, COMBO_CALABRESA_OPTS, COMBO_MARGUERITA_OPTS, fmt, isPromoActive, effectivePrice,
 } from '../components/home/tokens';
+import { gtagEvent } from '../../lib/gtag';
 
 // ── Tipos locais ──────────────────────────────────────────────────────────────
 // (Types migrados para app/components/home/types.ts)
 // Mantidos aqui como aliases para retrocompatibilidade interna do arquivo:
 type Settings = AppSettings;
 type User = AppUser;
+
+// ── Contador de ID do carrinho ────────────────────────────────────────────────
+// Garante unicidade dos IDs mesmo em adições muito rápidas (Date.now() colidiria).
+// O módulo vive durante a sessão; reset na recarga da página é aceitável pois o
+// carrinho é comparado por identidade de referência, não persistido com IDs.
+let _cartIdSeq = 0;
+const nextCartId = (): number => { _cartIdSeq += 1; return _cartIdSeq; };
 
 // ── Componente ────────────────────────────────────────────────────────────────
 export default function HomePage() {
@@ -40,9 +49,6 @@ export default function HomePage() {
   const [storeOpen, setStoreOpen]             = useState(true);
   const [todayLabel, setTodayLabel]           = useState<string | null>(null);
   const [loading, setLoading]                 = useState(true);
-  const [loadingLogoUrl, setLoadingLogoUrl]   = useState<string | null>(() => {
-    try { return localStorage.getItem('fumego_logo_url'); } catch { return null; }
-  });
   const [user, setUser]                       = useState<User | null>(null);
   const [cart, setCart]                       = useState<CartItem[]>([]);
   const [showModal, setShowModal]             = useState(false);
@@ -170,10 +176,7 @@ export default function HomePage() {
         sData.forEach((i: { key: string; value: string }) => { s[i.key] = i.value; });
         setSettings(s);
 
-        if (s.logo_url) {
-          try { localStorage.setItem('fumego_logo_url', s.logo_url); } catch {}
-          setLoadingLogoUrl(s.logo_url);
-        }
+        // (logo_url usado diretamente de settings via logoUrl abaixo)
 
         // Stock limits: usa tabela product_stock (nova) com fallback para JSON legado
         if (productStock?.length > 0) {
@@ -248,18 +251,16 @@ export default function HomePage() {
       setSelectedOption2(null);
     }
     setShowModal(true);
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', 'view_item', {
-        currency: 'BRL',
-        value:    product.price,
-        items: [{
-          item_name: product.name,
-          item_id:   product.slug,
-          price:     product.price,
-          currency:  'BRL',
-        }],
-      });
-    }
+    gtagEvent('view_item', {
+      currency: 'BRL',
+      value:    product.price,
+      items: [{
+        item_name: product.name,
+        item_id:   product.slug,
+        price:     product.price,
+        currency:  'BRL',
+      }],
+    });
   }
 
   function toggleDrink(drink: Drink) {
@@ -290,7 +291,7 @@ export default function HomePage() {
       isPromoActive(d) ? { ...d, price: effectivePrice(d) } : d
     );
     const item: CartItem = {
-      id: Date.now(),
+      id: nextCartId(),
       product: productWithEffectivePrice,
       observations,
       drinks: drinksWithEffectivePrice,
@@ -299,18 +300,16 @@ export default function HomePage() {
     };
     saveCart([...cart, item]);
     setShowModal(false);
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', 'add_to_cart', {
-        currency: 'BRL',
-        value:    selectedProduct.price,
-        items: [{
-          item_name: selectedProduct.name,
-          item_id:   selectedProduct.slug,
-          price:     selectedProduct.price,
-          currency:  'BRL',
-        }],
-      });
-    }
+    gtagEvent('add_to_cart', {
+      currency: 'BRL',
+      value:    selectedProduct.price,
+      items: [{
+        item_name: selectedProduct.name,
+        item_id:   selectedProduct.slug,
+        price:     selectedProduct.price,
+        currency:  'BRL',
+      }],
+    });
   }
 
   function getCartTotal(): number {
@@ -347,7 +346,7 @@ export default function HomePage() {
 
   function addUpsellToCart(product: Product) {
     const item: CartItem = {
-      id: Date.now(),
+      id: nextCartId(),
       product,
       observations: '',
       drinks: [],
@@ -398,28 +397,9 @@ export default function HomePage() {
   const deliveryTime = settings.delivery_time || '40–60 min';
   const cartCount   = cart.length;
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
+  // ── Loading skeleton ──────────────────────────────────────────────────────────
   if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: BG }}>
-        {loadingLogoUrl ? (
-          <img
-            src={loadingLogoUrl}
-            alt="FUMÊGO"
-            onError={() => setLoadingLogoUrl(null)}
-            style={{ width: 96, height: 96, objectFit: 'contain', filter: 'drop-shadow(0 0 28px rgba(242,168,0,0.5))' }}
-          />
-        ) : (
-          <Flame size={64} color={GOLD} style={{ filter: 'drop-shadow(0 0 20px rgba(242,168,0,0.5))' }} />
-        )}
-        <p style={{ fontFamily: 'var(--font-cinzel), Cinzel, Georgia, serif', fontSize: 34, fontWeight: 900, color: GOLD, letterSpacing: 8, marginTop: 22, textShadow: '0 0 28px rgba(242,168,0,0.45)' }}>
-          FUMÊGO
-        </p>
-        <p style={{ color: GOLD, marginTop: 18, animation: 'pulse 1.5s infinite', fontSize: 11, letterSpacing: 3, textTransform: 'uppercase', fontWeight: 700 }}>
-          Carregando…
-        </p>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   // ── Helpers de estoque ───────────────────────────────────────────────────────
