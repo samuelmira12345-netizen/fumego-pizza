@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useScrollToStep } from '../../hooks/useScrollToStep';
 import { clientError } from '../../lib/client-logger';
+import { gtagEvent } from '../../lib/gtag';
 import type { CartItem, DrinkSelection } from '../components/home/types';
 
 // ── Tipos locais do checkout ───────────────────────────────────────────────────
@@ -171,12 +172,10 @@ export default function CheckoutPage() {
     if (!c || JSON.parse(c).length === 0) { router.push('/teste'); return; }
     const parsedCart = JSON.parse(c);
     setCart(parsedCart);
-    if (typeof window !== 'undefined' && (window as any).gtag) {
-      (window as any).gtag('event', 'begin_checkout', {
-        currency: 'BRL',
-        items: parsedCart.map((i: CartItem) => ({ item_name: i.product?.name, item_id: i.product?.slug })),
-      });
-    }
+    gtagEvent('begin_checkout', {
+      currency: 'BRL',
+      items: parsedCart.map((i: CartItem) => ({ item_name: i.product?.name, item_id: i.product?.slug })),
+    });
 
     const userData = localStorage.getItem('fumego_user');
     if (userData) {
@@ -509,14 +508,12 @@ export default function CheckoutPage() {
     try {
       const order = await createOrder();
 
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'purchase', {
-          transaction_id: String(order.id),
-          value:          calcTotal(),
-          currency:       'BRL',
-          items: cart.map((i: CartItem) => ({ item_name: i.product?.name, item_id: i.product?.slug, price: i.product?.price })),
-        });
-      }
+      gtagEvent('purchase', {
+        transaction_id: String(order.id),
+        value:          calcTotal(),
+        currency:       'BRL',
+        items: cart.map((i: CartItem) => ({ item_name: i.product?.name, item_id: i.product?.slug, price: i.product?.price })),
+      });
 
       if (paymentMethod === 'pix') {
         const cleanCpf = form.cpf ? form.cpf.replace(/\D/g, '') : '';
