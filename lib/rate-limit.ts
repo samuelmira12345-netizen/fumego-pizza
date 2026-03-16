@@ -15,10 +15,10 @@
  *   CREATE TABLE IF NOT EXISTS rate_limit_log (
  *     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  *     key TEXT NOT NULL,
- *     attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+ *     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
  *   );
  *   CREATE INDEX IF NOT EXISTS idx_rate_limit_log_key_at
- *     ON rate_limit_log (key, attempted_at);
+ *     ON rate_limit_log (key, created_at);
  *   ALTER TABLE rate_limit_log ENABLE ROW LEVEL SECURITY;
  *   CREATE POLICY "service role only" ON rate_limit_log
  *     USING (false) WITH CHECK (false);
@@ -84,7 +84,7 @@ async function checkRateLimitSupabase(
     .from('rate_limit_log')
     .select('*', { count: 'exact', head: true })
     .eq('key', key)
-    .gte('attempted_at', windowStart);
+    .gte('created_at', windowStart);
 
   if (countErr) throw countErr;
 
@@ -93,15 +93,15 @@ async function checkRateLimitSupabase(
   if (attempts >= maxAttempts) {
     const { data: oldest } = await supabase
       .from('rate_limit_log')
-      .select('attempted_at')
+      .select('created_at')
       .eq('key', key)
-      .gte('attempted_at', windowStart)
-      .order('attempted_at', { ascending: true })
+      .gte('created_at', windowStart)
+      .order('created_at', { ascending: true })
       .limit(1)
       .single();
 
-    const oldestAt = oldest?.attempted_at
-      ? new Date(oldest.attempted_at).getTime()
+    const oldestAt = oldest?.created_at
+      ? new Date(oldest.created_at).getTime()
       : Date.now() - windowMs;
 
     const retryAfterMs = Math.max(0, windowMs - (Date.now() - oldestAt));
@@ -111,7 +111,7 @@ async function checkRateLimitSupabase(
   await supabase.from('rate_limit_log').insert({ key });
 
   // Limpeza assíncrona (fire-and-forget)
-  void supabase.from('rate_limit_log').delete().lt('attempted_at', windowStart);
+  void supabase.from('rate_limit_log').delete().lt('created_at', windowStart);
 
   return { allowed: true, retryAfterMs: 0 };
 }
