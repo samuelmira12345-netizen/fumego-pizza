@@ -17,7 +17,7 @@ interface ProductModalProps {
   setObservations: (v: string) => void;
   selectedDrinks: DrinkSelection[];
   toggleDrink: (drink: Drink) => void;
-  updateDrinkQty: (drinkId: number, qty: number) => void;
+  updateDrinkQty: (drinkId: string, qty: number) => void;
   selectedOption: CartItemOption | null;
   setSelectedOption: (opt: CartItemOption) => void;
   selectedOption2: CartItemOption | null;
