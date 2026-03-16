@@ -51,6 +51,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       style={{ touchAction: 'pan-x pan-y' }}
     >
       <head>
+        {/* Ícone para iOS Safari (apple-touch-icon) */}
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         {/*
           Camada 1 — meta viewport:
           • maximum-scale=1.0  → limita o zoom máximo a 1× (honrado pela maioria dos browsers)
